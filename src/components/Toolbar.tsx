@@ -7,6 +7,7 @@ import {
   Layers,
   Eye,
   EyeOff,
+  Activity,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -166,6 +167,25 @@ export function Toolbar() {
             </option>
           ))}
         </select>
+
+        {/* FPS Monitor toggle (dev only) */}
+        {import.meta.env.DEV && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() =>
+                  window.dispatchEvent(new Event("toggle-fps-monitor"))
+                }
+              >
+                <Activity className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>FPS Monitor (Shift+F)</TooltipContent>
+          </Tooltip>
+        )}
 
         {/* Track Visibility Popover */}
         {tracks.length > 0 && (

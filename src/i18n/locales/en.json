@@ -16,7 +16,7 @@
     "loadingScore": "Loading score..."
   },
   "sidebar": {
-    "inspector": "Inspector",
+    "editor": "Editor",
     "expandSidebar": "Expand sidebar",
     "collapseSidebar": "Collapse sidebar",
     "emptyState": "Click on a beat in the score to inspect its properties.",

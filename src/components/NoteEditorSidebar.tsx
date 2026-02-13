@@ -297,7 +297,14 @@ function SectionHeader({
   );
 }
 
-/** A single toggle button with icon + tooltip. */
+/**
+ * A single toggle button with icon + tooltip.
+ *
+ * NOTE: We apply active styling via the `pressed` prop directly instead of
+ * using Radix Toggle's `data-[state=on]` CSS selectors because wrapping
+ * the Toggle inside `<TooltipTrigger asChild>` causes the tooltip's
+ * `data-state` (open/closed) to override the toggle's `data-state` (on/off).
+ */
 function ToggleBtn({
   label,
   pressed,
@@ -317,7 +324,11 @@ function ToggleBtn({
         <Toggle
           size="sm"
           pressed={pressed}
-          className={cn("h-7 w-7 p-0", className)}
+          className={cn(
+            "h-7 w-7 p-0",
+            pressed && "bg-primary/15 text-primary ring-1 ring-primary/30",
+            className,
+          )}
           aria-label={label}
         >
           {icon ?? (
@@ -922,11 +933,14 @@ export function NoteEditorSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const selectedBeatInfo = usePlayerStore((s) => s.selectedBeatInfo);
   const selectedBarInfo = usePlayerStore((s) => s.selectedBarInfo);
+  const selectedNoteIndex = usePlayerStore((s) => s.selectedNoteIndex);
 
-  // Pick the first note in the beat as the "active" note (Guitar Pro style).
+  // Use the store's note index (set by noteMouseDown) to pick the active note.
   const activeNote: SelectedNoteInfo | null =
-    selectedBeatInfo && selectedBeatInfo.notes.length > 0
-      ? selectedBeatInfo.notes[0]
+    selectedBeatInfo &&
+    selectedNoteIndex >= 0 &&
+    selectedNoteIndex < selectedBeatInfo.notes.length
+      ? selectedBeatInfo.notes[selectedNoteIndex]
       : null;
 
   if (collapsed) {
@@ -955,7 +969,7 @@ export function NoteEditorSidebar() {
     >
       {/* Sidebar header */}
       <div className="flex h-8 items-center justify-between border-b px-2">
-        <span className="text-xs font-semibold">{t("sidebar.inspector")}</span>
+        <span className="text-xs font-semibold">{t("sidebar.editor")}</span>
         <Tooltip>
           <TooltipTrigger asChild>
             <button

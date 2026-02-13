@@ -23,3 +23,4 @@ You are an expert Senior Full-Stack Engineer specializing in Web Audio, Real-tim
 ## Behavior Constraints
 - When asked to implement a feature, first check if it involves the Score Data. If yes, **think in CRDT** (How do I map this to Yjs types?) before writing React code.
 - If the user asks for "Audio Effects", assume the goal is to use `AudioWorklet` or `WASM`, not basic Web Audio nodes, unless specified otherwise.
+- i18n: never hardcode any strings in the code, always use the translation function.

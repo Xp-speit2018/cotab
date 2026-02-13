@@ -8,8 +8,6 @@
     "loading": "加载中 {{percent}}%",
     "zoom": "缩放",
     "fpsMonitor": "帧率监视器 (Shift+F)",
-    "tracks": "音轨 ({{visible}}/{{total}})",
-    "visibleTracks": "可见音轨",
     "language": "语言"
   },
   "viewport": {
@@ -20,6 +18,33 @@
     "expandSidebar": "展开侧边栏",
     "collapseSidebar": "收起侧边栏",
     "emptyState": "点击乐谱中的节拍以查看其属性。",
+
+    "song": {
+      "title": "歌曲",
+      "help": "歌曲元数据和文件信息。",
+      "songTitle": "标题",
+      "subTitle": "副标题",
+      "songArtist": "艺术家",
+      "album": "专辑",
+      "words": "词作者",
+      "music": "曲作者",
+      "copyright": "版权",
+      "tab": "制谱",
+      "instructions": "说明",
+      "notices": "备注",
+      "tempo": "速度",
+      "tempoLabel": "速度标记",
+      "bpm": "{{value}} BPM",
+      "noTitle": "未命名",
+      "noArtist": "未知"
+    },
+
+    "tracks": {
+      "title": "音轨",
+      "help": "切换音轨可见性。至少保留一个可见音轨。",
+      "visible": "可见",
+      "hidden": "隐藏"
+    },
 
     "bar": {
       "title": "小节",

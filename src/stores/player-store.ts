@@ -179,7 +179,17 @@ export interface PlayerState {
 
   // Score info
   scoreTitle: string;
+  scoreSubTitle: string;
   scoreArtist: string;
+  scoreAlbum: string;
+  scoreWords: string;
+  scoreMusic: string;
+  scoreCopyright: string;
+  scoreTab: string;
+  scoreInstructions: string;
+  scoreNotices: string;
+  scoreTempo: number;
+  scoreTempoLabel: string;
 
   // Tracks
   tracks: TrackInfo[];
@@ -338,7 +348,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isLooping: false,
   masterVolume: 1,
   scoreTitle: "",
+  scoreSubTitle: "",
   scoreArtist: "",
+  scoreAlbum: "",
+  scoreWords: "",
+  scoreMusic: "",
+  scoreCopyright: "",
+  scoreTab: "",
+  scoreInstructions: "",
+  scoreNotices: "",
+  scoreTempo: 0,
+  scoreTempoLabel: "",
   tracks: [],
   visibleTrackIndices: [],
   trackBounds: [],
@@ -437,8 +457,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }));
 
       set({
-        scoreTitle: score.title || "Untitled",
+        scoreTitle: score.title || "",
+        scoreSubTitle: score.subTitle || "",
         scoreArtist: score.artist || "",
+        scoreAlbum: score.album || "",
+        scoreWords: score.words || "",
+        scoreMusic: score.music || "",
+        scoreCopyright: score.copyright || "",
+        scoreTab: score.tab || "",
+        scoreInstructions: score.instructions || "",
+        scoreNotices: score.notices || "",
+        scoreTempo: score.tempo,
+        scoreTempoLabel: score.tempoLabel || "",
         tracks,
       });
 
@@ -608,7 +638,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       currentTime: 0,
       endTime: 0,
       scoreTitle: "",
+      scoreSubTitle: "",
       scoreArtist: "",
+      scoreAlbum: "",
+      scoreWords: "",
+      scoreMusic: "",
+      scoreCopyright: "",
+      scoreTab: "",
+      scoreInstructions: "",
+      scoreNotices: "",
+      scoreTempo: 0,
+      scoreTempoLabel: "",
       tracks: [],
       visibleTrackIndices: [],
       trackBounds: [],

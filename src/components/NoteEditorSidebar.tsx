@@ -34,6 +34,17 @@ import {
   Hand,
   X,
   Fingerprint,
+  // Song & Tracks sections
+  Eye,
+  EyeOff,
+  Pencil,
+  FileText,
+  Copyright,
+  Guitar,
+  Info,
+  MessageSquare,
+  Album,
+  User,
   // Effects section
   TrendingUp,
   Waves,
@@ -363,6 +374,155 @@ function PropRow({
       <span className="text-[11px] text-muted-foreground">{label}</span>
       <span className="ml-auto text-[11px] font-medium tabular-nums">{value}</span>
     </div>
+  );
+}
+
+// ─── Song Section ────────────────────────────────────────────────────────────
+
+function SongSection() {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(true);
+  const scoreTitle = usePlayerStore((s) => s.scoreTitle);
+  const scoreSubTitle = usePlayerStore((s) => s.scoreSubTitle);
+  const scoreArtist = usePlayerStore((s) => s.scoreArtist);
+  const scoreAlbum = usePlayerStore((s) => s.scoreAlbum);
+  const scoreWords = usePlayerStore((s) => s.scoreWords);
+  const scoreMusic = usePlayerStore((s) => s.scoreMusic);
+  const scoreCopyright = usePlayerStore((s) => s.scoreCopyright);
+  const scoreTab = usePlayerStore((s) => s.scoreTab);
+  const scoreInstructions = usePlayerStore((s) => s.scoreInstructions);
+  const scoreNotices = usePlayerStore((s) => s.scoreNotices);
+  const scoreTempo = usePlayerStore((s) => s.scoreTempo);
+  const scoreTempoLabel = usePlayerStore((s) => s.scoreTempoLabel);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <SectionHeader
+        title={t("sidebar.song.title")}
+        helpText={t("sidebar.song.help")}
+        isOpen={isOpen}
+      />
+      <CollapsibleContent>
+        <div className="space-y-0.5 py-1">
+          <PropRow
+            label={t("sidebar.song.songTitle")}
+            value={scoreTitle || t("sidebar.song.noTitle")}
+            icon={<Music className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.subTitle")}
+            value={scoreSubTitle}
+            icon={<FileText className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.songArtist")}
+            value={scoreArtist || t("sidebar.song.noArtist")}
+            icon={<User className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.album")}
+            value={scoreAlbum}
+            icon={<Album className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.words")}
+            value={scoreWords}
+            icon={<Pencil className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.music")}
+            value={scoreMusic}
+            icon={<Music className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.copyright")}
+            value={scoreCopyright}
+            icon={<Copyright className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.tab")}
+            value={scoreTab}
+            icon={<Guitar className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.instructions")}
+            value={scoreInstructions}
+            icon={<Info className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.notices")}
+            value={scoreNotices}
+            icon={<MessageSquare className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.tempo")}
+            value={scoreTempo > 0 ? t("sidebar.song.bpm", { value: scoreTempo }) : ""}
+            icon={<Gauge className="h-3.5 w-3.5" />}
+          />
+          <PropRow
+            label={t("sidebar.song.tempoLabel")}
+            value={scoreTempoLabel}
+            icon={<Gauge className="h-3.5 w-3.5" />}
+          />
+        </div>
+        <Separator />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// ─── Tracks Section ──────────────────────────────────────────────────────────
+
+function TracksSection() {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(true);
+  const tracks = usePlayerStore((s) => s.tracks);
+  const visibleTrackIndices = usePlayerStore((s) => s.visibleTrackIndices);
+  const setTrackVisible = usePlayerStore((s) => s.setTrackVisible);
+
+  const visibleSet = new Set(visibleTrackIndices);
+
+  if (tracks.length === 0) return null;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <SectionHeader
+        title={t("sidebar.tracks.title")}
+        helpText={t("sidebar.tracks.help")}
+        isOpen={isOpen}
+      />
+      <CollapsibleContent>
+        <div className="py-1">
+          {tracks.map((track) => {
+            const isVisible = visibleSet.has(track.index);
+            return (
+              <button
+                key={track.index}
+                type="button"
+                className={cn(
+                  "flex w-full items-center gap-2 px-3 py-1 text-[11px] hover:bg-accent/50",
+                  !isVisible && "text-muted-foreground opacity-50",
+                )}
+                onClick={() => setTrackVisible(track.index, !isVisible)}
+              >
+                {isVisible ? (
+                  <Eye className="h-3.5 w-3.5 shrink-0" />
+                ) : (
+                  <EyeOff className="h-3.5 w-3.5 shrink-0" />
+                )}
+                <span className="truncate">{track.name}</span>
+                <span className="ml-auto text-[10px] text-muted-foreground">
+                  {isVisible
+                    ? t("sidebar.tracks.visible")
+                    : t("sidebar.tracks.hidden")}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <Separator />
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -964,7 +1124,7 @@ export function NoteEditorSidebar() {
 
   return (
     <div
-      className="flex flex-col border-r bg-card"
+      className="flex min-h-0 flex-col border-r bg-card"
       style={{ width: SIDEBAR_WIDTH }}
     >
       {/* Sidebar header */}
@@ -985,21 +1145,28 @@ export function NoteEditorSidebar() {
       </div>
 
       {/* Content */}
-      {selectedBeatInfo && selectedBarInfo ? (
-        <ScrollArea className="flex-1">
-          <div className="pb-4">
-            <BarSection bar={selectedBarInfo} />
-            <NoteSection beat={selectedBeatInfo} note={activeNote} />
-            <EffectsSection beat={selectedBeatInfo} note={activeNote} />
-          </div>
-        </ScrollArea>
-      ) : (
-        <div className="flex flex-1 items-center justify-center p-4">
-          <p className="text-center text-xs text-muted-foreground">
-            {t("sidebar.emptyState")}
-          </p>
+      <ScrollArea className="flex-1 overflow-hidden">
+        <div className="pb-4">
+          {/* Always visible sections */}
+          <SongSection />
+          <TracksSection />
+
+          {/* Beat-dependent sections */}
+          {selectedBeatInfo && selectedBarInfo ? (
+            <>
+              <BarSection bar={selectedBarInfo} />
+              <NoteSection beat={selectedBeatInfo} note={activeNote} />
+              <EffectsSection beat={selectedBeatInfo} note={activeNote} />
+            </>
+          ) : (
+            <div className="flex items-center justify-center p-4">
+              <p className="text-center text-xs text-muted-foreground">
+                {t("sidebar.emptyState")}
+              </p>
+            </div>
+          )}
         </div>
-      )}
+      </ScrollArea>
     </div>
   );
 }

@@ -8,8 +8,6 @@
     "loading": "Loading {{percent}}%",
     "zoom": "Zoom",
     "fpsMonitor": "FPS Monitor (Shift+F)",
-    "tracks": "Tracks ({{visible}}/{{total}})",
-    "visibleTracks": "Visible Tracks",
     "language": "Language"
   },
   "viewport": {
@@ -20,6 +18,33 @@
     "expandSidebar": "Expand sidebar",
     "collapseSidebar": "Collapse sidebar",
     "emptyState": "Click on a beat in the score to inspect its properties.",
+
+    "song": {
+      "title": "Song",
+      "help": "Song metadata and file information.",
+      "songTitle": "Title",
+      "subTitle": "Subtitle",
+      "songArtist": "Artist",
+      "album": "Album",
+      "words": "Words",
+      "music": "Music",
+      "copyright": "Copyright",
+      "tab": "Tablature",
+      "instructions": "Instructions",
+      "notices": "Notices",
+      "tempo": "Tempo",
+      "tempoLabel": "Tempo Label",
+      "bpm": "{{value}} BPM",
+      "noTitle": "Untitled",
+      "noArtist": "Unknown"
+    },
+
+    "tracks": {
+      "title": "Tracks",
+      "help": "Toggle track visibility. At least one track must remain visible.",
+      "visible": "visible",
+      "hidden": "hidden"
+    },
 
     "bar": {
       "title": "Bar",

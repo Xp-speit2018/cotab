@@ -1,0 +1,200 @@
+{
+  "toolbar": {
+    "openFile": "Open file",
+    "noFileLoaded": "No file loaded",
+    "stop": "Stop",
+    "pause": "Pause",
+    "play": "Play",
+    "loading": "Loading {{percent}}%",
+    "zoom": "Zoom",
+    "fpsMonitor": "FPS Monitor (Shift+F)",
+    "tracks": "Tracks ({{visible}}/{{total}})",
+    "visibleTracks": "Visible Tracks",
+    "language": "Language"
+  },
+  "viewport": {
+    "loadingScore": "Loading score..."
+  },
+  "sidebar": {
+    "inspector": "Inspector",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "emptyState": "Click on a beat in the score to inspect its properties.",
+
+    "bar": {
+      "title": "Bar",
+      "help": "Time signature, key, tempo, and repeat settings for the current bar.",
+      "timeSig": "Time Sig",
+      "key": "Key",
+      "tempo": "Tempo",
+      "bpm": "{{value}} BPM",
+      "tripletFeel": "Triplet Feel",
+      "repeatStart": "Repeat Start",
+      "freeTime": "Free Time",
+      "doubleBar": "Double Bar",
+      "section": "Section",
+      "altEndings": "Alt. Endings",
+      "repeatCount": "x{{count}}"
+    },
+
+    "note": {
+      "title": "Note",
+      "help": "Duration, dots, rests, and articulation properties for the selected note.",
+      "duration": "Duration",
+      "durationWhole": "Whole Note",
+      "durationHalf": "Half Note",
+      "durationQuarter": "Quarter Note",
+      "durationEighth": "Eighth Note",
+      "durationSixteenth": "Sixteenth Note",
+      "durationThirtySecond": "Thirty-second Note",
+      "durationSixtyFourth": "Sixty-fourth Note",
+
+      "noteProperties": "Note Properties",
+      "dotted": "Dotted",
+      "doubleDot": "Double Dot",
+      "rest": "Rest",
+      "tie": "Tie",
+      "ghostNote": "Ghost Note",
+      "deadNote": "Dead Note",
+      "accent": "Accent",
+      "heavyAccent": "Heavy Accent",
+      "staccato": "Staccato",
+      "letRing": "Let Ring",
+      "palmMute": "Palm Mute",
+      "slashed": "Slashed",
+      "noNoteSelected": "No note selected"
+    },
+
+    "effects": {
+      "title": "Effects",
+      "help": "Bends, slides, vibrato, dynamics, and other playing techniques applied to the note or beat.",
+
+      "noteEffects": "Note Effects",
+      "bend": "Bend",
+      "bendType": "Bend Type",
+      "vibratoSlight": "Vibrato (Slight)",
+      "vibratoWide": "Vibrato (Wide)",
+      "slideInBelow": "Slide In (Below)",
+      "slideInAbove": "Slide In (Above)",
+      "slideOut": "Slide Out",
+      "hammerPullOff": "Hammer-on / Pull-off",
+      "leftHandTap": "Left-hand Tap",
+      "trill": "Trill",
+      "trillDetail": "Fret {{fret}} ({{speed}})",
+      "harmonics": "Harmonics",
+      "harmonic": "Harmonic",
+      "ornament": "Ornament",
+
+      "beatEffects": "Beat Effects",
+      "whammyBar": "Whammy Bar",
+      "beatVibrato": "Beat Vibrato",
+      "pickStrokeUp": "Pick Stroke Up",
+      "pickStrokeDown": "Pick Stroke Down",
+      "brushUp": "Brush Up",
+      "brushDown": "Brush Down",
+      "graceNote": "Grace Note",
+      "tremoloPicking": "Tremolo Picking",
+      "fermata": "Fermata",
+
+      "dynamics": "Dynamics",
+      "dynamicPPP": "Pianississimo (ppp)",
+      "dynamicPP": "Pianissimo (pp)",
+      "dynamicP": "Piano (p)",
+      "dynamicMP": "Mezzo Piano (mp)",
+      "dynamicMF": "Mezzo Forte (mf)",
+      "dynamicF": "Forte (f)",
+      "dynamicFF": "Fortissimo (ff)",
+      "dynamicFFF": "Fortississimo (fff)",
+      "crescendo": "Crescendo",
+      "decrescendo": "Decrescendo",
+
+      "techniques": "Techniques",
+      "tap": "Tap",
+      "slap": "Slap",
+      "pop": "Pop",
+      "fadeIn": "Fade In",
+      "fadeOut": "Fade Out",
+      "volumeSwell": "Volume Swell",
+
+      "other": "Other",
+      "golpeThumb": "Golpe (Thumb)",
+      "golpeFinger": "Golpe (Finger)",
+      "wahOpen": "Wah Open",
+      "wahClosed": "Wah Closed",
+
+      "ottava": "Ottava",
+      "text": "Text",
+      "chord": "Chord"
+    },
+
+    "bendTypes": {
+      "none": "None",
+      "custom": "Custom",
+      "bend": "Bend",
+      "release": "Release",
+      "bendRelease": "Bend/Release",
+      "hold": "Hold",
+      "prebend": "Prebend",
+      "prebendBend": "Prebend/Bend",
+      "prebendRelease": "Prebend/Release"
+    },
+
+    "harmonicTypes": {
+      "none": "None",
+      "natural": "Natural",
+      "artificial": "Artificial",
+      "pinch": "Pinch",
+      "tap": "Tap",
+      "semi": "Semi",
+      "feedback": "Feedback"
+    },
+
+    "slideOutTypes": {
+      "none": "None",
+      "shift": "Shift",
+      "legato": "Legato",
+      "outUp": "Out Up",
+      "outDown": "Out Down",
+      "pickSlideDown": "Pick Slide Down",
+      "pickSlideUp": "Pick Slide Up"
+    },
+
+    "tripletFeels": {
+      "none": "None",
+      "triplet8th": "Triplet 8th",
+      "triplet16th": "Triplet 16th",
+      "dotted8th": "Dotted 8th",
+      "dotted16th": "Dotted 16th",
+      "scottish8th": "Scottish 8th",
+      "scottish16th": "Scottish 16th"
+    }
+  },
+  "fps": {
+    "toggleHint": "Shift+F to toggle",
+    "hideDiag": "hide diag",
+    "showDiag": "show diag",
+    "avg": "avg",
+    "min": "min",
+    "max": "max",
+    "ft": "ft",
+    "fps60": "60fps",
+    "fps30": "30fps",
+    "fpsBelow30": "<30fps",
+    "diagnostics": "Diagnostics",
+    "detectedRafRate": "Detected rAF rate:",
+    "measuring": "measuring...",
+    "frameConsistency": "Frame consistency:",
+    "throttled": "(throttled)",
+    "jankFrames": "Jank frames:",
+    "prefersReducedMotion": "prefers-reduced-motion:",
+    "yes": "yes",
+    "no": "no",
+    "collectingData": "Collecting data...",
+    "raf30HzDisplay": "rAF locked at 30Hz. Display or browser is running at 30Hz refresh. Check: macOS System Settings \u2192 Displays \u2192 Refresh Rate. Also check if Low Power Mode is enabled (Settings \u2192 Battery).",
+    "raf30FpsLocked": "rAF locked at 30fps with consistent frame times (~33ms). Likely causes: (1) macOS Low Power Mode, (2) Chrome power throttling (chrome://flags \u2192 #throttle-display-none-frames), (3) External display at 30Hz, (4) GPU driver vsync at half-rate.",
+    "mainThreadJank": "Main thread jank detected ({{count}} dropped frames). The app is doing heavy work that blocks rendering. Check: DevTools \u2192 Performance tab for long tasks.",
+    "reducedMotionEnabled": "prefers-reduced-motion is enabled. This shouldn't cap FPS but may affect animations.",
+    "performanceGood": "Performance looks good \u2014 hitting display refresh rate.",
+    "belowTarget": "Frame rate below target. Run DevTools \u2192 Performance profiling for details."
+  }
+}

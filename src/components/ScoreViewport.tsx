@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Loader2,
   Guitar,
@@ -83,6 +84,7 @@ function CompactMixer({
 const HEADER_WIDTH = 180; // px
 
 export function ScoreViewport() {
+  const { t } = useTranslation();
   const mainRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
 
@@ -167,7 +169,7 @@ export function ScoreViewport() {
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              Loading score...
+              {t("viewport.loadingScore")}
             </span>
           </div>
         </div>

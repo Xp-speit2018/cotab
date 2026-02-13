@@ -1,0 +1,200 @@
+{
+  "toolbar": {
+    "openFile": "打开文件",
+    "noFileLoaded": "未加载文件",
+    "stop": "停止",
+    "pause": "暂停",
+    "play": "播放",
+    "loading": "加载中 {{percent}}%",
+    "zoom": "缩放",
+    "fpsMonitor": "帧率监视器 (Shift+F)",
+    "tracks": "音轨 ({{visible}}/{{total}})",
+    "visibleTracks": "可见音轨",
+    "language": "语言"
+  },
+  "viewport": {
+    "loadingScore": "正在加载乐谱..."
+  },
+  "sidebar": {
+    "inspector": "检查器",
+    "expandSidebar": "展开侧边栏",
+    "collapseSidebar": "收起侧边栏",
+    "emptyState": "点击乐谱中的节拍以查看其属性。",
+
+    "bar": {
+      "title": "小节",
+      "help": "当前小节的拍号、调号、速度和反复设置。",
+      "timeSig": "拍号",
+      "key": "调号",
+      "tempo": "速度",
+      "bpm": "{{value}} BPM",
+      "tripletFeel": "三连音感觉",
+      "repeatStart": "反复开始",
+      "freeTime": "自由节拍",
+      "doubleBar": "双小节线",
+      "section": "段落",
+      "altEndings": "替代结尾",
+      "repeatCount": "x{{count}}"
+    },
+
+    "note": {
+      "title": "音符",
+      "help": "所选音符的时值、附点、休止符及演奏法属性。",
+      "duration": "时值",
+      "durationWhole": "全音符",
+      "durationHalf": "二分音符",
+      "durationQuarter": "四分音符",
+      "durationEighth": "八分音符",
+      "durationSixteenth": "十六分音符",
+      "durationThirtySecond": "三十二分音符",
+      "durationSixtyFourth": "六十四分音符",
+
+      "noteProperties": "音符属性",
+      "dotted": "附点",
+      "doubleDot": "复附点",
+      "rest": "休止符",
+      "tie": "连音线",
+      "ghostNote": "幽灵音",
+      "deadNote": "闷音",
+      "accent": "重音",
+      "heavyAccent": "强重音",
+      "staccato": "断奏",
+      "letRing": "延音",
+      "palmMute": "闷弦",
+      "slashed": "斜线",
+      "noNoteSelected": "未选择音符"
+    },
+
+    "effects": {
+      "title": "效果",
+      "help": "应用于音符或节拍的推弦、滑音、揉弦、力度及其他演奏技巧。",
+
+      "noteEffects": "音符效果",
+      "bend": "推弦",
+      "bendType": "推弦类型",
+      "vibratoSlight": "揉弦 (轻微)",
+      "vibratoWide": "揉弦 (宽幅)",
+      "slideInBelow": "滑入 (从下方)",
+      "slideInAbove": "滑入 (从上方)",
+      "slideOut": "滑出",
+      "hammerPullOff": "击弦 / 勾弦",
+      "leftHandTap": "左手点弦",
+      "trill": "颤音",
+      "trillDetail": "品位 {{fret}} ({{speed}})",
+      "harmonics": "泛音",
+      "harmonic": "泛音",
+      "ornament": "装饰音",
+
+      "beatEffects": "节拍效果",
+      "whammyBar": "摇把",
+      "beatVibrato": "节拍揉弦",
+      "pickStrokeUp": "上拨",
+      "pickStrokeDown": "下拨",
+      "brushUp": "上扫",
+      "brushDown": "下扫",
+      "graceNote": "装饰音符",
+      "tremoloPicking": "震音拨弦",
+      "fermata": "延长记号",
+
+      "dynamics": "力度",
+      "dynamicPPP": "极弱 (ppp)",
+      "dynamicPP": "很弱 (pp)",
+      "dynamicP": "弱 (p)",
+      "dynamicMP": "中弱 (mp)",
+      "dynamicMF": "中强 (mf)",
+      "dynamicF": "强 (f)",
+      "dynamicFF": "很强 (ff)",
+      "dynamicFFF": "极强 (fff)",
+      "crescendo": "渐强",
+      "decrescendo": "渐弱",
+
+      "techniques": "技巧",
+      "tap": "点弦",
+      "slap": "拍弦",
+      "pop": "勾弦弹奏",
+      "fadeIn": "淡入",
+      "fadeOut": "淡出",
+      "volumeSwell": "音量渐变",
+
+      "other": "其他",
+      "golpeThumb": "敲击 (拇指)",
+      "golpeFinger": "敲击 (手指)",
+      "wahOpen": "哇音开",
+      "wahClosed": "哇音关",
+
+      "ottava": "八度记号",
+      "text": "文本",
+      "chord": "和弦"
+    },
+
+    "bendTypes": {
+      "none": "无",
+      "custom": "自定义",
+      "bend": "推弦",
+      "release": "释放",
+      "bendRelease": "推弦/释放",
+      "hold": "保持",
+      "prebend": "预推弦",
+      "prebendBend": "预推弦/推弦",
+      "prebendRelease": "预推弦/释放"
+    },
+
+    "harmonicTypes": {
+      "none": "无",
+      "natural": "自然泛音",
+      "artificial": "人工泛音",
+      "pinch": "捏弦泛音",
+      "tap": "点弦泛音",
+      "semi": "半泛音",
+      "feedback": "反馈泛音"
+    },
+
+    "slideOutTypes": {
+      "none": "无",
+      "shift": "移位",
+      "legato": "连奏",
+      "outUp": "向上滑出",
+      "outDown": "向下滑出",
+      "pickSlideDown": "拨片向下滑",
+      "pickSlideUp": "拨片向上滑"
+    },
+
+    "tripletFeels": {
+      "none": "无",
+      "triplet8th": "八分三连音",
+      "triplet16th": "十六分三连音",
+      "dotted8th": "附点八分",
+      "dotted16th": "附点十六分",
+      "scottish8th": "苏格兰八分",
+      "scottish16th": "苏格兰十六分"
+    }
+  },
+  "fps": {
+    "toggleHint": "Shift+F 切换",
+    "hideDiag": "隐藏诊断",
+    "showDiag": "显示诊断",
+    "avg": "平均",
+    "min": "最低",
+    "max": "最高",
+    "ft": "帧时",
+    "fps60": "60fps",
+    "fps30": "30fps",
+    "fpsBelow30": "<30fps",
+    "diagnostics": "诊断",
+    "detectedRafRate": "检测到的 rAF 频率：",
+    "measuring": "检测中...",
+    "frameConsistency": "帧一致性：",
+    "throttled": "(已节流)",
+    "jankFrames": "卡顿帧：",
+    "prefersReducedMotion": "偏好减少动效：",
+    "yes": "是",
+    "no": "否",
+    "collectingData": "正在收集数据...",
+    "raf30HzDisplay": "rAF 锁定在 30Hz。显示器或浏览器以 30Hz 刷新率运行。检查：macOS 系统设置 \u2192 显示器 \u2192 刷新率。同时检查是否启用了低电量模式（设置 \u2192 电池）。",
+    "raf30FpsLocked": "rAF 锁定在 30fps，帧时间稳定（约 33ms）。可能原因：(1) macOS 低电量模式，(2) Chrome 功耗节流 (chrome://flags \u2192 #throttle-display-none-frames)，(3) 外接显示器 30Hz，(4) GPU 驱动半速垂直同步。",
+    "mainThreadJank": "检测到主线程卡顿（{{count}} 个丢帧）。应用正在执行阻塞渲染的繁重操作。检查：DevTools \u2192 性能面板查看长任务。",
+    "reducedMotionEnabled": "偏好减少动效已启用。这不应限制帧率，但可能影响动画。",
+    "performanceGood": "性能良好 \u2014 达到显示器刷新率。",
+    "belowTarget": "帧率低于目标。请运行 DevTools \u2192 性能分析了解详情。"
+  }
+}

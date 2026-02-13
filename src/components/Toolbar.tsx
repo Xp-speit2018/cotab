@@ -5,9 +5,6 @@ import {
   Play,
   Pause,
   Square,
-  Layers,
-  Eye,
-  EyeOff,
   Activity,
   Globe,
   Check,
@@ -53,18 +50,12 @@ export function Toolbar() {
   const scoreTitle = usePlayerStore((s) => s.scoreTitle);
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
-  const tracks = usePlayerStore((s) => s.tracks);
-  const visibleTrackIndices = usePlayerStore((s) => s.visibleTrackIndices);
-
   const loadFile = usePlayerStore((s) => s.loadFile);
   const playPause = usePlayerStore((s) => s.playPause);
   const stop = usePlayerStore((s) => s.stop);
   const setZoom = usePlayerStore((s) => s.setZoom);
-  const setTrackVisible = usePlayerStore((s) => s.setTrackVisible);
 
   const isPlaying = playerState === "playing";
-  const visibleSet = new Set(visibleTrackIndices);
-  const visibleCount = visibleTrackIndices.length;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -192,48 +183,6 @@ export function Toolbar() {
             </TooltipTrigger>
             <TooltipContent>{t("toolbar.fpsMonitor")}</TooltipContent>
           </Tooltip>
-        )}
-
-        {/* Track Visibility Popover */}
-        {tracks.length > 0 && (
-          <Popover>
-            <PopoverTrigger
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
-              title={t("toolbar.tracks", { visible: visibleCount, total: tracks.length })}
-            >
-              <Layers className="h-4 w-4" />
-            </PopoverTrigger>
-
-            <PopoverContent align="end" className="w-56 p-1">
-              <div className="px-2 py-1.5">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  {t("toolbar.visibleTracks")}
-                </span>
-              </div>
-              {tracks.map((track) => {
-                const isVisible = visibleSet.has(track.index);
-                return (
-                  <button
-                    key={track.index}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent",
-                      !isVisible && "text-muted-foreground",
-                    )}
-                    onClick={() =>
-                      setTrackVisible(track.index, !isVisible)
-                    }
-                  >
-                    {isVisible ? (
-                      <Eye className="h-3.5 w-3.5" />
-                    ) : (
-                      <EyeOff className="h-3.5 w-3.5" />
-                    )}
-                    <span className="truncate">{track.name}</span>
-                  </button>
-                );
-              })}
-            </PopoverContent>
-          </Popover>
         )}
 
         {/* Language Selector */}

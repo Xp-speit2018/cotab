@@ -1,49 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
-// ─── FPS Cap (rAF throttle) ──────────────────────────────────────────────────
-
-const originalRAF = window.requestAnimationFrame.bind(window);
-const originalCAF = window.cancelAnimationFrame.bind(window);
-
-let fpsCap: number | null = null;
-let lastFrameTime = 0;
-
-/**
- * Patches window.requestAnimationFrame to skip frames that arrive
- * faster than the target interval. When fpsCap is null the original
- * rAF is used directly (no overhead).
- */
-function applyFpsCap(cap: number | null) {
-  fpsCap = cap;
-  lastFrameTime = 0;
-
-  if (cap === null) {
-    // Restore originals
-    window.requestAnimationFrame = originalRAF;
-    window.cancelAnimationFrame = originalCAF;
-    return;
-  }
-
-  const targetInterval = 1000 / cap;
-
-  window.requestAnimationFrame = (callback: FrameRequestCallback): number => {
-    const wrapped: FrameRequestCallback = (now) => {
-      const elapsed = now - lastFrameTime;
-      if (elapsed >= targetInterval) {
-        lastFrameTime = now - (elapsed % targetInterval);
-        callback(now);
-      } else {
-        // Not yet time — re-schedule via original rAF
-        originalRAF(wrapped);
-      }
-    };
-    return originalRAF(wrapped);
-  };
-
-  // cancelAnimationFrame still works since IDs come from originalRAF
-  window.cancelAnimationFrame = originalCAF;
-}
-
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface FpsStats {
@@ -65,22 +21,12 @@ interface Diagnostics {
 
 const HISTORY_SIZE = 120;
 const SAMPLE_INTERVAL_MS = 500;
-const FPS_CAP_OPTIONS: { label: string; value: number | null }[] = [
-  { label: "Off", value: null },
-  { label: "120", value: 120 },
-  { label: "60", value: 60 },
-  { label: "45", value: 45 },
-  { label: "30", value: 30 },
-  { label: "24", value: 24 },
-  { label: "15", value: 15 },
-];
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function FpsMonitor() {
   const [visible, setVisible] = useState(true);
   const [showDiag, setShowDiag] = useState(true);
-  const [capValue, setCapValue] = useState<number | null>(null);
   const [stats, setStats] = useState<FpsStats>({
     current: 0,
     avg: 0,
@@ -104,12 +50,6 @@ export function FpsMonitor() {
   const allFrameTimesRef = useRef<number[]>([]);
   const lastUpdateRef = useRef<number>(0);
 
-  // Apply / tear-down the rAF cap
-  useEffect(() => {
-    applyFpsCap(capValue);
-    return () => applyFpsCap(null);
-  }, [capValue]);
-
   const drawGraph = useCallback((frameTimes: number[]) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -124,7 +64,7 @@ export function FpsMonitor() {
     ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
     ctx.fillRect(0, 0, w, h);
 
-    const maxMs = 50;
+    const maxMs = 80;
 
     // 60fps line (16.67ms)
     const y60 = h - (16.67 / maxMs) * h;
@@ -164,7 +104,7 @@ export function FpsMonitor() {
     }
   }, []);
 
-  // Detect display refresh rate
+  // Detect native display refresh rate
   useEffect(() => {
     if (!visible) return;
 
@@ -182,7 +122,7 @@ export function FpsMonitor() {
       }
       prev = now;
       if (count < TARGET) {
-        originalRAF(probe);
+        requestAnimationFrame(probe);
       } else {
         const sorted = [...samples].sort((a, b) => a - b);
         const median = sorted[Math.floor(sorted.length / 2)];
@@ -193,7 +133,7 @@ export function FpsMonitor() {
       }
     };
 
-    const timer = setTimeout(() => originalRAF(probe), 500);
+    const timer = setTimeout(() => requestAnimationFrame(probe), 500);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -206,12 +146,19 @@ export function FpsMonitor() {
     setDiagnostics((d) => ({ ...d, prefersReducedMotion: mq.matches }));
   }, []);
 
-  // Main measurement loop — always uses originalRAF so the monitor itself
-  // isn't affected by the cap and can report the *actual* delivered rate.
+  // Main measurement loop.
   useEffect(() => {
     if (!visible) return;
 
-    const loop = (now: number) => {
+    let cancelled = false;
+
+    const loop = () => {
+      if (cancelled) return;
+
+      // Use performance.now() for wall-clock accuracy (rAF timestamps
+      // don't account for busy-wait blocking).
+      const now = performance.now();
+
       if (lastTimeRef.current > 0) {
         const delta = now - lastTimeRef.current;
         frameTimesRef.current.push(delta);
@@ -224,6 +171,7 @@ export function FpsMonitor() {
           allFrameTimesRef.current = allFrameTimesRef.current.slice(-300);
         }
 
+        // Throttle UI updates to every SAMPLE_INTERVAL_MS
         if (now - lastUpdateRef.current >= SAMPLE_INTERVAL_MS) {
           lastUpdateRef.current = now;
           const recent = frameTimesRef.current;
@@ -252,7 +200,11 @@ export function FpsMonitor() {
             all.reduce((acc, t) => acc + (t - mean) ** 2, 0) / all.length;
           const stdDev = Math.sqrt(variance);
           const consistency: Diagnostics["rAFConsistency"] =
-            all.length < 10 ? "unknown" : stdDev < 3 ? "locked" : "variable";
+            all.length < 10
+              ? "unknown"
+              : stdDev < 3
+                ? "locked"
+                : "variable";
 
           setStats({
             current: Math.round(currentFps),
@@ -277,13 +229,15 @@ export function FpsMonitor() {
       }
 
       lastTimeRef.current = now;
-      rafRef.current = originalRAF(loop);
+
+      rafRef.current = requestAnimationFrame(loop);
     };
 
-    rafRef.current = originalRAF(loop);
+    rafRef.current = requestAnimationFrame(loop);
 
     return () => {
-      originalCAF(rafRef.current);
+      cancelled = true;
+      cancelAnimationFrame(rafRef.current);
       lastTimeRef.current = 0;
       lastUpdateRef.current = 0;
       frameTimesRef.current = [];
@@ -321,10 +275,6 @@ export function FpsMonitor() {
       diagnostics;
 
     if (rAFConsistency === "unknown") return "Collecting data...";
-
-    if (capValue !== null && stats.avg <= capValue + 2) {
-      return `FPS cap active (${capValue} fps). Actual delivery matches the cap.`;
-    }
 
     if (rAFConsistency === "locked" && stats.avg >= 28 && stats.avg <= 32) {
       if (detectedRefreshRate !== null && detectedRefreshRate <= 32) {
@@ -392,26 +342,6 @@ export function FpsMonitor() {
             {stats.frameTimeMs}ms
           </span>
         </span>
-      </div>
-
-      {/* FPS Cap control */}
-      <div className="flex items-center gap-2 text-[10px]">
-        <span className="text-white/50">Cap</span>
-        <div className="flex gap-0.5">
-          {FPS_CAP_OPTIONS.map((opt) => (
-            <button
-              key={opt.label}
-              onClick={() => setCapValue(opt.value)}
-              className={`rounded px-1.5 py-0.5 ${
-                capValue === opt.value
-                  ? "bg-white/20 text-white"
-                  : "text-white/40 hover:bg-white/10 hover:text-white/70"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Frame time graph */}

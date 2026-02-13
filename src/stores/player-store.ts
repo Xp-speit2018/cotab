@@ -68,6 +68,7 @@ export interface TrackInfo {
   volume: number;
   isMuted: boolean;
   isSolo: boolean;
+  isPercussion: boolean;
 }
 
 export interface SelectedBeat {
@@ -112,6 +113,9 @@ export interface SelectedNoteInfo {
   trillValue: number;
   trillSpeed: Duration;
   durationPercent: number;
+  isPercussion: boolean;
+  percussionArticulation: number;
+  percussionArticulationName: string;
 }
 
 export interface SelectedBeatInfo {
@@ -226,6 +230,45 @@ export interface PlayerState {
   setZoom: (zoom: number) => void;
 }
 
+// ─── GP7 Percussion Articulation IDs ─────────────────────────────────────────
+// Set of valid GP7 articulation IDs (MIDI note numbers 29-127).
+// The human-readable names live in the i18n files under "percussion.gp7.{id}".
+
+const GP7_PERCUSSION_IDS = new Set([
+  29, 30, 31, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+  48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65,
+  66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
+  84, 85, 86, 87, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103,
+  104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118,
+  119, 120, 122, 123, 124, 125, 126, 127,
+]);
+
+/**
+ * Resolve percussion articulation name for a note.
+ *
+ * `note.percussionArticulation` is the **array index** into
+ * `track.percussionArticulations`.  If the track defines articulations
+ * and the index is valid, the raw `elementType` from the score file is returned.
+ *
+ * Otherwise the value is treated as a GP7 articulation ID and an i18n key
+ * `"percussion.gp7.{id}"` is returned so the UI layer can resolve it via `t()`.
+ */
+function resolvePercussionName(
+  note: alphaTab.model.Note,
+): string {
+  const idx = note.percussionArticulation;
+  const track = note.beat.voice.bar.staff.track;
+  const articulations = track.percussionArticulations;
+  if (articulations && idx >= 0 && idx < articulations.length) {
+    return articulations[idx].elementType;
+  }
+  // Return i18n key for GP7 fallback — resolved in the component via t()
+  if (GP7_PERCUSSION_IDS.has(idx)) {
+    return `percussion.gp7.${idx}`;
+  }
+  return String(idx);
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getTrack(index: number): alphaTab.model.Track | undefined {
@@ -240,6 +283,7 @@ function readVisibleIndices(): number[] {
 
 /** Extract detailed note info from an AlphaTab Note model object. */
 function extractNoteInfo(note: alphaTab.model.Note): SelectedNoteInfo {
+  const perc = note.isPercussion;
   return {
     index: note.index,
     fret: note.fret,
@@ -271,6 +315,9 @@ function extractNoteInfo(note: alphaTab.model.Note): SelectedNoteInfo {
     trillValue: note.trillValue,
     trillSpeed: note.trillSpeed as unknown as Duration,
     durationPercent: note.durationPercent,
+    isPercussion: perc,
+    percussionArticulation: perc ? note.percussionArticulation : -1,
+    percussionArticulationName: perc ? resolvePercussionName(note) : "",
   };
 }
 
@@ -454,6 +501,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         volume: existing[i]?.volume ?? 1,
         isMuted: existing[i]?.isMuted ?? false,
         isSolo: existing[i]?.isSolo ?? false,
+        isPercussion: t.isPercussion,
       }));
 
       set({
@@ -785,4 +833,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 if (import.meta.env.DEV) {
   (window as unknown as Record<string, unknown>).__PLAYER_STORE__ =
     usePlayerStore;
+  // Also expose a getter for the module-scoped api (useful for headless debugging)
+  Object.defineProperty(window, "__ALPHATAB_API__", {
+    get: () => api,
+    configurable: true,
+  });
 }

@@ -10,8 +10,26 @@
  * Currently read-only display of the selected beat's properties.
  */
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  type DragEndEvent,
+  type DragOverEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronDown,
   ChevronUp,
@@ -34,6 +52,9 @@ import {
   Hand,
   X,
   Fingerprint,
+  // Selector section
+  Crosshair,
+  Hash,
   // Song & Tracks sections
   Eye,
   EyeOff,
@@ -68,6 +89,7 @@ import {
   PanelLeftOpen,
   Triangle,
   HelpCircle,
+  GripVertical,
 } from "lucide-react";
 import {
   Collapsible,
@@ -113,6 +135,23 @@ import {
 } from "@/core/schema";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/**
+ * Resolve percussion articulation display name.
+ *
+ * Names from the score file (track.percussionArticulations) are returned as-is.
+ * GP7 fallback names are stored as i18n keys ("percussion.gp7.{id}") and
+ * resolved here via t().
+ */
+function percussionDisplayName(
+  raw: string,
+  t: (key: string) => string,
+): string {
+  if (raw.startsWith("percussion.gp7.")) {
+    return t(raw);
+  }
+  return raw;
+}
 
 /**
  * Compact label for a duration value.
@@ -273,14 +312,26 @@ function SectionHeader({
   title,
   helpText,
   isOpen,
+  dragHandleProps,
 }: {
   title: string;
   helpText: string;
   isOpen: boolean;
+  dragHandleProps?: Record<string, unknown>;
 }) {
+  const { t } = useTranslation();
   return (
-    <div className="flex w-full items-center">
-      <CollapsibleTrigger className="flex flex-1 items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/50">
+    <div className="group flex w-full items-center">
+      {/* Drag handle — visible on hover */}
+      <button
+        type="button"
+        className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-60 active:cursor-grabbing"
+        aria-label={t("sidebar.reorderSection")}
+        {...dragHandleProps}
+      >
+        <GripVertical className="h-3 w-3 text-muted-foreground" />
+      </button>
+      <CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 pr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/50">
         <span className="flex items-center gap-1">
           {title}
         </span>
@@ -304,6 +355,40 @@ function SectionHeader({
           {helpText}
         </TooltipContent>
       </Tooltip>
+    </div>
+  );
+}
+
+/**
+ * Sortable wrapper for sidebar sections. Provides drag transform styles on the
+ * outer div and passes drag-handle listeners into the children render prop.
+ */
+function SortableSection({
+  id,
+  children,
+}: {
+  id: string;
+  children: (dragHandleProps: Record<string, unknown>) => React.ReactNode;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.8 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ ...attributes, ...listeners })}
     </div>
   );
 }
@@ -379,7 +464,7 @@ function PropRow({
 
 // ─── Song Section ────────────────────────────────────────────────────────────
 
-function SongSection() {
+function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   const scoreTitle = usePlayerStore((s) => s.scoreTitle);
@@ -401,6 +486,7 @@ function SongSection() {
         title={t("sidebar.song.title")}
         helpText={t("sidebar.song.help")}
         isOpen={isOpen}
+        dragHandleProps={dragHandleProps}
       />
       <CollapsibleContent>
         <div className="space-y-0.5 py-1">
@@ -473,7 +559,7 @@ function SongSection() {
 
 // ─── Tracks Section ──────────────────────────────────────────────────────────
 
-function TracksSection() {
+function TracksSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   const tracks = usePlayerStore((s) => s.tracks);
@@ -490,6 +576,7 @@ function TracksSection() {
         title={t("sidebar.tracks.title")}
         helpText={t("sidebar.tracks.help")}
         isOpen={isOpen}
+        dragHandleProps={dragHandleProps}
       />
       <CollapsibleContent>
         <div className="py-1">
@@ -526,14 +613,137 @@ function TracksSection() {
   );
 }
 
+// ─── Selector Info Section ───────────────────────────────────────────────────
+
+function SelectorSection({
+  beat,
+  note,
+  noteIndex,
+  dragHandleProps,
+}: {
+  beat: SelectedBeatInfo | null;
+  note: SelectedNoteInfo | null;
+  noteIndex: number;
+  dragHandleProps?: Record<string, unknown>;
+}) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(true);
+  const selectedBeat = usePlayerStore((s) => s.selectedBeat);
+  const tracks = usePlayerStore((s) => s.tracks);
+
+  const trackName =
+    selectedBeat && tracks[selectedBeat.trackIndex]
+      ? tracks[selectedBeat.trackIndex].name
+      : null;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <SectionHeader
+        title={t("sidebar.selector.title")}
+        helpText={t("sidebar.selector.help")}
+        isOpen={isOpen}
+        dragHandleProps={dragHandleProps}
+      />
+      <CollapsibleContent>
+        <div className="space-y-0.5 py-1">
+          {selectedBeat ? (
+            <>
+              <PropRow
+                label={t("sidebar.selector.track")}
+                value={
+                  trackName
+                    ? `${selectedBeat.trackIndex}: ${trackName}`
+                    : String(selectedBeat.trackIndex)
+                }
+                icon={<Crosshair className="h-3.5 w-3.5" />}
+              />
+              <PropRow
+                label={t("sidebar.selector.bar")}
+                value={String(selectedBeat.barIndex)}
+                icon={<Hash className="h-3.5 w-3.5" />}
+              />
+              <PropRow
+                label={t("sidebar.selector.beat")}
+                value={String(selectedBeat.beatIndex)}
+                icon={<Hash className="h-3.5 w-3.5" />}
+              />
+              {beat && (
+                <>
+                  <PropRow
+                    label={t("sidebar.selector.noteCount")}
+                    value={String(beat.notes.length)}
+                    icon={<Hash className="h-3.5 w-3.5" />}
+                  />
+                  <PropRow
+                    label={t("sidebar.selector.duration")}
+                    value={durationLabel(beat.duration)}
+                    icon={<Music className="h-3.5 w-3.5" />}
+                  />
+                  <PropRow
+                    label={t("sidebar.selector.dynamics")}
+                    value={dynamicLabel(beat.dynamics)}
+                    icon={<AudioWaveform className="h-3.5 w-3.5" />}
+                  />
+                </>
+              )}
+              {note ? (
+                <>
+                  <PropRow
+                    label={t("sidebar.selector.noteIndex")}
+                    value={`${noteIndex} / ${beat?.notes.length ?? 0}`}
+                    icon={<Crosshair className="h-3.5 w-3.5" />}
+                  />
+                  {note.isPercussion ? (
+                    <PropRow
+                      label={t("sidebar.selector.articulation")}
+                      value={percussionDisplayName(note.percussionArticulationName, t)}
+                      icon={<Disc className="h-3.5 w-3.5" />}
+                    />
+                  ) : (
+                    <>
+                      <PropRow
+                        label={t("sidebar.selector.fret")}
+                        value={String(note.fret)}
+                        icon={<Guitar className="h-3.5 w-3.5" />}
+                      />
+                      <PropRow
+                        label={t("sidebar.selector.string")}
+                        value={String(note.string)}
+                        icon={<Guitar className="h-3.5 w-3.5" />}
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="px-3 py-0.5">
+                  <span className="text-[10px] text-muted-foreground italic">
+                    {t("sidebar.note.noNoteSelected")}
+                  </span>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="px-3 py-0.5">
+              <span className="text-[10px] text-muted-foreground italic">
+                {t("sidebar.selector.noSelection")}
+              </span>
+            </div>
+          )}
+        </div>
+        <Separator />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 // ─── Bar Section ─────────────────────────────────────────────────────────────
 
-function BarSection({ bar }: { bar: SelectedBarInfo }) {
+function BarSection({ bar, dragHandleProps }: { bar: SelectedBarInfo; dragHandleProps?: Record<string, unknown> }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <SectionHeader title={t("sidebar.bar.title")} helpText={t("sidebar.bar.help")} isOpen={isOpen} />
+      <SectionHeader title={t("sidebar.bar.title")} helpText={t("sidebar.bar.help")} isOpen={isOpen} dragHandleProps={dragHandleProps} />
       <CollapsibleContent>
         <div className="space-y-0.5 py-1">
           <PropRow
@@ -619,15 +829,17 @@ const DURATION_VALUES: Duration[] = [
 function NoteSection({
   beat,
   note,
+  dragHandleProps,
 }: {
   beat: SelectedBeatInfo;
   note: SelectedNoteInfo | null;
+  dragHandleProps?: Record<string, unknown>;
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <SectionHeader title={t("sidebar.note.title")} helpText={t("sidebar.note.help")} isOpen={isOpen} />
+      <SectionHeader title={t("sidebar.note.title")} helpText={t("sidebar.note.help")} isOpen={isOpen} dragHandleProps={dragHandleProps} />
       <CollapsibleContent>
         <div className="space-y-1 py-1">
           {/* Duration row */}
@@ -676,26 +888,41 @@ function NoteSection({
           {/* Note flags — only shown if a note is selected */}
           {note ? (
             <>
+              {/* Percussion: show articulation name */}
+              {note.isPercussion && (
+                <PropRow
+                  label={t("sidebar.note.articulation")}
+                  value={percussionDisplayName(note.percussionArticulationName, t)}
+                  icon={<Disc className="h-3.5 w-3.5" />}
+                />
+              )}
+
               <div className="px-2">
                 <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
                   {t("sidebar.note.noteProperties")}
                 </div>
                 <div className="flex flex-wrap gap-0.5">
-                  <ToggleBtn
-                    label={t("sidebar.note.tie")}
-                    pressed={note.isTieDestination}
-                    icon={<Link2 className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.note.ghostNote")}
-                    pressed={note.isGhost}
-                    icon={<Parentheses className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.note.deadNote")}
-                    pressed={note.isDead}
-                    icon={<X className="h-3.5 w-3.5" />}
-                  />
+                  {/* Guitar-only toggles hidden for percussion */}
+                  {!note.isPercussion && (
+                    <>
+                      <ToggleBtn
+                        label={t("sidebar.note.tie")}
+                        pressed={note.isTieDestination}
+                        icon={<Link2 className="h-3.5 w-3.5" />}
+                      />
+                      <ToggleBtn
+                        label={t("sidebar.note.ghostNote")}
+                        pressed={note.isGhost}
+                        icon={<Parentheses className="h-3.5 w-3.5" />}
+                      />
+                      <ToggleBtn
+                        label={t("sidebar.note.deadNote")}
+                        pressed={note.isDead}
+                        icon={<X className="h-3.5 w-3.5" />}
+                      />
+                    </>
+                  )}
+                  {/* Shared toggles: accent, staccato */}
                   <ToggleBtn
                     label={t("sidebar.note.accent")}
                     pressed={note.accentuated === AccentuationType.Normal}
@@ -711,21 +938,27 @@ function NoteSection({
                     pressed={note.isStaccato}
                     icon={<Disc className="h-3 w-3" />}
                   />
-                  <ToggleBtn
-                    label={t("sidebar.note.letRing")}
-                    pressed={note.isLetRing}
-                    icon={<BellRing className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.note.palmMute")}
-                    pressed={note.isPalmMute}
-                    icon={<Hand className="h-3.5 w-3.5" />}
-                  />
+                  {/* Guitar-only toggles hidden for percussion */}
+                  {!note.isPercussion && (
+                    <>
+                      <ToggleBtn
+                        label={t("sidebar.note.letRing")}
+                        pressed={note.isLetRing}
+                        icon={<BellRing className="h-3.5 w-3.5" />}
+                      />
+                      <ToggleBtn
+                        label={t("sidebar.note.palmMute")}
+                        pressed={note.isPalmMute}
+                        icon={<Hand className="h-3.5 w-3.5" />}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Fingering row */}
-              {(note.leftHandFinger >= 0 || note.rightHandFinger >= 0) && (
+              {/* Fingering row — guitar only */}
+              {!note.isPercussion &&
+                (note.leftHandFinger >= 0 || note.rightHandFinger >= 0) && (
                 <div className="flex items-center gap-2 px-3">
                   <Fingerprint className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="text-[10px] text-muted-foreground">
@@ -760,19 +993,21 @@ function NoteSection({
 function EffectsSection({
   beat,
   note,
+  dragHandleProps,
 }: {
   beat: SelectedBeatInfo;
   note: SelectedNoteInfo | null;
+  dragHandleProps?: Record<string, unknown>;
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <SectionHeader title={t("sidebar.effects.title")} helpText={t("sidebar.effects.help")} isOpen={isOpen} />
+      <SectionHeader title={t("sidebar.effects.title")} helpText={t("sidebar.effects.help")} isOpen={isOpen} dragHandleProps={dragHandleProps} />
       <CollapsibleContent>
         <div className="space-y-1 py-1">
-          {/* ── Note-level Effects ─────────────────────────────────── */}
-          {note && (
+          {/* ── Note-level Effects (guitar only, hidden for percussion) ── */}
+          {note && !note.isPercussion && (
             <>
               <div className="px-2">
                 <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
@@ -1084,13 +1319,84 @@ function EffectsSection({
   );
 }
 
+// ─── Tab Droppable Container ─────────────────────────────────────────────────
+
+/**
+ * A droppable container for a tab's content. When a section is dragged over
+ * this area, it becomes a valid drop target even if the tab is empty.
+ */
+function TabDroppable({
+  tabId,
+  children,
+}: {
+  tabId: string;
+  children: React.ReactNode;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: tabId });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn("min-h-[32px]", isOver && "bg-accent/20")}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ─── Main Sidebar ────────────────────────────────────────────────────────────
 
 const SIDEBAR_WIDTH = 240;
+const STORAGE_KEY = "cotab:sidebar-tab-layout";
+const TAB_COUNT = 3;
+
+type SectionId = "song" | "tracks" | "selector" | "bar" | "note" | "effects";
+const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "bar", "note", "effects"];
+
+/** Default tab layout: tab0 = editing sections, tab1 = song+tracks, tab2 = selection */
+type TabLayout = SectionId[][];
+const DEFAULT_LAYOUT: TabLayout = [
+  ["bar", "note", "effects"],
+  ["song", "tracks"],
+  ["selector"],
+];
+
+function loadTabLayout(): TabLayout {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_LAYOUT;
+    const parsed = JSON.parse(raw) as string[][];
+    if (!Array.isArray(parsed) || parsed.length !== TAB_COUNT) return DEFAULT_LAYOUT;
+    // Collect all IDs and validate
+    const allIds = parsed.flat();
+    if (
+      allIds.length === ALL_SECTION_IDS.length &&
+      ALL_SECTION_IDS.every((id) => allIds.includes(id))
+    ) {
+      return parsed as TabLayout;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_LAYOUT;
+}
+
+function saveTabLayout(layout: TabLayout) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
+}
+
+/** Find which tab contains a given section ID. */
+function findTabIndex(layout: TabLayout, sectionId: string): number {
+  for (let i = 0; i < layout.length; i++) {
+    if (layout[i].includes(sectionId as SectionId)) return i;
+  }
+  return -1;
+}
 
 export function NoteEditorSidebar() {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState(0);
+  const [tabLayout, setTabLayout] = useState<TabLayout>(loadTabLayout);
   const selectedBeatInfo = usePlayerStore((s) => s.selectedBeatInfo);
   const selectedBarInfo = usePlayerStore((s) => s.selectedBarInfo);
   const selectedNoteIndex = usePlayerStore((s) => s.selectedNoteIndex);
@@ -1102,6 +1408,125 @@ export function NoteEditorSidebar() {
     selectedNoteIndex < selectedBeatInfo.notes.length
       ? selectedBeatInfo.notes[selectedNoteIndex]
       : null;
+
+  const hasBeat = !!(selectedBeatInfo && selectedBarInfo);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  /** Handle dragging over a different container (tab). */
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { active, over } = event;
+      if (!over) return;
+
+      const activeId = active.id as string;
+      const overId = over.id as string;
+
+      // Determine source and destination tabs
+      const fromTab = findTabIndex(tabLayout, activeId);
+      // overId could be a section ID or a tab droppable ID like "tab-0"
+      let toTab: number;
+      if (overId.startsWith("tab-")) {
+        toTab = parseInt(overId.split("-")[1], 10);
+      } else {
+        toTab = findTabIndex(tabLayout, overId);
+      }
+
+      if (fromTab === -1 || toTab === -1 || fromTab === toTab) return;
+
+      // Move section from one tab to another
+      setTabLayout((prev) => {
+        const next = prev.map((tab) => [...tab]);
+        const idx = next[fromTab].indexOf(activeId as SectionId);
+        if (idx === -1) return prev;
+        next[fromTab].splice(idx, 1);
+
+        // Insert at the position of the over item, or at the end if dropping on the tab itself
+        if (overId.startsWith("tab-")) {
+          next[toTab].push(activeId as SectionId);
+        } else {
+          const overIdx = next[toTab].indexOf(overId as SectionId);
+          if (overIdx === -1) {
+            next[toTab].push(activeId as SectionId);
+          } else {
+            next[toTab].splice(overIdx, 0, activeId as SectionId);
+          }
+        }
+
+        saveTabLayout(next);
+        return next;
+      });
+    },
+    [tabLayout],
+  );
+
+  /** Handle reordering within the same tab on drag end. */
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over) return;
+
+      const activeId = active.id as string;
+      const overId = over.id as string;
+
+      // Only handle same-tab reorder (cross-tab is handled in onDragOver)
+      if (overId.startsWith("tab-")) return;
+
+      const activeTabIdx = findTabIndex(tabLayout, activeId);
+      const overTabIdx = findTabIndex(tabLayout, overId);
+
+      if (activeTabIdx === -1 || activeTabIdx !== overTabIdx) return;
+      if (activeId === overId) return;
+
+      setTabLayout((prev) => {
+        const next = prev.map((tab) => [...tab]);
+        const oldIndex = next[activeTabIdx].indexOf(activeId as SectionId);
+        const newIndex = next[activeTabIdx].indexOf(overId as SectionId);
+        next[activeTabIdx] = arrayMove(next[activeTabIdx], oldIndex, newIndex);
+        saveTabLayout(next);
+        return next;
+      });
+    },
+    [tabLayout],
+  );
+
+  const renderSection = useCallback(
+    (id: SectionId, dragHandleProps: Record<string, unknown>) => {
+      switch (id) {
+        case "song":
+          return <SongSection dragHandleProps={dragHandleProps} />;
+        case "tracks":
+          return <TracksSection dragHandleProps={dragHandleProps} />;
+        case "selector":
+          return (
+            <SelectorSection
+              beat={selectedBeatInfo}
+              note={activeNote}
+              noteIndex={selectedNoteIndex}
+              dragHandleProps={dragHandleProps}
+            />
+          );
+        case "bar":
+          return hasBeat ? (
+            <BarSection bar={selectedBarInfo!} dragHandleProps={dragHandleProps} />
+          ) : null;
+        case "note":
+          return hasBeat ? (
+            <NoteSection beat={selectedBeatInfo!} note={activeNote} dragHandleProps={dragHandleProps} />
+          ) : null;
+        case "effects":
+          return hasBeat ? (
+            <EffectsSection beat={selectedBeatInfo!} note={activeNote} dragHandleProps={dragHandleProps} />
+          ) : null;
+        default:
+          return null;
+      }
+    },
+    [selectedBeatInfo, selectedBarInfo, selectedNoteIndex, activeNote, hasBeat],
+  );
 
   if (collapsed) {
     return (
@@ -1122,18 +1547,19 @@ export function NoteEditorSidebar() {
     );
   }
 
+  const currentTabSections = tabLayout[activeTab] ?? [];
+
   return (
     <div
       className="flex min-h-0 flex-col border-r bg-card"
       style={{ width: SIDEBAR_WIDTH }}
     >
-      {/* Sidebar header */}
-      <div className="flex h-8 items-center justify-between border-b px-2">
-        <span className="text-xs font-semibold">{t("sidebar.editor")}</span>
+      {/* Tab bar with collapse button */}
+      <div className="flex shrink-0 items-center border-b">
         <Tooltip>
           <TooltipTrigger asChild>
             <button
-              className="flex h-6 w-6 items-center justify-center rounded-md hover:bg-accent"
+              className="flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
               onClick={() => setCollapsed(true)}
               aria-label={t("sidebar.collapseSidebar")}
             >
@@ -1142,29 +1568,63 @@ export function NoteEditorSidebar() {
           </TooltipTrigger>
           <TooltipContent side="right">{t("sidebar.collapseSidebar")}</TooltipContent>
         </Tooltip>
+        {Array.from({ length: TAB_COUNT }, (_, i) => (
+          <button
+            key={i}
+            type="button"
+            className={cn(
+              "flex-1 py-2 text-center text-[10px] font-medium uppercase tracking-wider transition-colors",
+              activeTab === i
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+            onClick={() => setActiveTab(i)}
+          >
+            {t(`sidebar.tabNames.${i}`)}
+          </button>
+        ))}
       </div>
 
       {/* Content */}
       <ScrollArea className="flex-1 overflow-hidden">
         <div className="pb-4">
-          {/* Always visible sections */}
-          <SongSection />
-          <TracksSection />
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={currentTabSections}
+              strategy={verticalListSortingStrategy}
+            >
+              <TabDroppable tabId={`tab-${activeTab}`}>
+                {currentTabSections.length > 0 ? (
+                  currentTabSections.map((id) => (
+                    <SortableSection key={id} id={id}>
+                      {(dragHandleProps) => renderSection(id, dragHandleProps)}
+                    </SortableSection>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center p-6">
+                    <p className="text-center text-[10px] text-muted-foreground">
+                      {t("sidebar.dropHereHint")}
+                    </p>
+                  </div>
+                )}
+              </TabDroppable>
+            </SortableContext>
+          </DndContext>
 
-          {/* Beat-dependent sections */}
-          {selectedBeatInfo && selectedBarInfo ? (
-            <>
-              <BarSection bar={selectedBarInfo} />
-              <NoteSection beat={selectedBeatInfo} note={activeNote} />
-              <EffectsSection beat={selectedBeatInfo} note={activeNote} />
-            </>
-          ) : (
-            <div className="flex items-center justify-center p-4">
-              <p className="text-center text-xs text-muted-foreground">
-                {t("sidebar.emptyState")}
-              </p>
-            </div>
-          )}
+          {/* Empty state when no beat is selected (only on tabs with beat-dependent sections) */}
+          {!hasBeat &&
+            currentTabSections.some((id) => id === "bar" || id === "note" || id === "effects") && (
+              <div className="flex items-center justify-center p-4">
+                <p className="text-center text-xs text-muted-foreground">
+                  {t("sidebar.emptyState")}
+                </p>
+              </div>
+            )}
         </div>
       </ScrollArea>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ const SAMPLE_INTERVAL_MS = 500;
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function FpsMonitor() {
+  const { t } = useTranslation();
   const [visible, setVisible] = useState(true);
   const [showDiag, setShowDiag] = useState(true);
   const [stats, setStats] = useState<FpsStats>({
@@ -274,35 +276,35 @@ export function FpsMonitor() {
     const { detectedRefreshRate, rAFConsistency, prefersReducedMotion } =
       diagnostics;
 
-    if (rAFConsistency === "unknown") return "Collecting data...";
+    if (rAFConsistency === "unknown") return t("fps.collectingData");
 
     if (rAFConsistency === "locked" && stats.avg >= 28 && stats.avg <= 32) {
       if (detectedRefreshRate !== null && detectedRefreshRate <= 32) {
-        return "rAF locked at 30Hz. Display or browser is running at 30Hz refresh. Check: macOS System Settings → Displays → Refresh Rate. Also check if Low Power Mode is enabled (Settings → Battery).";
+        return t("fps.raf30HzDisplay");
       }
-      return "rAF locked at 30fps with consistent frame times (~33ms). Likely causes: (1) macOS Low Power Mode, (2) Chrome power throttling (chrome://flags → #throttle-display-none-frames), (3) External display at 30Hz, (4) GPU driver vsync at half-rate.";
+      return t("fps.raf30FpsLocked");
     }
 
     if (rAFConsistency === "variable" && stats.avg < 55) {
-      return `Main thread jank detected (${diagnostics.jankFrames} dropped frames). The app is doing heavy work that blocks rendering. Check: DevTools → Performance tab for long tasks.`;
+      return t("fps.mainThreadJank", { count: diagnostics.jankFrames });
     }
 
     if (prefersReducedMotion) {
-      return "prefers-reduced-motion is enabled. This shouldn't cap FPS but may affect animations.";
+      return t("fps.reducedMotionEnabled");
     }
 
     if (stats.avg >= 55) {
-      return "Performance looks good — hitting display refresh rate.";
+      return t("fps.performanceGood");
     }
 
-    return "Frame rate below target. Run DevTools → Performance profiling for details.";
+    return t("fps.belowTarget");
   };
 
   return (
     <div
       className="fixed bottom-2 right-2 z-[9999] flex flex-col gap-1.5 rounded-lg border border-white/10 bg-black/85 p-2.5 font-mono text-[11px] text-white/90 shadow-xl backdrop-blur-sm"
       style={{ maxWidth: 280 }}
-      title="Shift+F to toggle"
+      title={t("fps.toggleHint")}
     >
       {/* Header row */}
       <div className="flex items-center justify-between gap-3">
@@ -314,7 +316,7 @@ export function FpsMonitor() {
             onClick={() => setShowDiag((v) => !v)}
             className="text-[10px] text-white/40 hover:text-white/80"
           >
-            {showDiag ? "hide diag" : "show diag"}
+            {showDiag ? t("fps.hideDiag") : t("fps.showDiag")}
           </button>
           <button
             onClick={() => setVisible(false)}
@@ -328,16 +330,19 @@ export function FpsMonitor() {
       {/* Stats row */}
       <div className="flex gap-3 text-[10px] text-white/60">
         <span>
-          avg <span className="text-white/80 tabular-nums">{stats.avg}</span>
+          {t("fps.avg")}{" "}
+          <span className="text-white/80 tabular-nums">{stats.avg}</span>
         </span>
         <span>
-          min <span className="text-white/80 tabular-nums">{stats.min}</span>
+          {t("fps.min")}{" "}
+          <span className="text-white/80 tabular-nums">{stats.min}</span>
         </span>
         <span>
-          max <span className="text-white/80 tabular-nums">{stats.max}</span>
+          {t("fps.max")}{" "}
+          <span className="text-white/80 tabular-nums">{stats.max}</span>
         </span>
         <span>
-          ft{" "}
+          {t("fps.ft")}{" "}
           <span className="text-white/80 tabular-nums">
             {stats.frameTimeMs}ms
           </span>
@@ -351,34 +356,34 @@ export function FpsMonitor() {
       <div className="flex gap-2 text-[9px] text-white/40">
         <span>
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />{" "}
-          60fps
+          {t("fps.fps60")}
         </span>
         <span>
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-yellow-400" />{" "}
-          30fps
+          {t("fps.fps30")}
         </span>
         <span>
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />{" "}
-          {"<"}30fps
+          {t("fps.fpsBelow30")}
         </span>
       </div>
 
       {/* Diagnostics panel */}
       {showDiag && (
         <div className="mt-1 flex flex-col gap-1 border-t border-white/10 pt-1.5 text-[10px]">
-          <div className="font-semibold text-white/70">Diagnostics</div>
+          <div className="font-semibold text-white/70">{t("fps.diagnostics")}</div>
 
           <div className="flex flex-col gap-0.5 text-white/50">
             <span>
-              Detected rAF rate:{" "}
+              {t("fps.detectedRafRate")}{" "}
               <span className="text-white/80">
                 {diagnostics.detectedRefreshRate !== null
                   ? `${diagnostics.detectedRefreshRate} Hz`
-                  : "measuring..."}
+                  : t("fps.measuring")}
               </span>
             </span>
             <span>
-              Frame consistency:{" "}
+              {t("fps.frameConsistency")}{" "}
               <span
                 className={
                   diagnostics.rAFConsistency === "locked"
@@ -387,17 +392,17 @@ export function FpsMonitor() {
                 }
               >
                 {diagnostics.rAFConsistency}
-                {diagnostics.rAFConsistency === "locked" && " (throttled)"}
+                {diagnostics.rAFConsistency === "locked" && ` ${t("fps.throttled")}`}
               </span>
             </span>
             <span>
-              Jank frames:{" "}
+              {t("fps.jankFrames")}{" "}
               <span className="text-white/80">{diagnostics.jankFrames}</span>
             </span>
             <span>
-              prefers-reduced-motion:{" "}
+              {t("fps.prefersReducedMotion")}{" "}
               <span className="text-white/80">
-                {diagnostics.prefersReducedMotion ? "yes" : "no"}
+                {diagnostics.prefersReducedMotion ? t("fps.yes") : t("fps.no")}
               </span>
             </span>
           </div>

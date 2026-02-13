@@ -15,6 +15,34 @@
 import * as alphaTab from "@coderline/alphatab";
 import { create } from "zustand";
 
+import type {
+  AccentuationType,
+  BendType,
+  BendStyle,
+  VibratoType,
+  SlideInType,
+  SlideOutType,
+  HarmonicType,
+  Fingers,
+  NoteAccidentalMode,
+  NoteOrnament,
+  Duration,
+  DynamicValue,
+  GraceType,
+  PickStroke,
+  BrushType,
+  CrescendoType,
+  FadeType,
+  WhammyType,
+  GolpeType,
+  WahPedal,
+  FermataType,
+  Ottavia,
+  TripletFeel,
+  KeySignatureType,
+  BendPointSchema,
+} from "@/core/schema";
+
 // ─── Internal State ──────────────────────────────────────────────────────────
 
 let api: alphaTab.AlphaTabApi | null = null;
@@ -38,6 +66,88 @@ export interface SelectedBeat {
 export interface TrackBounds {
   y: number;
   height: number;
+}
+
+// ─── Selected Element Info (read from AlphaTab model) ────────────────────────
+
+export interface SelectedNoteInfo {
+  index: number;
+  fret: number;
+  string: number;
+  isDead: boolean;
+  isGhost: boolean;
+  isStaccato: boolean;
+  isLetRing: boolean;
+  isPalmMute: boolean;
+  isTieDestination: boolean;
+  isHammerPullOrigin: boolean;
+  isLeftHandTapped: boolean;
+  accentuated: AccentuationType;
+  vibrato: VibratoType;
+  slideInType: SlideInType;
+  slideOutType: SlideOutType;
+  harmonicType: HarmonicType;
+  harmonicValue: number;
+  bendType: BendType;
+  bendStyle: BendStyle;
+  bendPoints: BendPointSchema[];
+  leftHandFinger: Fingers;
+  rightHandFinger: Fingers;
+  dynamics: DynamicValue;
+  ornament: NoteOrnament;
+  accidentalMode: NoteAccidentalMode;
+  trillValue: number;
+  trillSpeed: Duration;
+  durationPercent: number;
+}
+
+export interface SelectedBeatInfo {
+  index: number;
+  duration: Duration;
+  dots: number;
+  isRest: boolean;
+  isEmpty: boolean;
+  tupletNumerator: number;
+  tupletDenominator: number;
+  graceType: GraceType;
+  pickStroke: PickStroke;
+  brushType: BrushType;
+  dynamics: DynamicValue;
+  crescendo: CrescendoType;
+  vibrato: VibratoType;
+  fade: FadeType;
+  ottava: Ottavia;
+  golpe: GolpeType;
+  wahPedal: WahPedal;
+  whammyBarType: WhammyType;
+  whammyBarPoints: BendPointSchema[];
+  text: string | null;
+  chordId: string | null;
+  tap: boolean;
+  slap: boolean;
+  pop: boolean;
+  slashed: boolean;
+  hasFermata: boolean;
+  fermataType: FermataType | null;
+  notes: SelectedNoteInfo[];
+}
+
+export interface SelectedBarInfo {
+  index: number;
+  timeSignatureNumerator: number;
+  timeSignatureDenominator: number;
+  keySignature: number;
+  keySignatureType: KeySignatureType;
+  isRepeatStart: boolean;
+  repeatCount: number;
+  alternateEndings: number;
+  tripletFeel: TripletFeel;
+  isFreeTime: boolean;
+  isDoubleBar: boolean;
+  hasSection: boolean;
+  sectionText: string;
+  sectionMarker: string;
+  tempo: number | null;
 }
 
 export interface PlayerState {
@@ -66,6 +176,10 @@ export interface PlayerState {
 
   // Cursors
   selectedBeat: SelectedBeat | null;
+  /** Detailed note-level properties of the selected beat's notes (from AlphaTab model). */
+  selectedBeatInfo: SelectedBeatInfo | null;
+  /** Detailed bar-level properties of the selected bar (from AlphaTab model). */
+  selectedBarInfo: SelectedBarInfo | null;
 
   // View
   zoom: number;
@@ -99,6 +213,102 @@ function readVisibleIndices(): number[] {
   return api.tracks.map((t) => t.index);
 }
 
+/** Extract detailed note info from an AlphaTab Note model object. */
+function extractNoteInfo(note: alphaTab.model.Note): SelectedNoteInfo {
+  return {
+    index: note.index,
+    fret: note.fret,
+    string: note.string,
+    isDead: note.isDead,
+    isGhost: note.isGhost,
+    isStaccato: note.isStaccato,
+    isLetRing: note.isLetRing,
+    isPalmMute: note.isPalmMute,
+    isTieDestination: note.isTieDestination,
+    isHammerPullOrigin: note.isHammerPullOrigin,
+    isLeftHandTapped: note.isLeftHandTapped,
+    accentuated: note.accentuated as unknown as AccentuationType,
+    vibrato: note.vibrato as unknown as VibratoType,
+    slideInType: note.slideInType as unknown as SlideInType,
+    slideOutType: note.slideOutType as unknown as SlideOutType,
+    harmonicType: note.harmonicType as unknown as HarmonicType,
+    harmonicValue: note.harmonicValue,
+    bendType: note.bendType as unknown as BendType,
+    bendStyle: note.bendStyle as unknown as BendStyle,
+    bendPoints: note.bendPoints
+      ? note.bendPoints.map((p) => ({ offset: p.offset, value: p.value }))
+      : [],
+    leftHandFinger: note.leftHandFinger as unknown as Fingers,
+    rightHandFinger: note.rightHandFinger as unknown as Fingers,
+    dynamics: note.dynamics as unknown as DynamicValue,
+    ornament: note.ornament as unknown as NoteOrnament,
+    accidentalMode: note.accidentalMode as unknown as NoteAccidentalMode,
+    trillValue: note.trillValue,
+    trillSpeed: note.trillSpeed as unknown as Duration,
+    durationPercent: note.durationPercent,
+  };
+}
+
+/** Extract detailed beat info from an AlphaTab Beat model object. */
+function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
+  const fermata = beat.fermata;
+  return {
+    index: beat.index,
+    duration: beat.duration as unknown as Duration,
+    dots: beat.dots,
+    isRest: beat.isRest,
+    isEmpty: beat.isEmpty,
+    tupletNumerator: beat.tupletNumerator,
+    tupletDenominator: beat.tupletDenominator,
+    graceType: beat.graceType as unknown as GraceType,
+    pickStroke: beat.pickStroke as unknown as PickStroke,
+    brushType: beat.brushType as unknown as BrushType,
+    dynamics: beat.dynamics as unknown as DynamicValue,
+    crescendo: beat.crescendo as unknown as CrescendoType,
+    vibrato: beat.vibrato as unknown as VibratoType,
+    fade: beat.fade as unknown as FadeType,
+    ottava: beat.ottava as unknown as Ottavia,
+    golpe: beat.golpe as unknown as GolpeType,
+    wahPedal: beat.wahPedal as unknown as WahPedal,
+    whammyBarType: beat.whammyBarType as unknown as WhammyType,
+    whammyBarPoints: beat.whammyBarPoints
+      ? beat.whammyBarPoints.map((p) => ({ offset: p.offset, value: p.value }))
+      : [],
+    text: beat.text ?? null,
+    chordId: beat.chordId ?? null,
+    tap: beat.tap,
+    slap: beat.slap,
+    pop: beat.pop,
+    slashed: beat.slashed,
+    hasFermata: fermata !== null,
+    fermataType: fermata ? (fermata.type as unknown as FermataType) : null,
+    notes: beat.notes.map(extractNoteInfo),
+  };
+}
+
+/** Extract detailed bar info from an AlphaTab Bar + MasterBar. */
+function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
+  const mb = bar.masterBar;
+  const tempoAuto = mb.tempoAutomation;
+  return {
+    index: bar.index,
+    timeSignatureNumerator: mb.timeSignatureNumerator,
+    timeSignatureDenominator: mb.timeSignatureDenominator,
+    keySignature: mb.keySignature as unknown as number,
+    keySignatureType: mb.keySignatureType as unknown as KeySignatureType,
+    isRepeatStart: mb.isRepeatStart,
+    repeatCount: mb.repeatCount,
+    alternateEndings: mb.alternateEndings,
+    tripletFeel: mb.tripletFeel as unknown as TripletFeel,
+    isFreeTime: mb.isFreeTime,
+    isDoubleBar: mb.isDoubleBar,
+    hasSection: mb.section !== null,
+    sectionText: mb.section?.text ?? "",
+    sectionMarker: mb.section?.marker ?? "",
+    tempo: tempoAuto ? tempoAuto.value : null,
+  };
+}
+
 // ─── Store ───────────────────────────────────────────────────────────────────
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -118,6 +328,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   visibleTrackIndices: [],
   trackBounds: [],
   selectedBeat: null,
+  selectedBeatInfo: null,
+  selectedBarInfo: null,
   zoom: 1,
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -230,12 +442,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
 
     api.beatMouseDown.on((beat: alphaTab.model.Beat) => {
+      const bar = beat.voice.bar;
       set({
         selectedBeat: {
-          trackIndex: beat.voice.bar.staff.track.index,
-          barIndex: beat.voice.bar.index,
+          trackIndex: bar.staff.track.index,
+          barIndex: bar.index,
           beatIndex: beat.index,
         },
+        selectedBeatInfo: extractBeatInfo(beat),
+        selectedBarInfo: extractBarInfo(bar),
       });
     });
 
@@ -261,6 +476,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       visibleTrackIndices: [],
       trackBounds: [],
       selectedBeat: null,
+      selectedBeatInfo: null,
+      selectedBarInfo: null,
     });
   },
 

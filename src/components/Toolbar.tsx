@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   FolderOpen,
   Play,
@@ -8,7 +9,10 @@ import {
   Eye,
   EyeOff,
   Activity,
+  Globe,
+  Check,
 } from "lucide-react";
+import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -38,6 +42,7 @@ const ZOOM_OPTIONS = [0.25, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2];
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function Toolbar() {
+  const { t, i18n } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isPlayerReady = usePlayerStore((s) => s.isPlayerReady);
@@ -83,7 +88,7 @@ export function Toolbar() {
             <FolderOpen className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Open file</TooltipContent>
+        <TooltipContent>{t("toolbar.openFile")}</TooltipContent>
       </Tooltip>
 
       <input
@@ -96,7 +101,7 @@ export function Toolbar() {
 
       <div className="ml-1 mr-2 min-w-0 flex-shrink overflow-hidden">
         <span className="block truncate text-sm font-medium leading-tight">
-          {scoreTitle || "No file loaded"}
+          {scoreTitle || t("toolbar.noFileLoaded")}
         </span>
         {scoreArtist && (
           <span className="block truncate text-xs text-muted-foreground leading-tight">
@@ -121,7 +126,7 @@ export function Toolbar() {
               <Square className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Stop</TooltipContent>
+          <TooltipContent>{t("toolbar.stop")}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -140,13 +145,15 @@ export function Toolbar() {
               )}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{isPlaying ? "Pause" : "Play"}</TooltipContent>
+          <TooltipContent>
+            {isPlaying ? t("toolbar.pause") : t("toolbar.play")}
+          </TooltipContent>
         </Tooltip>
 
         <span className="min-w-[100px] text-center font-mono text-xs text-muted-foreground tabular-nums">
           {isPlayerReady
             ? `${formatTime(currentTime)} / ${formatTime(endTime)}`
-            : `Loading ${Math.floor(soundFontProgress * 100)}%`}
+            : t("toolbar.loading", { percent: Math.floor(soundFontProgress * 100) })}
         </span>
       </div>
 
@@ -159,7 +166,7 @@ export function Toolbar() {
           value={zoom}
           onChange={(e) => setZoom(Number(e.target.value))}
           className="h-8 rounded-md border bg-transparent px-2 text-xs"
-          title="Zoom"
+          title={t("toolbar.zoom")}
         >
           {ZOOM_OPTIONS.map((z) => (
             <option key={z} value={z}>
@@ -183,7 +190,7 @@ export function Toolbar() {
                 <Activity className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>FPS Monitor (Shift+F)</TooltipContent>
+            <TooltipContent>{t("toolbar.fpsMonitor")}</TooltipContent>
           </Tooltip>
         )}
 
@@ -192,7 +199,7 @@ export function Toolbar() {
           <Popover>
             <PopoverTrigger
               className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
-              title={`Tracks (${visibleCount}/${tracks.length})`}
+              title={t("toolbar.tracks", { visible: visibleCount, total: tracks.length })}
             >
               <Layers className="h-4 w-4" />
             </PopoverTrigger>
@@ -200,7 +207,7 @@ export function Toolbar() {
             <PopoverContent align="end" className="w-56 p-1">
               <div className="px-2 py-1.5">
                 <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Visible Tracks
+                  {t("toolbar.visibleTracks")}
                 </span>
               </div>
               {tracks.map((track) => {
@@ -228,6 +235,49 @@ export function Toolbar() {
             </PopoverContent>
           </Popover>
         )}
+
+        {/* Language Selector */}
+        <Popover>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+                title={t("toolbar.language")}
+              >
+                <Globe className="h-4 w-4" />
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent>{t("toolbar.language")}</TooltipContent>
+          </Tooltip>
+
+          <PopoverContent align="end" className="w-44 p-1">
+            <div className="px-2 py-1.5">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                {t("toolbar.language")}
+              </span>
+            </div>
+            {Object.entries(SUPPORTED_LANGUAGES).map(([code, label]) => {
+              const isActive = i18n.language === code;
+              return (
+                <button
+                  key={code}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent",
+                    !isActive && "text-muted-foreground",
+                  )}
+                  onClick={() => i18n.changeLanguage(code)}
+                >
+                  {isActive ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <span className="h-3.5 w-3.5" />
+                  )}
+                  <span>{label}</span>
+                </button>
+              );
+            })}
+          </PopoverContent>
+        </Popover>
       </div>
     </div>
   );

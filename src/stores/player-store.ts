@@ -47,6 +47,19 @@ import type {
 
 let api: alphaTab.AlphaTabApi | null = null;
 
+/**
+ * Captures the last mousedown coordinates (in AlphaTab rendering space)
+ * so the beatMouseDown handler can use boundsLookup for precise per-track
+ * and per-note resolution.  AlphaTab's built-in beat/note events sometimes
+ * resolve to the wrong track in multi-track horizontal layout.
+ */
+let lastMouseDownX = 0;
+let lastMouseDownY = 0;
+
+/** References to DOM elements needed for coordinate conversion. */
+let mainElement: HTMLElement | null = null;
+let viewportElement: HTMLElement | null = null;
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface TrackInfo {
@@ -180,6 +193,8 @@ export interface PlayerState {
   selectedBeatInfo: SelectedBeatInfo | null;
   /** Detailed bar-level properties of the selected bar (from AlphaTab model). */
   selectedBarInfo: SelectedBarInfo | null;
+  /** Index into selectedBeatInfo.notes[] for the actively selected note, or -1 if none. */
+  selectedNoteIndex: number;
 
   // View
   zoom: number;
@@ -330,6 +345,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedBeat: null,
   selectedBeatInfo: null,
   selectedBarInfo: null,
+  selectedNoteIndex: -1,
   zoom: 1,
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -340,8 +356,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     set({ isLoading: true });
 
+    mainElement = mainEl;
+    viewportElement = viewportEl;
+
     const settings = new alphaTab.Settings();
     settings.core.fontDirectory = "/font/";
+    settings.core.includeNoteBounds = true; // Enable per-note hit testing
     settings.player.enablePlayer = true;
     settings.player.soundFont = "/soundfont/sonivox.sf2";
     settings.player.scrollElement = viewportEl;
@@ -351,6 +371,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     settings.display.layoutMode = alphaTab.LayoutMode.Horizontal;
 
     api = new alphaTab.AlphaTabApi(mainEl, settings);
+
+    // ── Capture mousedown coordinates for custom hit-testing ─────────
+    // AlphaTab's beatMouseDown/noteMouseDown events don't always resolve
+    // to the correct track in multi-track horizontal layout.  We capture
+    // coordinates here and use boundsLookup in the beatMouseDown handler
+    // for accurate per-track resolution.
+    const onMouseDown = (e: MouseEvent) => {
+      if (!api || !mainElement) return;
+      // .at-main's getBoundingClientRect already accounts for the viewport
+      // scroll, so we just need the offset from its top-left corner,
+      // divided by the display scale.
+      const rect = mainElement.getBoundingClientRect();
+      const scale = api.settings.display.scale;
+      lastMouseDownX = (e.clientX - rect.left) / scale;
+      lastMouseDownY = (e.clientY - rect.top) / scale;
+    };
+    viewportEl.addEventListener("mousedown", onMouseDown, { capture: true });
 
     // ── Wire Events ──────────────────────────────────────────────────────
 
@@ -441,16 +478,114 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({ playerState: "stopped", currentTime: 0 });
     });
 
-    api.beatMouseDown.on((beat: alphaTab.model.Beat) => {
-      const bar = beat.voice.bar;
+    // ── Note-level selection via boundsLookup ───────────────────────────
+    // AlphaTab's beatMouseDown/noteMouseDown sometimes resolve to the
+    // wrong track in multi-track horizontal layout.  We use the captured
+    // mousedown coordinates + boundsLookup for accurate per-track,
+    // per-note resolution.  AlphaTab's event is still used as the trigger
+    // and as a fallback if boundsLookup fails.
+
+    api.beatMouseDown.on((eventBeat: alphaTab.model.Beat) => {
+      let targetBeat = eventBeat;
+      let noteIndex = -1;
+      let hitSource = "event";
+
+      // ── Custom per-track hit-testing ───────────────────────────────
+      // AlphaTab's getBeatAtPos() ignores Y in horizontal layout, so we
+      // walk the boundsLookup structure manually for correct per-track
+      // resolution.
+      const lookup = api?.boundsLookup;
+      if (lookup) {
+        const x = lastMouseDownX;
+        const y = lastMouseDownY;
+
+        // 1. Find the staff system that contains the Y position
+        for (const system of lookup.staffSystems) {
+          const sb = system.realBounds;
+          if (y < sb.y || y > sb.y + sb.h) continue;
+
+          // 2. Find the master bar whose X range contains the click
+          for (const masterBar of system.bars) {
+            const mb = masterBar.realBounds;
+            if (x < mb.x || x > mb.x + mb.w) continue;
+
+            // 3. Find the bar (= track) whose Y range contains the click
+            for (const barBounds of masterBar.bars) {
+              const bb = barBounds.realBounds;
+              if (y < bb.y || y > bb.y + bb.h) continue;
+
+              // 4. Find the beat whose X range contains the click
+              let bestBeat: alphaTab.model.Beat | null = null;
+              let bestNote: alphaTab.model.Note | null = null;
+              let bestBeatDist = Infinity;
+
+              for (const beatBounds of barBounds.beats) {
+                const bx = beatBounds.realBounds;
+                const dist = Math.abs(
+                  x - (bx.x + bx.w / 2),
+                );
+                if (dist < bestBeatDist) {
+                  bestBeatDist = dist;
+                  bestBeat = beatBounds.beat;
+
+                  // 5. Check for per-note hit within this beat
+                  bestNote = null;
+                  if (beatBounds.notes) {
+                    const noteHit = beatBounds.findNoteAtPos(x, y);
+                    if (noteHit) bestNote = noteHit;
+                  }
+                }
+              }
+
+              if (bestBeat) {
+                targetBeat = bestBeat;
+                hitSource = "bounds";
+                if (bestNote) {
+                  noteIndex = bestBeat.notes.indexOf(bestNote);
+                  if (noteIndex < 0) noteIndex = 0;
+                  hitSource = "note";
+                } else if (bestBeat.notes.length > 0) {
+                  noteIndex = 0;
+                }
+              }
+              break; // found the matching bar
+            }
+            break; // found the matching master bar
+          }
+          break; // found the matching system
+        }
+      }
+
+      // Fallback: if custom hit-testing didn't resolve, use the event beat
+      if (hitSource === "event" && targetBeat.notes.length > 0) {
+        noteIndex = 0;
+      }
+
+      // Expose debug info for e2e tests
+      if (import.meta.env.DEV) {
+        const bar = targetBeat.voice.bar;
+        (window as unknown as Record<string, unknown>).__SELECTION_DEBUG__ = {
+          mouseX: lastMouseDownX,
+          mouseY: lastMouseDownY,
+          hitSource,
+          trackIndex: bar.staff.track.index,
+          barIndex: bar.index,
+          beatIndex: targetBeat.index,
+          noteCount: targetBeat.notes.length,
+          noteIndex,
+        };
+      }
+
+      const bar = targetBeat.voice.bar;
       set({
         selectedBeat: {
           trackIndex: bar.staff.track.index,
           barIndex: bar.index,
-          beatIndex: beat.index,
+          beatIndex: targetBeat.index,
         },
-        selectedBeatInfo: extractBeatInfo(beat),
+        selectedBeatInfo: extractBeatInfo(targetBeat),
         selectedBarInfo: extractBarInfo(bar),
+        selectedNoteIndex: noteIndex,
       });
     });
 
@@ -463,6 +598,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       api.destroy();
       api = null;
     }
+    mainElement = null;
+    viewportElement = null;
     set({
       isLoading: false,
       isPlayerReady: false,
@@ -478,6 +615,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       selectedBeat: null,
       selectedBeatInfo: null,
       selectedBarInfo: null,
+      selectedNoteIndex: -1,
     });
   },
 
@@ -602,3 +740,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set({ zoom });
   },
 }));
+
+// Expose store on window for e2e diagnostics (dev only)
+if (import.meta.env.DEV) {
+  (window as unknown as Record<string, unknown>).__PLAYER_STORE__ =
+    usePlayerStore;
+}

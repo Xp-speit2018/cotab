@@ -381,10 +381,31 @@ function findBeatBounds(
 }
 
 /**
- * Build snap grids for all visible tracks by scanning NoteBounds from the
- * first staff system.  For tablature tracks the positions correspond to
- * string lines; for standard notation they correspond to staff lines and
- * spaces.
+ * Cluster an array of Y values by merging those within `tolerance` of each
+ * other, returning the average of each cluster sorted ascending.
+ */
+function clusterYPositions(ys: number[], tolerance: number): number[] {
+  if (ys.length === 0) return [];
+  const sorted = [...ys].sort((a, b) => a - b);
+  const clusters: number[][] = [[sorted[0]]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = clusters[clusters.length - 1];
+    if (sorted[i] - last[last.length - 1] <= tolerance) {
+      last.push(sorted[i]);
+    } else {
+      clusters.push([sorted[i]]);
+    }
+  }
+  return clusters.map(
+    (c) => c.reduce((a, b) => a + b, 0) / c.length,
+  );
+}
+
+/**
+ * Build snap grids for all visible tracks by scanning NoteBounds.
+ * For tablature tracks the positions correspond to string lines;
+ * for standard notation they correspond to staff lines and spaces
+ * (5 lines + 4 spaces = 9 core positions + ledger positions).
  */
 function buildSnapGrids(): void {
   snapGrids.clear();
@@ -392,16 +413,20 @@ function buildSnapGrids(): void {
   const score = api?.score;
   if (!lookup || !score || lookup.staffSystems.length === 0) return;
 
+  // ── Collection phase ──────────────────────────────────────────────
   // Collect note head positions across ALL systems / master bars so that
   // even tracks whose first system is rests still get a grid.
   const collected = new Map<
     string,
     {
-      stringYs: Map<number, number>; // string → centerY
+      stringYs: Map<number, number>; // string → centerY (for tab)
+      allYPositions: number[];       // every note centerY (for notation)
       widths: number[];
       heights: number[];
       trackIndex: number;
       staffIndex: number;
+      isTab: boolean;
+      barRealBounds: { y: number; h: number } | null;
     }
   >();
 
@@ -416,24 +441,46 @@ function buildSnapGrids(): void {
         const key = `${ti}:${si}`;
         let entry = collected.get(key);
         if (!entry) {
+          const trackObj = score.tracks[ti];
+          const staffObj = trackObj?.staves[si];
           entry = {
             stringYs: new Map(),
+            allYPositions: [],
             widths: [],
             heights: [],
             trackIndex: ti,
             staffIndex: si,
+            isTab: staffObj?.showTablature ?? true,
+            barRealBounds: null,
           };
           collected.set(key, entry);
+        }
+
+        // Capture bar realBounds for fallback (first seen)
+        if (!entry.barRealBounds) {
+          entry.barRealBounds = {
+            y: barBounds.realBounds.y,
+            h: barBounds.realBounds.h,
+          };
         }
 
         for (const beatBounds of barBounds.beats) {
           if (!beatBounds.notes) continue;
           for (const nb of beatBounds.notes) {
+            const centerY = nb.noteHeadBounds.y + nb.noteHeadBounds.h / 2;
+
+            // For tab: one Y per string number
             const s = nb.note.string;
             if (!entry.stringYs.has(s)) {
-              const centerY = nb.noteHeadBounds.y + nb.noteHeadBounds.h / 2;
               entry.stringYs.set(s, centerY);
             }
+            // For notation: collect every note Y position
+            // Also for percussion (uses notation grid even when showTablature is true)
+            const trackObj = score.tracks[ti];
+            if (!entry.isTab || trackObj?.isPercussion) {
+              entry.allYPositions.push(centerY);
+            }
+
             entry.widths.push(nb.noteHeadBounds.w);
             entry.heights.push(nb.noteHeadBounds.h);
           }
@@ -442,31 +489,29 @@ function buildSnapGrids(): void {
     }
   }
 
-  // For each track/staff, build a complete grid.
+  // ── Grid generation phase ─────────────────────────────────────────
   for (const [key, entry] of collected) {
-    if (entry.stringYs.size === 0) continue;
-
     const track = score.tracks[entry.trackIndex];
     if (!track) continue;
     const staff = track.staves[entry.staffIndex];
     if (!staff) continue;
 
-    const isTab = staff.showTablature;
+    // Need at least some data to build a grid
+    if (entry.stringYs.size === 0 && entry.allYPositions.length === 0) continue;
+
     const medianW = median(entry.widths);
     const medianH = median(entry.heights);
-
     const positions: SnapPosition[] = [];
 
-    if (isTab) {
+    // Percussion notation uses a staff (lines + spaces); treat as standard
+    // notation even when showTablature is true (GP drum tab uses fewer "strings").
+    if (entry.isTab && !track.isPercussion) {
       // ── Tablature: one position per string ──
       const numStrings = staff.tuning.length || 6;
       if (entry.stringYs.size >= 2) {
-        // Compute spacing from known data points
         const sorted = [...entry.stringYs.entries()].sort(
           (a, b) => a[0] - b[0],
         );
-        // String numbers increase from top to bottom in tab
-        // Y should also increase top to bottom.  Use linear fit.
         const firstS = sorted[0][0];
         const firstY = sorted[0][1];
         const lastS = sorted[sorted.length - 1][0];
@@ -474,11 +519,9 @@ function buildSnapGrids(): void {
         const spacing = (lastY - firstY) / (lastS - firstS);
 
         for (let s = 1; s <= numStrings; s++) {
-          const y = firstY + (s - firstS) * spacing;
-          positions.push({ string: s, y });
+          positions.push({ string: s, y: firstY + (s - firstS) * spacing });
         }
       } else {
-        // Only 1 data point — use it and assume default spacing
         const [knownS, knownY] = [...entry.stringYs.entries()][0];
         const defaultSpacing = medianH * 1.5;
         for (let s = 1; s <= numStrings; s++) {
@@ -489,38 +532,54 @@ function buildSnapGrids(): void {
         }
       }
     } else {
-      // ── Standard notation: staff lines + spaces ──
-      // Standard staff = 5 lines.  Lines and spaces alternate.
-      // Positions: line 5 (top), space 4-5, line 4, space 3-4, line 3,
-      //   space 2-3, line 2, space 1-2, line 1 (bottom)
-      // = 9 core positions.  Add 2 ledger positions above + 2 below = 13.
-      if (entry.stringYs.size >= 2) {
-        const sorted = [...entry.stringYs.entries()].sort(
-          (a, b) => a[1] - b[1],
-        );
-        // Estimate half-step spacing from 2+ different Y values
-        // Use the minimum positive Y gap as the half-step
-        let minGap = Infinity;
-        for (let i = 1; i < sorted.length; i++) {
-          const gap = sorted[i][1] - sorted[i - 1][1];
-          if (gap > 0.5 && gap < minGap) minGap = gap;
-        }
-        if (!isFinite(minGap)) minGap = medianH * 1.2;
+      // ── Standard notation: 5 lines + 4 spaces = 9 core positions ──
+      // Cluster all observed note Y positions to find distinct staff
+      // positions, then derive halfSpace (line-to-space distance) from
+      // the minimum gap between clusters.
+      const distinctYs = clusterYPositions(entry.allYPositions, 1.0);
 
-        // Midpoint of the staff
-        const topY = sorted[0][1];
-
-        // Generate 13 positions centered around the known range
-        for (let i = -2; i <= 10; i++) {
-          positions.push({ string: i + 1, y: topY + i * minGap });
+      let halfSpace: number;
+      if (distinctYs.length >= 2) {
+        // The minimum gap between distinct positions = half-space
+        halfSpace = Infinity;
+        for (let i = 1; i < distinctYs.length; i++) {
+          const gap = distinctYs[i] - distinctYs[i - 1];
+          if (gap > 0.5 && gap < halfSpace) halfSpace = gap;
         }
+        if (!isFinite(halfSpace)) halfSpace = medianH * 1.2;
       } else {
-        // Only 1 data point
-        const [, knownY] = [...entry.stringYs.entries()][0];
-        const defaultSpacing = medianH * 1.2;
-        for (let i = -2; i <= 10; i++) {
-          positions.push({ string: i + 1, y: knownY + i * defaultSpacing });
+        // Fallback: derive from bar realBounds
+        // A 5-line staff has 4 inter-line gaps; realBounds includes ~1 gap
+        // of padding top + bottom, so total ≈ 6 halfSpaces * 2 = 12 halfSpaces.
+        const barH = entry.barRealBounds?.h ?? medianH * 10;
+        halfSpace = barH / 12;
+      }
+
+      // Validate: the 9 core positions (8 gaps) should fit within
+      // roughly the bar's real bounds.  If the note-derived spacing is
+      // too large (e.g. drumkit with only 2 distinct note positions far
+      // apart), fall back to bar-geometry spacing.
+      if (entry.barRealBounds) {
+        const coreSpan = 8 * halfSpace;
+        if (coreSpan > entry.barRealBounds.h * 1.5) {
+          halfSpace = entry.barRealBounds.h / 12;
         }
+      }
+
+      // Anchor at the median of observed Y values, or bar center
+      const anchorY =
+        distinctYs.length > 0
+          ? distinctYs[Math.floor(distinctYs.length / 2)]
+          : entry.barRealBounds
+            ? entry.barRealBounds.y + entry.barRealBounds.h / 2
+            : 0;
+
+      // Generate 21 positions:
+      //   3 ledger lines above + 5 staff lines + 3 ledger lines below
+      //   = 11 lines + 10 spaces = 21 selectable positions (20 gaps)
+      // Centered so index 11 = anchorY
+      for (let i = -10; i <= 10; i++) {
+        positions.push({ string: i + 11, y: anchorY + i * halfSpace });
       }
     }
 
@@ -1186,13 +1245,50 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const bar = beat.voice.bar;
       const selectedStr = stringArg ?? -1;
 
-      // Derive noteIndex from string: find a note on the selected string
+      // Look up grid and beat bounds (needed for both cursor and note matching)
+      const gridKey = `${trackIndex}:${staffIndex}`;
+      const grid = snapGrids.get(gridKey) ?? null;
+      const snap =
+        grid && selectedStr > 0
+          ? grid.positions.find((p) => p.string === selectedStr) ?? null
+          : null;
+      const bb = findBeatBounds(trackIndex, staffIndex, barIndex, beatIndex);
+
+      // Determine if this track uses a notation grid (not tab)
+      const staff = bar.staff;
+      const isNotationGrid = !staff.showTablature || staff.track.isPercussion;
+
+      // Derive noteIndex from the selected position
       let resolvedNoteIndex: number;
       if (noteIndex !== undefined && noteIndex >= 0 && noteIndex < beat.notes.length) {
         resolvedNoteIndex = noteIndex;
       } else if (selectedStr > 0 && beat.notes.length > 0) {
-        const idx = beat.notes.findIndex((n) => n.string === selectedStr);
-        resolvedNoteIndex = idx >= 0 ? idx : -1;
+        if (isNotationGrid && snap && bb?.notes) {
+          // For notation tracks, grid string indices don't correspond to
+          // note.string values.  Match by finding the note whose rendered
+          // Y position is closest to the snapped grid position's Y.
+          let bestIdx = -1;
+          let bestDist = Infinity;
+          for (const noteBounds of bb.notes) {
+            const noteY =
+              noteBounds.noteHeadBounds.y + noteBounds.noteHeadBounds.h / 2;
+            const dist = Math.abs(noteY - snap.y);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestIdx = beat.notes.indexOf(noteBounds.note);
+            }
+          }
+          // Only accept if close enough (within 0.75 * halfSpace)
+          const halfSpace =
+            grid && grid.positions.length >= 2
+              ? Math.abs(grid.positions[1].y - grid.positions[0].y)
+              : Infinity;
+          resolvedNoteIndex = bestDist < halfSpace * 0.75 ? bestIdx : -1;
+        } else {
+          // For tab tracks, grid string === note.string
+          const idx = beat.notes.findIndex((n) => n.string === selectedStr);
+          resolvedNoteIndex = idx >= 0 ? idx : -1;
+        }
       } else if (beat.notes.length > 0) {
         resolvedNoteIndex = 0;
       } else {
@@ -1210,13 +1306,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
 
       // Position the cursor rectangle
-      const gridKey = `${trackIndex}:${staffIndex}`;
-      const grid = snapGrids.get(gridKey) ?? null;
-      const snap =
-        grid && selectedStr > 0
-          ? grid.positions.find((p) => p.string === selectedStr) ?? null
-          : null;
-      const bb = findBeatBounds(trackIndex, staffIndex, barIndex, beatIndex);
       updateCursorRect(bb, snap, grid);
 
       set({
@@ -1259,6 +1348,11 @@ if (import.meta.env.DEV) {
   // Also expose a getter for the module-scoped api (useful for headless debugging)
   Object.defineProperty(window, "__ALPHATAB_API__", {
     get: () => api,
+    configurable: true,
+  });
+  // Expose snap grids for e2e testing
+  Object.defineProperty(window, "__SNAP_GRIDS__", {
+    get: () => Object.fromEntries(snapGrids),
     configurable: true,
   });
 }

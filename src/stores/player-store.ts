@@ -194,6 +194,33 @@ export interface SelectedBarInfo {
   tempo: number | null;
 }
 
+export interface SelectedTrackInfo {
+  index: number;
+  name: string;
+  shortName: string;
+  isPercussion: boolean;
+  staffCount: number;
+  playbackChannel: number;
+  playbackProgram: number;
+  playbackPort: number;
+}
+
+export interface SelectedStaffInfo {
+  index: number;
+  showTablature: boolean;
+  showStandardNotation: boolean;
+  stringCount: number;
+  capo: number;
+  transpositionPitch: number;
+  displayTranspositionPitch: number;
+}
+
+export interface SelectedVoiceInfo {
+  index: number;
+  isEmpty: boolean;
+  beatCount: number;
+}
+
 export interface PlayerState {
   // Loading
   isLoading: boolean;
@@ -230,10 +257,16 @@ export interface PlayerState {
 
   // Cursors
   selectedBeat: SelectedBeat | null;
-  /** Detailed note-level properties of the selected beat's notes (from AlphaTab model). */
-  selectedBeatInfo: SelectedBeatInfo | null;
+  /** Detailed track-level properties of the selected track (from AlphaTab model). */
+  selectedTrackInfo: SelectedTrackInfo | null;
+  /** Detailed staff-level properties of the selected staff (from AlphaTab model). */
+  selectedStaffInfo: SelectedStaffInfo | null;
   /** Detailed bar-level properties of the selected bar (from AlphaTab model). */
   selectedBarInfo: SelectedBarInfo | null;
+  /** Detailed voice-level properties of the selected voice (from AlphaTab model). */
+  selectedVoiceInfo: SelectedVoiceInfo | null;
+  /** Detailed note-level properties of the selected beat's notes (from AlphaTab model). */
+  selectedBeatInfo: SelectedBeatInfo | null;
   /** Index into selectedBeatInfo.notes[] for the actively selected note, or -1 if none. */
   selectedNoteIndex: number;
   /** The string/line the cursor is on, -1 = none. */
@@ -735,6 +768,43 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
   };
 }
 
+/** Extract track-level info from an AlphaTab Track model object. */
+function extractTrackInfo(track: alphaTab.model.Track): SelectedTrackInfo {
+  const pi = track.playbackInfo;
+  return {
+    index: track.index,
+    name: track.name,
+    shortName: track.shortName,
+    isPercussion: track.isPercussion,
+    staffCount: track.staves.length,
+    playbackChannel: pi.primaryChannel,
+    playbackProgram: pi.program,
+    playbackPort: pi.port,
+  };
+}
+
+/** Extract staff-level info from an AlphaTab Staff model object. */
+function extractStaffInfo(staff: alphaTab.model.Staff): SelectedStaffInfo {
+  return {
+    index: staff.index,
+    showTablature: staff.showTablature,
+    showStandardNotation: staff.showStandardNotation,
+    stringCount: staff.tuning.length,
+    capo: staff.capo,
+    transpositionPitch: staff.transpositionPitch,
+    displayTranspositionPitch: staff.displayTranspositionPitch,
+  };
+}
+
+/** Extract voice-level info from an AlphaTab Voice model object. */
+function extractVoiceInfo(voice: alphaTab.model.Voice): SelectedVoiceInfo {
+  return {
+    index: voice.index,
+    isEmpty: voice.isEmpty,
+    beatCount: voice.beats.length,
+  };
+}
+
 /** Extract detailed bar info from an AlphaTab Bar + MasterBar. */
 function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
   const mb = bar.masterBar;
@@ -787,8 +857,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   visibleTrackIndices: [],
   trackBounds: [],
   selectedBeat: null,
-  selectedBeatInfo: null,
+  selectedTrackInfo: null,
+  selectedStaffInfo: null,
   selectedBarInfo: null,
+  selectedVoiceInfo: null,
+  selectedBeatInfo: null,
   selectedNoteIndex: -1,
   selectedString: -1,
   zoom: 1,
@@ -1090,8 +1163,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       visibleTrackIndices: [],
       trackBounds: [],
       selectedBeat: null,
-      selectedBeatInfo: null,
+      selectedTrackInfo: null,
+      selectedStaffInfo: null,
       selectedBarInfo: null,
+      selectedVoiceInfo: null,
+      selectedBeatInfo: null,
       selectedNoteIndex: -1,
       selectedString: -1,
     });
@@ -1317,8 +1393,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           beatIndex,
           string: selectedStr,
         },
-        selectedBeatInfo: extractBeatInfo(beat),
+        selectedTrackInfo: extractTrackInfo(bar.staff.track),
+        selectedStaffInfo: extractStaffInfo(bar.staff),
         selectedBarInfo: extractBarInfo(bar),
+        selectedVoiceInfo: extractVoiceInfo(beat.voice),
+        selectedBeatInfo: extractBeatInfo(beat),
         selectedNoteIndex: resolvedNoteIndex,
         selectedString: selectedStr,
       });
@@ -1333,8 +1412,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     updateCursorRect(null, null, null);
     set({
       selectedBeat: null,
-      selectedBeatInfo: null,
+      selectedTrackInfo: null,
+      selectedStaffInfo: null,
       selectedBarInfo: null,
+      selectedVoiceInfo: null,
+      selectedBeatInfo: null,
       selectedNoteIndex: -1,
       selectedString: -1,
     });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Loader2,
@@ -7,7 +7,8 @@ import {
   VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
+import { VolumeKnob } from "@/components/ui/volume-knob";
+import { ResizeHandle } from "@/components/ui/resize-handle";
 import { usePlayerStore, type TrackInfo, type TrackBounds } from "@/stores/player-store";
 import { cn } from "@/lib/utils";
 
@@ -62,18 +63,10 @@ function CompactMixer({
           S
         </Button>
 
-        <Slider
-          min={0}
-          max={1}
-          step={0.01}
-          value={[track.isMuted ? 0 : track.volume]}
-          onValueChange={([v]) => setTrackVolume(track.index, v)}
-          className="flex-1"
+        <VolumeKnob
+          value={track.isMuted ? 0 : track.volume}
+          onValueChange={(v) => setTrackVolume(track.index, v)}
         />
-
-        <span className="w-7 text-right text-[10px] tabular-nums text-muted-foreground">
-          {Math.round(track.volume * 100)}
-        </span>
       </div>
     </div>
   );
@@ -81,12 +74,35 @@ function CompactMixer({
 
 // ─── Score Viewport ──────────────────────────────────────────────────────────
 
-const HEADER_WIDTH = 180; // px
+const DEFAULT_HEADER_WIDTH = 140; // px — narrower now that knob replaces slider
+const MIN_HEADER_WIDTH = 80;
+const MAX_HEADER_WIDTH = 300;
+const HEADER_WIDTH_KEY = "cotab:header-width";
+
+function loadHeaderWidth(): number {
+  try {
+    const raw = localStorage.getItem(HEADER_WIDTH_KEY);
+    if (raw) {
+      const v = Number(raw);
+      if (v >= MIN_HEADER_WIDTH && v <= MAX_HEADER_WIDTH) return v;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_HEADER_WIDTH;
+}
+
+function saveHeaderWidth(w: number) {
+  localStorage.setItem(HEADER_WIDTH_KEY, String(w));
+}
 
 export function ScoreViewport() {
   const { t } = useTranslation();
   const mainRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
+
+  const [headerWidth, setHeaderWidth] = useState(loadHeaderWidth);
+  const headerWidthAtDragStart = useRef(headerWidth);
 
   const initialize = usePlayerStore((s) => s.initialize);
   const destroy = usePlayerStore((s) => s.destroy);
@@ -161,6 +177,23 @@ export function ScoreViewport() {
     };
   }, [hasHeaders]);
 
+  // ── Header panel resize ──
+  const handleHeaderResizeStart = useCallback(() => {
+    headerWidthAtDragStart.current = headerWidth;
+  }, [headerWidth]);
+
+  const handleHeaderResize = useCallback((deltaX: number) => {
+    const newWidth = Math.min(
+      MAX_HEADER_WIDTH,
+      Math.max(MIN_HEADER_WIDTH, headerWidthAtDragStart.current + deltaX),
+    );
+    setHeaderWidth(newWidth);
+  }, []);
+
+  const handleHeaderResizeEnd = useCallback(() => {
+    saveHeaderWidth(headerWidth);
+  }, [headerWidth]);
+
   return (
     <div className="relative flex flex-1 overflow-hidden">
       {/* Loading Overlay */}
@@ -177,23 +210,31 @@ export function ScoreViewport() {
 
       {/* Track Headers (aligned to rendered staff positions) */}
       {hasHeaders && (
-        <div
-          ref={mixerRef}
-          className="flex-shrink-0 overflow-hidden border-r bg-card"
-          style={{ width: HEADER_WIDTH }}
-        >
-          <div ref={innerRef} className="relative will-change-transform" style={{ height: contentHeight }}>
-            {visibleTracks.map((track, i) =>
-              trackBounds[i] ? (
-                <CompactMixer
-                  key={track.index}
-                  track={track}
-                  bounds={trackBounds[i]}
-                />
-              ) : null,
-            )}
+        <>
+          <div
+            ref={mixerRef}
+            className="flex-shrink-0 overflow-hidden bg-card"
+            style={{ width: headerWidth }}
+          >
+            <div ref={innerRef} className="relative will-change-transform" style={{ height: contentHeight }}>
+              {visibleTracks.map((track, i) =>
+                trackBounds[i] ? (
+                  <CompactMixer
+                    key={track.index}
+                    track={track}
+                    bounds={trackBounds[i]}
+                  />
+                ) : null,
+              )}
+            </div>
           </div>
-        </div>
+          <ResizeHandle
+            side="right"
+            onResizeStart={handleHeaderResizeStart}
+            onResize={handleHeaderResize}
+            onResizeEnd={handleHeaderResizeEnd}
+          />
+        </>
       )}
 
       {/* AlphaTab Viewport (scroll container) */}

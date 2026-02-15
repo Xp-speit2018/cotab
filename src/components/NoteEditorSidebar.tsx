@@ -10,7 +10,7 @@
  * Currently read-only display of the selected beat's properties.
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DndContext,
@@ -32,6 +32,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   // Bar section
   Clock,
@@ -52,9 +53,9 @@ import {
   Hand,
   X,
   Fingerprint,
-  // Selector section
-  Crosshair,
-  Hash,
+  // Debug / Selector section
+  Layers,
+  LayoutList,
   // Song & Tracks sections
   Eye,
   EyeOff,
@@ -104,6 +105,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ResizeHandle } from "@/components/ui/resize-handle";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/player-store";
 import type {
@@ -130,8 +132,12 @@ import {
   TripletFeel,
   KeySignatureType,
   NoteOrnament,
+  NoteAccidentalMode,
   Ottavia,
   Duration,
+  FermataType,
+  BendStyle,
+  Fingers,
 } from "@/core/schema";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -304,6 +310,195 @@ function tripletFeelLabel(tf: TripletFeel, t: (key: string) => string): string {
     [TripletFeel.Scottish16th]: t("sidebar.tripletFeels.scottish16th"),
   };
   return map[tf] ?? t("sidebar.tripletFeels.none");
+}
+
+// ─── Debug Label Helpers ──────────────────────────────────────────────────────
+
+function graceTypeLabel(g: GraceType): string {
+  switch (g) {
+    case GraceType.None: return "None";
+    case GraceType.OnBeat: return "On Beat";
+    case GraceType.BeforeBeat: return "Before Beat";
+    case GraceType.BendGrace: return "Bend Grace";
+    default: return String(g);
+  }
+}
+
+function pickStrokeLabel(p: PickStroke): string {
+  switch (p) {
+    case PickStroke.None: return "None";
+    case PickStroke.Up: return "Up";
+    case PickStroke.Down: return "Down";
+    default: return String(p);
+  }
+}
+
+function brushTypeLabel(b: BrushType): string {
+  switch (b) {
+    case BrushType.None: return "None";
+    case BrushType.BrushUp: return "Up";
+    case BrushType.BrushDown: return "Down";
+    case BrushType.ArpeggioUp: return "Arpeggio Up";
+    case BrushType.ArpeggioDown: return "Arpeggio Down";
+    default: return String(b);
+  }
+}
+
+function crescendoLabel(c: CrescendoType): string {
+  switch (c) {
+    case CrescendoType.None: return "None";
+    case CrescendoType.Crescendo: return "Crescendo";
+    case CrescendoType.Decrescendo: return "Decrescendo";
+    default: return String(c);
+  }
+}
+
+function vibratoLabel(v: VibratoType): string {
+  switch (v) {
+    case VibratoType.None: return "None";
+    case VibratoType.Slight: return "Slight";
+    case VibratoType.Wide: return "Wide";
+    default: return String(v);
+  }
+}
+
+function fadeLabel(f: FadeType): string {
+  switch (f) {
+    case FadeType.None: return "None";
+    case FadeType.FadeIn: return "Fade In";
+    case FadeType.FadeOut: return "Fade Out";
+    case FadeType.VolumeSwell: return "Volume Swell";
+    default: return String(f);
+  }
+}
+
+function ottavaLabel(o: Ottavia): string {
+  switch (o) {
+    case Ottavia.Regular: return "Regular";
+    case Ottavia._8va: return "8va";
+    case Ottavia._8vb: return "8vb";
+    case Ottavia._15ma: return "15ma";
+    case Ottavia._15mb: return "15mb";
+    default: return String(o);
+  }
+}
+
+function golpeLabel(g: GolpeType): string {
+  switch (g) {
+    case GolpeType.None: return "None";
+    case GolpeType.Finger: return "Finger";
+    case GolpeType.Thumb: return "Thumb";
+    default: return String(g);
+  }
+}
+
+function wahPedalLabel(w: WahPedal): string {
+  switch (w) {
+    case WahPedal.None: return "None";
+    case WahPedal.Open: return "Open";
+    case WahPedal.Closed: return "Closed";
+    default: return String(w);
+  }
+}
+
+function whammyTypeLabel(w: WhammyType): string {
+  switch (w) {
+    case WhammyType.None: return "None";
+    case WhammyType.Custom: return "Custom";
+    case WhammyType.Dive: return "Dive";
+    case WhammyType.Dip: return "Dip";
+    case WhammyType.Hold: return "Hold";
+    case WhammyType.Predive: return "Predive";
+    case WhammyType.PrediveDive: return "Predive/Dive";
+    default: return String(w);
+  }
+}
+
+function fermataTypeLabel(f: FermataType | null): string {
+  if (f === null) return "—";
+  switch (f) {
+    case FermataType.Short: return "Short";
+    case FermataType.Medium: return "Medium";
+    case FermataType.Long: return "Long";
+    default: return String(f);
+  }
+}
+
+function accentuationLabel(a: AccentuationType): string {
+  switch (a) {
+    case AccentuationType.None: return "None";
+    case AccentuationType.Normal: return "Normal";
+    case AccentuationType.Heavy: return "Heavy";
+    case AccentuationType.Tenuto: return "Tenuto";
+    default: return String(a);
+  }
+}
+
+function slideInLabel(s: SlideInType): string {
+  switch (s) {
+    case SlideInType.None: return "None";
+    case SlideInType.IntoFromBelow: return "From Below";
+    case SlideInType.IntoFromAbove: return "From Above";
+    default: return String(s);
+  }
+}
+
+function bendStyleLabel(b: BendStyle): string {
+  switch (b) {
+    case BendStyle.Default: return "Default";
+    case BendStyle.Gradual: return "Gradual";
+    case BendStyle.Fast: return "Fast";
+    default: return String(b);
+  }
+}
+
+function fingerLabel(f: Fingers): string {
+  switch (f) {
+    case Fingers.Unknown: return "—";
+    case Fingers.Thumb: return "Thumb";
+    case Fingers.IndexFinger: return "Index";
+    case Fingers.MiddleFinger: return "Middle";
+    case Fingers.AnnularFinger: return "Ring";
+    case Fingers.LittleFinger: return "Little";
+    default: return String(f);
+  }
+}
+
+function ornamentLabel(o: NoteOrnament): string {
+  switch (o) {
+    case NoteOrnament.None: return "None";
+    case NoteOrnament.InvertedTurn: return "Inverted Turn";
+    case NoteOrnament.Turn: return "Turn";
+    case NoteOrnament.UpperMordent: return "Upper Mordent";
+    case NoteOrnament.LowerMordent: return "Lower Mordent";
+    default: return String(o);
+  }
+}
+
+function accidentalModeLabel(a: NoteAccidentalMode): string {
+  switch (a) {
+    case NoteAccidentalMode.Default: return "Default";
+    case NoteAccidentalMode.ForceNone: return "Force None";
+    case NoteAccidentalMode.ForceNatural: return "Force Natural";
+    case NoteAccidentalMode.ForceSharp: return "Force Sharp";
+    case NoteAccidentalMode.ForceDoubleSharp: return "Force ##";
+    case NoteAccidentalMode.ForceFlat: return "Force Flat";
+    case NoteAccidentalMode.ForceDoubleFlat: return "Force bb";
+    default: return String(a);
+  }
+}
+
+function keySignatureTypeLabel(t: KeySignatureType): string {
+  switch (t) {
+    case KeySignatureType.Major: return "Major";
+    case KeySignatureType.Minor: return "Minor";
+    default: return String(t);
+  }
+}
+
+/** Format a boolean for debug display. */
+function boolLabel(b: boolean): string {
+  return b ? "true" : "false";
 }
 
 // ─── Reusable Sub-components ─────────────────────────────────────────────────
@@ -613,7 +808,59 @@ function TracksSection({ dragHandleProps }: { dragHandleProps?: Record<string, u
   );
 }
 
-// ─── Selector Info Section ───────────────────────────────────────────────────
+// ─── Debug Hierarchy Level ────────────────────────────────────────────────────
+
+/**
+ * A collapsible sub-section for one level of the AlphaTab data model hierarchy.
+ * Renders a compact header and a list of key-value property rows.
+ */
+function DebugLevel({
+  title,
+  icon,
+  items,
+  defaultOpen = false,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: { label: string; value: string }[];
+  defaultOpen?: boolean;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <CollapsibleTrigger className="flex w-full items-center gap-1.5 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/30">
+        {isOpen ? (
+          <ChevronDown className="h-3 w-3 shrink-0" />
+        ) : (
+          <ChevronRight className="h-3 w-3 shrink-0" />
+        )}
+        <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center">
+          {icon}
+        </span>
+        <span className="truncate">{title}</span>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="border-l border-border/50 ml-[13px] pl-1">
+          {items.map((item) => (
+            <div
+              key={item.label}
+              className="flex items-baseline gap-1 px-1 py-px"
+            >
+              <span className="shrink-0 text-[10px] text-muted-foreground/70">
+                {item.label}
+              </span>
+              <span className="ml-auto truncate text-right text-[10px] font-mono tabular-nums">
+                {item.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// ─── Debug Inspector Section (replaces old SelectorSection) ──────────────────
 
 function SelectorSection({
   beat,
@@ -628,13 +875,170 @@ function SelectorSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+
   const selectedBeat = usePlayerStore((s) => s.selectedBeat);
+  const trackInfo = usePlayerStore((s) => s.selectedTrackInfo);
+  const staffInfo = usePlayerStore((s) => s.selectedStaffInfo);
+  const barInfo = usePlayerStore((s) => s.selectedBarInfo);
+  const voiceInfo = usePlayerStore((s) => s.selectedVoiceInfo);
   const tracks = usePlayerStore((s) => s.tracks);
 
-  const trackName =
-    selectedBeat && tracks[selectedBeat.trackIndex]
-      ? tracks[selectedBeat.trackIndex].name
-      : null;
+  // Score-level fields
+  const scoreTitle = usePlayerStore((s) => s.scoreTitle);
+  const scoreSubTitle = usePlayerStore((s) => s.scoreSubTitle);
+  const scoreArtist = usePlayerStore((s) => s.scoreArtist);
+  const scoreAlbum = usePlayerStore((s) => s.scoreAlbum);
+  const scoreWords = usePlayerStore((s) => s.scoreWords);
+  const scoreMusic = usePlayerStore((s) => s.scoreMusic);
+  const scoreCopyright = usePlayerStore((s) => s.scoreCopyright);
+  const scoreTab = usePlayerStore((s) => s.scoreTab);
+  const scoreInstructions = usePlayerStore((s) => s.scoreInstructions);
+  const scoreNotices = usePlayerStore((s) => s.scoreNotices);
+  const scoreTempo = usePlayerStore((s) => s.scoreTempo);
+  const scoreTempoLabel = usePlayerStore((s) => s.scoreTempoLabel);
+
+  // ── Build items for each hierarchy level ──
+
+  const scoreItems = [
+    { label: t("sidebar.selector.scoreTitle"), value: scoreTitle || "—" },
+    { label: t("sidebar.selector.scoreSubTitle"), value: scoreSubTitle || "—" },
+    { label: t("sidebar.selector.scoreArtist"), value: scoreArtist || "—" },
+    { label: t("sidebar.selector.scoreAlbum"), value: scoreAlbum || "—" },
+    { label: t("sidebar.selector.scoreWords"), value: scoreWords || "—" },
+    { label: t("sidebar.selector.scoreMusic"), value: scoreMusic || "—" },
+    { label: t("sidebar.selector.scoreCopyright"), value: scoreCopyright || "—" },
+    { label: t("sidebar.selector.scoreTab"), value: scoreTab || "—" },
+    { label: t("sidebar.selector.scoreInstructions"), value: scoreInstructions || "—" },
+    { label: t("sidebar.selector.scoreNotices"), value: scoreNotices || "—" },
+    { label: t("sidebar.selector.scoreTempo"), value: String(scoreTempo) },
+    { label: t("sidebar.selector.scoreTempoLabel"), value: scoreTempoLabel || "—" },
+    { label: t("sidebar.selector.scoreTrackCount"), value: String(tracks.length) },
+  ];
+
+  const trackItems: { label: string; value: string }[] = trackInfo
+    ? [
+        { label: t("sidebar.selector.trackIndex"), value: String(trackInfo.index) },
+        { label: t("sidebar.selector.trackName"), value: trackInfo.name || "—" },
+        { label: t("sidebar.selector.trackShortName"), value: trackInfo.shortName || "—" },
+        { label: t("sidebar.selector.trackIsPercussion"), value: boolLabel(trackInfo.isPercussion) },
+        { label: t("sidebar.selector.trackStaffCount"), value: String(trackInfo.staffCount) },
+        { label: t("sidebar.selector.trackPlaybackChannel"), value: String(trackInfo.playbackChannel) },
+        { label: t("sidebar.selector.trackPlaybackProgram"), value: String(trackInfo.playbackProgram) },
+        { label: t("sidebar.selector.trackPlaybackPort"), value: String(trackInfo.playbackPort) },
+      ]
+    : [];
+
+  const staffItems: { label: string; value: string }[] = staffInfo
+    ? [
+        { label: t("sidebar.selector.staffIndex"), value: String(staffInfo.index) },
+        { label: t("sidebar.selector.staffShowTablature"), value: boolLabel(staffInfo.showTablature) },
+        { label: t("sidebar.selector.staffShowStandardNotation"), value: boolLabel(staffInfo.showStandardNotation) },
+        { label: t("sidebar.selector.staffStringCount"), value: String(staffInfo.stringCount) },
+        { label: t("sidebar.selector.staffCapo"), value: String(staffInfo.capo) },
+        { label: t("sidebar.selector.staffTranspositionPitch"), value: String(staffInfo.transpositionPitch) },
+        { label: t("sidebar.selector.staffDisplayTranspositionPitch"), value: String(staffInfo.displayTranspositionPitch) },
+      ]
+    : [];
+
+  const barItems: { label: string; value: string }[] = barInfo
+    ? [
+        { label: t("sidebar.selector.barIndex"), value: String(barInfo.index) },
+        { label: t("sidebar.selector.barTimeSig"), value: `${barInfo.timeSignatureNumerator}/${barInfo.timeSignatureDenominator}` },
+        { label: t("sidebar.selector.barKeySignature"), value: keySignatureLabel(barInfo.keySignature, barInfo.keySignatureType) },
+        { label: t("sidebar.selector.barKeySignatureType"), value: keySignatureTypeLabel(barInfo.keySignatureType) },
+        { label: t("sidebar.selector.barIsRepeatStart"), value: boolLabel(barInfo.isRepeatStart) },
+        { label: t("sidebar.selector.barRepeatCount"), value: String(barInfo.repeatCount) },
+        { label: t("sidebar.selector.barAlternateEndings"), value: String(barInfo.alternateEndings) },
+        { label: t("sidebar.selector.barTripletFeel"), value: tripletFeelLabel(barInfo.tripletFeel, t) },
+        { label: t("sidebar.selector.barIsFreeTime"), value: boolLabel(barInfo.isFreeTime) },
+        { label: t("sidebar.selector.barIsDoubleBar"), value: boolLabel(barInfo.isDoubleBar) },
+        { label: t("sidebar.selector.barHasSection"), value: boolLabel(barInfo.hasSection) },
+        { label: t("sidebar.selector.barSectionText"), value: barInfo.sectionText || "—" },
+        { label: t("sidebar.selector.barSectionMarker"), value: barInfo.sectionMarker || "—" },
+        { label: t("sidebar.selector.barTempo"), value: barInfo.tempo !== null ? String(barInfo.tempo) : "—" },
+      ]
+    : [];
+
+  const voiceItems: { label: string; value: string }[] = voiceInfo
+    ? [
+        { label: t("sidebar.selector.voiceIndex"), value: String(voiceInfo.index) },
+        { label: t("sidebar.selector.voiceIsEmpty"), value: boolLabel(voiceInfo.isEmpty) },
+        { label: t("sidebar.selector.voiceBeatCount"), value: String(voiceInfo.beatCount) },
+      ]
+    : [];
+
+  const beatItems: { label: string; value: string }[] = beat
+    ? [
+        { label: t("sidebar.selector.beatIndex"), value: String(beat.index) },
+        { label: t("sidebar.selector.beatDuration"), value: durationLabel(beat.duration) },
+        { label: t("sidebar.selector.beatDots"), value: String(beat.dots) },
+        { label: t("sidebar.selector.beatIsRest"), value: boolLabel(beat.isRest) },
+        { label: t("sidebar.selector.beatIsEmpty"), value: boolLabel(beat.isEmpty) },
+        { label: t("sidebar.selector.beatTupletNumerator"), value: String(beat.tupletNumerator) },
+        { label: t("sidebar.selector.beatTupletDenominator"), value: String(beat.tupletDenominator) },
+        { label: t("sidebar.selector.beatGraceType"), value: graceTypeLabel(beat.graceType) },
+        { label: t("sidebar.selector.beatPickStroke"), value: pickStrokeLabel(beat.pickStroke) },
+        { label: t("sidebar.selector.beatBrushType"), value: brushTypeLabel(beat.brushType) },
+        { label: t("sidebar.selector.beatDynamics"), value: dynamicLabel(beat.dynamics) },
+        { label: t("sidebar.selector.beatCrescendo"), value: crescendoLabel(beat.crescendo) },
+        { label: t("sidebar.selector.beatVibrato"), value: vibratoLabel(beat.vibrato) },
+        { label: t("sidebar.selector.beatFade"), value: fadeLabel(beat.fade) },
+        { label: t("sidebar.selector.beatOttava"), value: ottavaLabel(beat.ottava) },
+        { label: t("sidebar.selector.beatGolpe"), value: golpeLabel(beat.golpe) },
+        { label: t("sidebar.selector.beatWahPedal"), value: wahPedalLabel(beat.wahPedal) },
+        { label: t("sidebar.selector.beatWhammyBarType"), value: whammyTypeLabel(beat.whammyBarType) },
+        { label: t("sidebar.selector.beatWhammyBarPoints"), value: beat.whammyBarPoints.length > 0 ? `${beat.whammyBarPoints.length} pts` : "—" },
+        { label: t("sidebar.selector.beatText"), value: beat.text ?? "—" },
+        { label: t("sidebar.selector.beatChordId"), value: beat.chordId ?? "—" },
+        { label: t("sidebar.selector.beatTap"), value: boolLabel(beat.tap) },
+        { label: t("sidebar.selector.beatSlap"), value: boolLabel(beat.slap) },
+        { label: t("sidebar.selector.beatPop"), value: boolLabel(beat.pop) },
+        { label: t("sidebar.selector.beatSlashed"), value: boolLabel(beat.slashed) },
+        { label: t("sidebar.selector.beatHasFermata"), value: boolLabel(beat.hasFermata) },
+        { label: t("sidebar.selector.beatFermataType"), value: fermataTypeLabel(beat.fermataType) },
+        { label: t("sidebar.selector.beatNoteCount"), value: String(beat.notes.length) },
+      ]
+    : [];
+
+  const noteItems: { label: string; value: string }[] = note
+    ? [
+        { label: t("sidebar.selector.noteIndex"), value: `${noteIndex} / ${beat?.notes.length ?? 0}` },
+        { label: t("sidebar.selector.noteFret"), value: String(note.fret) },
+        { label: t("sidebar.selector.noteString"), value: String(note.string) },
+        { label: t("sidebar.selector.noteIsDead"), value: boolLabel(note.isDead) },
+        { label: t("sidebar.selector.noteIsGhost"), value: boolLabel(note.isGhost) },
+        { label: t("sidebar.selector.noteIsStaccato"), value: boolLabel(note.isStaccato) },
+        { label: t("sidebar.selector.noteIsLetRing"), value: boolLabel(note.isLetRing) },
+        { label: t("sidebar.selector.noteIsPalmMute"), value: boolLabel(note.isPalmMute) },
+        { label: t("sidebar.selector.noteIsTieDestination"), value: boolLabel(note.isTieDestination) },
+        { label: t("sidebar.selector.noteIsHammerPullOrigin"), value: boolLabel(note.isHammerPullOrigin) },
+        { label: t("sidebar.selector.noteIsLeftHandTapped"), value: boolLabel(note.isLeftHandTapped) },
+        { label: t("sidebar.selector.noteAccentuated"), value: accentuationLabel(note.accentuated) },
+        { label: t("sidebar.selector.noteVibrato"), value: vibratoLabel(note.vibrato) },
+        { label: t("sidebar.selector.noteSlideInType"), value: slideInLabel(note.slideInType) },
+        { label: t("sidebar.selector.noteSlideOutType"), value: slideOutTypeLabel(note.slideOutType, t) },
+        { label: t("sidebar.selector.noteHarmonicType"), value: harmonicTypeLabel(note.harmonicType, t) },
+        { label: t("sidebar.selector.noteHarmonicValue"), value: String(note.harmonicValue) },
+        { label: t("sidebar.selector.noteBendType"), value: bendTypeLabel(note.bendType, t) },
+        { label: t("sidebar.selector.noteBendStyle"), value: bendStyleLabel(note.bendStyle) },
+        { label: t("sidebar.selector.noteBendPoints"), value: note.bendPoints.length > 0 ? `${note.bendPoints.length} pts` : "—" },
+        { label: t("sidebar.selector.noteLeftHandFinger"), value: fingerLabel(note.leftHandFinger) },
+        { label: t("sidebar.selector.noteRightHandFinger"), value: fingerLabel(note.rightHandFinger) },
+        { label: t("sidebar.selector.noteDynamics"), value: dynamicLabel(note.dynamics) },
+        { label: t("sidebar.selector.noteOrnament"), value: ornamentLabel(note.ornament) },
+        { label: t("sidebar.selector.noteAccidentalMode"), value: accidentalModeLabel(note.accidentalMode) },
+        { label: t("sidebar.selector.noteTrillValue"), value: note.trillValue > 0 ? String(note.trillValue) : "—" },
+        { label: t("sidebar.selector.noteTrillSpeed"), value: note.trillValue > 0 ? durationLabel(note.trillSpeed) : "—" },
+        { label: t("sidebar.selector.noteDurationPercent"), value: `${note.durationPercent}%` },
+        { label: t("sidebar.selector.noteIsPercussion"), value: boolLabel(note.isPercussion) },
+        ...(note.isPercussion
+          ? [
+              { label: t("sidebar.selector.notePercussionArticulation"), value: String(note.percussionArticulation) },
+              { label: t("sidebar.selector.notePercussionArticulationName"), value: percussionDisplayName(note.percussionArticulationName, t) },
+            ]
+          : []),
+      ]
+    : [];
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -645,91 +1049,65 @@ function SelectorSection({
         dragHandleProps={dragHandleProps}
       />
       <CollapsibleContent>
-        <div className="space-y-0.5 py-1">
-          {selectedBeat ? (
-            <>
-              <PropRow
-                label={t("sidebar.selector.track")}
-                value={
-                  trackName
-                    ? `${selectedBeat.trackIndex}: ${trackName}`
-                    : String(selectedBeat.trackIndex)
-                }
-                icon={<Crosshair className="h-3.5 w-3.5" />}
+        {selectedBeat ? (
+          <div className="py-0.5">
+            <DebugLevel
+              title={t("sidebar.selector.score")}
+              icon={<FileText className="h-3 w-3" />}
+              items={scoreItems}
+            />
+            <DebugLevel
+              title={`${t("sidebar.selector.track")} [${selectedBeat.trackIndex}]`}
+              icon={<Guitar className="h-3 w-3" />}
+              items={trackItems}
+              defaultOpen
+            />
+            <DebugLevel
+              title={`${t("sidebar.selector.staff")} [${selectedBeat.staffIndex}]`}
+              icon={<Layers className="h-3 w-3" />}
+              items={staffItems}
+              defaultOpen
+            />
+            <DebugLevel
+              title={`${t("sidebar.selector.bar")} [${selectedBeat.barIndex}]`}
+              icon={<LayoutList className="h-3 w-3" />}
+              items={barItems}
+              defaultOpen
+            />
+            <DebugLevel
+              title={`${t("sidebar.selector.voice")} [${selectedBeat.voiceIndex}]`}
+              icon={<AudioWaveform className="h-3 w-3" />}
+              items={voiceItems}
+              defaultOpen
+            />
+            <DebugLevel
+              title={`${t("sidebar.selector.beat")} [${selectedBeat.beatIndex}]`}
+              icon={<Music className="h-3 w-3" />}
+              items={beatItems}
+              defaultOpen
+            />
+            {note ? (
+              <DebugLevel
+                title={`${t("sidebar.selector.note")} [${noteIndex}]`}
+                icon={<Disc className="h-3 w-3" />}
+                items={noteItems}
+                defaultOpen
               />
-              <PropRow
-                label={t("sidebar.selector.bar")}
-                value={String(selectedBeat.barIndex)}
-                icon={<Hash className="h-3.5 w-3.5" />}
-              />
-              <PropRow
-                label={t("sidebar.selector.beat")}
-                value={String(selectedBeat.beatIndex)}
-                icon={<Hash className="h-3.5 w-3.5" />}
-              />
-              {beat && (
-                <>
-                  <PropRow
-                    label={t("sidebar.selector.noteCount")}
-                    value={String(beat.notes.length)}
-                    icon={<Hash className="h-3.5 w-3.5" />}
-                  />
-                  <PropRow
-                    label={t("sidebar.selector.duration")}
-                    value={durationLabel(beat.duration)}
-                    icon={<Music className="h-3.5 w-3.5" />}
-                  />
-                  <PropRow
-                    label={t("sidebar.selector.dynamics")}
-                    value={dynamicLabel(beat.dynamics)}
-                    icon={<AudioWaveform className="h-3.5 w-3.5" />}
-                  />
-                </>
-              )}
-              {note ? (
-                <>
-                  <PropRow
-                    label={t("sidebar.selector.noteIndex")}
-                    value={`${noteIndex} / ${beat?.notes.length ?? 0}`}
-                    icon={<Crosshair className="h-3.5 w-3.5" />}
-                  />
-                  {note.isPercussion ? (
-                    <PropRow
-                      label={t("sidebar.selector.articulation")}
-                      value={percussionDisplayName(note.percussionArticulationName, t)}
-                      icon={<Disc className="h-3.5 w-3.5" />}
-                    />
-                  ) : (
-                    <>
-                      <PropRow
-                        label={t("sidebar.selector.fret")}
-                        value={String(note.fret)}
-                        icon={<Guitar className="h-3.5 w-3.5" />}
-                      />
-                      <PropRow
-                        label={t("sidebar.selector.string")}
-                        value={String(note.string)}
-                        icon={<Guitar className="h-3.5 w-3.5" />}
-                      />
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="px-3 py-0.5">
-                  <span className="text-[10px] text-muted-foreground italic">
-                    {t("sidebar.note.noNoteSelected")}
-                  </span>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="px-3 py-0.5">
-              <span className="text-[10px] text-muted-foreground italic">
-                {t("sidebar.selector.noSelection")}
-              </span>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="ml-[13px] border-l border-border/50 px-2 py-1">
+                <span className="text-[10px] text-muted-foreground/60 italic">
+                  {t("sidebar.selector.noNote")}
+                </span>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="px-3 py-3">
+            <span className="text-[10px] text-muted-foreground italic">
+              {t("sidebar.selector.noSelection")}
+            </span>
+          </div>
+        )}
         <Separator />
       </CollapsibleContent>
     </Collapsible>
@@ -1345,8 +1723,28 @@ function TabDroppable({
 
 // ─── Main Sidebar ────────────────────────────────────────────────────────────
 
-const SIDEBAR_WIDTH = 240;
+const DEFAULT_SIDEBAR_WIDTH = 280;
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH = 480;
+const SIDEBAR_WIDTH_KEY = "cotab:sidebar-width";
 const STORAGE_KEY = "cotab:sidebar-tab-layout";
+
+function loadSidebarWidth(): number {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    if (raw) {
+      const v = Number(raw);
+      if (v >= MIN_SIDEBAR_WIDTH && v <= MAX_SIDEBAR_WIDTH) return v;
+    }
+  } catch {
+    // ignore
+  }
+  return DEFAULT_SIDEBAR_WIDTH;
+}
+
+function saveSidebarWidth(w: number) {
+  localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w));
+}
 const TAB_COUNT = 3;
 
 type SectionId = "song" | "tracks" | "selector" | "bar" | "note" | "effects";
@@ -1395,6 +1793,8 @@ function findTabIndex(layout: TabLayout, sectionId: string): number {
 export function NoteEditorSidebar() {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
+  const widthAtDragStart = useRef(sidebarWidth);
   const [activeTab, setActiveTab] = useState(0);
   const [tabLayout, setTabLayout] = useState<TabLayout>(loadTabLayout);
   const selectedBeatInfo = usePlayerStore((s) => s.selectedBeatInfo);
@@ -1410,6 +1810,24 @@ export function NoteEditorSidebar() {
       : null;
 
   const hasBeat = !!(selectedBeatInfo && selectedBarInfo);
+
+  // ── Sidebar resize ──
+  const handleSidebarResize = useCallback((deltaX: number) => {
+    const newWidth = Math.min(
+      MAX_SIDEBAR_WIDTH,
+      Math.max(MIN_SIDEBAR_WIDTH, widthAtDragStart.current + deltaX),
+    );
+    setSidebarWidth(newWidth);
+  }, []);
+
+  const handleSidebarResizeEnd = useCallback(() => {
+    saveSidebarWidth(sidebarWidth);
+    widthAtDragStart.current = sidebarWidth;
+  }, [sidebarWidth]);
+
+  const handleSidebarResizeStart = useCallback(() => {
+    widthAtDragStart.current = sidebarWidth;
+  }, [sidebarWidth]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -1550,83 +1968,90 @@ export function NoteEditorSidebar() {
   const currentTabSections = tabLayout[activeTab] ?? [];
 
   return (
-    <div
-      className="flex min-h-0 flex-col border-r bg-card"
-      style={{ width: SIDEBAR_WIDTH }}
-    >
-      {/* Tab bar with collapse button */}
-      <div className="flex shrink-0 items-center border-b">
-        <Tooltip>
-          <TooltipTrigger asChild>
+    <div className="flex min-h-0 flex-shrink-0" style={{ width: sidebarWidth }}>
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card">
+        {/* Tab bar with collapse button */}
+        <div className="flex shrink-0 items-center border-b">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={() => setCollapsed(true)}
+                aria-label={t("sidebar.collapseSidebar")}
+              >
+                <PanelLeftClose className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">{t("sidebar.collapseSidebar")}</TooltipContent>
+          </Tooltip>
+          {Array.from({ length: TAB_COUNT }, (_, i) => (
             <button
-              className="flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
-              onClick={() => setCollapsed(true)}
-              aria-label={t("sidebar.collapseSidebar")}
+              key={i}
+              type="button"
+              className={cn(
+                "flex-1 py-2 text-center text-[10px] font-medium uppercase tracking-wider transition-colors",
+                activeTab === i
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              onClick={() => setActiveTab(i)}
             >
-              <PanelLeftClose className="h-3.5 w-3.5" />
+              {t(`sidebar.tabNames.${i}`)}
             </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">{t("sidebar.collapseSidebar")}</TooltipContent>
-        </Tooltip>
-        {Array.from({ length: TAB_COUNT }, (_, i) => (
-          <button
-            key={i}
-            type="button"
-            className={cn(
-              "flex-1 py-2 text-center text-[10px] font-medium uppercase tracking-wider transition-colors",
-              activeTab === i
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-            onClick={() => setActiveTab(i)}
-          >
-            {t(`sidebar.tabNames.${i}`)}
-          </button>
-        ))}
+          ))}
+        </div>
+
+        {/* Content — pr-3 reserves space so the overlay scrollbar doesn't clip values */}
+        <ScrollArea className="flex-1 overflow-hidden">
+          <div className="pb-4 pr-3">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragOver={handleDragOver}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={currentTabSections}
+                strategy={verticalListSortingStrategy}
+              >
+                <TabDroppable tabId={`tab-${activeTab}`}>
+                  {currentTabSections.length > 0 ? (
+                    currentTabSections.map((id) => (
+                      <SortableSection key={id} id={id}>
+                        {(dragHandleProps) => renderSection(id, dragHandleProps)}
+                      </SortableSection>
+                    ))
+                  ) : (
+                    <div className="flex items-center justify-center p-6">
+                      <p className="text-center text-[10px] text-muted-foreground">
+                        {t("sidebar.dropHereHint")}
+                      </p>
+                    </div>
+                  )}
+                </TabDroppable>
+              </SortableContext>
+            </DndContext>
+
+            {/* Empty state when no beat is selected (only on tabs with beat-dependent sections) */}
+            {!hasBeat &&
+              currentTabSections.some((id) => id === "bar" || id === "note" || id === "effects") && (
+                <div className="flex items-center justify-center p-4">
+                  <p className="text-center text-xs text-muted-foreground">
+                    {t("sidebar.emptyState")}
+                  </p>
+                </div>
+              )}
+          </div>
+        </ScrollArea>
       </div>
 
-      {/* Content */}
-      <ScrollArea className="flex-1 overflow-hidden">
-        <div className="pb-4">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={currentTabSections}
-              strategy={verticalListSortingStrategy}
-            >
-              <TabDroppable tabId={`tab-${activeTab}`}>
-                {currentTabSections.length > 0 ? (
-                  currentTabSections.map((id) => (
-                    <SortableSection key={id} id={id}>
-                      {(dragHandleProps) => renderSection(id, dragHandleProps)}
-                    </SortableSection>
-                  ))
-                ) : (
-                  <div className="flex items-center justify-center p-6">
-                    <p className="text-center text-[10px] text-muted-foreground">
-                      {t("sidebar.dropHereHint")}
-                    </p>
-                  </div>
-                )}
-              </TabDroppable>
-            </SortableContext>
-          </DndContext>
-
-          {/* Empty state when no beat is selected (only on tabs with beat-dependent sections) */}
-          {!hasBeat &&
-            currentTabSections.some((id) => id === "bar" || id === "note" || id === "effects") && (
-              <div className="flex items-center justify-center p-4">
-                <p className="text-center text-xs text-muted-foreground">
-                  {t("sidebar.emptyState")}
-                </p>
-              </div>
-            )}
-        </div>
-      </ScrollArea>
+      {/* Drag handle to resize sidebar */}
+      <ResizeHandle
+        side="right"
+        onResizeStart={handleSidebarResizeStart}
+        onResize={handleSidebarResize}
+        onResizeEnd={handleSidebarResizeEnd}
+      />
     </div>
   );
 }

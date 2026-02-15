@@ -133,14 +133,21 @@ test.describe("Note Editor Sidebar — note-level selection", () => {
     for (let ti = 0; ti < bounds.length && !foundNote; ti++) {
       const b = bounds[ti];
       const clickX = vpBox.x + 150;
-      const clickY = vpBox.y + b.y + b.height / 2;
-      if (clickY < vpBox.y || clickY > vpBox.y + vpBox.height) continue;
 
-      await page.mouse.click(clickX, clickY);
-      await page.waitForTimeout(500);
+      // Try multiple Y positions within the track to hit a note's string
+      const yOffsets = [0.3, 0.5, 0.7, 0.2, 0.8, 0.1, 0.9];
+      let sel = null;
+      for (const frac of yOffsets) {
+        const clickY = vpBox.y + b.y + b.height * frac;
+        if (clickY < vpBox.y || clickY > vpBox.y + vpBox.height) continue;
 
-      const sel = await readSelection(page);
-      if (!sel.note) continue;
+        await page.mouse.click(clickX, clickY);
+        await page.waitForTimeout(400);
+
+        sel = await readSelection(page);
+        if (sel.note) break;
+      }
+      if (!sel || !sel.note) continue;
       foundNote = true;
 
       // Check sidebar toggles

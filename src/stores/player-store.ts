@@ -60,6 +60,29 @@ let lastMouseDownY = 0;
 let mainElement: HTMLElement | null = null;
 let viewportElement: HTMLElement | null = null;
 
+/** Cursor rectangle DOM element, appended to `.at-cursors`. */
+let cursorElement: HTMLDivElement | null = null;
+
+// ─── Snap Grid ───────────────────────────────────────────────────────────────
+
+/** A single selectable position within a track's staff. */
+interface SnapPosition {
+  /** 1-based string number (tab) or line/space index (notation). */
+  string: number;
+  /** Center Y in bounds coordinate space. */
+  y: number;
+}
+
+/** Per-track snap grid built from rendered NoteBounds. */
+interface SnapGrid {
+  positions: SnapPosition[]; // sorted by y (ascending)
+  noteWidth: number; // typical note head width
+  noteHeight: number; // typical note head height
+}
+
+/** Key = `${trackIndex}:${staffIndex}` → snap grid for that track/staff. */
+const snapGrids = new Map<string, SnapGrid>();
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface TrackInfo {
@@ -73,8 +96,12 @@ export interface TrackInfo {
 
 export interface SelectedBeat {
   trackIndex: number;
+  staffIndex: number;
+  voiceIndex: number;
   barIndex: number;
   beatIndex: number;
+  /** 1-based string (tab) or line/space index (notation), -1 if unknown. */
+  string: number;
 }
 
 export interface TrackBounds {
@@ -209,6 +236,8 @@ export interface PlayerState {
   selectedBarInfo: SelectedBarInfo | null;
   /** Index into selectedBeatInfo.notes[] for the actively selected note, or -1 if none. */
   selectedNoteIndex: number;
+  /** The string/line the cursor is on, -1 = none. */
+  selectedString: number;
 
   // View
   zoom: number;
@@ -228,6 +257,20 @@ export interface PlayerState {
   setTrackSolo: (trackIndex: number, solo: boolean) => void;
   setTrackVisible: (trackIndex: number, visible: boolean) => void;
   setZoom: (zoom: number) => void;
+
+  // Selection
+  /** Programmatic selection — single entry point for any selection trigger. */
+  setSelection: (args: {
+    trackIndex: number;
+    barIndex: number;
+    beatIndex: number;
+    staffIndex?: number;
+    voiceIndex?: number;
+    noteIndex?: number;
+    string?: number;
+  }) => void;
+  /** Clear the current selection. */
+  clearSelection: () => void;
 }
 
 // ─── GP7 Percussion Articulation IDs ─────────────────────────────────────────
@@ -273,6 +316,281 @@ function resolvePercussionName(
 
 function getTrack(index: number): alphaTab.model.Track | undefined {
   return api?.score?.tracks[index];
+}
+
+/**
+ * Navigate the AlphaTab score model to retrieve the Beat at the given indices.
+ * Returns `null` if any index is out of range or the score is not loaded.
+ */
+function resolveBeat(
+  trackIndex: number,
+  barIndex: number,
+  beatIndex: number,
+  staffIndex: number = 0,
+  voiceIndex: number = 0,
+): alphaTab.model.Beat | null {
+  const score = api?.score;
+  if (!score) return null;
+  const track = score.tracks[trackIndex];
+  if (!track) return null;
+  const staff = track.staves[staffIndex];
+  if (!staff) return null;
+  const bar = staff.bars[barIndex];
+  if (!bar) return null;
+  const voice = bar.voices[voiceIndex];
+  if (!voice) return null;
+  const beat = voice.beats[beatIndex];
+  return beat ?? null;
+}
+
+/**
+ * Walk boundsLookup to find the BeatBounds for a given beat.
+ * Returns `null` if the beat isn't in the current bounds.
+ *
+ * We navigate via `beatBounds.beat.voice.bar` rather than `barBounds.bar`
+ * because AlphaTab's runtime BarBounds may not expose a direct `.bar` ref.
+ */
+function findBeatBounds(
+  trackIndex: number,
+  staffIndex: number,
+  barIndex: number,
+  beatIndex: number,
+): alphaTab.rendering.BeatBounds | null {
+  const lookup = api?.boundsLookup;
+  if (!lookup) return null;
+
+  for (const system of lookup.staffSystems) {
+    for (const masterBar of system.bars) {
+      for (const barBounds of masterBar.bars) {
+        // Use first beat to identify the bar's track/staff
+        if (barBounds.beats.length === 0) continue;
+        const refBar = barBounds.beats[0].beat.voice.bar;
+        if (
+          refBar.staff.track.index !== trackIndex ||
+          refBar.staff.index !== staffIndex ||
+          refBar.index !== barIndex
+        ) continue;
+
+        for (const bb of barBounds.beats) {
+          if (bb.beat.index === beatIndex) return bb;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Build snap grids for all visible tracks by scanning NoteBounds from the
+ * first staff system.  For tablature tracks the positions correspond to
+ * string lines; for standard notation they correspond to staff lines and
+ * spaces.
+ */
+function buildSnapGrids(): void {
+  snapGrids.clear();
+  const lookup = api?.boundsLookup;
+  const score = api?.score;
+  if (!lookup || !score || lookup.staffSystems.length === 0) return;
+
+  // Collect note head positions across ALL systems / master bars so that
+  // even tracks whose first system is rests still get a grid.
+  const collected = new Map<
+    string,
+    {
+      stringYs: Map<number, number>; // string → centerY
+      widths: number[];
+      heights: number[];
+      trackIndex: number;
+      staffIndex: number;
+    }
+  >();
+
+  for (const system of lookup.staffSystems) {
+    for (const masterBar of system.bars) {
+      for (const barBounds of masterBar.bars) {
+        // Navigate via first beat — barBounds.bar may not exist at runtime
+        if (barBounds.beats.length === 0) continue;
+        const refBar = barBounds.beats[0].beat.voice.bar;
+        const ti = refBar.staff.track.index;
+        const si = refBar.staff.index;
+        const key = `${ti}:${si}`;
+        let entry = collected.get(key);
+        if (!entry) {
+          entry = {
+            stringYs: new Map(),
+            widths: [],
+            heights: [],
+            trackIndex: ti,
+            staffIndex: si,
+          };
+          collected.set(key, entry);
+        }
+
+        for (const beatBounds of barBounds.beats) {
+          if (!beatBounds.notes) continue;
+          for (const nb of beatBounds.notes) {
+            const s = nb.note.string;
+            if (!entry.stringYs.has(s)) {
+              const centerY = nb.noteHeadBounds.y + nb.noteHeadBounds.h / 2;
+              entry.stringYs.set(s, centerY);
+            }
+            entry.widths.push(nb.noteHeadBounds.w);
+            entry.heights.push(nb.noteHeadBounds.h);
+          }
+        }
+      }
+    }
+  }
+
+  // For each track/staff, build a complete grid.
+  for (const [key, entry] of collected) {
+    if (entry.stringYs.size === 0) continue;
+
+    const track = score.tracks[entry.trackIndex];
+    if (!track) continue;
+    const staff = track.staves[entry.staffIndex];
+    if (!staff) continue;
+
+    const isTab = staff.showTablature;
+    const medianW = median(entry.widths);
+    const medianH = median(entry.heights);
+
+    const positions: SnapPosition[] = [];
+
+    if (isTab) {
+      // ── Tablature: one position per string ──
+      const numStrings = staff.tuning.length || 6;
+      if (entry.stringYs.size >= 2) {
+        // Compute spacing from known data points
+        const sorted = [...entry.stringYs.entries()].sort(
+          (a, b) => a[0] - b[0],
+        );
+        // String numbers increase from top to bottom in tab
+        // Y should also increase top to bottom.  Use linear fit.
+        const firstS = sorted[0][0];
+        const firstY = sorted[0][1];
+        const lastS = sorted[sorted.length - 1][0];
+        const lastY = sorted[sorted.length - 1][1];
+        const spacing = (lastY - firstY) / (lastS - firstS);
+
+        for (let s = 1; s <= numStrings; s++) {
+          const y = firstY + (s - firstS) * spacing;
+          positions.push({ string: s, y });
+        }
+      } else {
+        // Only 1 data point — use it and assume default spacing
+        const [knownS, knownY] = [...entry.stringYs.entries()][0];
+        const defaultSpacing = medianH * 1.5;
+        for (let s = 1; s <= numStrings; s++) {
+          positions.push({
+            string: s,
+            y: knownY + (s - knownS) * defaultSpacing,
+          });
+        }
+      }
+    } else {
+      // ── Standard notation: staff lines + spaces ──
+      // Standard staff = 5 lines.  Lines and spaces alternate.
+      // Positions: line 5 (top), space 4-5, line 4, space 3-4, line 3,
+      //   space 2-3, line 2, space 1-2, line 1 (bottom)
+      // = 9 core positions.  Add 2 ledger positions above + 2 below = 13.
+      if (entry.stringYs.size >= 2) {
+        const sorted = [...entry.stringYs.entries()].sort(
+          (a, b) => a[1] - b[1],
+        );
+        // Estimate half-step spacing from 2+ different Y values
+        // Use the minimum positive Y gap as the half-step
+        let minGap = Infinity;
+        for (let i = 1; i < sorted.length; i++) {
+          const gap = sorted[i][1] - sorted[i - 1][1];
+          if (gap > 0.5 && gap < minGap) minGap = gap;
+        }
+        if (!isFinite(minGap)) minGap = medianH * 1.2;
+
+        // Midpoint of the staff
+        const topY = sorted[0][1];
+
+        // Generate 13 positions centered around the known range
+        for (let i = -2; i <= 10; i++) {
+          positions.push({ string: i + 1, y: topY + i * minGap });
+        }
+      } else {
+        // Only 1 data point
+        const [, knownY] = [...entry.stringYs.entries()][0];
+        const defaultSpacing = medianH * 1.2;
+        for (let i = -2; i <= 10; i++) {
+          positions.push({ string: i + 1, y: knownY + i * defaultSpacing });
+        }
+      }
+    }
+
+    // Sort by Y ascending
+    positions.sort((a, b) => a.y - b.y);
+
+    snapGrids.set(key, {
+      positions,
+      noteWidth: medianW,
+      noteHeight: medianH,
+    });
+  }
+}
+
+/** Compute the median of an array of numbers. */
+function median(arr: number[]): number {
+  if (arr.length === 0) return 10;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid];
+}
+
+/**
+ * Find the nearest snap position to a given Y coordinate.
+ * Returns the SnapPosition or `null` if the grid is empty.
+ */
+function findNearestSnap(
+  grid: SnapGrid,
+  y: number,
+): SnapPosition | null {
+  if (grid.positions.length === 0) return null;
+  let best: SnapPosition = grid.positions[0];
+  let bestDist = Math.abs(y - best.y);
+  for (let i = 1; i < grid.positions.length; i++) {
+    const d = Math.abs(y - grid.positions[i].y);
+    if (d < bestDist) {
+      bestDist = d;
+      best = grid.positions[i];
+    }
+  }
+  return best;
+}
+
+/**
+ * Position the cursor rectangle element at the given beat + snap position.
+ */
+function updateCursorRect(
+  beatBounds: alphaTab.rendering.BeatBounds | null,
+  snap: SnapPosition | null,
+  grid: SnapGrid | null,
+): void {
+  if (!cursorElement) return;
+
+  if (!beatBounds || !snap || !grid) {
+    cursorElement.style.display = "none";
+    return;
+  }
+
+  const w = grid.noteWidth;
+  const h = grid.noteHeight;
+  const x = beatBounds.onNotesX - w / 2;
+  const y = snap.y - h / 2;
+
+  cursorElement.style.display = "";
+  cursorElement.style.left = `${x}px`;
+  cursorElement.style.top = `${y}px`;
+  cursorElement.style.width = `${w}px`;
+  cursorElement.style.height = `${h}px`;
 }
 
 /** Read which track indices AlphaTab is currently rendering. */
@@ -413,6 +731,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedBeatInfo: null,
   selectedBarInfo: null,
   selectedNoteIndex: -1,
+  selectedString: -1,
   zoom: 1,
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -486,6 +805,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         }
       }
 
+      // 3. Build snap grids for click-to-position resolution
+      try {
+        buildSnapGrids();
+      } catch (e) {
+        if (import.meta.env.DEV) {
+          console.warn("[player-store] buildSnapGrids failed:", e);
+        }
+      }
+
       set({
         isLoading: false,
         visibleTrackIndices,
@@ -556,22 +884,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({ playerState: "stopped", currentTime: 0 });
     });
 
-    // ── Note-level selection via boundsLookup ───────────────────────────
-    // AlphaTab's beatMouseDown/noteMouseDown sometimes resolve to the
-    // wrong track in multi-track horizontal layout.  We use the captured
-    // mousedown coordinates + boundsLookup for accurate per-track,
-    // per-note resolution.  AlphaTab's event is still used as the trigger
-    // and as a fallback if boundsLookup fails.
+    // ── Click-to-position selection via boundsLookup + snap grid ─────
+    // Instead of selecting an existing note, we select the nearest
+    // "snap position" (string line for tab, staff line/space for
+    // notation) and position a cursor rectangle there.
 
     api.beatMouseDown.on((eventBeat: alphaTab.model.Beat) => {
       let targetBeat = eventBeat;
-      let noteIndex = -1;
+      let snappedString = -1;
       let hitSource = "event";
 
-      // ── Custom per-track hit-testing ───────────────────────────────
-      // AlphaTab's getBeatAtPos() ignores Y in horizontal layout, so we
-      // walk the boundsLookup structure manually for correct per-track
-      // resolution.
       const lookup = api?.boundsLookup;
       if (lookup) {
         const x = lastMouseDownX;
@@ -587,46 +909,49 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             const mb = masterBar.realBounds;
             if (x < mb.x || x > mb.x + mb.w) continue;
 
-            // 3. Find the bar (= track) whose Y range contains the click
+            // 3. Find the bar (= track) closest to the click Y
+            //    (nearest-center instead of strict containment so that
+            //    notes above/below the staff, e.g. hi-hat, are reachable)
+            let closestBarBounds: (typeof masterBar.bars)[number] | null =
+              null;
+            let closestBarDist = Infinity;
             for (const barBounds of masterBar.bars) {
               const bb = barBounds.realBounds;
-              if (y < bb.y || y > bb.y + bb.h) continue;
+              const centerY = bb.y + bb.h / 2;
+              const dist = Math.abs(y - centerY);
+              if (dist < closestBarDist) {
+                closestBarDist = dist;
+                closestBarBounds = barBounds;
+              }
+            }
 
-              // 4. Find the beat whose X range contains the click
+            if (closestBarBounds) {
+              // 4. Find the beat closest by X
               let bestBeat: alphaTab.model.Beat | null = null;
-              let bestNote: alphaTab.model.Note | null = null;
               let bestBeatDist = Infinity;
 
-              for (const beatBounds of barBounds.beats) {
+              for (const beatBounds of closestBarBounds.beats) {
                 const bx = beatBounds.realBounds;
-                const dist = Math.abs(
-                  x - (bx.x + bx.w / 2),
-                );
+                const dist = Math.abs(x - (bx.x + bx.w / 2));
                 if (dist < bestBeatDist) {
                   bestBeatDist = dist;
                   bestBeat = beatBounds.beat;
-
-                  // 5. Check for per-note hit within this beat
-                  bestNote = null;
-                  if (beatBounds.notes) {
-                    const noteHit = beatBounds.findNoteAtPos(x, y);
-                    if (noteHit) bestNote = noteHit;
-                  }
                 }
               }
 
               if (bestBeat) {
                 targetBeat = bestBeat;
                 hitSource = "bounds";
-                if (bestNote) {
-                  noteIndex = bestBeat.notes.indexOf(bestNote);
-                  if (noteIndex < 0) noteIndex = 0;
-                  hitSource = "note";
-                } else if (bestBeat.notes.length > 0) {
-                  noteIndex = 0;
+
+                // 5. Snap to nearest string/line position
+                const bar = bestBeat.voice.bar;
+                const gridKey = `${bar.staff.track.index}:${bar.staff.index}`;
+                const grid = snapGrids.get(gridKey);
+                if (grid) {
+                  const snap = findNearestSnap(grid, y);
+                  if (snap) snappedString = snap.string;
                 }
               }
-              break; // found the matching bar
             }
             break; // found the matching master bar
           }
@@ -634,36 +959,34 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         }
       }
 
-      // Fallback: if custom hit-testing didn't resolve, use the event beat
-      if (hitSource === "event" && targetBeat.notes.length > 0) {
-        noteIndex = 0;
-      }
+      const bar = targetBeat.voice.bar;
+      const staffIndex = bar.staff.index;
+      const voiceIndex = targetBeat.voice.index;
 
       // Expose debug info for e2e tests
       if (import.meta.env.DEV) {
-        const bar = targetBeat.voice.bar;
         (window as unknown as Record<string, unknown>).__SELECTION_DEBUG__ = {
           mouseX: lastMouseDownX,
           mouseY: lastMouseDownY,
           hitSource,
           trackIndex: bar.staff.track.index,
+          staffIndex,
+          voiceIndex,
           barIndex: bar.index,
           beatIndex: targetBeat.index,
           noteCount: targetBeat.notes.length,
-          noteIndex,
+          snappedString,
         };
       }
 
-      const bar = targetBeat.voice.bar;
-      set({
-        selectedBeat: {
-          trackIndex: bar.staff.track.index,
-          barIndex: bar.index,
-          beatIndex: targetBeat.index,
-        },
-        selectedBeatInfo: extractBeatInfo(targetBeat),
-        selectedBarInfo: extractBarInfo(bar),
-        selectedNoteIndex: noteIndex,
+      // Delegate to the programmatic selection API
+      get().setSelection({
+        trackIndex: bar.staff.track.index,
+        staffIndex,
+        voiceIndex,
+        barIndex: bar.index,
+        beatIndex: targetBeat.index,
+        string: snappedString,
       });
     });
 
@@ -672,6 +995,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   destroy: () => {
+    // Remove cursor element
+    if (cursorElement) {
+      cursorElement.remove();
+      cursorElement = null;
+    }
+    snapGrids.clear();
+
     if (api) {
       api.destroy();
       api = null;
@@ -704,6 +1034,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       selectedBeatInfo: null,
       selectedBarInfo: null,
       selectedNoteIndex: -1,
+      selectedString: -1,
     });
   },
 
@@ -826,6 +1157,98 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     api.updateSettings();
     api.render();
     set({ zoom });
+  },
+
+  // ── Selection ───────────────────────────────────────────────────────────
+
+  setSelection: ({
+    trackIndex,
+    barIndex,
+    beatIndex,
+    staffIndex = 0,
+    voiceIndex = 0,
+    noteIndex,
+    string: stringArg,
+  }) => {
+    try {
+      const beat = resolveBeat(
+        trackIndex,
+        barIndex,
+        beatIndex,
+        staffIndex,
+        voiceIndex,
+      );
+      if (!beat) {
+        get().clearSelection();
+        return;
+      }
+
+      const bar = beat.voice.bar;
+      const selectedStr = stringArg ?? -1;
+
+      // Derive noteIndex from string: find a note on the selected string
+      let resolvedNoteIndex: number;
+      if (noteIndex !== undefined && noteIndex >= 0 && noteIndex < beat.notes.length) {
+        resolvedNoteIndex = noteIndex;
+      } else if (selectedStr > 0 && beat.notes.length > 0) {
+        const idx = beat.notes.findIndex((n) => n.string === selectedStr);
+        resolvedNoteIndex = idx >= 0 ? idx : -1;
+      } else if (beat.notes.length > 0) {
+        resolvedNoteIndex = 0;
+      } else {
+        resolvedNoteIndex = -1;
+      }
+
+      // Lazily create the cursor element inside .at-cursors
+      if (!cursorElement && mainElement) {
+        const cursorsWrapper = mainElement.querySelector(".at-cursors");
+        if (cursorsWrapper) {
+          cursorElement = document.createElement("div");
+          cursorElement.classList.add("at-edit-cursor");
+          cursorsWrapper.appendChild(cursorElement);
+        }
+      }
+
+      // Position the cursor rectangle
+      const gridKey = `${trackIndex}:${staffIndex}`;
+      const grid = snapGrids.get(gridKey) ?? null;
+      const snap =
+        grid && selectedStr > 0
+          ? grid.positions.find((p) => p.string === selectedStr) ?? null
+          : null;
+      const bb = findBeatBounds(trackIndex, staffIndex, barIndex, beatIndex);
+      updateCursorRect(bb, snap, grid);
+
+      set({
+        selectedBeat: {
+          trackIndex,
+          staffIndex,
+          voiceIndex,
+          barIndex,
+          beatIndex,
+          string: selectedStr,
+        },
+        selectedBeatInfo: extractBeatInfo(beat),
+        selectedBarInfo: extractBarInfo(bar),
+        selectedNoteIndex: resolvedNoteIndex,
+        selectedString: selectedStr,
+      });
+    } catch (e) {
+      if (import.meta.env.DEV) {
+        console.error("[setSelection] error:", e);
+      }
+    }
+  },
+
+  clearSelection: () => {
+    updateCursorRect(null, null, null);
+    set({
+      selectedBeat: null,
+      selectedBeatInfo: null,
+      selectedBarInfo: null,
+      selectedNoteIndex: -1,
+      selectedString: -1,
+    });
   },
 }));
 

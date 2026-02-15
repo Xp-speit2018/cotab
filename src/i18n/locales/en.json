@@ -148,7 +148,8 @@
       "noteIsPercussion": "Is Percussion",
       "notePercussionArticulation": "Perc. Artic.",
       "notePercussionArticulationName": "Perc. Name",
-      "noNote": "No note on this position"
+      "noNote": "No note on this position",
+      "showSnapGrid": "Snap Grid"
     },
 
     "song": {

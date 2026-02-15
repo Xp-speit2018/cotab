@@ -156,6 +156,32 @@
   transition: left 60ms ease, top 60ms ease;
 }
 
+/* ─── Snap Grid Debug Overlay ────────────────────────────────────────────── */
+
+.at-snap-grid-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.at-snap-grid-marker {
+  position: absolute;
+  left: 0;
+  height: 1px;
+}
+
+.at-snap-grid-marker--line {
+  background: rgba(255, 40, 40, 0.45);
+}
+
+.at-snap-grid-marker--space {
+  background: rgba(40, 120, 255, 0.35);
+  border-top: 1px dashed rgba(40, 120, 255, 0.35);
+  height: 0;
+}
+
 /* Hide "rendered by alphaTab" watermark */
 .at-surface-svg[height="12px"] {
   display: none;

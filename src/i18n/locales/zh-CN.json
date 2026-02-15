@@ -39,7 +39,8 @@
       "noteCount": "音符数",
       "duration": "时值",
       "dynamics": "力度",
-      "articulation": "演奏法"
+      "articulation": "演奏法",
+      "showSnapGrid": "吸附网格"
     },
 
     "song": {

@@ -56,6 +56,7 @@ import {
   // Debug / Selector section
   Layers,
   LayoutList,
+  Grid3X3,
   // Song & Tracks sections
   Eye,
   EyeOff,
@@ -876,6 +877,9 @@ function SelectorSection({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
 
+  const showSnapGrid = usePlayerStore((s) => s.showSnapGrid);
+  const setShowSnapGrid = usePlayerStore((s) => s.setShowSnapGrid);
+
   const selectedBeat = usePlayerStore((s) => s.selectedBeat);
   const trackInfo = usePlayerStore((s) => s.selectedTrackInfo);
   const staffInfo = usePlayerStore((s) => s.selectedStaffInfo);
@@ -1049,6 +1053,23 @@ function SelectorSection({
         dragHandleProps={dragHandleProps}
       />
       <CollapsibleContent>
+        {/* Debug visualisation toggles */}
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40">
+          <button
+            type="button"
+            className={cn(
+              "flex items-center gap-1.5 rounded px-2 py-0.5 text-[10px] font-medium transition-colors",
+              showSnapGrid
+                ? "bg-primary/15 text-primary"
+                : "text-muted-foreground hover:bg-accent/50",
+            )}
+            onClick={() => setShowSnapGrid(!showSnapGrid)}
+          >
+            <Grid3X3 className="h-3 w-3" />
+            {t("sidebar.selector.showSnapGrid")}
+          </button>
+        </div>
+
         {selectedBeat ? (
           <div className="py-0.5">
             <DebugLevel

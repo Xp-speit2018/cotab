@@ -63,6 +63,9 @@ let viewportElement: HTMLElement | null = null;
 /** Cursor rectangle DOM element, appended to `.at-cursors`. */
 let cursorElement: HTMLDivElement | null = null;
 
+/** Container for snap-grid debug overlay markers, appended to `.at-cursors`. */
+let snapGridOverlayContainer: HTMLDivElement | null = null;
+
 // ─── Snap Grid ───────────────────────────────────────────────────────────────
 
 /** A single selectable position within a track's staff. */
@@ -275,6 +278,10 @@ export interface PlayerState {
   // View
   zoom: number;
 
+  // Debug
+  /** When true, renders horizontal markers at each snap grid position on the score. */
+  showSnapGrid: boolean;
+
   // Actions
   initialize: (mainEl: HTMLElement, viewportEl: HTMLElement) => void;
   destroy: () => void;
@@ -290,6 +297,7 @@ export interface PlayerState {
   setTrackSolo: (trackIndex: number, solo: boolean) => void;
   setTrackVisible: (trackIndex: number, visible: boolean) => void;
   setZoom: (zoom: number) => void;
+  setShowSnapGrid: (show: boolean) => void;
 
   // Selection
   /** Programmatic selection — single entry point for any selection trigger. */
@@ -571,32 +579,45 @@ function buildSnapGrids(): void {
       // the minimum gap between clusters.
       const distinctYs = clusterYPositions(entry.allYPositions, 1.0);
 
+      // In standard notation a note head's height ≈ 1 staff space
+      // (the distance between two adjacent lines) = 2 × halfSpace.
+      // This relationship is intrinsic to the music font and doesn't
+      // depend on bar padding, making it a robust reference.
+      const refHalfSpace = medianH > 0 ? medianH / 2 : 0;
+
       let halfSpace: number;
       if (distinctYs.length >= 2) {
-        // The minimum gap between distinct positions = half-space
-        halfSpace = Infinity;
+        // Minimum gap between distinct note positions.  When notes are
+        // sparse (e.g. drumkit with notes only on lines, or only on
+        // spaces), this gap can be a small integer multiple of the true
+        // half-space.  Cross-validate against note-head geometry.
+        let minGap = Infinity;
         for (let i = 1; i < distinctYs.length; i++) {
           const gap = distinctYs[i] - distinctYs[i - 1];
-          if (gap > 0.5 && gap < halfSpace) halfSpace = gap;
+          if (gap > 0.5 && gap < minGap) minGap = gap;
         }
-        if (!isFinite(halfSpace)) halfSpace = medianH * 1.2;
-      } else {
-        // Fallback: derive from bar realBounds
-        // A 5-line staff has 4 inter-line gaps; realBounds includes ~1 gap
-        // of padding top + bottom, so total ≈ 6 halfSpaces * 2 = 12 halfSpaces.
-        const barH = entry.barRealBounds?.h ?? medianH * 10;
-        halfSpace = barH / 12;
-      }
+        if (!isFinite(minGap)) minGap = medianH * 1.2;
 
-      // Validate: the 9 core positions (8 gaps) should fit within
-      // roughly the bar's real bounds.  If the note-derived spacing is
-      // too large (e.g. drumkit with only 2 distinct note positions far
-      // apart), fall back to bar-geometry spacing.
-      if (entry.barRealBounds) {
-        const coreSpan = 8 * halfSpace;
-        if (coreSpan > entry.barRealBounds.h * 1.5) {
-          halfSpace = entry.barRealBounds.h / 12;
+        halfSpace = minGap;
+        if (refHalfSpace > 0) {
+          const ratio = minGap / refHalfSpace;
+          if (ratio > 1.4) {
+            const n = Math.round(ratio);
+            if (n >= 2 && Math.abs(ratio - n) < 0.5) {
+              // Min gap is ~Nx the true half-space; divide down.
+              halfSpace = minGap / n;
+            } else {
+              // Can't align cleanly; trust note-head geometry.
+              halfSpace = refHalfSpace;
+            }
+          }
         }
+      } else {
+        // Only one (or zero) distinct positions; use note-head geometry
+        // or bar-geometry as last resort.
+        halfSpace = refHalfSpace > 0
+          ? refHalfSpace
+          : (entry.barRealBounds?.h ?? medianH * 10) / 12;
       }
 
       // Anchor at the median of observed Y values, or bar center
@@ -683,6 +704,50 @@ function updateCursorRect(
   cursorElement.style.top = `${y}px`;
   cursorElement.style.width = `${w}px`;
   cursorElement.style.height = `${h}px`;
+}
+
+/**
+ * Render (or remove) snap-grid debug overlay markers.
+ * Each grid position gets a thin horizontal line so developers can verify
+ * that the snap grid aligns with actual staff lines and spaces.
+ */
+function updateSnapGridOverlay(show: boolean): void {
+  // Remove existing container
+  if (snapGridOverlayContainer) {
+    snapGridOverlayContainer.remove();
+    snapGridOverlayContainer = null;
+  }
+
+  if (!show || !mainElement) return;
+
+  const cursorsWrapper = mainElement.querySelector(".at-cursors");
+  if (!cursorsWrapper) return;
+
+  snapGridOverlayContainer = document.createElement("div");
+  snapGridOverlayContainer.classList.add("at-snap-grid-overlay");
+
+  // Get the total rendered width so markers span the full score
+  const mainWidth = mainElement.scrollWidth;
+
+  for (const [, grid] of snapGrids) {
+    for (let i = 0; i < grid.positions.length; i++) {
+      const pos = grid.positions[i];
+      const marker = document.createElement("div");
+      marker.classList.add("at-snap-grid-marker");
+      // Alternate line/space: even index → line style, odd → space style
+      // (positions are sorted by Y; in a standard staff they alternate)
+      if (i % 2 === 0) {
+        marker.classList.add("at-snap-grid-marker--line");
+      } else {
+        marker.classList.add("at-snap-grid-marker--space");
+      }
+      marker.style.top = `${pos.y}px`;
+      marker.style.width = `${mainWidth}px`;
+      snapGridOverlayContainer.appendChild(marker);
+    }
+  }
+
+  cursorsWrapper.appendChild(snapGridOverlayContainer);
 }
 
 /** Read which track indices AlphaTab is currently rendering. */
@@ -865,6 +930,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedNoteIndex: -1,
   selectedString: -1,
   zoom: 1,
+  showSnapGrid: false,
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -945,6 +1011,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           console.warn("[player-store] buildSnapGrids failed:", e);
         }
       }
+
+      // 4. Refresh snap-grid debug overlay if enabled
+      updateSnapGridOverlay(get().showSnapGrid);
 
       set({
         isLoading: false,
@@ -1132,6 +1201,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       cursorElement.remove();
       cursorElement = null;
     }
+    // Remove snap grid overlay
+    if (snapGridOverlayContainer) {
+      snapGridOverlayContainer.remove();
+      snapGridOverlayContainer = null;
+    }
     snapGrids.clear();
 
     if (api) {
@@ -1292,6 +1366,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     api.updateSettings();
     api.render();
     set({ zoom });
+  },
+
+  setShowSnapGrid: (show) => {
+    set({ showSnapGrid: show });
+    updateSnapGridOverlay(show);
   },
 
   // ── Selection ───────────────────────────────────────────────────────────

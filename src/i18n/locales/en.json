@@ -151,7 +151,8 @@
       "noNote": "No note on this position",
       "showSnapGrid": "Snap Grid",
       "appendRestBefore": "Insert Rest Before",
-      "appendRestAfter": "Insert Rest After"
+      "appendRestAfter": "Insert Rest After",
+      "deleteNote": "Delete Note"
     },
 
     "song": {

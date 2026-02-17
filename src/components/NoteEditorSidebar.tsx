@@ -107,6 +107,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeHandle } from "@/components/ui/resize-handle";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/player-store";
 import type {
@@ -1054,7 +1055,7 @@ function SelectorSection({
       />
       <CollapsibleContent>
         {/* Debug visualisation toggles */}
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/40">
+        <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-border/40">
           <button
             type="button"
             className={cn(
@@ -1068,6 +1069,24 @@ function SelectorSection({
             <Grid3X3 className="h-3 w-3" />
             {t("sidebar.selector.showSnapGrid")}
           </button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().appendRestBefore()}
+          >
+            {t("sidebar.selector.appendRestBefore")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().appendRestAfter()}
+          >
+            {t("sidebar.selector.appendRestAfter")}
+          </Button>
         </div>
 
         {selectedBeat ? (

@@ -53,8 +53,6 @@ let api: alphaTab.AlphaTabApi | null = null;
  * and per-note resolution.  AlphaTab's built-in beat/note events sometimes
  * resolve to the wrong track in multi-track horizontal layout.
  */
-let lastMouseDownX = 0;
-let lastMouseDownY = 0;
 
 /** References to DOM elements needed for coordinate conversion. */
 let mainElement: HTMLElement | null = null;
@@ -65,6 +63,23 @@ let cursorElement: HTMLDivElement | null = null;
 
 /** Container for snap-grid debug overlay markers, appended to `.at-cursors`. */
 let snapGridOverlayContainer: HTMLDivElement | null = null;
+
+/**
+ * Pending selection to apply after the next render completes.
+ * Used by rest insertion actions so the cursor is positioned with
+ * fresh boundsLookup instead of stale pre-render data.
+ */
+let pendingSelection: {
+  trackIndex: number;
+  barIndex: number;
+  beatIndex: number;
+  staffIndex: number;
+  voiceIndex: number;
+  string: number;
+} | null = null;
+
+/** Quarter-note tick constant (AlphaTab uses 960 ticks per quarter). */
+const QUARTER_TICKS = 960;
 
 // ─── Snap Grid ───────────────────────────────────────────────────────────────
 
@@ -299,6 +314,12 @@ export interface PlayerState {
   setZoom: (zoom: number) => void;
   setShowSnapGrid: (show: boolean) => void;
 
+  // Rest insertion
+  /** Insert a rest beat before the currently selected beat. */
+  appendRestBefore: (duration?: alphaTab.model.Duration) => void;
+  /** Insert a rest beat after the currently selected beat. */
+  appendRestAfter: (duration?: alphaTab.model.Duration) => void;
+
   // Selection
   /** Programmatic selection — single entry point for any selection trigger. */
   setSelection: (args: {
@@ -420,6 +441,76 @@ function findBeatBounds(
   }
   return null;
 }
+
+// ─── Duration Helpers ─────────────────────────────────────────────────────────
+
+/**
+ * Convert a Duration enum value to ticks.
+ * Mirrors AlphaTab's internal MidiUtils.toTicks (not exported).
+ */
+function durationToTicks(duration: number): number {
+  let denom = duration;
+  if (denom < 0) {
+    denom = 1 / -denom;
+  }
+  return (QUARTER_TICKS * (4 / denom)) | 0;
+}
+
+/**
+ * Calculate the playback duration of a single beat in ticks,
+ * accounting for dots and tuplets.
+ */
+function beatDurationTicks(beat: alphaTab.model.Beat): number {
+  // Grace notes have zero display duration — skip them
+  if (beat.graceType !== (0 as unknown as alphaTab.model.GraceType)) return 0;
+
+  let ticks = durationToTicks(beat.duration as unknown as number);
+  // Apply dots
+  if (beat.dots === 1) {
+    ticks = ticks + ((ticks / 2) | 0);
+  } else if (beat.dots === 2) {
+    ticks = ticks + (((ticks / 4) | 0) * 3);
+  }
+  // Apply tuplet
+  if (beat.tupletDenominator > 0 && beat.tupletNumerator > 0) {
+    ticks = ((ticks * beat.tupletDenominator) / beat.tupletNumerator) | 0;
+  }
+  return ticks;
+}
+
+/**
+ * Sum the durations of all beats in a voice.
+ * All beats (including isEmpty placeholders) count toward bar fullness
+ * because AlphaTab allocates display duration for them.
+ */
+function sumBeatDurationTicks(voice: alphaTab.model.Voice): number {
+  let total = 0;
+  for (const beat of voice.beats) {
+    total += beatDurationTicks(beat);
+  }
+  return total;
+}
+
+// ─── Bar Duration Validator ──────────────────────────────────────────────────
+
+type BarDurationStatus = "complete" | "incomplete" | "overfull";
+
+/**
+ * Check whether a bar's voice has the correct total duration.
+ */
+function getBarDurationStatus(
+  bar: alphaTab.model.Bar,
+  voiceIndex: number,
+): BarDurationStatus {
+  const voice = bar.voices[voiceIndex];
+  if (!voice || voice.isEmpty) return "complete";
+  const expected = bar.masterBar.calculateDuration();
+  const actual = sumBeatDurationTicks(voice);
+  if (actual < expected) return "incomplete";
+  if (actual > expected) return "overfull";
+  return "complete";
+}
+
 
 /**
  * Cluster an array of Y values by merging those within `tolerance` of each
@@ -689,7 +780,7 @@ function updateCursorRect(
 ): void {
   if (!cursorElement) return;
 
-  if (!beatBounds || !snap || !grid) {
+  if (!beatBounds || !grid) {
     cursorElement.style.display = "none";
     return;
   }
@@ -697,13 +788,83 @@ function updateCursorRect(
   const w = grid.noteWidth;
   const h = grid.noteHeight;
   const x = beatBounds.onNotesX - w / 2;
-  const y = snap.y - h / 2;
+  // Use snap Y when available; otherwise fall back to the vertical centre
+  // of the beat's visual bounds (e.g. for rest beats with no snap position).
+  const y = snap
+    ? snap.y - h / 2
+    : beatBounds.visualBounds.y + beatBounds.visualBounds.h / 2 - h / 2;
 
   cursorElement.style.display = "";
   cursorElement.style.left = `${x}px`;
   cursorElement.style.top = `${y}px`;
   cursorElement.style.width = `${w}px`;
   cursorElement.style.height = `${h}px`;
+}
+
+/**
+ * Position AlphaTab's built-in `.at-cursor-bar` and `.at-cursor-beat`
+ * elements at the correct bar.
+ *
+ * AlphaTab's internal cursor positioning uses tick-based masterbar lookup,
+ * which breaks for overfull bars (beats beyond the bar's duration get
+ * ticks in the next bar's range).  Since we handle clicks ourselves
+ * (stopping propagation before AlphaTab sees them), AlphaTab's cursor
+ * is never updated from clicks.  We set it manually here using the
+ * actual bar bounds from boundsLookup.
+ */
+function fixAlphaTabCursors(
+  trackIndex: number,
+  staffIndex: number,
+  barIndex: number,
+  beatBounds: alphaTab.rendering.BeatBounds | null,
+): void {
+  if (!mainElement) return;
+  const lookup = api?.boundsLookup;
+  if (!lookup) return;
+
+  // Find the MasterBarBounds that contains this bar
+  for (const system of lookup.staffSystems) {
+    for (const masterBarBounds of system.bars) {
+      // Check if any BarBounds in this MasterBarBounds matches our bar
+      let found = false;
+      for (const barBounds of masterBarBounds.bars) {
+        if (barBounds.beats.length === 0) continue;
+        const refBar = barBounds.beats[0].beat.voice.bar;
+        if (
+          refBar.staff.track.index === trackIndex &&
+          refBar.staff.index === staffIndex &&
+          refBar.index === barIndex
+        ) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) continue;
+
+      // Override .at-cursor-bar to cover this masterbar's full visual area.
+      // AlphaTab uses a 100×100 base div with scale transform.
+      const cursorBar = mainElement.querySelector(
+        ".at-cursor-bar",
+      ) as HTMLElement | null;
+      if (cursorBar) {
+        const vb = masterBarBounds.visualBounds;
+        cursorBar.style.transform =
+          `translate(${vb.x}px, ${vb.y}px) scale(${vb.w / 100}, ${vb.h / 100})`;
+      }
+
+      // Override .at-cursor-beat to point at the selected beat's X
+      const cursorBeat = mainElement.querySelector(
+        ".at-cursor-beat",
+      ) as HTMLElement | null;
+      if (cursorBeat && beatBounds) {
+        const vb = masterBarBounds.visualBounds;
+        cursorBeat.style.transform =
+          `translate(${beatBounds.onNotesX}px, ${vb.y}px) scale(0.01, ${vb.h / 100}) translateX(-50%)`;
+      }
+
+      return;
+    }
+  }
 }
 
 /**
@@ -748,6 +909,79 @@ function updateSnapGridOverlay(show: boolean): void {
   }
 
   cursorsWrapper.appendChild(snapGridOverlayContainer);
+}
+
+// ─── Bar Warning Colors (AlphaTab native styling) ────────────────────────────
+
+const BAR_WARN_INCOMPLETE = alphaTab.model.Color.fromJson("#F59E0B");
+const BAR_WARN_OVERFULL = alphaTab.model.Color.fromJson("#EF4444");
+
+/** BarSubElement indices we color when a bar has a duration issue. */
+const BAR_STYLE_ELEMENTS: number[] = [
+  // Bar lines
+  alphaTab.model.BarSubElement.StandardNotationBarLines,
+  alphaTab.model.BarSubElement.GuitarTabsBarLines,
+  alphaTab.model.BarSubElement.SlashBarLines,
+  alphaTab.model.BarSubElement.NumberedBarLines,
+  // Staff lines
+  alphaTab.model.BarSubElement.StandardNotationStaffLine,
+  alphaTab.model.BarSubElement.GuitarTabsStaffLine,
+  alphaTab.model.BarSubElement.SlashStaffLine,
+  alphaTab.model.BarSubElement.NumberedStaffLine,
+  // Bar numbers
+  alphaTab.model.BarSubElement.StandardNotationBarNumber,
+  alphaTab.model.BarSubElement.GuitarTabsBarNumber,
+  alphaTab.model.BarSubElement.SlashBarNumber,
+  alphaTab.model.BarSubElement.NumberedBarNumber,
+];
+
+/**
+ * Apply bar-level warning colors via AlphaTab's native `BarStyle` API.
+ * Traverses every bar in the score and sets (or clears) colored staff lines,
+ * bar lines and bar numbers for duration-incorrect bars.
+ *
+ * Must be called **before** `api.render()` / `api.renderTracks()` so the
+ * renderer picks up the updated styles.
+ */
+function applyBarWarningStyles(): void {
+  const score = api?.score;
+  if (!score) return;
+
+  for (const track of score.tracks) {
+    for (const staff of track.staves) {
+      for (const bar of staff.bars) {
+        // Check every non-empty voice; use the worst status across them.
+        // Empty voices (e.g. voice.isEmpty) do not need to fill the bar — AlphaTab
+        // ignores them for layout, so we skip them to avoid false "incomplete" warnings.
+        let worstStatus: BarDurationStatus = "complete";
+        for (let vi = 0; vi < bar.voices.length; vi++) {
+          const voice = bar.voices[vi];
+          if (voice?.isEmpty) continue;
+          const s = getBarDurationStatus(bar, vi);
+          if (s === "overfull") {
+            worstStatus = "overfull";
+            break;
+          }
+          if (s === "incomplete") worstStatus = "incomplete";
+        }
+
+        if (worstStatus === "complete") {
+          // Clear any previous warning style
+          bar.style = null as unknown as alphaTab.model.BarStyle;
+          continue;
+        }
+
+        const color =
+          worstStatus === "incomplete" ? BAR_WARN_INCOMPLETE : BAR_WARN_OVERFULL;
+
+        const style = new alphaTab.model.BarStyle();
+        for (const elem of BAR_STYLE_ELEMENTS) {
+          style.colors.set(elem, color);
+        }
+        bar.style = style;
+      }
+    }
+  }
 }
 
 /** Read which track indices AlphaTab is currently rendering. */
@@ -956,11 +1190,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     api = new alphaTab.AlphaTabApi(mainEl, settings);
 
-    // ── Capture mousedown coordinates for custom hit-testing ─────────
-    // AlphaTab's beatMouseDown/noteMouseDown events don't always resolve
-    // to the correct track in multi-track horizontal layout.  We capture
-    // coordinates here and use boundsLookup in the beatMouseDown handler
-    // for accurate per-track resolution.
+    // ── Click-to-select via mousedown + boundsLookup ────────────────
+    // We handle beat selection entirely in our own mousedown handler
+    // (capture phase) and stop propagation so AlphaTab's internal click
+    // handling never fires.  This prevents AlphaTab's tick-based cursor
+    // from jumping to the wrong bar in overfull bars.
     const onMouseDown = (e: MouseEvent) => {
       if (!api || !mainElement) return;
       // .at-main's getBoundingClientRect already accounts for the viewport
@@ -968,8 +1202,97 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // divided by the display scale.
       const rect = mainElement.getBoundingClientRect();
       const scale = api.settings.display.scale;
-      lastMouseDownX = (e.clientX - rect.left) / scale;
-      lastMouseDownY = (e.clientY - rect.top) / scale;
+      const x = (e.clientX - rect.left) / scale;
+      const y = (e.clientY - rect.top) / scale;
+
+      const lookup = api.boundsLookup;
+      if (!lookup) return; // No bounds yet — let AlphaTab handle it
+
+      let targetBeat: alphaTab.model.Beat | null = null;
+      let snappedString = -1;
+
+      // 1. Find the staff system that contains the Y position
+      for (const system of lookup.staffSystems) {
+        const sb = system.realBounds;
+        if (y < sb.y || y > sb.y + sb.h) continue;
+
+        // 2. Find the master bar whose X range contains the click
+        for (const masterBar of system.bars) {
+          const mb = masterBar.realBounds;
+          if (x < mb.x || x > mb.x + mb.w) continue;
+
+          // 3. Find the bar (= track) closest to the click Y
+          let closestBarBounds: (typeof masterBar.bars)[number] | null = null;
+          let closestBarDist = Infinity;
+          for (const barBounds of masterBar.bars) {
+            const bb = barBounds.realBounds;
+            const centerY = bb.y + bb.h / 2;
+            const dist = Math.abs(y - centerY);
+            if (dist < closestBarDist) {
+              closestBarDist = dist;
+              closestBarBounds = barBounds;
+            }
+          }
+
+          if (closestBarBounds) {
+            // 4. Find the beat closest by X
+            let bestBeatDist = Infinity;
+            for (const beatBounds of closestBarBounds.beats) {
+              const bx = beatBounds.realBounds;
+              const dist = Math.abs(x - (bx.x + bx.w / 2));
+              if (dist < bestBeatDist) {
+                bestBeatDist = dist;
+                targetBeat = beatBounds.beat;
+              }
+            }
+
+            if (targetBeat) {
+              // 5. Snap to nearest string/line position
+              const bar = targetBeat.voice.bar;
+              const gridKey = `${bar.staff.track.index}:${bar.staff.index}`;
+              const grid = snapGrids.get(gridKey);
+              if (grid) {
+                const snap = findNearestSnap(grid, y);
+                if (snap) snappedString = snap.string;
+              }
+            }
+          }
+          break; // found the matching master bar
+        }
+        break; // found the matching system
+      }
+
+      if (!targetBeat) return; // Click missed all beats — let AlphaTab handle it
+
+      // Prevent AlphaTab from processing this click (avoids tick-based
+      // cursor positioning that breaks for overfull bars).
+      e.stopPropagation();
+
+      const bar = targetBeat.voice.bar;
+
+      if (import.meta.env.DEV) {
+        (window as unknown as Record<string, unknown>).__SELECTION_DEBUG__ = {
+          mouseX: x,
+          mouseY: y,
+          hitSource: "bounds",
+          trackIndex: bar.staff.track.index,
+          staffIndex: bar.staff.index,
+          voiceIndex: targetBeat.voice.index,
+          barIndex: bar.index,
+          beatIndex: targetBeat.index,
+          noteCount: targetBeat.notes.length,
+          snappedString,
+        };
+      }
+
+      get().setSelection({
+        trackIndex: bar.staff.track.index,
+        staffIndex: bar.staff.index,
+        voiceIndex: targetBeat.voice.index,
+        barIndex: bar.index,
+        beatIndex: targetBeat.index,
+        string: snappedString,
+      });
     };
     viewportEl.addEventListener("mousedown", onMouseDown, { capture: true });
 
@@ -1020,6 +1343,32 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         visibleTrackIndices,
         trackBounds: newTrackBounds,
       });
+
+      // 6. Apply pending selection (from rest insertion) with fresh bounds,
+      //    or re-position the existing cursor if no pending change.
+      if (pendingSelection) {
+        const ps = pendingSelection;
+        pendingSelection = null;
+        get().setSelection(ps);
+      } else {
+        const sel = get().selectedBeat;
+        if (sel && cursorElement) {
+          const freshBB = findBeatBounds(
+            sel.trackIndex,
+            sel.staffIndex,
+            sel.barIndex,
+            sel.beatIndex,
+          );
+          const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
+          const freshGrid = snapGrids.get(gridKey) ?? null;
+          const freshSnap =
+            freshGrid && sel.string > 0
+              ? freshGrid.positions.find((p) => p.string === sel.string) ?? null
+              : null;
+          updateCursorRect(freshBB, freshSnap, freshGrid);
+          fixAlphaTabCursors(sel.trackIndex, sel.staffIndex, sel.barIndex, freshBB);
+        }
+      }
     });
 
     api.scoreLoaded.on((score: alphaTab.model.Score) => {
@@ -1048,6 +1397,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         scoreTempoLabel: score.tempoLabel || "",
         tracks,
       });
+
+      // Apply bar-warning colors before the initial render
+      applyBarWarningStyles();
 
       // Render ALL tracks by default so visibility list matches
       api!.renderTracks(score.tracks);
@@ -1085,112 +1437,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({ playerState: "stopped", currentTime: 0 });
     });
 
-    // ── Click-to-position selection via boundsLookup + snap grid ─────
-    // Instead of selecting an existing note, we select the nearest
-    // "snap position" (string line for tab, staff line/space for
-    // notation) and position a cursor rectangle there.
-
-    api.beatMouseDown.on((eventBeat: alphaTab.model.Beat) => {
-      let targetBeat = eventBeat;
-      let snappedString = -1;
-      let hitSource = "event";
-
-      const lookup = api?.boundsLookup;
-      if (lookup) {
-        const x = lastMouseDownX;
-        const y = lastMouseDownY;
-
-        // 1. Find the staff system that contains the Y position
-        for (const system of lookup.staffSystems) {
-          const sb = system.realBounds;
-          if (y < sb.y || y > sb.y + sb.h) continue;
-
-          // 2. Find the master bar whose X range contains the click
-          for (const masterBar of system.bars) {
-            const mb = masterBar.realBounds;
-            if (x < mb.x || x > mb.x + mb.w) continue;
-
-            // 3. Find the bar (= track) closest to the click Y
-            //    (nearest-center instead of strict containment so that
-            //    notes above/below the staff, e.g. hi-hat, are reachable)
-            let closestBarBounds: (typeof masterBar.bars)[number] | null =
-              null;
-            let closestBarDist = Infinity;
-            for (const barBounds of masterBar.bars) {
-              const bb = barBounds.realBounds;
-              const centerY = bb.y + bb.h / 2;
-              const dist = Math.abs(y - centerY);
-              if (dist < closestBarDist) {
-                closestBarDist = dist;
-                closestBarBounds = barBounds;
-              }
-            }
-
-            if (closestBarBounds) {
-              // 4. Find the beat closest by X
-              let bestBeat: alphaTab.model.Beat | null = null;
-              let bestBeatDist = Infinity;
-
-              for (const beatBounds of closestBarBounds.beats) {
-                const bx = beatBounds.realBounds;
-                const dist = Math.abs(x - (bx.x + bx.w / 2));
-                if (dist < bestBeatDist) {
-                  bestBeatDist = dist;
-                  bestBeat = beatBounds.beat;
-                }
-              }
-
-              if (bestBeat) {
-                targetBeat = bestBeat;
-                hitSource = "bounds";
-
-                // 5. Snap to nearest string/line position
-                const bar = bestBeat.voice.bar;
-                const gridKey = `${bar.staff.track.index}:${bar.staff.index}`;
-                const grid = snapGrids.get(gridKey);
-                if (grid) {
-                  const snap = findNearestSnap(grid, y);
-                  if (snap) snappedString = snap.string;
-                }
-              }
-            }
-            break; // found the matching master bar
-          }
-          break; // found the matching system
-        }
-      }
-
-      const bar = targetBeat.voice.bar;
-      const staffIndex = bar.staff.index;
-      const voiceIndex = targetBeat.voice.index;
-
-      // Expose debug info for e2e tests
-      if (import.meta.env.DEV) {
-        (window as unknown as Record<string, unknown>).__SELECTION_DEBUG__ = {
-          mouseX: lastMouseDownX,
-          mouseY: lastMouseDownY,
-          hitSource,
-          trackIndex: bar.staff.track.index,
-          staffIndex,
-          voiceIndex,
-          barIndex: bar.index,
-          beatIndex: targetBeat.index,
-          noteCount: targetBeat.notes.length,
-          snappedString,
-        };
-      }
-
-      // Delegate to the programmatic selection API
-      get().setSelection({
-        trackIndex: bar.staff.track.index,
-        staffIndex,
-        voiceIndex,
-        barIndex: bar.index,
-        beatIndex: targetBeat.index,
-        string: snappedString,
-      });
-    });
-
     // Load the demo file
     api.load("/demos/Taijin_kyofusho.gp");
   },
@@ -1206,6 +1452,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       snapGridOverlayContainer.remove();
       snapGridOverlayContainer = null;
     }
+    pendingSelection = null;
     snapGrids.clear();
 
     if (api) {
@@ -1373,6 +1620,91 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     updateSnapGridOverlay(show);
   },
 
+  // ── Rest Insertion ──────────────────────────────────────────────────────
+
+  appendRestBefore: (duration) => {
+    const sel = get().selectedBeat;
+    if (!sel || !api) return;
+    const beat = resolveBeat(
+      sel.trackIndex,
+      sel.barIndex,
+      sel.beatIndex,
+      sel.staffIndex,
+      sel.voiceIndex,
+    );
+    if (!beat) return;
+    const voice = beat.voice;
+
+    const restBeat = new alphaTab.model.Beat();
+    restBeat.isEmpty = false;
+    restBeat.duration = duration ?? beat.duration;
+    restBeat.notes = [];
+
+    // Insert before the current beat by splicing into voice.beats
+    const idx = voice.beats.indexOf(beat);
+    if (idx >= 0) {
+      voice.beats.splice(idx, 0, restBeat);
+      // Re-parent: set voice reference
+      restBeat.voice = voice;
+    } else {
+      voice.addBeat(restBeat);
+    }
+    voice.finish(api.settings);
+    applyBarWarningStyles();
+
+    // Defer selection to postRenderFinished so the cursor uses fresh bounds
+    pendingSelection = {
+      trackIndex: sel.trackIndex,
+      barIndex: sel.barIndex,
+      beatIndex: idx >= 0 ? idx : sel.beatIndex,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    };
+    api.render();
+  },
+
+  appendRestAfter: (duration) => {
+    const sel = get().selectedBeat;
+    if (!sel || !api) return;
+    const beat = resolveBeat(
+      sel.trackIndex,
+      sel.barIndex,
+      sel.beatIndex,
+      sel.staffIndex,
+      sel.voiceIndex,
+    );
+    if (!beat) return;
+    const voice = beat.voice;
+
+    const restBeat = new alphaTab.model.Beat();
+    restBeat.isEmpty = false;
+    restBeat.duration = duration ?? beat.duration;
+    restBeat.notes = [];
+
+    // Insert after the current beat
+    const idx = voice.beats.indexOf(beat);
+    if (idx >= 0 && idx < voice.beats.length - 1) {
+      voice.beats.splice(idx + 1, 0, restBeat);
+      restBeat.voice = voice;
+    } else {
+      voice.addBeat(restBeat);
+    }
+    voice.finish(api.settings);
+    applyBarWarningStyles();
+
+    // Defer selection to postRenderFinished so the cursor uses fresh bounds
+    pendingSelection = {
+      trackIndex: sel.trackIndex,
+      barIndex: sel.barIndex,
+      beatIndex: idx >= 0 ? idx + 1 : voice.beats.length - 1,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    };
+    api.render();
+  },
+
   // ── Selection ───────────────────────────────────────────────────────────
 
   setSelection: ({
@@ -1397,7 +1729,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         return;
       }
 
-      const bar = beat.voice.bar;
       const selectedStr = stringArg ?? -1;
 
       // Look up grid and beat bounds (needed for both cursor and note matching)
@@ -1407,10 +1738,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         grid && selectedStr > 0
           ? grid.positions.find((p) => p.string === selectedStr) ?? null
           : null;
-      const bb = findBeatBounds(trackIndex, staffIndex, barIndex, beatIndex);
+      const bb = findBeatBounds(
+        trackIndex,
+        staffIndex,
+        barIndex,
+        beatIndex,
+      );
 
       // Determine if this track uses a notation grid (not tab)
-      const staff = bar.staff;
+      const staff = beat.voice.bar.staff;
       const isNotationGrid = !staff.showTablature || staff.track.isPercussion;
 
       // Derive noteIndex from the selected position
@@ -1419,9 +1755,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         resolvedNoteIndex = noteIndex;
       } else if (selectedStr > 0 && beat.notes.length > 0) {
         if (isNotationGrid && snap && bb?.notes) {
-          // For notation tracks, grid string indices don't correspond to
-          // note.string values.  Match by finding the note whose rendered
-          // Y position is closest to the snapped grid position's Y.
           let bestIdx = -1;
           let bestDist = Infinity;
           for (const noteBounds of bb.notes) {
@@ -1433,14 +1766,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
               bestIdx = beat.notes.indexOf(noteBounds.note);
             }
           }
-          // Only accept if close enough (within 0.75 * halfSpace)
           const halfSpace =
             grid && grid.positions.length >= 2
               ? Math.abs(grid.positions[1].y - grid.positions[0].y)
               : Infinity;
           resolvedNoteIndex = bestDist < halfSpace * 0.75 ? bestIdx : -1;
         } else {
-          // For tab tracks, grid string === note.string
           const idx = beat.notes.findIndex((n) => n.string === selectedStr);
           resolvedNoteIndex = idx >= 0 ? idx : -1;
         }
@@ -1463,6 +1794,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // Position the cursor rectangle
       updateCursorRect(bb, snap, grid);
 
+      // Fix AlphaTab's built-in bar/beat cursor for overfull bars
+      fixAlphaTabCursors(trackIndex, staffIndex, barIndex, bb);
+
       set({
         selectedBeat: {
           trackIndex,
@@ -1472,9 +1806,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           beatIndex,
           string: selectedStr,
         },
-        selectedTrackInfo: extractTrackInfo(bar.staff.track),
-        selectedStaffInfo: extractStaffInfo(bar.staff),
-        selectedBarInfo: extractBarInfo(bar),
+        selectedTrackInfo: extractTrackInfo(beat.voice.bar.staff.track),
+        selectedStaffInfo: extractStaffInfo(beat.voice.bar.staff),
+        selectedBarInfo: extractBarInfo(beat.voice.bar),
         selectedVoiceInfo: extractVoiceInfo(beat.voice),
         selectedBeatInfo: extractBeatInfo(beat),
         selectedNoteIndex: resolvedNoteIndex,

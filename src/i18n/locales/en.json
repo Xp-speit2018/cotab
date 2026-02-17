@@ -149,7 +149,9 @@
       "notePercussionArticulation": "Perc. Artic.",
       "notePercussionArticulationName": "Perc. Name",
       "noNote": "No note on this position",
-      "showSnapGrid": "Snap Grid"
+      "showSnapGrid": "Snap Grid",
+      "appendRestBefore": "Insert Rest Before",
+      "appendRestAfter": "Insert Rest After"
     },
 
     "song": {

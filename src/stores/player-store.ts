@@ -320,6 +320,17 @@ export interface PlayerState {
   /** Insert a rest beat after the currently selected beat. */
   appendRestAfter: (duration?: alphaTab.model.Duration) => void;
 
+  // Note deletion (assumes single-voice bars)
+  /**
+   * Delete the selected note/rest programmatically.
+   *
+   * 1. Note shares a beat with other notes → remove just that note.
+   * 2. Note is the only one on its beat → clear notes so the beat becomes a rest.
+   * 3. Selected beat is already a rest → remove the beat from the voice.
+   *    If that was the last beat, the bar becomes empty.
+   */
+  deleteNote: () => void;
+
   // Selection
   /** Programmatic selection — single entry point for any selection trigger. */
   setSelection: (args: {
@@ -1702,6 +1713,96 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       voiceIndex: sel.voiceIndex,
       string: sel.string,
     };
+    api.render();
+  },
+
+  // ── Note Deletion ─────────────────────────────────────────────────────
+
+  deleteNote: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api) return;
+
+    const beat = resolveBeat(
+      sel.trackIndex,
+      sel.barIndex,
+      sel.beatIndex,
+      sel.staffIndex,
+      sel.voiceIndex,
+    );
+    if (!beat) return;
+
+    const voice = beat.voice;
+    const noteIdx = get().selectedNoteIndex;
+
+    // ── Case 3: Beat is a rest — remove the beat ────────────────────────
+    if (beat.notes.length === 0 || beat.isRest) {
+      const beatIdx = voice.beats.indexOf(beat);
+      if (beatIdx < 0) return;
+
+      voice.beats.splice(beatIdx, 1);
+
+      if (voice.beats.length === 0) {
+        // Last beat removed — bar is now empty. Mark voice empty so
+        // AlphaTab renders the bar without content.
+        voice.finish(api.settings);
+        applyBarWarningStyles();
+        get().clearSelection();
+      } else {
+        voice.finish(api.settings);
+        applyBarWarningStyles();
+
+        const newBeatIdx = Math.min(beatIdx, voice.beats.length - 1);
+        pendingSelection = {
+          trackIndex: sel.trackIndex,
+          barIndex: sel.barIndex,
+          beatIndex: newBeatIdx,
+          staffIndex: sel.staffIndex,
+          voiceIndex: sel.voiceIndex,
+          string: sel.string,
+        };
+      }
+
+      api.render();
+      return;
+    }
+
+    // ── Cases 1 & 2: Beat has notes ─────────────────────────────────────
+    if (noteIdx < 0 || noteIdx >= beat.notes.length) return;
+
+    if (beat.notes.length > 1) {
+      // Case 1: Multiple notes on beat — remove only the selected one
+      beat.notes.splice(noteIdx, 1);
+      for (let i = 0; i < beat.notes.length; i++) {
+        beat.notes[i].index = i;
+      }
+      voice.finish(api.settings);
+      applyBarWarningStyles();
+
+      const newNoteIdx = Math.min(noteIdx, beat.notes.length - 1);
+      pendingSelection = {
+        trackIndex: sel.trackIndex,
+        barIndex: sel.barIndex,
+        beatIndex: sel.beatIndex,
+        staffIndex: sel.staffIndex,
+        voiceIndex: sel.voiceIndex,
+        string: beat.notes[newNoteIdx]?.string ?? sel.string,
+      };
+    } else {
+      // Case 2: Only note on beat — remove it so the beat becomes a rest
+      beat.notes = [];
+      voice.finish(api.settings);
+      applyBarWarningStyles();
+
+      pendingSelection = {
+        trackIndex: sel.trackIndex,
+        barIndex: sel.barIndex,
+        beatIndex: sel.beatIndex,
+        staffIndex: sel.staffIndex,
+        voiceIndex: sel.voiceIndex,
+        string: sel.string,
+      };
+    }
+
     api.render();
   },
 

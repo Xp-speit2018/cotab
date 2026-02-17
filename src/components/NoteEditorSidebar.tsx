@@ -1087,6 +1087,15 @@ function SelectorSection({
           >
             {t("sidebar.selector.appendRestAfter")}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            disabled={!selectedBeat || (!note && !beat?.isRest)}
+            onClick={() => usePlayerStore.getState().deleteNote()}
+          >
+            {t("sidebar.selector.deleteNote")}
+          </Button>
         </div>
 
         {selectedBeat ? (

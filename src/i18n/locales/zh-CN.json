@@ -151,7 +151,10 @@
       "noNote": "此位置无音符",
       "showSnapGrid": "吸附网格",
       "appendRestBefore": "在前方插入休止符",
-      "appendRestAfter": "在后方插入休止符"
+      "appendRestAfter": "在后方插入休止符",
+      "toggleBeatIsEmpty": "切换 isEmpty",
+      "deleteNote": "删除音符",
+      "deleteNoteLastRest": "无法删除小节中的最后一个休止符"
     },
 
     "song": {

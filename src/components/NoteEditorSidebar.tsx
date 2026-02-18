@@ -877,6 +877,8 @@ function SelectorSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const [deleteBlocked, setDeleteBlocked] = useState(false);
+  const deleteBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showSnapGrid = usePlayerStore((s) => s.showSnapGrid);
   const setShowSnapGrid = usePlayerStore((s) => s.setShowSnapGrid);
@@ -1086,6 +1088,41 @@ function SelectorSection({
             onClick={() => usePlayerStore.getState().appendRestAfter()}
           >
             {t("sidebar.selector.appendRestAfter")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-6 px-2 text-[10px] transition-colors",
+              deleteBlocked && "border-destructive text-destructive",
+            )}
+            disabled={!selectedBeat || (!note && !beat?.isRest && !beat?.isEmpty)}
+            title={deleteBlocked ? t("sidebar.selector.deleteNoteLastRest") : undefined}
+            onClick={() => {
+              const ok = usePlayerStore.getState().deleteNote();
+              if (!ok) {
+                setDeleteBlocked(true);
+                if (deleteBlockedTimer.current) clearTimeout(deleteBlockedTimer.current);
+                deleteBlockedTimer.current = setTimeout(() => setDeleteBlocked(false), 1200);
+              }
+            }}
+          >
+            {deleteBlocked
+              ? t("sidebar.selector.deleteNoteLastRest")
+              : t("sidebar.selector.deleteNote")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-6 px-2 text-[10px]",
+              beat?.isEmpty && "bg-primary/15 text-primary",
+            )}
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().toggleBeatIsEmpty()}
+          >
+            {t("sidebar.selector.toggleBeatIsEmpty")}
+            {beat != null ? `: ${beat.isEmpty}` : ""}
           </Button>
         </div>
 

@@ -64,6 +64,13 @@ let cursorElement: HTMLDivElement | null = null;
 /** Container for snap-grid debug overlay markers, appended to `.at-cursors`. */
 let snapGridOverlayContainer: HTMLDivElement | null = null;
 
+/** Container for snap-grid ID labels, appended to the viewport wrapper. */
+let snapGridLabelContainer: HTMLDivElement | null = null;
+/** Cached overlay entries (markers + labels) for dimming and repositioning. */
+let snapGridEntries: { marker: HTMLElement; label: HTMLElement; string: number; y: number }[] = [];
+/** Scroll handler reference for cleanup. */
+let snapGridScrollHandler: (() => void) | null = null;
+
 /**
  * Pending selection to apply after the next render completes.
  * Used by rest insertion actions so the cursor is positioned with
@@ -75,7 +82,7 @@ let pendingSelection: {
   beatIndex: number;
   staffIndex: number;
   voiceIndex: number;
-  string: number;
+  string: number | null;
 } | null = null;
 
 /** Quarter-note tick constant (AlphaTab uses 960 ticks per quarter). */
@@ -85,7 +92,12 @@ const QUARTER_TICKS = 960;
 
 /** A single selectable position within a track's staff. */
 interface SnapPosition {
-  /** 1-based string number (tab) or line/space index (notation). */
+  /**
+   * Position identifier:
+   * - Tab tracks: 1-based string number.
+   * - Standard notation: line/space index (1–21).
+   * - Percussion: alphaTab staffLine value (from InstrumentArticulation).
+   */
   string: number;
   /** Center Y in bounds coordinate space. */
   y: number;
@@ -97,7 +109,7 @@ interface SnapGrid {
   noteWidth: number; // typical note head width
   noteHeight: number; // typical note head height
   /**
-   * For percussion tracks only: maps grid position string → default
+   * For percussion tracks only: maps staffLine → default
    * percussionArticulation value, derived from observed notes in the score.
    */
   percussionMap?: Map<number, number>;
@@ -105,6 +117,14 @@ interface SnapGrid {
 
 /** Key = `${trackIndex}:${staffIndex}` → snap grid for that track/staff. */
 const snapGrids = new Map<string, SnapGrid>();
+
+/** A group of percussion articulations sharing the same staff line. */
+export interface PercSnapGroup {
+  /** AlphaTab staffLine value. */
+  staffLine: number;
+  /** All articulation definitions at this staff line. */
+  entries: PercArticulationDef[];
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -123,8 +143,13 @@ export interface SelectedBeat {
   voiceIndex: number;
   barIndex: number;
   beatIndex: number;
-  /** 1-based string (tab) or line/space index (notation), -1 if unknown. */
-  string: number;
+  /**
+   * Position identifier, or null if no position is selected.
+   * - Tab: 1-based string number.
+   * - Standard notation: line/space index (1–21).
+   * - Percussion: alphaTab staffLine value.
+   */
+  string: number | null;
 }
 
 export interface TrackBounds {
@@ -294,9 +319,8 @@ export interface PlayerState {
   selectedBeatInfo: SelectedBeatInfo | null;
   /** Index into selectedBeatInfo.notes[] for the actively selected note, or -1 if none. */
   selectedNoteIndex: number;
-  /** The string/line the cursor is on, -1 = none. */
-  selectedString: number;
-
+  /** The string/line the cursor is on, null = none. */
+  selectedString: number | null;
   // View
   zoom: number;
 
@@ -375,159 +399,228 @@ export interface PlayerState {
     staffIndex?: number;
     voiceIndex?: number;
     noteIndex?: number;
-    string?: number;
+    string?: number | null;
   }) => void;
   /** Clear the current selection. */
   clearSelection: () => void;
 }
 
-// ─── GP7 Percussion Articulation IDs ─────────────────────────────────────────
-// The human-readable names live in the i18n files under "percussion.gp7.{id}".
+// ─── AlphaTab Percussion Articulation Definitions ────────────────────────────
+// Extracted from alphaTab PercussionMapper.instrumentArticulations +
+// _instrumentArticulationNames.  This is the single source of truth for
+// every GP7 percussion articulation: ID, element type, staff line,
+// and technique name.
 
-const GP7_PERCUSSION_IDS = new Set([
-  29, 30, 31, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-  48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65,
-  66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
-  84, 85, 86, 87, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103,
-  104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118,
-  119, 120, 122, 123, 124, 125, 126, 127,
-]);
+export interface PercArticulationDef {
+  /** GP7 articulation ID. */
+  id: number;
+  /** Element type from alphaTab, e.g. "Snare", "Charley". */
+  elementType: string;
+  /** Staff line position from alphaTab InstrumentArticulation. */
+  staffLine: number;
+  /** Playing technique, e.g. "hit", "side stick", "mute". */
+  technique: string;
+}
 
-// ─── GP7 Articulation ↔ StaffLine Bidirectional Map ─────────────────────────
-// Single source of truth for vertical position of every GP7 percussion
-// articulation, extracted from alphaTab PercussionMapper.instrumentArticulations.
-// Format: GP7 articulation ID → staffLine (1 = top line, increasing downward).
-
-export const GP7_ARTICULATION_MAP: ReadonlyMap<number, number> = new Map([
-  // Snare area (staffLine 3)
-  [38, 3], [37, 3], [91, 3], [54, 3], [39, 3], [40, 3], [31, 3], [33, 3], [34, 3],
-  // Hi-Hat / Crash Medium / Cowbell High (staffLine -1)
-  [42, -1], [92, -1], [46, -1], [57, -1], [98, -1], [102, -1], [103, -1],
-  // Ride / Cowbell Medium (staffLine 0)
-  [93, 0], [51, 0], [53, 0], [94, 0], [56, 0], [101, 0],
-  // Splash / Crash High (staffLine -2)
-  [55, -2], [95, -2], [49, -2], [97, -2],
-  // China / Reverse Cymbal (staffLine -3)
-  [52, -3], [96, -3], [30, -3],
-  // Tom Very High / Cowbell Low / Tambourine roll (staffLine 1)
-  [50, 1], [99, 1], [100, 1], [112, 1],
-  // Tom High / Tambourine return / Ride Cymbal 2 (staffLine 2)
-  [48, 2], [111, 2], [59, 2], [126, 2], [127, 2], [29, 2],
+export const ALPHATAB_PERCUSSION_DEFS: readonly PercArticulationDef[] = [
+  // Snare (staffLine 3)
+  { id: 38, elementType: "Snare", staffLine: 3, technique: "hit" },
+  { id: 37, elementType: "Snare", staffLine: 3, technique: "side stick" },
+  { id: 91, elementType: "Snare", staffLine: 3, technique: "rim shot" },
+  { id: 39, elementType: "Hand Clap", staffLine: 3, technique: "hit" },
+  { id: 40, elementType: "Electric Snare", staffLine: 3, technique: "hit" },
+  { id: 31, elementType: "Sticks", staffLine: 3, technique: "hit" },
+  { id: 33, elementType: "Metronome", staffLine: 3, technique: "hit" },
+  { id: 34, elementType: "Metronome", staffLine: 3, technique: "bell" },
+  { id: 54, elementType: "Tambourine", staffLine: 3, technique: "hit" },
+  // Charley — Hi-Hat (staffLine -1)
+  { id: 42, elementType: "Charley", staffLine: -1, technique: "closed" },
+  { id: 92, elementType: "Charley", staffLine: -1, technique: "half" },
+  { id: 46, elementType: "Charley", staffLine: -1, technique: "open" },
+  // Crash Medium (staffLine -1)
+  { id: 57, elementType: "Crash Medium", staffLine: -1, technique: "hit" },
+  { id: 98, elementType: "Crash Medium", staffLine: -1, technique: "choke" },
+  // Cowbell High (staffLine -1)
+  { id: 102, elementType: "Cowbell High", staffLine: -1, technique: "hit" },
+  { id: 103, elementType: "Cowbell High", staffLine: -1, technique: "tip" },
+  // Charley — Pedal Hi-Hat (staffLine 9)
+  { id: 44, elementType: "Charley", staffLine: 9, technique: "hit" },
+  // Ride (staffLine 0)
+  { id: 93, elementType: "Ride", staffLine: 0, technique: "edge" },
+  { id: 51, elementType: "Ride", staffLine: 0, technique: "middle" },
+  { id: 53, elementType: "Ride", staffLine: 0, technique: "bell" },
+  { id: 94, elementType: "Ride", staffLine: 0, technique: "choke" },
+  // Cowbell Medium (staffLine 0)
+  { id: 56, elementType: "Cowbell Medium", staffLine: 0, technique: "hit" },
+  { id: 101, elementType: "Cowbell Medium", staffLine: 0, technique: "tip" },
+  // Splash (staffLine -2)
+  { id: 55, elementType: "Splash", staffLine: -2, technique: "hit" },
+  { id: 95, elementType: "Splash", staffLine: -2, technique: "choke" },
+  // Crash High (staffLine -2)
+  { id: 49, elementType: "Crash High", staffLine: -2, technique: "hit" },
+  { id: 97, elementType: "Crash High", staffLine: -2, technique: "choke" },
+  // China (staffLine -3)
+  { id: 52, elementType: "China", staffLine: -3, technique: "hit" },
+  { id: 96, elementType: "China", staffLine: -3, technique: "choke" },
+  // Reverse Cymbal (staffLine -3)
+  { id: 30, elementType: "Reverse Cymbal", staffLine: -3, technique: "hit" },
+  // Toms
+  { id: 50, elementType: "Tom Very High", staffLine: 1, technique: "hit" },
+  // Cowbell Low (staffLine 1)
+  { id: 99, elementType: "Cowbell Low", staffLine: 1, technique: "hit" },
+  { id: 100, elementType: "Cowbell Low", staffLine: 1, technique: "tip" },
+  // Tambourine roll (staffLine 1)
+  { id: 112, elementType: "Tambourine", staffLine: 1, technique: "roll" },
+  // Tom High (staffLine 2)
+  { id: 48, elementType: "Tom High", staffLine: 2, technique: "hit" },
+  // Tambourine return (staffLine 2)
+  { id: 111, elementType: "Tambourine", staffLine: 2, technique: "return" },
+  // Ride Cymbal 2 (staffLine 2)
+  { id: 59, elementType: "Ride Cymbal 2", staffLine: 2, technique: "edge" },
+  { id: 126, elementType: "Ride Cymbal 2", staffLine: 2, technique: "middle" },
+  { id: 127, elementType: "Ride Cymbal 2", staffLine: 2, technique: "bell" },
+  { id: 29, elementType: "Ride Cymbal 2", staffLine: 2, technique: "choke" },
   // Tom Medium (staffLine 4)
-  [47, 4],
-  // Tom Low / Very Low Floor Tom (staffLine 5)
-  [45, 5], [41, 5],
+  { id: 47, elementType: "Tom Medium", staffLine: 4, technique: "hit" },
+  // Tom Low + Very Low Floor Tom (staffLine 5)
+  { id: 45, elementType: "Tom Low", staffLine: 5, technique: "hit" },
+  { id: 41, elementType: "Very Low Floor Tom", staffLine: 5, technique: "hit" },
   // Tom Very Low (staffLine 6)
-  [43, 6],
+  { id: 43, elementType: "Tom Very Low", staffLine: 6, technique: "hit" },
   // Kick Drum (staffLine 7)
-  [36, 7],
+  { id: 36, elementType: "Kick Drum", staffLine: 7, technique: "hit" },
   // Acoustic Kick Drum (staffLine 8)
-  [35, 8],
-  // Pedal Hi-Hat / Timbale High (staffLine 9)
-  [44, 9], [65, 9],
+  { id: 35, elementType: "Acoustic Kick Drum", staffLine: 8, technique: "hit" },
+  // Timbale High (staffLine 9)
+  { id: 65, elementType: "Timbale High", staffLine: 9, technique: "hit" },
   // Timbale Low (staffLine 10)
-  [66, 10],
+  { id: 66, elementType: "Timbale Low", staffLine: 10, technique: "hit" },
   // Agogo High (staffLine 11)
-  [67, 11],
+  { id: 67, elementType: "Agogo High", staffLine: 11, technique: "hit" },
   // Agogo Low (staffLine 12)
-  [68, 12],
+  { id: 68, elementType: "Agogo Low", staffLine: 12, technique: "hit" },
   // Conga High slap (staffLine 13)
-  [110, 13],
+  { id: 110, elementType: "Conga High", staffLine: 13, technique: "slap" },
   // Conga High (staffLine 14)
-  [63, 14],
+  { id: 63, elementType: "Conga High", staffLine: 14, technique: "hit" },
   // Conga Low mute (staffLine 15)
-  [109, 15],
+  { id: 109, elementType: "Conga Low", staffLine: 15, technique: "mute" },
   // Conga Low slap (staffLine 16)
-  [108, 16],
+  { id: 108, elementType: "Conga Low", staffLine: 16, technique: "slap" },
   // Conga Low (staffLine 17)
-  [64, 17],
+  { id: 64, elementType: "Conga Low", staffLine: 17, technique: "hit" },
   // Piatti (staffLine 18)
-  [115, 18],
+  { id: 115, elementType: "Piatti", staffLine: 18, technique: "hit" },
   // Conga High mute (staffLine 19)
-  [62, 19],
+  { id: 62, elementType: "Conga High", staffLine: 19, technique: "mute" },
   // Claves (staffLine 20)
-  [75, 20],
+  { id: 75, elementType: "Claves", staffLine: 20, technique: "hit" },
   // Castanets (staffLine 21)
-  [85, 21],
+  { id: 85, elementType: "Castanets", staffLine: 21, technique: "hit" },
   // Cabasa return (staffLine 22)
-  [117, 22],
+  { id: 117, elementType: "Cabasa", staffLine: 22, technique: "return" },
   // Cabasa (staffLine 23)
-  [69, 23],
+  { id: 69, elementType: "Cabasa", staffLine: 23, technique: "hit" },
   // Piatti hand (staffLine 24)
-  [116, 24],
+  { id: 116, elementType: "Piatti", staffLine: 24, technique: "hand" },
   // Grancassa (staffLine 25)
-  [114, 25],
+  { id: 114, elementType: "Grancassa", staffLine: 25, technique: "hit" },
   // Triangle mute (staffLine 26)
-  [80, 26],
+  { id: 80, elementType: "Triangle", staffLine: 26, technique: "mute" },
   // Triangle (staffLine 27)
-  [81, 27],
+  { id: 81, elementType: "Triangle", staffLine: 27, technique: "hit" },
   // Vibraslap (staffLine 28)
-  [58, 28],
+  { id: 58, elementType: "Vibraslap", staffLine: 28, technique: "hit" },
   // Cuica mute (staffLine 29)
-  [78, 29],
+  { id: 78, elementType: "Cuica", staffLine: 29, technique: "mute" },
   // Cuica open (staffLine 30)
-  [79, 30],
+  { id: 79, elementType: "Cuica", staffLine: 30, technique: "open" },
   // Surdo mute (staffLine 35)
-  [87, 35],
+  { id: 87, elementType: "Surdo", staffLine: 35, technique: "mute" },
   // Surdo (staffLine 36)
-  [86, 36],
+  { id: 86, elementType: "Surdo", staffLine: 36, technique: "hit" },
   // Guiro scrap-return (staffLine 37)
-  [74, 37],
+  { id: 74, elementType: "Guiro", staffLine: 37, technique: "scrap-return" },
   // Guiro (staffLine 38)
-  [73, 38],
+  { id: 73, elementType: "Guiro", staffLine: 38, technique: "hit" },
   // Bongo High (staffLine -4)
-  [60, -4],
+  { id: 60, elementType: "Bongo High", staffLine: -4, technique: "hit" },
   // Bongo High mute (staffLine -5)
-  [104, -5],
+  { id: 104, elementType: "Bongo High", staffLine: -5, technique: "mute" },
   // Bongo High slap (staffLine -6)
-  [105, -6],
-  // Bongo Low / Tambourine hand (staffLine -7)
-  [61, -7], [113, -7],
+  { id: 105, elementType: "Bongo High", staffLine: -6, technique: "slap" },
+  // Bongo Low (staffLine -7)
+  { id: 61, elementType: "Bongo Low", staffLine: -7, technique: "hit" },
+  // Tambourine hand (staffLine -7)
+  { id: 113, elementType: "Tambourine", staffLine: -7, technique: "hand" },
   // Bongo Low mute (staffLine -8)
-  [106, -8],
+  { id: 106, elementType: "Bongo Low", staffLine: -8, technique: "mute" },
   // Woodblock Low (staffLine -9)
-  [77, -9],
+  { id: 77, elementType: "Woodblock Low", staffLine: -9, technique: "hit" },
   // Woodblock High (staffLine -10)
-  [76, -10],
+  { id: 76, elementType: "Woodblock High", staffLine: -10, technique: "hit" },
   // Whistle Low (staffLine -11)
-  [72, -11],
+  { id: 72, elementType: "Whistle Low", staffLine: -11, technique: "hit" },
   // Left Maraca (staffLine -12)
-  [70, -12],
+  { id: 70, elementType: "Left Maraca", staffLine: -12, technique: "hit" },
   // Left Maraca return (staffLine -13)
-  [118, -13],
+  { id: 118, elementType: "Left Maraca", staffLine: -13, technique: "return" },
   // Right Maraca (staffLine -14)
-  [119, -14],
+  { id: 119, elementType: "Right Maraca", staffLine: -14, technique: "hit" },
   // Right Maraca return (staffLine -15)
-  [120, -15],
+  { id: 120, elementType: "Right Maraca", staffLine: -15, technique: "return" },
   // Bongo Low slap (staffLine -16)
-  [107, -16],
+  { id: 107, elementType: "Bongo Low", staffLine: -16, technique: "slap" },
   // Whistle High (staffLine -17)
-  [71, -17],
+  { id: 71, elementType: "Whistle High", staffLine: -17, technique: "hit" },
   // Bell Tree (staffLine -18)
-  [84, -18],
+  { id: 84, elementType: "Bell Tree", staffLine: -18, technique: "hit" },
   // Bell Tree return (staffLine -19)
-  [123, -19],
+  { id: 123, elementType: "Bell Tree", staffLine: -19, technique: "return" },
   // Jingle Bell (staffLine -20)
-  [83, -20],
+  { id: 83, elementType: "Jingle Bell", staffLine: -20, technique: "hit" },
   // Golpe thumb (staffLine -21)
-  [124, -21],
+  { id: 124, elementType: "Golpe", staffLine: -21, technique: "thumb" },
   // Golpe finger (staffLine -22)
-  [125, -22],
+  { id: 125, elementType: "Golpe", staffLine: -22, technique: "finger" },
   // Shaker (staffLine -23)
-  [82, -23],
+  { id: 82, elementType: "Shaker", staffLine: -23, technique: "hit" },
   // Shaker return (staffLine -24)
-  [122, -24],
-]);
+  { id: 122, elementType: "Shaker", staffLine: -24, technique: "return" },
+];
+
+/** Quick lookup: GP7 ID → articulation definition. */
+export const GP7_DEF_BY_ID: ReadonlyMap<number, PercArticulationDef> = new Map(
+  ALPHATAB_PERCUSSION_DEFS.map((d) => [d.id, d]),
+);
+
+/** GP7 articulation ID → staffLine (derived from ALPHATAB_PERCUSSION_DEFS). */
+export const GP7_ARTICULATION_MAP: ReadonlyMap<number, number> = new Map(
+  ALPHATAB_PERCUSSION_DEFS.map((d) => [d.id, d.staffLine]),
+);
 
 /** Reverse map: staffLine → GP7 articulation IDs at that position. */
 export const GP7_STAFF_LINE_MAP: ReadonlyMap<number, readonly number[]> = (() => {
   const m = new Map<number, number[]>();
-  for (const [id, sl] of GP7_ARTICULATION_MAP) {
-    const arr = m.get(sl) ?? [];
-    arr.push(id);
-    m.set(sl, arr);
+  for (const d of ALPHATAB_PERCUSSION_DEFS) {
+    const arr = m.get(d.staffLine) ?? [];
+    arr.push(d.id);
+    m.set(d.staffLine, arr);
   }
   return m as ReadonlyMap<number, readonly number[]>;
+})();
+
+/** Static pre-computed groups: every possible staff line from ALPHATAB_PERCUSSION_DEFS. */
+export const PERC_SNAP_GROUPS: readonly PercSnapGroup[] = (() => {
+  const byLine = new Map<number, PercArticulationDef[]>();
+  for (const d of ALPHATAB_PERCUSSION_DEFS) {
+    const arr = byLine.get(d.staffLine) ?? [];
+    arr.push(d);
+    byLine.set(d.staffLine, arr);
+  }
+  return [...byLine.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([staffLine, entries]) => ({ staffLine, entries }));
 })();
 
 /**
@@ -567,8 +660,8 @@ function gp7IdToPercussionArticulation(
  * `track.percussionArticulations`.  If the track defines articulations
  * and the index is valid, the raw `elementType` from the score file is returned.
  *
- * Otherwise the value is treated as a GP7 articulation ID and an i18n key
- * `"percussion.gp7.{id}"` is returned so the UI layer can resolve it via `t()`.
+ * Otherwise the value is treated as a GP7 articulation ID and the name is
+ * derived from `ALPHATAB_PERCUSSION_DEFS`.
  */
 function resolvePercussionName(
   note: alphaTab.model.Note,
@@ -579,9 +672,9 @@ function resolvePercussionName(
   if (articulations && idx >= 0 && idx < articulations.length) {
     return articulations[idx].elementType;
   }
-  // Return i18n key for GP7 fallback — resolved in the component via t()
-  if (GP7_PERCUSSION_IDS.has(idx)) {
-    return `percussion.gp7.${idx}`;
+  const def = GP7_DEF_BY_ID.get(idx);
+  if (def) {
+    return `${def.elementType} (${def.technique})`;
   }
   return String(idx);
 }
@@ -710,20 +803,24 @@ function snapPositionToPitch(
 }
 
 /**
- * Default GP7 percussion articulation for each snap-grid position (1–21).
+ * Default GP7 percussion articulation for each staffLine value.
  * Covers a standard 5-piece kit spread across the staff.
+ * Keys are alphaTab `InstrumentArticulation.staffLine` values.
  */
-export const DRUM_POSITION_DEFAULTS: Record<number, number> = {
-  1: 49, 2: 49, 3: 49,   // Crash high
-  4: 42, 5: 42,           // Hi-Hat (closed)
-  6: 51, 7: 51,           // Ride (middle)
-  8: 48, 9: 48,           // High Tom
-  10: 38, 11: 38,         // Snare
-  12: 47, 13: 47,         // Mid Tom
-  14: 45, 15: 45,         // Low Tom
-  16: 41, 17: 41,         // Very Low Tom
-  18: 36, 19: 36,         // Kick
-  20: 44, 21: 44,         // Pedal Hi-Hat
+const DRUM_STAFFLINE_DEFAULTS: Record<number, number> = {
+  [-3]: 52,  // China
+  [-2]: 49,  // Crash high
+  [-1]: 42,  // Closed Hi-Hat
+  0: 51,     // Ride (middle)
+  1: 50,     // Tom Very High
+  2: 48,     // Tom High
+  3: 38,     // Snare
+  4: 47,     // Tom Medium
+  5: 45,     // Tom Low
+  6: 43,     // Tom Very Low
+  7: 36,     // Kick Drum
+  8: 35,     // Acoustic Kick
+  9: 44,     // Pedal Hi-Hat
 };
 
 // ─── Bar Insertion Helper ────────────────────────────────────────────────────
@@ -993,7 +1090,6 @@ function buildSnapGrids(): void {
     const medianW = median(entry.widths);
     const medianH = median(entry.heights);
     const positions: SnapPosition[] = [];
-    let halfSpaceForPerc = 0;
 
     // Percussion notation uses a staff (lines + spaces); treat as standard
     // notation even when showTablature is true (GP drum tab uses fewer "strings").
@@ -1079,54 +1175,52 @@ function buildSnapGrids(): void {
             ? entry.barRealBounds.y + entry.barRealBounds.h / 2
             : 0;
 
-      // Generate 21 positions:
-      //   3 ledger lines above + 5 staff lines + 3 ledger lines below
-      //   = 11 lines + 10 spaces = 21 selectable positions (20 gaps)
-      // Centered so index 11 = anchorY
-      for (let i = -10; i <= 10; i++) {
-        positions.push({ string: i + 11, y: anchorY + i * halfSpace });
+      if (track.isPercussion) {
+        // ── Percussion: label positions with alphaTab staffLine values ──
+        // Derive the anchor's staffLine from any observed (Y, articulation) pair.
+        let anchorStaffLine = 3; // default: snare line
+        const artics = track.percussionArticulations;
+        for (const pa of entry.percYArticulations) {
+          const gp7Id =
+            artics?.length > 0 && pa.artic >= 0 && pa.artic < artics.length
+              ? artics[pa.artic].id
+              : pa.artic;
+          const sl = GP7_ARTICULATION_MAP.get(gp7Id);
+          if (sl !== undefined) {
+            const stepsFromAnchor = Math.round((pa.y - anchorY) / halfSpace);
+            anchorStaffLine = sl - stepsFromAnchor;
+            break;
+          }
+        }
+        for (let i = -10; i <= 10; i++) {
+          positions.push({ string: anchorStaffLine + i, y: anchorY + i * halfSpace });
+        }
+      } else {
+        // ── Standard notation: 21 positions (1–21) centered on index 11 ──
+        for (let i = -10; i <= 10; i++) {
+          positions.push({ string: i + 11, y: anchorY + i * halfSpace });
+        }
       }
-      halfSpaceForPerc = halfSpace;
     }
 
     // Sort by Y ascending
     positions.sort((a, b) => a.y - b.y);
 
-    // For percussion tracks: build a position → articulation map from
-    // observed notes so placeNote() picks the right drum instrument.
+    // For percussion tracks: build a staffLine → articulation map directly
+    // from observed notes (no Y-based clustering needed since each
+    // articulation has a known staffLine from GP7_ARTICULATION_MAP).
     let percussionMap: Map<number, number> | undefined;
     if (track.isPercussion && entry.percYArticulations.length > 0) {
       percussionMap = new Map();
-      // De-duplicate observed articulations by Y: for each distinct Y
-      // keep the first-seen articulation (most common in practice).
-      const seen = new Map<number, number>(); // clustered Y → artic
-      const sortedPerc = [...entry.percYArticulations].sort(
-        (a, b) => a.y - b.y,
-      );
-      for (const pa of sortedPerc) {
-        // Cluster to nearest half-space to merge slight Y variations
-        const roundedY = halfSpaceForPerc > 0
-          ? Math.round(pa.y / halfSpaceForPerc) * halfSpaceForPerc
-          : Math.round(pa.y);
-        if (!seen.has(roundedY)) {
-          seen.set(roundedY, pa.artic);
-        }
-      }
-      // For each grid position, find the nearest observed articulation
-      for (const pos of positions) {
-        let bestArtic = -1;
-        let bestDist = Infinity;
-        for (const [rY, artic] of seen) {
-          const d = Math.abs(pos.y - rY);
-          if (d < bestDist) {
-            bestDist = d;
-            bestArtic = artic;
-          }
-        }
-        // Only map if the observed note is within 1 halfSpace of the
-        // grid position; otherwise there is no known drum there.
-        if (bestArtic >= 0 && bestDist <= (halfSpaceForPerc > 0 ? halfSpaceForPerc * 1.1 : Infinity)) {
-          percussionMap.set(pos.string, bestArtic);
+      const artics = track.percussionArticulations;
+      for (const pa of entry.percYArticulations) {
+        const gp7Id =
+          artics?.length > 0 && pa.artic >= 0 && pa.artic < artics.length
+            ? artics[pa.artic].id
+            : pa.artic;
+        const sl = GP7_ARTICULATION_MAP.get(gp7Id);
+        if (sl !== undefined && !percussionMap.has(sl)) {
+          percussionMap.set(sl, pa.artic);
         }
       }
     }
@@ -1269,16 +1363,26 @@ function fixAlphaTabCursors(
 }
 
 /**
- * Render (or remove) snap-grid debug overlay markers.
+ * Render (or remove) snap-grid debug overlay markers + right-edge ID labels.
  * Each grid position gets a thin horizontal line so developers can verify
  * that the snap grid aligns with actual staff lines and spaces.
  */
 function updateSnapGridOverlay(show: boolean): void {
-  // Remove existing container
+  // Remove existing marker container
   if (snapGridOverlayContainer) {
     snapGridOverlayContainer.remove();
     snapGridOverlayContainer = null;
   }
+  // Remove existing label container + scroll handler
+  if (snapGridScrollHandler && viewportElement) {
+    viewportElement.removeEventListener("scroll", snapGridScrollHandler);
+    snapGridScrollHandler = null;
+  }
+  if (snapGridLabelContainer) {
+    snapGridLabelContainer.remove();
+    snapGridLabelContainer = null;
+  }
+  snapGridEntries = [];
 
   if (!show || !mainElement) return;
 
@@ -1288,28 +1392,79 @@ function updateSnapGridOverlay(show: boolean): void {
   snapGridOverlayContainer = document.createElement("div");
   snapGridOverlayContainer.classList.add("at-snap-grid-overlay");
 
-  // Get the total rendered width so markers span the full score
   const mainWidth = mainElement.scrollWidth;
+  const wrapper = viewportElement?.parentElement;
+
+  if (wrapper && viewportElement) {
+    snapGridLabelContainer = document.createElement("div");
+    snapGridLabelContainer.classList.add("at-snap-grid-labels");
+  }
 
   for (const [, grid] of snapGrids) {
     for (let i = 0; i < grid.positions.length; i++) {
       const pos = grid.positions[i];
+      const isLine = i % 2 === 0;
+
+      // Marker
       const marker = document.createElement("div");
       marker.classList.add("at-snap-grid-marker");
-      // Alternate line/space: even index → line style, odd → space style
-      // (positions are sorted by Y; in a standard staff they alternate)
-      if (i % 2 === 0) {
-        marker.classList.add("at-snap-grid-marker--line");
-      } else {
-        marker.classList.add("at-snap-grid-marker--space");
-      }
+      marker.classList.add(
+        isLine ? "at-snap-grid-marker--line" : "at-snap-grid-marker--space",
+      );
       marker.style.top = `${pos.y}px`;
       marker.style.width = `${mainWidth}px`;
       snapGridOverlayContainer.appendChild(marker);
+
+      // Label
+      const label = document.createElement("div");
+      label.classList.add("at-snap-grid-label");
+      label.classList.add(
+        isLine ? "at-snap-grid-label--line" : "at-snap-grid-label--space",
+      );
+      label.textContent = String(pos.string);
+      snapGridLabelContainer?.appendChild(label);
+
+      snapGridEntries.push({ marker, label, string: pos.string, y: pos.y });
     }
   }
 
   cursorsWrapper.appendChild(snapGridOverlayContainer);
+
+  if (snapGridLabelContainer && wrapper && viewportElement) {
+    wrapper.appendChild(snapGridLabelContainer);
+
+    const repositionLabels = () => {
+      if (!viewportElement) return;
+      const scrollTop = viewportElement.scrollTop;
+      const vpHeight = viewportElement.clientHeight;
+      for (const entry of snapGridEntries) {
+        const top = entry.y - scrollTop;
+        entry.label.style.top = `${top}px`;
+        entry.label.style.display =
+          top < -12 || top > vpHeight + 12 ? "none" : "";
+      }
+    };
+
+    snapGridScrollHandler = repositionLabels;
+    viewportElement.addEventListener("scroll", repositionLabels, { passive: true });
+    repositionLabels();
+  }
+
+  // Apply initial selection dimming
+  updateSnapGridSelection(usePlayerStore.getState().selectedString);
+}
+
+/**
+ * Dim/undim snap-grid markers and labels based on the currently selected
+ * string.  When a grid position is not the selected one, both its marker
+ * and label become faint.
+ */
+function updateSnapGridSelection(selectedString: number | null): void {
+  for (const entry of snapGridEntries) {
+    const active = selectedString === null || entry.string === selectedString;
+    entry.marker.classList.toggle("at-snap-grid--dim", !active);
+    entry.label.classList.toggle("at-snap-grid--dim", !active);
+  }
 }
 
 // ─── Bar Warning Colors (AlphaTab native styling) ────────────────────────────
@@ -1564,7 +1719,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedVoiceInfo: null,
   selectedBeatInfo: null,
   selectedNoteIndex: -1,
-  selectedString: -1,
+  selectedString: null,
   zoom: 1,
   showSnapGrid: false,
 
@@ -1611,7 +1766,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (!lookup) return; // No bounds yet — let AlphaTab handle it
 
       let targetBeat: alphaTab.model.Beat | null = null;
-      let snappedString = -1;
+      let snappedString: number | null = null;
 
       // 1. Find the staff system that contains the Y position
       for (const system of lookup.staffSystems) {
@@ -1764,7 +1919,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
           const freshGrid = snapGrids.get(gridKey) ?? null;
           const freshSnap =
-            freshGrid && sel.string > 0
+            freshGrid && sel.string !== null
               ? freshGrid.positions.find((p) => p.string === sel.string) ?? null
               : null;
           updateCursorRect(freshBB, freshSnap, freshGrid);
@@ -1849,11 +2004,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       cursorElement.remove();
       cursorElement = null;
     }
-    // Remove snap grid overlay
+    // Remove snap grid overlay + labels
     if (snapGridOverlayContainer) {
       snapGridOverlayContainer.remove();
       snapGridOverlayContainer = null;
     }
+    if (snapGridScrollHandler && viewportElement) {
+      viewportElement.removeEventListener("scroll", snapGridScrollHandler);
+      snapGridScrollHandler = null;
+    }
+    if (snapGridLabelContainer) {
+      snapGridLabelContainer.remove();
+      snapGridLabelContainer = null;
+    }
+    snapGridEntries = [];
     pendingSelection = null;
     snapGrids.clear();
 
@@ -1892,7 +2056,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       selectedVoiceInfo: null,
       selectedBeatInfo: null,
       selectedNoteIndex: -1,
-      selectedString: -1,
+      selectedString: null,
     });
   },
 
@@ -2158,13 +2322,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const track = score.tracks[sel.trackIndex];
     if (!track?.isPercussion) return;
 
-    const targetStaffLine = GP7_ARTICULATION_MAP.get(gp7Id);
-    if (targetStaffLine === undefined) return;
-
-    const sameLineIds = GP7_STAFF_LINE_MAP.get(targetStaffLine) ?? [];
-
     let existingExact: alphaTab.model.Note | null = null;
-    let existingSameLine: alphaTab.model.Note | null = null;
 
     for (const n of beat.notes) {
       const nGp7 = resolveGp7Id(n);
@@ -2172,19 +2330,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         existingExact = n;
         break;
       }
-      if (sameLineIds.includes(nGp7)) {
-        existingSameLine = n;
-      }
     }
 
     if (existingExact) {
       // Toggle off — remove the note
       const idx = beat.notes.indexOf(existingExact);
       if (idx >= 0) beat.notes.splice(idx, 1);
-    } else if (existingSameLine) {
-      // Replace — same staffLine, different articulation
-      existingSameLine.percussionArticulation =
-        gp7IdToPercussionArticulation(track, gp7Id);
     } else {
       // Toggle on — add new note
       const note = new alphaTab.model.Note();
@@ -2299,7 +2450,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   placeNote: () => {
     const sel = get().selectedBeat;
-    if (!sel || !api || sel.string < 1) return;
+    if (!sel || !api || sel.string === null) return;
 
     const score = api.score;
     if (!score) return;
@@ -2321,16 +2472,29 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const note = new alphaTab.model.Note();
 
     if (track.isPercussion) {
+      // sel.string IS the staffLine — look up articulation directly
       const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
       const grid = snapGrids.get(gridKey);
-      const dynamicArtic = grid?.percussionMap?.get(sel.string);
-      note.percussionArticulation =
-        dynamicArtic ?? DRUM_POSITION_DEFAULTS[sel.string] ?? 42;
+      const observedArtic = grid?.percussionMap?.get(sel.string);
+      if (observedArtic !== undefined) {
+        note.percussionArticulation = observedArtic;
+      } else {
+        const defaultGp7Id = DRUM_STAFFLINE_DEFAULTS[sel.string];
+        if (defaultGp7Id !== undefined) {
+          note.percussionArticulation =
+            gp7IdToPercussionArticulation(track, defaultGp7Id);
+        } else {
+          const idsAtLine = GP7_STAFF_LINE_MAP.get(sel.string);
+          const fallbackId = idsAtLine?.[0] ?? 42;
+          note.percussionArticulation =
+            gp7IdToPercussionArticulation(track, fallbackId);
+        }
+      }
     } else if (staff.showTablature && staff.tuning.length > 0) {
       note.fret = 1;
-      note.string = sel.string;
+      note.string = sel.string!;
     } else {
-      const pitch = snapPositionToPitch(beat.voice.bar.clef, sel.string);
+      const pitch = snapPositionToPitch(beat.voice.bar.clef, sel.string!);
       note.octave = pitch.octave;
       note.tone = pitch.tone;
     }
@@ -2449,13 +2613,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         return;
       }
 
-      const selectedStr = stringArg ?? -1;
+      const selectedStr = stringArg ?? null;
 
       // Look up grid and beat bounds (needed for both cursor and note matching)
       const gridKey = `${trackIndex}:${staffIndex}`;
       const grid = snapGrids.get(gridKey) ?? null;
       const snap =
-        grid && selectedStr > 0
+        grid && selectedStr !== null
           ? grid.positions.find((p) => p.string === selectedStr) ?? null
           : null;
       const bb = findBeatBounds(
@@ -2473,7 +2637,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       let resolvedNoteIndex: number;
       if (noteIndex !== undefined && noteIndex >= 0 && noteIndex < beat.notes.length) {
         resolvedNoteIndex = noteIndex;
-      } else if (selectedStr > 0 && beat.notes.length > 0) {
+      } else if (selectedStr !== null && beat.notes.length > 0) {
         if (isNotationGrid && snap && bb?.notes) {
           let bestIdx = -1;
           let bestDist = Infinity;
@@ -2517,6 +2681,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // Fix AlphaTab's built-in bar/beat cursor for overfull bars
       fixAlphaTabCursors(trackIndex, staffIndex, barIndex, bb);
 
+      const track = beat.voice.bar.staff.track;
+
       set({
         selectedBeat: {
           trackIndex,
@@ -2526,7 +2692,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           beatIndex,
           string: selectedStr,
         },
-        selectedTrackInfo: extractTrackInfo(beat.voice.bar.staff.track),
+        selectedTrackInfo: extractTrackInfo(track),
         selectedStaffInfo: extractStaffInfo(beat.voice.bar.staff),
         selectedBarInfo: extractBarInfo(beat.voice.bar),
         selectedVoiceInfo: extractVoiceInfo(beat.voice),
@@ -2534,6 +2700,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         selectedNoteIndex: resolvedNoteIndex,
         selectedString: selectedStr,
       });
+
+      if (get().showSnapGrid) {
+        updateSnapGridSelection(selectedStr);
+      }
     } catch (e) {
       if (import.meta.env.DEV) {
         console.error("[setSelection] error:", e);
@@ -2551,8 +2721,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       selectedVoiceInfo: null,
       selectedBeatInfo: null,
       selectedNoteIndex: -1,
-      selectedString: -1,
+      selectedString: null,
     });
+    if (get().showSnapGrid) {
+      updateSnapGridSelection(-1);
+    }
   },
 }));
 

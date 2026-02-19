@@ -109,7 +109,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeHandle } from "@/components/ui/resize-handle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { usePlayerStore, GP7_ARTICULATION_MAP } from "@/stores/player-store";
+import { usePlayerStore, GP7_ARTICULATION_MAP, DRUM_POSITION_DEFAULTS } from "@/stores/player-store";
 import type {
   SelectedBeatInfo,
   SelectedBarInfo,
@@ -1262,11 +1262,7 @@ function ArticulationSection({
 
   const trackInfo = usePlayerStore((s) => s.selectedTrackInfo);
   const beat = usePlayerStore((s) => s.selectedBeatInfo);
-  const noteIndex = usePlayerStore((s) => s.selectedNoteIndex);
-  const note =
-    beat && noteIndex >= 0 && noteIndex < beat.notes.length
-      ? beat.notes[noteIndex]
-      : null;
+  const selectedString = usePlayerStore((s) => s.selectedString);
 
   const isPercussion = trackInfo?.isPercussion ?? false;
 
@@ -1276,10 +1272,12 @@ function ArticulationSection({
       .map((n) => n.percussionGp7Id) ?? [],
   );
 
-  const selectedStaffLine =
-    note?.isPercussion && note.percussionGp7Id >= 0
-      ? GP7_ARTICULATION_MAP.get(note.percussionGp7Id) ?? null
-      : null;
+  const cursorStaffLine: number | null = (() => {
+    if (selectedString < 1) return null;
+    const defaultGp7 = DRUM_POSITION_DEFAULTS[selectedString];
+    if (defaultGp7 === undefined) return null;
+    return GP7_ARTICULATION_MAP.get(defaultGp7) ?? null;
+  })();
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -1320,8 +1318,8 @@ function ArticulationSection({
                 const isActive = activeGp7Ids.has(id);
                 const isDisabled =
                   !beat ||
-                  (selectedOnly && selectedStaffLine !== null && staffLine !== selectedStaffLine) ||
-                  (selectedOnly && selectedStaffLine === null);
+                  (selectedOnly && cursorStaffLine !== null && staffLine !== cursorStaffLine) ||
+                  (selectedOnly && cursorStaffLine === null);
                 const name = t(`percussion.gp7.${id}`);
                 return (
                   <button

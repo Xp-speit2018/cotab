@@ -162,7 +162,7 @@
       "deleteBarNotEmpty": "Bar contains notes — cannot delete",
       "articulationTitle": "Articulations",
       "articulationHelp": "Toggle percussion articulations on the selected beat. Articulations sharing a staff line are mutually exclusive.",
-      "articulationSelectedOnly": "Selected Notes only"
+      "articulationSelectedOnly": "Selected position only"
     },
 
     "song": {

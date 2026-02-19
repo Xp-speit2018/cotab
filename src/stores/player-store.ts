@@ -713,7 +713,7 @@ function snapPositionToPitch(
  * Default GP7 percussion articulation for each snap-grid position (1–21).
  * Covers a standard 5-piece kit spread across the staff.
  */
-const DRUM_POSITION_DEFAULTS: Record<number, number> = {
+export const DRUM_POSITION_DEFAULTS: Record<number, number> = {
   1: 49, 2: 49, 3: 49,   // Crash high
   4: 42, 5: 42,           // Hi-Hat (closed)
   6: 51, 7: 51,           // Ride (middle)

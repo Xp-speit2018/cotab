@@ -162,7 +162,7 @@
       "deleteBarNotEmpty": "小节包含音符——无法删除",
       "articulationTitle": "奏法",
       "articulationHelp": "切换选中节拍上的打击乐奏法。共享同一谱线位置的奏法互斥。",
-      "articulationSelectedOnly": "仅选中音符"
+      "articulationSelectedOnly": "仅选中位置"
     },
 
     "song": {

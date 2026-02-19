@@ -96,6 +96,11 @@ interface SnapGrid {
   positions: SnapPosition[]; // sorted by y (ascending)
   noteWidth: number; // typical note head width
   noteHeight: number; // typical note head height
+  /**
+   * For percussion tracks only: maps grid position string → default
+   * percussionArticulation value, derived from observed notes in the score.
+   */
+  percussionMap?: Map<number, number>;
 }
 
 /** Key = `${trackIndex}:${staffIndex}` → snap grid for that track/staff. */
@@ -161,6 +166,8 @@ export interface SelectedNoteInfo {
   isPercussion: boolean;
   percussionArticulation: number;
   percussionArticulationName: string;
+  /** Resolved GP7 articulation ID (from the constant map, not from runtime data). */
+  percussionGp7Id: number;
 }
 
 export interface SelectedBeatInfo {
@@ -324,6 +331,10 @@ export interface PlayerState {
   /** Toggle the `isEmpty` flag on the selected beat and re-render. */
   toggleBeatIsEmpty: () => void;
 
+  // Note placement
+  /** Place a quarter note at the selected beat + string position. */
+  placeNote: () => void;
+
   // Note deletion
   /**
    * Delete the selected note/rest programmatically.
@@ -335,6 +346,25 @@ export interface PlayerState {
    *    in the bar, since removing it would leave the voice in an invalid state.
    */
   deleteNote: () => boolean;
+
+  // Bar manipulation
+  /** Insert an empty (rest-filled) bar before the selected bar, across all tracks. */
+  insertBarBefore: () => void;
+  /** Insert an empty (rest-filled) bar after the selected bar, across all tracks. */
+  insertBarAfter: () => void;
+  /**
+   * Delete the selected bar across all tracks.
+   * Returns `false` (and does nothing) when any track's bar contains notes,
+   * or when it is the only bar in the score.
+   */
+  deleteBar: () => boolean;
+
+  // Percussion articulation
+  /**
+   * Toggle a GP7 percussion articulation on the selected beat.
+   * Mutual exclusion: only one articulation per staffLine is allowed.
+   */
+  togglePercussionArticulation: (gp7Id: number) => void;
 
   // Selection
   /** Programmatic selection — single entry point for any selection trigger. */
@@ -352,7 +382,6 @@ export interface PlayerState {
 }
 
 // ─── GP7 Percussion Articulation IDs ─────────────────────────────────────────
-// Set of valid GP7 articulation IDs (MIDI note numbers 29-127).
 // The human-readable names live in the i18n files under "percussion.gp7.{id}".
 
 const GP7_PERCUSSION_IDS = new Set([
@@ -363,6 +392,173 @@ const GP7_PERCUSSION_IDS = new Set([
   104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118,
   119, 120, 122, 123, 124, 125, 126, 127,
 ]);
+
+// ─── GP7 Articulation ↔ StaffLine Bidirectional Map ─────────────────────────
+// Single source of truth for vertical position of every GP7 percussion
+// articulation, extracted from alphaTab PercussionMapper.instrumentArticulations.
+// Format: GP7 articulation ID → staffLine (1 = top line, increasing downward).
+
+export const GP7_ARTICULATION_MAP: ReadonlyMap<number, number> = new Map([
+  // Snare area (staffLine 3)
+  [38, 3], [37, 3], [91, 3], [54, 3], [39, 3], [40, 3], [31, 3], [33, 3], [34, 3],
+  // Hi-Hat / Crash Medium / Cowbell High (staffLine -1)
+  [42, -1], [92, -1], [46, -1], [57, -1], [98, -1], [102, -1], [103, -1],
+  // Ride / Cowbell Medium (staffLine 0)
+  [93, 0], [51, 0], [53, 0], [94, 0], [56, 0], [101, 0],
+  // Splash / Crash High (staffLine -2)
+  [55, -2], [95, -2], [49, -2], [97, -2],
+  // China / Reverse Cymbal (staffLine -3)
+  [52, -3], [96, -3], [30, -3],
+  // Tom Very High / Cowbell Low / Tambourine roll (staffLine 1)
+  [50, 1], [99, 1], [100, 1], [112, 1],
+  // Tom High / Tambourine return / Ride Cymbal 2 (staffLine 2)
+  [48, 2], [111, 2], [59, 2], [126, 2], [127, 2], [29, 2],
+  // Tom Medium (staffLine 4)
+  [47, 4],
+  // Tom Low / Very Low Floor Tom (staffLine 5)
+  [45, 5], [41, 5],
+  // Tom Very Low (staffLine 6)
+  [43, 6],
+  // Kick Drum (staffLine 7)
+  [36, 7],
+  // Acoustic Kick Drum (staffLine 8)
+  [35, 8],
+  // Pedal Hi-Hat / Timbale High (staffLine 9)
+  [44, 9], [65, 9],
+  // Timbale Low (staffLine 10)
+  [66, 10],
+  // Agogo High (staffLine 11)
+  [67, 11],
+  // Agogo Low (staffLine 12)
+  [68, 12],
+  // Conga High slap (staffLine 13)
+  [110, 13],
+  // Conga High (staffLine 14)
+  [63, 14],
+  // Conga Low mute (staffLine 15)
+  [109, 15],
+  // Conga Low slap (staffLine 16)
+  [108, 16],
+  // Conga Low (staffLine 17)
+  [64, 17],
+  // Piatti (staffLine 18)
+  [115, 18],
+  // Conga High mute (staffLine 19)
+  [62, 19],
+  // Claves (staffLine 20)
+  [75, 20],
+  // Castanets (staffLine 21)
+  [85, 21],
+  // Cabasa return (staffLine 22)
+  [117, 22],
+  // Cabasa (staffLine 23)
+  [69, 23],
+  // Piatti hand (staffLine 24)
+  [116, 24],
+  // Grancassa (staffLine 25)
+  [114, 25],
+  // Triangle mute (staffLine 26)
+  [80, 26],
+  // Triangle (staffLine 27)
+  [81, 27],
+  // Vibraslap (staffLine 28)
+  [58, 28],
+  // Cuica mute (staffLine 29)
+  [78, 29],
+  // Cuica open (staffLine 30)
+  [79, 30],
+  // Surdo mute (staffLine 35)
+  [87, 35],
+  // Surdo (staffLine 36)
+  [86, 36],
+  // Guiro scrap-return (staffLine 37)
+  [74, 37],
+  // Guiro (staffLine 38)
+  [73, 38],
+  // Bongo High (staffLine -4)
+  [60, -4],
+  // Bongo High mute (staffLine -5)
+  [104, -5],
+  // Bongo High slap (staffLine -6)
+  [105, -6],
+  // Bongo Low / Tambourine hand (staffLine -7)
+  [61, -7], [113, -7],
+  // Bongo Low mute (staffLine -8)
+  [106, -8],
+  // Woodblock Low (staffLine -9)
+  [77, -9],
+  // Woodblock High (staffLine -10)
+  [76, -10],
+  // Whistle Low (staffLine -11)
+  [72, -11],
+  // Left Maraca (staffLine -12)
+  [70, -12],
+  // Left Maraca return (staffLine -13)
+  [118, -13],
+  // Right Maraca (staffLine -14)
+  [119, -14],
+  // Right Maraca return (staffLine -15)
+  [120, -15],
+  // Bongo Low slap (staffLine -16)
+  [107, -16],
+  // Whistle High (staffLine -17)
+  [71, -17],
+  // Bell Tree (staffLine -18)
+  [84, -18],
+  // Bell Tree return (staffLine -19)
+  [123, -19],
+  // Jingle Bell (staffLine -20)
+  [83, -20],
+  // Golpe thumb (staffLine -21)
+  [124, -21],
+  // Golpe finger (staffLine -22)
+  [125, -22],
+  // Shaker (staffLine -23)
+  [82, -23],
+  // Shaker return (staffLine -24)
+  [122, -24],
+]);
+
+/** Reverse map: staffLine → GP7 articulation IDs at that position. */
+export const GP7_STAFF_LINE_MAP: ReadonlyMap<number, readonly number[]> = (() => {
+  const m = new Map<number, number[]>();
+  for (const [id, sl] of GP7_ARTICULATION_MAP) {
+    const arr = m.get(sl) ?? [];
+    arr.push(id);
+    m.set(sl, arr);
+  }
+  return m as ReadonlyMap<number, readonly number[]>;
+})();
+
+/**
+ * Resolve a note's `percussionArticulation` to its GP7 articulation ID.
+ * When the track defines custom `percussionArticulations`, the value is
+ * an array index — read the `.id` field. Otherwise it is the GP7 ID itself.
+ */
+export function resolveGp7Id(note: alphaTab.model.Note): number {
+  const idx = note.percussionArticulation;
+  const artics = note.beat.voice.bar.staff.track.percussionArticulations;
+  if (artics?.length > 0 && idx >= 0 && idx < artics.length) {
+    return artics[idx].id;
+  }
+  return idx;
+}
+
+/**
+ * Convert a GP7 articulation ID to the value expected by
+ * `note.percussionArticulation` for the given track.
+ */
+function gp7IdToPercussionArticulation(
+  track: alphaTab.model.Track,
+  gp7Id: number,
+): number {
+  const artics = track.percussionArticulations;
+  if (artics?.length > 0) {
+    const idx = artics.findIndex((a) => a.id === gp7Id);
+    if (idx >= 0) return idx;
+  }
+  return gp7Id;
+}
 
 /**
  * Resolve percussion articulation name for a note.
@@ -458,6 +654,125 @@ function findBeatBounds(
   return null;
 }
 
+// ─── Note Placement Helpers ──────────────────────────────────────────────────
+
+const DIATONIC_TONES = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
+
+/**
+ * Map a snap-grid position (1–21, 1 = top / highest pitch) to an
+ * (octave, tone) pair based on the bar's clef.
+ *
+ * Position 11 is the anchor (middle line of the staff).
+ */
+function snapPositionToPitch(
+  clef: alphaTab.model.Clef,
+  position: number,
+): { octave: number; tone: number } {
+  let refOctave: number;
+  let refScaleIdx: number;
+
+  switch (clef as unknown as number) {
+    case 4: // G2 — treble
+      refOctave = 4;
+      refScaleIdx = 6; // B4
+      break;
+    case 3: // F4 — bass
+      refOctave = 3;
+      refScaleIdx = 1; // D3
+      break;
+    case 1: // C3 — alto
+      refOctave = 4;
+      refScaleIdx = 0; // C4
+      break;
+    case 2: // C4 — tenor
+      refOctave = 3;
+      refScaleIdx = 5; // A3
+      break;
+    default: // Neutral or unknown → treble
+      refOctave = 4;
+      refScaleIdx = 6; // B4
+  }
+
+  const steps = 11 - position; // positive = higher pitch
+  let scaleIdx = refScaleIdx + steps;
+  let octave = refOctave;
+
+  while (scaleIdx >= 7) {
+    scaleIdx -= 7;
+    octave++;
+  }
+  while (scaleIdx < 0) {
+    scaleIdx += 7;
+    octave--;
+  }
+
+  return { octave, tone: DIATONIC_TONES[scaleIdx] };
+}
+
+/**
+ * Default GP7 percussion articulation for each snap-grid position (1–21).
+ * Covers a standard 5-piece kit spread across the staff.
+ */
+const DRUM_POSITION_DEFAULTS: Record<number, number> = {
+  1: 49, 2: 49, 3: 49,   // Crash high
+  4: 42, 5: 42,           // Hi-Hat (closed)
+  6: 51, 7: 51,           // Ride (middle)
+  8: 48, 9: 48,           // High Tom
+  10: 38, 11: 38,         // Snare
+  12: 47, 13: 47,         // Mid Tom
+  14: 45, 15: 45,         // Low Tom
+  16: 41, 17: 41,         // Very Low Tom
+  18: 36, 19: 36,         // Kick
+  20: 44, 21: 44,         // Pedal Hi-Hat
+};
+
+// ─── Bar Insertion Helper ────────────────────────────────────────────────────
+
+/**
+ * Insert a rest-filled bar at `insertIndex` across all tracks.
+ * Copies time signature from the nearest existing bar.
+ * Calls `score.finish()` + `applyBarWarningStyles()` before returning.
+ */
+function insertBarAtIndex(
+  score: alphaTab.model.Score,
+  insertIndex: number,
+): void {
+  const refBarIndex = Math.min(insertIndex, score.masterBars.length - 1);
+  const refMasterBar = score.masterBars[refBarIndex];
+
+  const mb = new alphaTab.model.MasterBar();
+  mb.timeSignatureNumerator = refMasterBar.timeSignatureNumerator;
+  mb.timeSignatureDenominator = refMasterBar.timeSignatureDenominator;
+  mb.timeSignatureCommon = refMasterBar.timeSignatureCommon;
+
+  score.masterBars.splice(insertIndex, 0, mb);
+
+  for (const track of score.tracks) {
+    for (const staff of track.staves) {
+      const refBar = staff.bars[refBarIndex < insertIndex ? refBarIndex : Math.min(insertIndex, staff.bars.length - 1)];
+      const voiceCount = refBar ? refBar.voices.length : 1;
+
+      const bar = new alphaTab.model.Bar();
+      bar.clef = refBar ? refBar.clef : (4 as unknown as alphaTab.model.Clef); // G2
+
+      for (let vi = 0; vi < voiceCount; vi++) {
+        const voice = new alphaTab.model.Voice();
+        const restBeat = new alphaTab.model.Beat();
+        restBeat.isEmpty = false;
+        restBeat.notes = [];
+        restBeat.duration = alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
+        voice.addBeat(restBeat);
+        bar.addVoice(voice);
+      }
+
+      staff.bars.splice(insertIndex, 0, bar);
+    }
+  }
+
+  score.finish(api!.settings);
+  applyBarWarningStyles();
+}
+
 // ─── Duration Helpers ─────────────────────────────────────────────────────────
 
 /**
@@ -505,6 +820,25 @@ function sumBeatDurationTicks(voice: alphaTab.model.Voice): number {
     total += beatDurationTicks(beat);
   }
   return total;
+}
+
+// ─── Bar Empty Check ─────────────────────────────────────────────────────────
+
+/**
+ * Check whether a bar index is "empty" across ALL tracks — meaning every
+ * track/staff/voice at that index contains only rests (no real notes).
+ */
+function isBarEmptyAllTracks(barIndex: number): boolean {
+  const score = api?.score;
+  if (!score) return false;
+  for (const track of score.tracks) {
+    for (const staff of track.staves) {
+      const bar = staff.bars[barIndex];
+      if (!bar) continue;
+      if (!bar.isEmpty && !bar.isRestOnly) return false;
+    }
+  }
+  return true;
 }
 
 // ─── Bar Duration Validator ──────────────────────────────────────────────────
@@ -569,6 +903,8 @@ function buildSnapGrids(): void {
     {
       stringYs: Map<number, number>; // string → centerY (for tab)
       allYPositions: number[];       // every note centerY (for notation)
+      /** For percussion: observed (centerY, percussionArticulation) pairs. */
+      percYArticulations: { y: number; artic: number }[];
       widths: number[];
       heights: number[];
       trackIndex: number;
@@ -594,6 +930,7 @@ function buildSnapGrids(): void {
           entry = {
             stringYs: new Map(),
             allYPositions: [],
+            percYArticulations: [],
             widths: [],
             heights: [],
             trackIndex: ti,
@@ -627,6 +964,12 @@ function buildSnapGrids(): void {
             const trackObj = score.tracks[ti];
             if (!entry.isTab || trackObj?.isPercussion) {
               entry.allYPositions.push(centerY);
+              if (trackObj?.isPercussion) {
+                entry.percYArticulations.push({
+                  y: centerY,
+                  artic: nb.note.percussionArticulation,
+                });
+              }
             }
 
             entry.widths.push(nb.noteHeadBounds.w);
@@ -650,6 +993,7 @@ function buildSnapGrids(): void {
     const medianW = median(entry.widths);
     const medianH = median(entry.heights);
     const positions: SnapPosition[] = [];
+    let halfSpaceForPerc = 0;
 
     // Percussion notation uses a staff (lines + spaces); treat as standard
     // notation even when showTablature is true (GP drum tab uses fewer "strings").
@@ -742,15 +1086,56 @@ function buildSnapGrids(): void {
       for (let i = -10; i <= 10; i++) {
         positions.push({ string: i + 11, y: anchorY + i * halfSpace });
       }
+      halfSpaceForPerc = halfSpace;
     }
 
     // Sort by Y ascending
     positions.sort((a, b) => a.y - b.y);
 
+    // For percussion tracks: build a position → articulation map from
+    // observed notes so placeNote() picks the right drum instrument.
+    let percussionMap: Map<number, number> | undefined;
+    if (track.isPercussion && entry.percYArticulations.length > 0) {
+      percussionMap = new Map();
+      // De-duplicate observed articulations by Y: for each distinct Y
+      // keep the first-seen articulation (most common in practice).
+      const seen = new Map<number, number>(); // clustered Y → artic
+      const sortedPerc = [...entry.percYArticulations].sort(
+        (a, b) => a.y - b.y,
+      );
+      for (const pa of sortedPerc) {
+        // Cluster to nearest half-space to merge slight Y variations
+        const roundedY = halfSpaceForPerc > 0
+          ? Math.round(pa.y / halfSpaceForPerc) * halfSpaceForPerc
+          : Math.round(pa.y);
+        if (!seen.has(roundedY)) {
+          seen.set(roundedY, pa.artic);
+        }
+      }
+      // For each grid position, find the nearest observed articulation
+      for (const pos of positions) {
+        let bestArtic = -1;
+        let bestDist = Infinity;
+        for (const [rY, artic] of seen) {
+          const d = Math.abs(pos.y - rY);
+          if (d < bestDist) {
+            bestDist = d;
+            bestArtic = artic;
+          }
+        }
+        // Only map if the observed note is within 1 halfSpace of the
+        // grid position; otherwise there is no known drum there.
+        if (bestArtic >= 0 && bestDist <= (halfSpaceForPerc > 0 ? halfSpaceForPerc * 1.1 : Infinity)) {
+          percussionMap.set(pos.string, bestArtic);
+        }
+      }
+    }
+
     snapGrids.set(key, {
       positions,
       noteWidth: medianW,
       noteHeight: medianH,
+      percussionMap,
     });
   }
 }
@@ -1043,6 +1428,7 @@ function extractNoteInfo(note: alphaTab.model.Note): SelectedNoteInfo {
     isPercussion: perc,
     percussionArticulation: perc ? note.percussionArticulation : -1,
     percussionArticulationName: perc ? resolvePercussionName(note) : "",
+    percussionGp7Id: perc ? resolveGp7Id(note) : -1,
   };
 }
 
@@ -1751,6 +2137,77 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     api.render();
   },
 
+  // ── Percussion Articulation Toggle ───────────────────────────────────
+
+  togglePercussionArticulation: (gp7Id: number) => {
+    const sel = get().selectedBeat;
+    if (!sel || !api) return;
+
+    const score = api.score;
+    if (!score) return;
+
+    const beat = resolveBeat(
+      sel.trackIndex,
+      sel.barIndex,
+      sel.beatIndex,
+      sel.staffIndex,
+      sel.voiceIndex,
+    );
+    if (!beat) return;
+
+    const track = score.tracks[sel.trackIndex];
+    if (!track?.isPercussion) return;
+
+    const targetStaffLine = GP7_ARTICULATION_MAP.get(gp7Id);
+    if (targetStaffLine === undefined) return;
+
+    const sameLineIds = GP7_STAFF_LINE_MAP.get(targetStaffLine) ?? [];
+
+    let existingExact: alphaTab.model.Note | null = null;
+    let existingSameLine: alphaTab.model.Note | null = null;
+
+    for (const n of beat.notes) {
+      const nGp7 = resolveGp7Id(n);
+      if (nGp7 === gp7Id) {
+        existingExact = n;
+        break;
+      }
+      if (sameLineIds.includes(nGp7)) {
+        existingSameLine = n;
+      }
+    }
+
+    if (existingExact) {
+      // Toggle off — remove the note
+      const idx = beat.notes.indexOf(existingExact);
+      if (idx >= 0) beat.notes.splice(idx, 1);
+    } else if (existingSameLine) {
+      // Replace — same staffLine, different articulation
+      existingSameLine.percussionArticulation =
+        gp7IdToPercussionArticulation(track, gp7Id);
+    } else {
+      // Toggle on — add new note
+      const note = new alphaTab.model.Note();
+      note.percussionArticulation =
+        gp7IdToPercussionArticulation(track, gp7Id);
+      beat.addNote(note);
+      beat.isEmpty = false;
+    }
+
+    beat.voice.finish(api.settings);
+    applyBarWarningStyles();
+
+    pendingSelection = {
+      trackIndex: sel.trackIndex,
+      barIndex: sel.barIndex,
+      beatIndex: sel.beatIndex,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    };
+    api.render();
+  },
+
   // ── Note Deletion ─────────────────────────────────────────────────────
 
   deleteNote: () => {
@@ -1834,6 +2291,136 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       };
     }
 
+    api.render();
+    return true;
+  },
+
+  // ── Note Placement ────────────────────────────────────────────────────
+
+  placeNote: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api || sel.string < 1) return;
+
+    const score = api.score;
+    if (!score) return;
+
+    const beat = resolveBeat(
+      sel.trackIndex,
+      sel.barIndex,
+      sel.beatIndex,
+      sel.staffIndex,
+      sel.voiceIndex,
+    );
+    if (!beat) return;
+
+    const track = score.tracks[sel.trackIndex];
+    if (!track) return;
+    const staff = track.staves[sel.staffIndex];
+    if (!staff) return;
+
+    const note = new alphaTab.model.Note();
+
+    if (track.isPercussion) {
+      const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
+      const grid = snapGrids.get(gridKey);
+      const dynamicArtic = grid?.percussionMap?.get(sel.string);
+      note.percussionArticulation =
+        dynamicArtic ?? DRUM_POSITION_DEFAULTS[sel.string] ?? 42;
+    } else if (staff.showTablature && staff.tuning.length > 0) {
+      note.fret = 1;
+      note.string = sel.string;
+    } else {
+      const pitch = snapPositionToPitch(beat.voice.bar.clef, sel.string);
+      note.octave = pitch.octave;
+      note.tone = pitch.tone;
+    }
+
+    beat.addNote(note);
+    beat.isEmpty = false;
+    beat.duration = alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
+
+    beat.voice.finish(api.settings);
+    applyBarWarningStyles();
+
+    pendingSelection = {
+      trackIndex: sel.trackIndex,
+      barIndex: sel.barIndex,
+      beatIndex: sel.beatIndex,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    };
+    api.render();
+  },
+
+  // ── Bar Manipulation ──────────────────────────────────────────────────
+
+  insertBarBefore: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api) return;
+    const score = api.score;
+    if (!score) return;
+
+    insertBarAtIndex(score, sel.barIndex);
+
+    pendingSelection = {
+      trackIndex: sel.trackIndex,
+      barIndex: sel.barIndex + 1,
+      beatIndex: sel.beatIndex,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    };
+    api.render();
+  },
+
+  insertBarAfter: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api) return;
+    const score = api.score;
+    if (!score) return;
+
+    insertBarAtIndex(score, sel.barIndex + 1);
+
+    pendingSelection = {
+      trackIndex: sel.trackIndex,
+      barIndex: sel.barIndex,
+      beatIndex: sel.beatIndex,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    };
+    api.render();
+  },
+
+  deleteBar: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api) return false;
+    const score = api.score;
+    if (!score) return false;
+
+    if (score.masterBars.length <= 1) return false;
+    if (!isBarEmptyAllTracks(sel.barIndex)) return false;
+
+    score.masterBars.splice(sel.barIndex, 1);
+    for (const track of score.tracks) {
+      for (const staff of track.staves) {
+        staff.bars.splice(sel.barIndex, 1);
+      }
+    }
+
+    score.finish(api.settings);
+    applyBarWarningStyles();
+
+    const newBarIndex = Math.min(sel.barIndex, score.masterBars.length - 1);
+    pendingSelection = {
+      trackIndex: sel.trackIndex,
+      barIndex: newBarIndex,
+      beatIndex: 0,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    };
     api.render();
     return true;
   },

@@ -109,7 +109,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeHandle } from "@/components/ui/resize-handle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { usePlayerStore } from "@/stores/player-store";
+import { usePlayerStore, GP7_ARTICULATION_MAP } from "@/stores/player-store";
 import type {
   SelectedBeatInfo,
   SelectedBarInfo,
@@ -160,6 +160,12 @@ function percussionDisplayName(
   }
   return raw;
 }
+
+/** Sorted GP7 articulation entries for the articulation section UI. */
+const GP7_ARTICULATIONS_SORTED: readonly { id: number; staffLine: number }[] =
+  [...GP7_ARTICULATION_MAP.entries()]
+    .map(([id, staffLine]) => ({ id, staffLine }))
+    .sort((a, b) => a.staffLine - b.staffLine || a.id - b.id);
 
 /**
  * Compact label for a duration value.
@@ -879,6 +885,8 @@ function SelectorSection({
   const [isOpen, setIsOpen] = useState(true);
   const [deleteBlocked, setDeleteBlocked] = useState(false);
   const deleteBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [deleteBarBlocked, setDeleteBarBlocked] = useState(false);
+  const deleteBarBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showSnapGrid = usePlayerStore((s) => s.showSnapGrid);
   const setShowSnapGrid = usePlayerStore((s) => s.setShowSnapGrid);
@@ -1124,6 +1132,55 @@ function SelectorSection({
             {t("sidebar.selector.toggleBeatIsEmpty")}
             {beat != null ? `: ${beat.isEmpty}` : ""}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            disabled={!selectedBeat || (selectedBeat?.string ?? -1) < 1}
+            onClick={() => usePlayerStore.getState().placeNote()}
+          >
+            {t("sidebar.selector.placeNote")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().insertBarBefore()}
+          >
+            {t("sidebar.selector.insertBarBefore")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-2 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().insertBarAfter()}
+          >
+            {t("sidebar.selector.insertBarAfter")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-6 px-2 text-[10px] transition-colors",
+              deleteBarBlocked && "border-destructive text-destructive",
+            )}
+            disabled={!selectedBeat}
+            title={deleteBarBlocked ? t("sidebar.selector.deleteBarNotEmpty") : undefined}
+            onClick={() => {
+              const ok = usePlayerStore.getState().deleteBar();
+              if (!ok) {
+                setDeleteBarBlocked(true);
+                if (deleteBarBlockedTimer.current) clearTimeout(deleteBarBlockedTimer.current);
+                deleteBarBlockedTimer.current = setTimeout(() => setDeleteBarBlocked(false), 1200);
+              }
+            }}
+          >
+            {deleteBarBlocked
+              ? t("sidebar.selector.deleteBarNotEmpty")
+              : t("sidebar.selector.deleteBar")}
+          </Button>
         </div>
 
         {selectedBeat ? (
@@ -1185,7 +1242,111 @@ function SelectorSection({
             </span>
           </div>
         )}
+
         <Separator />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// ─── Percussion Articulation Section ─────────────────────────────────────────
+
+function ArticulationSection({
+  dragHandleProps,
+}: {
+  dragHandleProps?: Record<string, unknown>;
+}) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(true);
+  const [selectedOnly, setSelectedOnly] = useState(false);
+
+  const trackInfo = usePlayerStore((s) => s.selectedTrackInfo);
+  const beat = usePlayerStore((s) => s.selectedBeatInfo);
+  const noteIndex = usePlayerStore((s) => s.selectedNoteIndex);
+  const note =
+    beat && noteIndex >= 0 && noteIndex < beat.notes.length
+      ? beat.notes[noteIndex]
+      : null;
+
+  const isPercussion = trackInfo?.isPercussion ?? false;
+
+  const activeGp7Ids = new Set(
+    beat?.notes
+      .filter((n) => n.isPercussion)
+      .map((n) => n.percussionGp7Id) ?? [],
+  );
+
+  const selectedStaffLine =
+    note?.isPercussion && note.percussionGp7Id >= 0
+      ? GP7_ARTICULATION_MAP.get(note.percussionGp7Id) ?? null
+      : null;
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <SectionHeader
+        title={t("sidebar.selector.articulationTitle")}
+        helpText={t("sidebar.selector.articulationHelp")}
+        isOpen={isOpen}
+        dragHandleProps={dragHandleProps}
+      />
+      <CollapsibleContent>
+        {!isPercussion ? (
+          <div className="px-3 py-3">
+            <span className="text-[10px] text-muted-foreground italic">
+              {t("sidebar.selector.noSelection")}
+            </span>
+          </div>
+        ) : (
+          <div className="px-2 pb-2 space-y-1.5">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium transition-colors",
+                  selectedOnly
+                    ? "bg-primary/15 text-primary"
+                    : "text-muted-foreground hover:bg-accent/50",
+                )}
+                onClick={() => setSelectedOnly(!selectedOnly)}
+              >
+                {selectedOnly
+                  ? <ToggleRight className="h-3 w-3" />
+                  : <ToggleLeft className="h-3 w-3" />}
+                {t("sidebar.selector.articulationSelectedOnly")}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {GP7_ARTICULATIONS_SORTED.map(({ id, staffLine }) => {
+                const isActive = activeGp7Ids.has(id);
+                const isDisabled =
+                  !beat ||
+                  (selectedOnly && selectedStaffLine !== null && staffLine !== selectedStaffLine) ||
+                  (selectedOnly && selectedStaffLine === null);
+                const name = t(`percussion.gp7.${id}`);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={isDisabled}
+                    className={cn(
+                      "rounded border px-1.5 py-0.5 text-[9px] font-mono leading-tight transition-colors",
+                      isActive
+                        ? "border-primary bg-primary/20 text-primary font-semibold"
+                        : "border-border/60 text-muted-foreground hover:bg-accent/50",
+                      isDisabled && !isActive && "opacity-30 cursor-not-allowed",
+                    )}
+                    title={`${id}: ${name} (line ${staffLine})`}
+                    onClick={() =>
+                      usePlayerStore.getState().togglePercussionArticulation(id)
+                    }
+                  >
+                    {id}:{name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </CollapsibleContent>
     </Collapsible>
   );
@@ -1824,15 +1985,15 @@ function saveSidebarWidth(w: number) {
 }
 const TAB_COUNT = 3;
 
-type SectionId = "song" | "tracks" | "selector" | "bar" | "note" | "effects";
-const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "bar", "note", "effects"];
+type SectionId = "song" | "tracks" | "selector" | "articulation" | "bar" | "note" | "effects";
+const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "articulation", "bar", "note", "effects"];
 
 /** Default tab layout: tab0 = editing sections, tab1 = song+tracks, tab2 = selection */
 type TabLayout = SectionId[][];
 const DEFAULT_LAYOUT: TabLayout = [
   ["bar", "note", "effects"],
   ["song", "tracks"],
-  ["selector"],
+  ["selector", "articulation"],
 ];
 
 function loadTabLayout(): TabLayout {
@@ -2004,6 +2165,8 @@ export function NoteEditorSidebar() {
               dragHandleProps={dragHandleProps}
             />
           );
+        case "articulation":
+          return <ArticulationSection dragHandleProps={dragHandleProps} />;
         case "bar":
           return hasBeat ? (
             <BarSection bar={selectedBarInfo!} dragHandleProps={dragHandleProps} />

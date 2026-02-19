@@ -154,7 +154,15 @@
       "appendRestAfter": "Insert Rest After",
       "toggleBeatIsEmpty": "Toggle isEmpty",
       "deleteNote": "Delete Note",
-      "deleteNoteLastRest": "Cannot delete the last rest in a bar"
+      "deleteNoteLastRest": "Cannot delete the last rest in a bar",
+      "placeNote": "Place Note",
+      "insertBarBefore": "Insert Bar Before",
+      "insertBarAfter": "Insert Bar After",
+      "deleteBar": "Delete Bar",
+      "deleteBarNotEmpty": "Bar contains notes — cannot delete",
+      "articulationTitle": "Articulations",
+      "articulationHelp": "Toggle percussion articulations on the selected beat. Articulations sharing a staff line are mutually exclusive.",
+      "articulationSelectedOnly": "Selected Notes only"
     },
 
     "song": {

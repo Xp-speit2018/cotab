@@ -10,7 +10,7 @@
  * Currently read-only display of the selected beat's properties.
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   DndContext,
@@ -109,7 +109,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeHandle } from "@/components/ui/resize-handle";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { usePlayerStore, GP7_ARTICULATION_MAP, DRUM_POSITION_DEFAULTS } from "@/stores/player-store";
+import {
+  usePlayerStore,
+  PERC_SNAP_GROUPS,
+} from "@/stores/player-store";
+import { useDebugLogStore, type LogLevel } from "@/stores/debug-log-store";
 import type {
   SelectedBeatInfo,
   SelectedBarInfo,
@@ -144,28 +148,7 @@ import {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/**
- * Resolve percussion articulation display name.
- *
- * Names from the score file (track.percussionArticulations) are returned as-is.
- * GP7 fallback names are stored as i18n keys ("percussion.gp7.{id}") and
- * resolved here via t().
- */
-function percussionDisplayName(
-  raw: string,
-  t: (key: string) => string,
-): string {
-  if (raw.startsWith("percussion.gp7.")) {
-    return t(raw);
-  }
-  return raw;
-}
 
-/** Sorted GP7 articulation entries for the articulation section UI. */
-const GP7_ARTICULATIONS_SORTED: readonly { id: number; staffLine: number }[] =
-  [...GP7_ARTICULATION_MAP.entries()]
-    .map(([id, staffLine]) => ({ id, staffLine }))
-    .sort((a, b) => a.staffLine - b.staffLine || a.id - b.id);
 
 /**
  * Compact label for a duration value.
@@ -1049,7 +1032,7 @@ function SelectorSection({
         ...(note.isPercussion
           ? [
               { label: t("sidebar.selector.notePercussionArticulation"), value: String(note.percussionArticulation) },
-              { label: t("sidebar.selector.notePercussionArticulationName"), value: percussionDisplayName(note.percussionArticulationName, t) },
+              { label: t("sidebar.selector.notePercussionArticulationName"), value: note.percussionArticulationName },
             ]
           : []),
       ]
@@ -1136,7 +1119,7 @@ function SelectorSection({
             variant="outline"
             size="sm"
             className="h-6 px-2 text-[10px]"
-            disabled={!selectedBeat || (selectedBeat?.string ?? -1) < 1}
+            disabled={!selectedBeat || selectedBeat?.string === null || selectedBeat?.string === undefined}
             onClick={() => usePlayerStore.getState().placeNote()}
           >
             {t("sidebar.selector.placeNote")}
@@ -1272,13 +1255,6 @@ function ArticulationSection({
       .map((n) => n.percussionGp7Id) ?? [],
   );
 
-  const cursorStaffLine: number | null = (() => {
-    if (selectedString < 1) return null;
-    const defaultGp7 = DRUM_POSITION_DEFAULTS[selectedString];
-    if (defaultGp7 === undefined) return null;
-    return GP7_ARTICULATION_MAP.get(defaultGp7) ?? null;
-  })();
-
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <SectionHeader
@@ -1295,7 +1271,8 @@ function ArticulationSection({
             </span>
           </div>
         ) : (
-          <div className="px-2 pb-2 space-y-1.5">
+          <div className="px-2 pb-2 space-y-1">
+            {/* Toggle + current grid position */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -1312,34 +1289,68 @@ function ArticulationSection({
                   : <ToggleLeft className="h-3 w-3" />}
                 {t("sidebar.selector.articulationSelectedOnly")}
               </button>
+              {selectedString !== null && (
+                <span className="text-[9px] font-mono text-muted-foreground/70">
+                  {t("sidebar.selector.articulationStaffLine", { line: selectedString })}
+                </span>
+              )}
             </div>
-            <div className="flex flex-wrap gap-1">
-              {GP7_ARTICULATIONS_SORTED.map(({ id, staffLine }) => {
-                const isActive = activeGp7Ids.has(id);
-                const isDisabled =
-                  !beat ||
-                  (selectedOnly && cursorStaffLine !== null && staffLine !== cursorStaffLine) ||
-                  (selectedOnly && cursorStaffLine === null);
-                const name = t(`percussion.gp7.${id}`);
+
+            {/* Grouped articulation buttons */}
+            <div className="space-y-1">
+              {PERC_SNAP_GROUPS.map((group) => {
+                const isGroupSelected = group.staffLine === selectedString;
+                const groupHidden = selectedOnly && !isGroupSelected;
+
+                if (groupHidden) {
+                  const hasActiveInGroup = group.entries.some((e) => activeGp7Ids.has(e.id));
+                  if (!hasActiveInGroup) return null;
+                }
+
                 return (
-                  <button
-                    key={id}
-                    type="button"
-                    disabled={isDisabled}
-                    className={cn(
-                      "rounded border px-1.5 py-0.5 text-[9px] font-mono leading-tight transition-colors",
-                      isActive
-                        ? "border-primary bg-primary/20 text-primary font-semibold"
-                        : "border-border/60 text-muted-foreground hover:bg-accent/50",
-                      isDisabled && !isActive && "opacity-30 cursor-not-allowed",
-                    )}
-                    title={`${id}: ${name} (line ${staffLine})`}
-                    onClick={() =>
-                      usePlayerStore.getState().togglePercussionArticulation(id)
-                    }
-                  >
-                    {id}:{name}
-                  </button>
+                  <div key={group.staffLine}>
+                    <div className={cn(
+                      "flex items-center gap-1 mb-0.5",
+                      isGroupSelected && "text-primary",
+                    )}>
+                      <span className={cn(
+                        "shrink-0 text-[8px] font-mono leading-none",
+                        isGroupSelected
+                          ? "text-primary font-bold"
+                          : "text-muted-foreground/60",
+                      )}>
+                        {t("sidebar.selector.articulationStaffLine", { line: group.staffLine })}
+                      </span>
+                      <div className="flex-1 border-b border-border/30" />
+                    </div>
+                    <div className="flex flex-wrap gap-0.5">
+                      {group.entries.map((entry) => {
+                        const isActive = activeGp7Ids.has(entry.id);
+                        const isDisabled =
+                          !beat || (groupHidden && !isActive);
+                        return (
+                          <button
+                            key={entry.id}
+                            type="button"
+                            disabled={isDisabled}
+                            className={cn(
+                              "rounded border px-1.5 py-0.5 text-[9px] leading-tight transition-colors",
+                              isActive
+                                ? "border-primary bg-primary/20 text-primary font-semibold"
+                                : "border-border/60 text-muted-foreground hover:bg-accent/50",
+                              isDisabled && !isActive && "opacity-30 cursor-not-allowed",
+                            )}
+                            title={`ID ${entry.id} — staffLine ${entry.staffLine}`}
+                            onClick={() =>
+                              usePlayerStore.getState().togglePercussionArticulation(entry.id)
+                            }
+                          >
+                            {entry.elementType} ({entry.technique})
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -1506,7 +1517,7 @@ function NoteSection({
               {note.isPercussion && (
                 <PropRow
                   label={t("sidebar.note.articulation")}
-                  value={percussionDisplayName(note.percussionArticulationName, t)}
+                  value={note.percussionArticulationName}
                   icon={<Disc className="h-3.5 w-3.5" />}
                 />
               )}
@@ -1594,6 +1605,181 @@ function NoteSection({
               pressed={beat.slashed}
               textIcon="/"
             />
+          </div>
+        </div>
+        <Separator />
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+// ─── Log Section ─────────────────────────────────────────────────────────────
+
+function LogSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(true);
+  const logs = useDebugLogStore((s) => s.logs);
+  const minLevel = useDebugLogStore((s) => s.minLevel);
+  const clear = useDebugLogStore((s) => s.clear);
+  const setMinLevel = useDebugLogStore((s) => s.setMinLevel);
+  const logContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom when new logs arrive
+  useEffect(() => {
+    if (logContainerRef.current && logs.length > 0) {
+      const container = logContainerRef.current;
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [logs.length]);
+
+  const filteredLogs = logs.filter((log) => {
+    const levelOrder: Record<LogLevel, number> = {
+      debug: 0,
+      info: 1,
+      warn: 2,
+      error: 3,
+    };
+    return levelOrder[log.level] >= levelOrder[minLevel];
+  });
+
+  const formatTimestamp = (timestamp: number): string => {
+    const date = new Date(timestamp);
+    return `${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}:${date.getSeconds().toString().padStart(2, "0")}.${date.getMilliseconds().toString().padStart(3, "0")}`;
+  };
+
+  const formatData = (data: unknown): string => {
+    if (data === undefined || data === null) return "";
+    try {
+      const str = JSON.stringify(data, null, 2);
+      return str.length > 200 ? str.substring(0, 200) + "..." : str;
+    } catch {
+      return String(data ?? "");
+    }
+  };
+
+  const levelColors: Record<LogLevel, string> = {
+    debug: "text-green-400",
+    info: "text-blue-400",
+    warn: "text-yellow-400",
+    error: "text-red-400",
+  };
+
+  const levelLabels: Record<LogLevel, string> = {
+    debug: t("sidebar.log.levelDebug"),
+    info: t("sidebar.log.levelInfo"),
+    warn: t("sidebar.log.levelWarn"),
+    error: t("sidebar.log.levelError"),
+  };
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="group flex w-full items-center border-b border-border/40 bg-card/50">
+        {/* Drag handle */}
+        <button
+          type="button"
+          className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-60 active:cursor-grabbing"
+          aria-label={t("sidebar.reorderSection")}
+          {...dragHandleProps}
+        >
+          <GripVertical className="h-3 w-3 text-muted-foreground" />
+        </button>
+        <CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 pr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/50">
+          <span className="flex items-center gap-1">
+            {t("sidebar.log.title")}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-3 w-3 opacity-50" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs text-xs">
+                {t("sidebar.log.help")}
+              </TooltipContent>
+            </Tooltip>
+          </span>
+          {isOpen ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </CollapsibleTrigger>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-[10px] mr-2"
+          onClick={(e) => {
+            e.stopPropagation();
+            clear();
+          }}
+        >
+          {t("sidebar.log.clear")}
+        </Button>
+      </div>
+      <CollapsibleContent>
+        <div className="space-y-1 py-1">
+          {/* Level filter toggles */}
+          <div className="flex flex-wrap gap-1 px-3 py-1">
+            {(["debug", "info", "warn", "error"] as LogLevel[]).map((level) => {
+              const levelOrder: Record<LogLevel, number> = {
+                debug: 0,
+                info: 1,
+                warn: 2,
+                error: 3,
+              };
+              const isVisible = levelOrder[level] >= levelOrder[minLevel];
+              return (
+                <Toggle
+                  key={level}
+                  pressed={isVisible}
+                  onPressedChange={(pressed) => {
+                    if (pressed) {
+                      // Show this level and above
+                      setMinLevel(level);
+                    } else {
+                      // Hide this level - go to next higher level
+                      const levels: LogLevel[] = ["debug", "info", "warn", "error"];
+                      const currentIdx = levels.indexOf(level);
+                      if (currentIdx < levels.length - 1) {
+                        setMinLevel(levels[currentIdx + 1]);
+                      }
+                    }
+                  }}
+                  className={cn(
+                    "h-5 px-2 text-[9px]",
+                    isVisible && "bg-primary/20 text-primary",
+                  )}
+                >
+                  {levelLabels[level]}
+                </Toggle>
+              );
+            })}
+          </div>
+
+          {/* Log display */}
+          <div
+            ref={logContainerRef}
+            className="mx-3 mb-2 max-h-60 overflow-y-auto rounded border border-border/40 bg-zinc-950 p-2 font-mono text-[10px] leading-tight text-zinc-300"
+          >
+            {filteredLogs.length === 0 ? (
+              <div className="py-2 text-center text-zinc-500">
+                {t("sidebar.log.empty")}
+              </div>
+            ) : (
+              filteredLogs.map((log) => (
+                <div key={log.id} className="mb-1 break-words">
+                  <span className={cn("font-semibold", levelColors[log.level])}>
+                    {formatTimestamp(log.timestamp)} {levelLabels[log.level].padEnd(5)}
+                  </span>
+                  <span className="text-zinc-400"> [{log.source}]</span>
+                  <span className="text-zinc-200"> {log.message}</span>
+                  {log.data !== undefined && log.data !== null && (
+                    <div className="ml-4 mt-0.5 text-zinc-400">
+                      <pre className="whitespace-pre-wrap break-words text-[9px]">
+                        {formatData(log.data) || ""}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
         <Separator />
@@ -1983,15 +2169,15 @@ function saveSidebarWidth(w: number) {
 }
 const TAB_COUNT = 3;
 
-type SectionId = "song" | "tracks" | "selector" | "articulation" | "bar" | "note" | "effects";
-const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "articulation", "bar", "note", "effects"];
+type SectionId = "song" | "tracks" | "selector" | "articulation" | "log" | "bar" | "note" | "effects";
+const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "articulation", "log", "bar", "note", "effects"];
 
 /** Default tab layout: tab0 = editing sections, tab1 = song+tracks, tab2 = selection */
 type TabLayout = SectionId[][];
 const DEFAULT_LAYOUT: TabLayout = [
   ["bar", "note", "effects"],
   ["song", "tracks"],
-  ["selector", "articulation"],
+  ["selector", "articulation", "log"],
 ];
 
 function loadTabLayout(): TabLayout {
@@ -2165,6 +2351,8 @@ export function NoteEditorSidebar() {
           );
         case "articulation":
           return <ArticulationSection dragHandleProps={dragHandleProps} />;
+        case "log":
+          return <LogSection dragHandleProps={dragHandleProps} />;
         case "bar":
           return hasBeat ? (
             <BarSection bar={selectedBarInfo!} dragHandleProps={dragHandleProps} />

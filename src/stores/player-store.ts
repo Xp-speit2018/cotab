@@ -67,7 +67,7 @@ let snapGridOverlayContainer: HTMLDivElement | null = null;
 /** Container for snap-grid ID labels, appended to the viewport wrapper. */
 let snapGridLabelContainer: HTMLDivElement | null = null;
 /** Cached overlay entries (markers + labels) for dimming and repositioning. */
-let snapGridEntries: { marker: HTMLElement; label: HTMLElement; string: number; y: number }[] = [];
+let snapGridEntries: { marker: HTMLElement; label: HTMLElement; string: number; y: number; trackIndex: number; staffIndex: number }[] = [];
 /** Scroll handler reference for cleanup. */
 let snapGridScrollHandler: (() => void) | null = null;
 
@@ -1400,7 +1400,10 @@ function updateSnapGridOverlay(show: boolean): void {
     snapGridLabelContainer.classList.add("at-snap-grid-labels");
   }
 
-  for (const [, grid] of snapGrids) {
+  for (const [gridKey, grid] of snapGrids) {
+    // Extract trackIndex and staffIndex from grid key (format: "trackIndex:staffIndex")
+    const [trackIndex, staffIndex] = gridKey.split(":").map(Number);
+    
     for (let i = 0; i < grid.positions.length; i++) {
       const pos = grid.positions[i];
       const isLine = i % 2 === 0;
@@ -1424,7 +1427,7 @@ function updateSnapGridOverlay(show: boolean): void {
       label.textContent = String(pos.string);
       snapGridLabelContainer?.appendChild(label);
 
-      snapGridEntries.push({ marker, label, string: pos.string, y: pos.y });
+      snapGridEntries.push({ marker, label, string: pos.string, y: pos.y, trackIndex, staffIndex });
     }
   }
 
@@ -1451,17 +1454,26 @@ function updateSnapGridOverlay(show: boolean): void {
   }
 
   // Apply initial selection dimming
-  updateSnapGridSelection(usePlayerStore.getState().selectedString);
+  const state = usePlayerStore.getState();
+  const selectedBeat = state.selectedBeat;
+  updateSnapGridSelection(
+    state.selectedString,
+    selectedBeat?.trackIndex ?? null,
+    selectedBeat?.staffIndex ?? null,
+  );
 }
 
 /**
  * Dim/undim snap-grid markers and labels based on the currently selected
- * string.  When a grid position is not the selected one, both its marker
- * and label become faint.
+ * string and track/staff.  When a grid position is not the selected one
+ * (or not in the selected track/staff), both its marker and label become faint.
  */
-function updateSnapGridSelection(selectedString: number | null): void {
+function updateSnapGridSelection(selectedString: number | null, trackIndex: number | null = null, staffIndex: number | null = null): void {
   for (const entry of snapGridEntries) {
-    const active = selectedString === null || entry.string === selectedString;
+    const stringMatches = selectedString === null || entry.string === selectedString;
+    const trackMatches = trackIndex === null || entry.trackIndex === trackIndex;
+    const staffMatches = staffIndex === null || entry.staffIndex === staffIndex;
+    const active = stringMatches && trackMatches && staffMatches;
     entry.marker.classList.toggle("at-snap-grid--dim", !active);
     entry.label.classList.toggle("at-snap-grid--dim", !active);
   }
@@ -2702,7 +2714,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       });
 
       if (get().showSnapGrid) {
-        updateSnapGridSelection(selectedStr);
+        updateSnapGridSelection(selectedStr, trackIndex, staffIndex);
       }
     } catch (e) {
       if (import.meta.env.DEV) {
@@ -2724,7 +2736,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       selectedString: null,
     });
     if (get().showSnapGrid) {
-      updateSnapGridSelection(-1);
+      updateSnapGridSelection(null, null, null);
     }
   },
 }));

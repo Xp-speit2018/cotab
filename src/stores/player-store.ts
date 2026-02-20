@@ -856,10 +856,22 @@ function insertBarAtIndex(
     mb.timeSignatureDenominator = refMasterBar.timeSignatureDenominator;
     mb.timeSignatureCommon = refMasterBar.timeSignatureCommon;
 
+    // Set score reference before splicing
+    mb.score = score;
+
     score.masterBars.splice(insertIndex, 0, mb);
     debugLog("debug", "insertBarAtIndex", "masterBar inserted", {
       newMasterBarCount: score.masterBars.length,
     });
+
+    // Re-index all masterBars and rebuild linked lists
+    for (let i = 0; i < score.masterBars.length; i++) {
+      const masterBar = score.masterBars[i];
+      masterBar.index = i;
+      masterBar.previousMasterBar = i > 0 ? score.masterBars[i - 1] : null;
+      masterBar.nextMasterBar = i < score.masterBars.length - 1 ? score.masterBars[i + 1] : null;
+    }
+    debugLog("debug", "insertBarAtIndex", "masterBar indices and links updated");
 
     for (const track of score.tracks) {
       for (const staff of track.staves) {
@@ -886,8 +898,18 @@ function insertBarAtIndex(
         }
 
         staff.bars.splice(insertIndex, 0, bar);
+
+        // Set staff reference and re-index all bars in this staff
+        for (let i = 0; i < staff.bars.length; i++) {
+          const b = staff.bars[i];
+          b.staff = staff;
+          b.index = i;
+          b.previousBar = i > 0 ? staff.bars[i - 1] : null;
+          b.nextBar = i < staff.bars.length - 1 ? staff.bars[i + 1] : null;
+        }
       }
     }
+    debugLog("debug", "insertBarAtIndex", "bar indices and links updated");
 
     debugLog("debug", "insertBarAtIndex", "calling score.finish()");
     score.finish(api!.settings);
@@ -2731,6 +2753,29 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           staff.bars.splice(sel.barIndex, 1);
         }
       }
+
+      // Re-index all masterBars and rebuild linked lists
+      for (let i = 0; i < score.masterBars.length; i++) {
+        const masterBar = score.masterBars[i];
+        masterBar.index = i;
+        masterBar.previousMasterBar = i > 0 ? score.masterBars[i - 1] : null;
+        masterBar.nextMasterBar = i < score.masterBars.length - 1 ? score.masterBars[i + 1] : null;
+      }
+      debugLog("debug", "deleteBar", "masterBar indices and links updated");
+
+      // Re-index all bars in all staves and rebuild linked lists
+      for (const track of score.tracks) {
+        for (const staff of track.staves) {
+          for (let i = 0; i < staff.bars.length; i++) {
+            const bar = staff.bars[i];
+            bar.staff = staff;
+            bar.index = i;
+            bar.previousBar = i > 0 ? staff.bars[i - 1] : null;
+            bar.nextBar = i < staff.bars.length - 1 ? staff.bars[i + 1] : null;
+          }
+        }
+      }
+      debugLog("debug", "deleteBar", "bar indices and links updated");
 
       debugLog("debug", "deleteBar", "calling score.finish()");
       score.finish(api.settings);

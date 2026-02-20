@@ -15,6 +15,8 @@
 import * as alphaTab from "@coderline/alphatab";
 import { create } from "zustand";
 
+import { debugLog } from "./debug-log-store";
+
 import type {
   AccentuationType,
   BendType,
@@ -834,40 +836,77 @@ function insertBarAtIndex(
   score: alphaTab.model.Score,
   insertIndex: number,
 ): void {
-  const refBarIndex = Math.min(insertIndex, score.masterBars.length - 1);
-  const refMasterBar = score.masterBars[refBarIndex];
+  try {
+    debugLog("debug", "insertBarAtIndex", "start", {
+      insertIndex,
+      masterBarCount: score.masterBars.length,
+      trackCount: score.tracks.length,
+    });
 
-  const mb = new alphaTab.model.MasterBar();
-  mb.timeSignatureNumerator = refMasterBar.timeSignatureNumerator;
-  mb.timeSignatureDenominator = refMasterBar.timeSignatureDenominator;
-  mb.timeSignatureCommon = refMasterBar.timeSignatureCommon;
+    const refBarIndex = Math.min(insertIndex, score.masterBars.length - 1);
+    const refMasterBar = score.masterBars[refBarIndex];
 
-  score.masterBars.splice(insertIndex, 0, mb);
+    debugLog("debug", "insertBarAtIndex", "reference bar", {
+      refBarIndex,
+      timeSignature: `${refMasterBar.timeSignatureNumerator}/${refMasterBar.timeSignatureDenominator}`,
+    });
 
-  for (const track of score.tracks) {
-    for (const staff of track.staves) {
-      const refBar = staff.bars[refBarIndex < insertIndex ? refBarIndex : Math.min(insertIndex, staff.bars.length - 1)];
-      const voiceCount = refBar ? refBar.voices.length : 1;
+    const mb = new alphaTab.model.MasterBar();
+    mb.timeSignatureNumerator = refMasterBar.timeSignatureNumerator;
+    mb.timeSignatureDenominator = refMasterBar.timeSignatureDenominator;
+    mb.timeSignatureCommon = refMasterBar.timeSignatureCommon;
 
-      const bar = new alphaTab.model.Bar();
-      bar.clef = refBar ? refBar.clef : (4 as unknown as alphaTab.model.Clef); // G2
+    score.masterBars.splice(insertIndex, 0, mb);
+    debugLog("debug", "insertBarAtIndex", "masterBar inserted", {
+      newMasterBarCount: score.masterBars.length,
+    });
 
-      for (let vi = 0; vi < voiceCount; vi++) {
-        const voice = new alphaTab.model.Voice();
-        const restBeat = new alphaTab.model.Beat();
-        restBeat.isEmpty = false;
-        restBeat.notes = [];
-        restBeat.duration = alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
-        voice.addBeat(restBeat);
-        bar.addVoice(voice);
+    for (const track of score.tracks) {
+      for (const staff of track.staves) {
+        const refBar = staff.bars[refBarIndex < insertIndex ? refBarIndex : Math.min(insertIndex, staff.bars.length - 1)];
+        const voiceCount = refBar ? refBar.voices.length : 1;
+
+        debugLog("debug", "insertBarAtIndex", "creating bar for track/staff", {
+          trackIndex: track.index,
+          staffIndex: staff.index,
+          voiceCount,
+        });
+
+        const bar = new alphaTab.model.Bar();
+        bar.clef = refBar ? refBar.clef : (4 as unknown as alphaTab.model.Clef); // G2
+
+        for (let vi = 0; vi < voiceCount; vi++) {
+          const voice = new alphaTab.model.Voice();
+          const restBeat = new alphaTab.model.Beat();
+          restBeat.isEmpty = false;
+          restBeat.notes = [];
+          restBeat.duration = alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
+          voice.addBeat(restBeat);
+          bar.addVoice(voice);
+        }
+
+        staff.bars.splice(insertIndex, 0, bar);
       }
-
-      staff.bars.splice(insertIndex, 0, bar);
     }
-  }
 
-  score.finish(api!.settings);
-  applyBarWarningStyles();
+    debugLog("debug", "insertBarAtIndex", "calling score.finish()");
+    score.finish(api!.settings);
+    debugLog("debug", "insertBarAtIndex", "score.finish() completed");
+
+    debugLog("debug", "insertBarAtIndex", "calling applyBarWarningStyles()");
+    applyBarWarningStyles();
+    debugLog("info", "insertBarAtIndex", "complete", {
+      newMasterBarCount: score.masterBars.length,
+    });
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    debugLog("error", "insertBarAtIndex", "failed", {
+      error: err.message,
+      stack: err.stack,
+      insertIndex,
+    });
+    throw err;
+  }
 }
 
 // ─── Duration Helpers ─────────────────────────────────────────────────────────
@@ -2286,31 +2325,39 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   // ── Beat Manipulation ──────────────────────────────────────────────────
 
   toggleBeatIsEmpty: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api) return;
+    try {
+      const sel = get().selectedBeat;
+      if (!sel || !api) return;
 
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return;
+      const beat = resolveBeat(
+        sel.trackIndex,
+        sel.barIndex,
+        sel.beatIndex,
+        sel.staffIndex,
+        sel.voiceIndex,
+      );
+      if (!beat) return;
 
-    beat.isEmpty = !beat.isEmpty;
-    beat.voice.finish(api.settings);
-    applyBarWarningStyles();
+      beat.isEmpty = !beat.isEmpty;
+      beat.voice.finish(api.settings);
+      applyBarWarningStyles();
 
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
+      pendingSelection = {
+        trackIndex: sel.trackIndex,
+        barIndex: sel.barIndex,
+        beatIndex: sel.beatIndex,
+        staffIndex: sel.staffIndex,
+        voiceIndex: sel.voiceIndex,
+        string: sel.string,
+      };
+      api.render();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      debugLog("error", "toggleBeatIsEmpty", "failed", {
+        error: err.message,
+        stack: err.stack,
+      });
+    }
   },
 
   // ── Percussion Articulation Toggle ───────────────────────────────────
@@ -2374,51 +2421,52 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   // ── Note Deletion ─────────────────────────────────────────────────────
 
   deleteNote: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api) return false;
+    try {
+      const sel = get().selectedBeat;
+      if (!sel || !api) return false;
 
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return false;
+      const beat = resolveBeat(
+        sel.trackIndex,
+        sel.barIndex,
+        sel.beatIndex,
+        sel.staffIndex,
+        sel.voiceIndex,
+      );
+      if (!beat) return false;
 
-    const voice = beat.voice;
-    const noteIdx = get().selectedNoteIndex;
+      const voice = beat.voice;
+      const noteIdx = get().selectedNoteIndex;
 
-    // ── Case 3: Beat is a rest — remove the beat ────────────────────────
-    if (beat.notes.length === 0 || beat.isRest) {
-      if (voice.beats.length <= 1) {
-        // Last rest in bar — block deletion
-        return false;
+      // ── Case 3: Beat is a rest — remove the beat ────────────────────────
+      if (beat.notes.length === 0 || beat.isRest) {
+        if (voice.beats.length <= 1) {
+          // Last rest in bar — block deletion
+          return false;
+        }
+
+        const beatIdx = voice.beats.indexOf(beat);
+        if (beatIdx < 0) return false;
+
+        voice.beats.splice(beatIdx, 1);
+        voice.finish(api.settings);
+        applyBarWarningStyles();
+
+        const newBeatIdx = Math.min(beatIdx, voice.beats.length - 1);
+        pendingSelection = {
+          trackIndex: sel.trackIndex,
+          barIndex: sel.barIndex,
+          beatIndex: newBeatIdx,
+          staffIndex: sel.staffIndex,
+          voiceIndex: sel.voiceIndex,
+          string: sel.string,
+        };
+
+        api.render();
+        return true;
       }
 
-      const beatIdx = voice.beats.indexOf(beat);
-      if (beatIdx < 0) return false;
-
-      voice.beats.splice(beatIdx, 1);
-      voice.finish(api.settings);
-      applyBarWarningStyles();
-
-      const newBeatIdx = Math.min(beatIdx, voice.beats.length - 1);
-      pendingSelection = {
-        trackIndex: sel.trackIndex,
-        barIndex: sel.barIndex,
-        beatIndex: newBeatIdx,
-        staffIndex: sel.staffIndex,
-        voiceIndex: sel.voiceIndex,
-        string: sel.string,
-      };
-
-      api.render();
-      return true;
-    }
-
-    // ── Cases 1 & 2: Beat has notes ─────────────────────────────────────
-    if (noteIdx < 0 || noteIdx >= beat.notes.length) return false;
+      // ── Cases 1 & 2: Beat has notes ─────────────────────────────────────
+      if (noteIdx < 0 || noteIdx >= beat.notes.length) return false;
 
     if (beat.notes.length > 1) {
       // Case 1: Multiple notes on beat — remove only the selected one
@@ -2456,30 +2504,39 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     api.render();
     return true;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      debugLog("error", "deleteNote", "failed", {
+        error: err.message,
+        stack: err.stack,
+      });
+      return false;
+    }
   },
 
   // ── Note Placement ────────────────────────────────────────────────────
 
   placeNote: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api || sel.string === null) return;
+    try {
+      const sel = get().selectedBeat;
+      if (!sel || !api || sel.string === null) return;
 
-    const score = api.score;
-    if (!score) return;
+      const score = api.score;
+      if (!score) return;
 
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return;
+      const beat = resolveBeat(
+        sel.trackIndex,
+        sel.barIndex,
+        sel.beatIndex,
+        sel.staffIndex,
+        sel.voiceIndex,
+      );
+      if (!beat) return;
 
-    const track = score.tracks[sel.trackIndex];
-    if (!track) return;
-    const staff = track.staves[sel.staffIndex];
-    if (!staff) return;
+      const track = score.tracks[sel.trackIndex];
+      if (!track) return;
+      const staff = track.staves[sel.staffIndex];
+      if (!staff) return;
 
     const note = new alphaTab.model.Note();
 
@@ -2527,78 +2584,186 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       string: sel.string,
     };
     api.render();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      debugLog("error", "placeNote", "failed", {
+        error: err.message,
+        stack: err.stack,
+      });
+    }
   },
 
   // ── Bar Manipulation ──────────────────────────────────────────────────
 
   insertBarBefore: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api) return;
-    const score = api.score;
-    if (!score) return;
+    try {
+      const sel = get().selectedBeat;
+      if (!sel || !api) {
+        debugLog("warn", "insertBarBefore", "no selection or API");
+        return;
+      }
+      const score = api.score;
+      if (!score) {
+        debugLog("warn", "insertBarBefore", "no score");
+        return;
+      }
 
-    insertBarAtIndex(score, sel.barIndex);
+      debugLog("info", "insertBarBefore", "start", {
+        barIndex: sel.barIndex,
+        trackCount: score.tracks.length,
+        masterBarCount: score.masterBars.length,
+      });
 
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex + 1,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
+      insertBarAtIndex(score, sel.barIndex);
+
+      pendingSelection = {
+        trackIndex: sel.trackIndex,
+        barIndex: sel.barIndex + 1,
+        beatIndex: sel.beatIndex,
+        staffIndex: sel.staffIndex,
+        voiceIndex: sel.voiceIndex,
+        string: sel.string,
+      };
+
+      debugLog("info", "insertBarBefore", "complete", {
+        newBarCount: score.masterBars.length,
+        newSelectionBarIndex: sel.barIndex + 1,
+      });
+
+      api.render();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      debugLog("error", "insertBarBefore", "failed", {
+        error: err.message,
+        stack: err.stack,
+      });
+      // Re-throw to maintain existing behavior
+      throw err;
+    }
   },
 
   insertBarAfter: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api) return;
-    const score = api.score;
-    if (!score) return;
+    try {
+      const sel = get().selectedBeat;
+      if (!sel || !api) {
+        debugLog("warn", "insertBarAfter", "no selection or API");
+        return;
+      }
+      const score = api.score;
+      if (!score) {
+        debugLog("warn", "insertBarAfter", "no score");
+        return;
+      }
 
-    insertBarAtIndex(score, sel.barIndex + 1);
+      debugLog("info", "insertBarAfter", "start", {
+        barIndex: sel.barIndex,
+        insertIndex: sel.barIndex + 1,
+        trackCount: score.tracks.length,
+        masterBarCount: score.masterBars.length,
+      });
 
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
+      insertBarAtIndex(score, sel.barIndex + 1);
+
+      pendingSelection = {
+        trackIndex: sel.trackIndex,
+        barIndex: sel.barIndex,
+        beatIndex: sel.beatIndex,
+        staffIndex: sel.staffIndex,
+        voiceIndex: sel.voiceIndex,
+        string: sel.string,
+      };
+
+      debugLog("info", "insertBarAfter", "complete", {
+        newBarCount: score.masterBars.length,
+        selectionBarIndex: sel.barIndex,
+      });
+
+      api.render();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      debugLog("error", "insertBarAfter", "failed", {
+        error: err.message,
+        stack: err.stack,
+      });
+      // Re-throw to maintain existing behavior
+      throw err;
+    }
   },
 
   deleteBar: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api) return false;
-    const score = api.score;
-    if (!score) return false;
-
-    if (score.masterBars.length <= 1) return false;
-    if (!isBarEmptyAllTracks(sel.barIndex)) return false;
-
-    score.masterBars.splice(sel.barIndex, 1);
-    for (const track of score.tracks) {
-      for (const staff of track.staves) {
-        staff.bars.splice(sel.barIndex, 1);
+    try {
+      const sel = get().selectedBeat;
+      if (!sel || !api) {
+        debugLog("warn", "deleteBar", "no selection or API");
+        return false;
       }
+      const score = api.score;
+      if (!score) {
+        debugLog("warn", "deleteBar", "no score");
+        return false;
+      }
+
+      debugLog("info", "deleteBar", "start", {
+        barIndex: sel.barIndex,
+        masterBarCount: score.masterBars.length,
+      });
+
+      if (score.masterBars.length <= 1) {
+        debugLog("warn", "deleteBar", "blocked — only bar remaining");
+        return false;
+      }
+
+      const isEmpty = isBarEmptyAllTracks(sel.barIndex);
+      debugLog("debug", "deleteBar", "bar empty check", {
+        barIndex: sel.barIndex,
+        isEmpty,
+      });
+
+      if (!isEmpty) {
+        debugLog("warn", "deleteBar", "blocked — bar not empty");
+        return false;
+      }
+
+      debugLog("debug", "deleteBar", "splicing masterBars and staff bars");
+      score.masterBars.splice(sel.barIndex, 1);
+      for (const track of score.tracks) {
+        for (const staff of track.staves) {
+          staff.bars.splice(sel.barIndex, 1);
+        }
+      }
+
+      debugLog("debug", "deleteBar", "calling score.finish()");
+      score.finish(api.settings);
+      debugLog("debug", "deleteBar", "score.finish() completed");
+
+      debugLog("debug", "deleteBar", "calling applyBarWarningStyles()");
+      applyBarWarningStyles();
+
+      const newBarIndex = Math.min(sel.barIndex, score.masterBars.length - 1);
+      pendingSelection = {
+        trackIndex: sel.trackIndex,
+        barIndex: newBarIndex,
+        beatIndex: 0,
+        staffIndex: sel.staffIndex,
+        voiceIndex: sel.voiceIndex,
+        string: sel.string,
+      };
+
+      debugLog("info", "deleteBar", "complete", {
+        newBarCount: score.masterBars.length,
+        newSelectionBarIndex: newBarIndex,
+      });
+
+      api.render();
+      return true;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      debugLog("error", "deleteBar", "failed", {
+        error: err.message,
+        stack: err.stack,
+      });
+      return false;
     }
-
-    score.finish(api.settings);
-    applyBarWarningStyles();
-
-    const newBarIndex = Math.min(sel.barIndex, score.masterBars.length - 1);
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: newBarIndex,
-      beatIndex: 0,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
-    return true;
   },
 
   // ── Selection ───────────────────────────────────────────────────────────

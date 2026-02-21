@@ -163,6 +163,19 @@
       "insertBarAfter": "在后方插入小节",
       "deleteBar": "删除小节",
       "deleteBarNotEmpty": "小节包含音符——无法删除",
+      "addTrack": "添加音轨",
+      "deleteTrack": "删除音轨",
+      "deleteTrackConfirm": "再次点击以确认",
+      "deleteTrackLastTrack": "无法删除最后一个音轨",
+      "presets": {
+        "acousticGuitar": "木吉他",
+        "electricGuitarClean": "电吉他（清音）",
+        "electricGuitarDistortion": "电吉他（失真）",
+        "bassGuitar": "贝斯",
+        "violin": "小提琴",
+        "acousticPiano": "原声钢琴",
+        "drumkit": "鼓组"
+      },
       "articulationTitle": "奏法",
       "articulationHelp": "切换选中节拍上的打击乐奏法。共享同一谱线位置的奏法互斥。",
       "articulationSelectedOnly": "仅选中位置",
@@ -203,9 +216,24 @@
 
     "tracks": {
       "title": "音轨",
-      "help": "切换音轨可见性。至少保留一个可见音轨。",
+      "help": "点击音轨展开编辑属性。使用眼睛图标切换可见性。",
       "visible": "可见",
-      "hidden": "隐藏"
+      "hidden": "隐藏",
+      "name": "名称",
+      "shortName": "缩写",
+      "placeholderName": "音轨名称",
+      "placeholderShortName": "如：Gtr、Bass",
+      "tuning": "调弦",
+      "customTuning": "自定义",
+      "standard": "标准",
+      "capo": "变调夹",
+      "transposition": "移调",
+      "semitones": "半音",
+      "midiProgram": "MIDI 音色",
+      "midiChannel": "MIDI 通道",
+      "percussion": "打击乐",
+      "stringCount_one": "{{count}} 弦",
+      "stringCount_other": "{{count}} 弦"
     },
 
     "bar": {

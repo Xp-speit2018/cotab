@@ -163,6 +163,19 @@
       "insertBarAfter": "Insert Bar After",
       "deleteBar": "Delete Bar",
       "deleteBarNotEmpty": "Bar contains notes — cannot delete",
+      "addTrack": "Add Track",
+      "deleteTrack": "Delete Track",
+      "deleteTrackConfirm": "Click again to confirm",
+      "deleteTrackLastTrack": "Cannot delete the last track",
+      "presets": {
+        "acousticGuitar": "Acoustic Guitar",
+        "electricGuitarClean": "Electric Guitar (Clean)",
+        "electricGuitarDistortion": "Electric Guitar (Distortion)",
+        "bassGuitar": "Bass Guitar",
+        "violin": "Violin",
+        "acousticPiano": "Acoustic Piano",
+        "drumkit": "Drums"
+      },
       "articulationTitle": "Articulations",
       "articulationHelp": "Toggle percussion articulations on the selected beat. Articulations sharing a staff line are mutually exclusive.",
       "articulationSelectedOnly": "Selected position only",
@@ -203,9 +216,24 @@
 
     "tracks": {
       "title": "Tracks",
-      "help": "Toggle track visibility. At least one track must remain visible.",
+      "help": "Click a track to expand and edit its properties. Toggle visibility with the eye icon.",
       "visible": "visible",
-      "hidden": "hidden"
+      "hidden": "hidden",
+      "name": "Name",
+      "shortName": "Abbreviation",
+      "placeholderName": "Track name",
+      "placeholderShortName": "e.g. Gtr, Bass",
+      "tuning": "Tuning",
+      "customTuning": "Custom",
+      "standard": "std",
+      "capo": "Capo",
+      "transposition": "Transposition",
+      "semitones": "semitones",
+      "midiProgram": "MIDI Program",
+      "midiChannel": "MIDI Channel",
+      "percussion": "Percussion",
+      "stringCount_one": "{{count}} string",
+      "stringCount_other": "{{count}} strings"
     },
 
     "bar": {

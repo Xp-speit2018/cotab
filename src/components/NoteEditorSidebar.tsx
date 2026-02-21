@@ -92,6 +92,8 @@ import {
   Triangle,
   HelpCircle,
   GripVertical,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import {
   Collapsible,
@@ -108,16 +110,23 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeHandle } from "@/components/ui/resize-handle";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
   usePlayerStore,
   PERC_SNAP_GROUPS,
+  TRACK_PRESETS,
 } from "@/stores/player-store";
 import type {
   ScoreMetadataField,
   SelectedBeatInfo,
   SelectedBarInfo,
   SelectedNoteInfo,
+  TuningPresetInfo,
 } from "@/stores/player-store";
 import { useDebugLogStore, type LogLevel } from "@/stores/debug-log-store";
 import { FpsSection } from "@/components/FpsMonitor";
@@ -967,14 +976,263 @@ function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unk
 
 // ─── Tracks Section ──────────────────────────────────────────────────────────
 
+/** A single expandable track row with inline metadata editing. */
+function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const [tuningOpen, setTuningOpen] = useState(false);
+  const track = usePlayerStore((s) => s.tracks[trackIndex]);
+  const visibleTrackIndices = usePlayerStore((s) => s.visibleTrackIndices);
+  const setTrackVisible = usePlayerStore((s) => s.setTrackVisible);
+  const setTrackName = usePlayerStore((s) => s.setTrackName);
+  const setTrackShortName = usePlayerStore((s) => s.setTrackShortName);
+  const setStaffCapo = usePlayerStore((s) => s.setStaffCapo);
+  const setStaffTransposition = usePlayerStore((s) => s.setStaffTransposition);
+  const setStaffTuning = usePlayerStore((s) => s.setStaffTuning);
+  const setTrackProgram = usePlayerStore((s) => s.setTrackProgram);
+  const getTuningPresets = usePlayerStore((s) => s.getTuningPresets);
+
+  if (!track) return null;
+
+  const isVisible = new Set(visibleTrackIndices).has(trackIndex);
+
+  // Read live staff info from alphaTab model (re-reads on each render)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const alphaTabApi = (window as unknown as Record<string, any>).__ALPHATAB_API__;
+  const staffInfo = (() => {
+    const staff = alphaTabApi?.score?.tracks?.[trackIndex]?.staves?.[0];
+    if (!staff) return null;
+    return {
+      tuningValues: [...staff.tuning] as number[],
+      tuningName: staff.tuningName as string,
+      capo: staff.capo as number,
+      transposition: staff.transpositionPitch as number,
+      showTablature: staff.showTablature as boolean,
+      showStandardNotation: staff.showStandardNotation as boolean,
+      isPercussion: staff.isPercussion as boolean,
+      stringCount: (staff.tuning as number[]).length,
+    };
+  })();
+
+  const playbackInfo = (() => {
+    const pi = alphaTabApi?.score?.tracks?.[trackIndex]?.playbackInfo;
+    if (!pi) return null;
+    return {
+      program: pi.program as number,
+      primaryChannel: pi.primaryChannel as number,
+    };
+  })();
+
+  const tuningPresets: TuningPresetInfo[] =
+    staffInfo && staffInfo.stringCount > 0
+      ? getTuningPresets(staffInfo.stringCount)
+      : [];
+
+  return (
+    <div className="border-b border-border/30 last:border-b-0">
+      {/* Track header row */}
+      <div className="flex items-center gap-1 px-2 py-1">
+        <button
+          type="button"
+          className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </button>
+        <button
+          type="button"
+          className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+          onClick={() => setTrackVisible(trackIndex, !isVisible)}
+        >
+          {isVisible ? (
+            <Eye className="h-3 w-3" />
+          ) : (
+            <EyeOff className="h-3 w-3 opacity-50" />
+          )}
+        </button>
+        <span
+          className={cn(
+            "flex-1 truncate text-[11px] font-medium",
+            !isVisible && "text-muted-foreground opacity-50",
+          )}
+        >
+          {track.name}
+        </span>
+        <span className="text-[9px] text-muted-foreground tabular-nums">
+          {staffInfo?.isPercussion
+            ? t("sidebar.tracks.percussion")
+            : staffInfo?.stringCount
+              ? t("sidebar.tracks.stringCount", { count: staffInfo.stringCount })
+              : ""}
+        </span>
+      </div>
+
+      {/* Expanded metadata panel */}
+      {expanded && (
+        <div className="space-y-0.5 pb-2">
+          <EditablePropRow
+            label={t("sidebar.tracks.name")}
+            value={track.name}
+            placeholder={t("sidebar.tracks.placeholderName")}
+            icon={<Guitar className="h-3 w-3" />}
+            onCommit={(v) => setTrackName(trackIndex, v)}
+          />
+          <EditablePropRow
+            label={t("sidebar.tracks.shortName")}
+            value={(alphaTabApi?.score?.tracks?.[trackIndex]?.shortName as string) ?? ""}
+            placeholder={t("sidebar.tracks.placeholderShortName")}
+            onCommit={(v) => setTrackShortName(trackIndex, v)}
+          />
+
+          {/* Tuning (only for stringed instruments) */}
+          {staffInfo && staffInfo.stringCount > 0 && !staffInfo.isPercussion && (
+            <>
+              <div className="group flex items-center gap-2 px-3 py-0.5">
+                <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                  {t("sidebar.tracks.tuning")}
+                </span>
+                <Popover open={tuningOpen} onOpenChange={setTuningOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="ml-auto flex items-center gap-1 text-[11px] font-medium tabular-nums hover:text-primary transition-colors cursor-pointer"
+                    >
+                      <span className="truncate max-w-[120px]">
+                        {staffInfo.tuningName || t("sidebar.tracks.customTuning")}
+                      </span>
+                      <ChevronDown className="h-2.5 w-2.5 shrink-0 opacity-50" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-56 p-1 max-h-60 overflow-y-auto"
+                    side="left"
+                    align="start"
+                  >
+                    {tuningPresets.map((preset, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded px-2 py-1 text-[11px] hover:bg-accent/50",
+                          preset.tunings.join(",") === staffInfo.tuningValues.join(",") && "bg-accent",
+                        )}
+                        onClick={() => {
+                          setStaffTuning(trackIndex, 0, preset.tunings);
+                          setTuningOpen(false);
+                        }}
+                      >
+                        <span className="font-medium truncate">{preset.name}</span>
+                        {preset.isStandard && (
+                          <span className="ml-auto text-[9px] text-muted-foreground">
+                            {t("sidebar.tracks.standard")}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              </div>
+              {/* Per-string tuning editor */}
+              <div className="px-3 py-1">
+                <div className="flex flex-col gap-0.5">
+                  {staffInfo.tuningValues.map((val, i) => {
+                    const noteName = usePlayerStore.getState().formatTuningNote(val);
+                    return (
+                      <div key={i} className="flex items-center gap-1">
+                        <span className="text-[9px] text-muted-foreground/60 w-3 text-right tabular-nums">
+                          {i + 1}
+                        </span>
+                        <button
+                          type="button"
+                          className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                          onClick={() => {
+                            const next = [...staffInfo.tuningValues];
+                            next[i] = Math.max(0, next[i] - 1);
+                            setStaffTuning(trackIndex, 0, next);
+                          }}
+                        >
+                          <ChevronDown className="h-2.5 w-2.5" />
+                        </button>
+                        <span className="text-[10px] font-mono tabular-nums w-7 text-center bg-muted/50 rounded px-0.5">
+                          {noteName}
+                        </span>
+                        <button
+                          type="button"
+                          className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                          onClick={() => {
+                            const next = [...staffInfo.tuningValues];
+                            next[i] = Math.min(127, next[i] + 1);
+                            setStaffTuning(trackIndex, 0, next);
+                          }}
+                        >
+                          <ChevronUp className="h-2.5 w-2.5" />
+                        </button>
+                        <span className="text-[9px] text-muted-foreground/40 tabular-nums">
+                          {val}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <EditableNumberPropRow
+                label={t("sidebar.tracks.capo")}
+                value={staffInfo.capo}
+                min={0}
+                max={24}
+                onCommit={(v) => setStaffCapo(trackIndex, 0, v)}
+              />
+            </>
+          )}
+
+          {/* Transposition */}
+          {staffInfo && !staffInfo.isPercussion && (
+            <EditableNumberPropRow
+              label={t("sidebar.tracks.transposition")}
+              value={staffInfo.transposition}
+              suffix={t("sidebar.tracks.semitones")}
+              min={-24}
+              max={24}
+              onCommit={(v) => setStaffTransposition(trackIndex, 0, v)}
+            />
+          )}
+
+          {/* MIDI Program */}
+          {playbackInfo && (
+            <EditableNumberPropRow
+              label={t("sidebar.tracks.midiProgram")}
+              value={playbackInfo.program}
+              min={0}
+              max={127}
+              onCommit={(v) => setTrackProgram(trackIndex, v)}
+            />
+          )}
+
+          {/* MIDI Channel (read-only info) */}
+          {playbackInfo && (
+            <div className="flex items-center gap-2 px-3 py-0.5">
+              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                {t("sidebar.tracks.midiChannel")}
+              </span>
+              <span className="ml-auto text-[11px] font-medium tabular-nums">
+                {playbackInfo.primaryChannel + 1}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TracksSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   const tracks = usePlayerStore((s) => s.tracks);
-  const visibleTrackIndices = usePlayerStore((s) => s.visibleTrackIndices);
-  const setTrackVisible = usePlayerStore((s) => s.setTrackVisible);
-
-  const visibleSet = new Set(visibleTrackIndices);
 
   if (tracks.length === 0) return null;
 
@@ -988,32 +1246,9 @@ function TracksSection({ dragHandleProps }: { dragHandleProps?: Record<string, u
       />
       <CollapsibleContent>
         <div className="py-1">
-          {tracks.map((track) => {
-            const isVisible = visibleSet.has(track.index);
-            return (
-              <button
-                key={track.index}
-                type="button"
-                className={cn(
-                  "flex w-full items-center gap-2 px-3 py-1 text-[11px] hover:bg-accent/50",
-                  !isVisible && "text-muted-foreground opacity-50",
-                )}
-                onClick={() => setTrackVisible(track.index, !isVisible)}
-              >
-                {isVisible ? (
-                  <Eye className="h-3.5 w-3.5 shrink-0" />
-                ) : (
-                  <EyeOff className="h-3.5 w-3.5 shrink-0" />
-                )}
-                <span className="truncate">{track.name}</span>
-                <span className="ml-auto text-[10px] text-muted-foreground">
-                  {isVisible
-                    ? t("sidebar.tracks.visible")
-                    : t("sidebar.tracks.hidden")}
-                </span>
-              </button>
-            );
-          })}
+          {tracks.map((track) => (
+            <TrackMetaRow key={track.index} trackIndex={track.index} />
+          ))}
         </div>
         <Separator />
       </CollapsibleContent>
@@ -1092,6 +1327,9 @@ function SelectorSection({
   const deleteBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deleteBarBlocked, setDeleteBarBlocked] = useState(false);
   const deleteBarBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [deleteTrackPending, setDeleteTrackPending] = useState(false);
+  const deleteTrackPendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [addTrackOpen, setAddTrackOpen] = useState(false);
 
   const showSnapGrid = usePlayerStore((s) => s.showSnapGrid);
   const setShowSnapGrid = usePlayerStore((s) => s.setShowSnapGrid);
@@ -1385,6 +1623,80 @@ function SelectorSection({
             {deleteBarBlocked
               ? t("sidebar.selector.deleteBarNotEmpty")
               : t("sidebar.selector.deleteBar")}
+          </Button>
+          <Popover open={addTrackOpen} onOpenChange={setAddTrackOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "inline-flex items-center justify-center rounded-md border bg-background shadow-xs",
+                  "h-6 px-2 text-[10px] font-medium transition-all",
+                  "hover:bg-accent hover:text-accent-foreground",
+                  "disabled:pointer-events-none disabled:opacity-50",
+                )}
+                disabled={tracks.length === 0}
+              >
+                <Plus className="mr-1 h-3 w-3" />
+                {t("sidebar.selector.addTrack")}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 p-1" side="right" align="start">
+              <div className="flex flex-col gap-0.5">
+                {TRACK_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] hover:bg-accent/50"
+                    onClick={() => {
+                      usePlayerStore.getState().addTrack(preset.id);
+                      setAddTrackOpen(false);
+                    }}
+                  >
+                    {t(preset.nameKey)}
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
+          <Button
+            variant="outline"
+            size="sm"
+            className={cn(
+              "h-6 px-2 text-[10px] transition-colors",
+              deleteTrackPending && "border-destructive text-destructive",
+            )}
+            disabled={!selectedBeat || tracks.length <= 1}
+            title={
+              tracks.length <= 1
+                ? t("sidebar.selector.deleteTrackLastTrack")
+                : deleteTrackPending
+                  ? t("sidebar.selector.deleteTrackConfirm")
+                  : undefined
+            }
+            onClick={() => {
+              if (!selectedBeat) return;
+              const trackIndex = selectedBeat.trackIndex;
+              if (deleteTrackPending) {
+                if (deleteTrackPendingTimer.current) {
+                  clearTimeout(deleteTrackPendingTimer.current);
+                  deleteTrackPendingTimer.current = null;
+                }
+                setDeleteTrackPending(false);
+                usePlayerStore.getState().deleteTrack(trackIndex);
+              } else {
+                setDeleteTrackPending(true);
+                if (deleteTrackPendingTimer.current) clearTimeout(deleteTrackPendingTimer.current);
+                deleteTrackPendingTimer.current = setTimeout(() => {
+                  setDeleteTrackPending(false);
+                  deleteTrackPendingTimer.current = null;
+                }, 3000);
+              }
+            }}
+          >
+            <Trash2 className="mr-1 h-3 w-3" />
+            {deleteTrackPending && selectedBeat
+              ? t("sidebar.selector.deleteTrackConfirm")
+              : t("sidebar.selector.deleteTrack")}
           </Button>
         </div>
 

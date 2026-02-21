@@ -139,6 +139,35 @@ export interface TrackInfo {
   isPercussion: boolean;
 }
 
+/** Preset for debug "Add Track" — instrument type, GM program, clef, strings. */
+export interface TrackPreset {
+  id: string;
+  /** i18n key for display name (e.g. sidebar.selector.presets.acousticGuitar). */
+  nameKey: string;
+  /** Default track name when adding (used by store; no i18n). */
+  defaultName: string;
+  /** GM program number (0–127). */
+  program: number;
+  /** MIDI channel (9 for drums). Use 0 to auto-assign. */
+  channel: number;
+  /** alphaTab.model.Clef value (e.g. G2=4, F4=3, Neutral=0). */
+  clef: number;
+  isPercussion: boolean;
+  /** Number of strings; 0 = no tablature (e.g. piano). */
+  stringCount: number;
+}
+
+/** Presets for the debug "Add Track" action. Exported for UI preset list. */
+export const TRACK_PRESETS: readonly TrackPreset[] = [
+  { id: "acousticGuitar", nameKey: "sidebar.selector.presets.acousticGuitar", defaultName: "Acoustic Guitar", program: 25, channel: 0, clef: 4, isPercussion: false, stringCount: 6 },
+  { id: "electricGuitarClean", nameKey: "sidebar.selector.presets.electricGuitarClean", defaultName: "Electric Guitar (Clean)", program: 27, channel: 0, clef: 4, isPercussion: false, stringCount: 6 },
+  { id: "electricGuitarDistortion", nameKey: "sidebar.selector.presets.electricGuitarDistortion", defaultName: "Electric Guitar (Distortion)", program: 30, channel: 0, clef: 4, isPercussion: false, stringCount: 6 },
+  { id: "bassGuitar", nameKey: "sidebar.selector.presets.bassGuitar", defaultName: "Bass Guitar", program: 33, channel: 0, clef: 3, isPercussion: false, stringCount: 4 },
+  { id: "violin", nameKey: "sidebar.selector.presets.violin", defaultName: "Violin", program: 40, channel: 0, clef: 4, isPercussion: false, stringCount: 4 },
+  { id: "acousticPiano", nameKey: "sidebar.selector.presets.acousticPiano", defaultName: "Acoustic Piano", program: 0, channel: 0, clef: 4, isPercussion: false, stringCount: 0 },
+  { id: "drumkit", nameKey: "sidebar.selector.presets.drumkit", defaultName: "Drums", program: 0, channel: 9, clef: 0, isPercussion: true, stringCount: 0 },
+] as const;
+
 export interface SelectedBeat {
   trackIndex: number;
   staffIndex: number;
@@ -257,6 +286,7 @@ export interface SelectedTrackInfo {
   playbackChannel: number;
   playbackProgram: number;
   playbackPort: number;
+  color: { r: number; g: number; b: number; a: number };
 }
 
 export interface SelectedStaffInfo {
@@ -267,6 +297,14 @@ export interface SelectedStaffInfo {
   capo: number;
   transpositionPitch: number;
   displayTranspositionPitch: number;
+  tuningName: string;
+  tuningValues: number[];
+}
+
+export interface TuningPresetInfo {
+  name: string;
+  isStandard: boolean;
+  tunings: number[];
 }
 
 export interface SelectedVoiceInfo {
@@ -382,6 +420,15 @@ export interface PlayerState {
   setTrackMute: (trackIndex: number, muted: boolean) => void;
   setTrackSolo: (trackIndex: number, solo: boolean) => void;
   setTrackVisible: (trackIndex: number, visible: boolean) => void;
+  setTrackName: (trackIndex: number, name: string) => void;
+  setTrackShortName: (trackIndex: number, shortName: string) => void;
+  setTrackColor: (trackIndex: number, r: number, g: number, b: number) => void;
+  setStaffCapo: (trackIndex: number, staffIndex: number, capo: number) => void;
+  setStaffTransposition: (trackIndex: number, staffIndex: number, semitones: number) => void;
+  setStaffTuning: (trackIndex: number, staffIndex: number, tuningValues: number[]) => void;
+  setTrackProgram: (trackIndex: number, program: number) => void;
+  getTuningPresets: (stringCount: number) => TuningPresetInfo[];
+  formatTuningNote: (midiValue: number) => string;
   setZoom: (zoom: number) => void;
   setShowSnapGrid: (show: boolean) => void;
 
@@ -434,6 +481,15 @@ export interface PlayerState {
    * or when it is the only bar in the score.
    */
   deleteBar: () => boolean;
+
+  // Track manipulation (debug)
+  /** Add a new track from a preset (acoustic guitar, drumkit, etc.). */
+  addTrack: (presetId: string) => void;
+  /**
+   * Delete the track at the given index.
+   * Returns false when score has only one track (cannot delete the last track).
+   */
+  deleteTrack: (trackIndex: number) => boolean;
 
   // Percussion articulation
   /**
@@ -981,6 +1037,101 @@ function insertBarAtIndex(
   }
 }
 
+/**
+ * Build a new Track from a preset and add bars for every MasterBar in the score.
+ * Caller must call score.addTrack(track), score.finish(), then api.renderTracks().
+ */
+function createTrackFromPreset(
+  score: alphaTab.model.Score,
+  preset: TrackPreset,
+): alphaTab.model.Track {
+  debugLog("debug", "createTrackFromPreset", "building track", {
+    presetId: preset.id,
+    defaultName: preset.defaultName,
+    program: preset.program,
+    isPercussion: preset.isPercussion,
+    stringCount: preset.stringCount,
+    clef: preset.clef,
+  });
+
+  const track = new alphaTab.model.Track();
+  track.score = score;
+  track.name = preset.defaultName;
+  track.shortName = preset.defaultName.slice(0, 20);
+
+  // Assign MIDI channel: use 9 for drums, else auto-assign (skip channel 9)
+  let channel = preset.channel;
+  if (channel === 0) {
+    let maxCh = -1;
+    for (const t of score.tracks) {
+      const ch = t.playbackInfo.primaryChannel;
+      if (ch !== 9) maxCh = Math.max(maxCh, ch);
+    }
+    channel = maxCh + 1;
+    if (channel === 9) channel = 10; // skip GM percussion channel for non-drums
+  }
+  debugLog("debug", "createTrackFromPreset", "channel assigned", {
+    channel,
+    presetChannel: preset.channel,
+  });
+
+  track.playbackInfo.program = preset.program;
+  track.playbackInfo.primaryChannel = channel;
+  track.playbackInfo.secondaryChannel = channel;
+  track.playbackInfo.volume = 15;
+  track.playbackInfo.balance = 8;
+
+  const staff = new alphaTab.model.Staff();
+  staff.track = track;
+  staff.isPercussion = preset.isPercussion;
+  if (preset.stringCount > 0) {
+    const tuning = alphaTab.model.Tuning.getDefaultTuningFor(preset.stringCount);
+    staff.stringTuning = tuning ?? new alphaTab.model.Tuning(undefined, [40, 45, 50, 55, 59, 64], true);
+    staff.showTablature = true;
+    staff.showStandardNotation = false;
+  } else {
+    staff.stringTuning = alphaTab.model.Tuning.getDefaultTuningFor(6) ?? new alphaTab.model.Tuning(undefined, [40, 45, 50, 55, 59, 64], true);
+    staff.showTablature = false;
+    staff.showStandardNotation = true;
+  }
+
+  debugLog("debug", "createTrackFromPreset", "staff created", {
+    showTablature: staff.showTablature,
+    isPercussion: staff.isPercussion,
+    masterBarCount: score.masterBars.length,
+  });
+
+  for (let barIndex = 0; barIndex < score.masterBars.length; barIndex++) {
+    const bar = new alphaTab.model.Bar();
+    bar.clef = preset.clef as unknown as alphaTab.model.Clef;
+    bar.staff = staff;
+    const voice = new alphaTab.model.Voice();
+    const restBeat = new alphaTab.model.Beat();
+    restBeat.isEmpty = false;
+    restBeat.notes = [];
+    restBeat.duration = alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
+    voice.addBeat(restBeat);
+    bar.addVoice(voice);
+    staff.addBar(bar);
+  }
+
+  // Re-index bars and linked lists for the new staff
+  for (let i = 0; i < staff.bars.length; i++) {
+    const b = staff.bars[i];
+    b.staff = staff;
+    b.index = i;
+    b.previousBar = i > 0 ? staff.bars[i - 1] : null;
+    b.nextBar = i < staff.bars.length - 1 ? staff.bars[i + 1] : null;
+  }
+
+  track.addStaff(staff);
+  debugLog("debug", "createTrackFromPreset", "track ready", {
+    staffCount: track.staves.length,
+    barCount: staff.bars.length,
+  });
+  return track;
+}
+
 // ─── Duration Helpers ─────────────────────────────────────────────────────────
 
 /**
@@ -1188,6 +1339,14 @@ function buildSnapGrids(): void {
     }
   }
 
+  // ── Engraving constants from AlphaTab's rendering engine ─────────
+  // These mirror the values used by TabBarRenderer.getLineY() and
+  // ScoreBarRenderer.getLineY() to position staff lines / note heads.
+  const eng = api!.settings.display.resources.engravingSettings;
+  const tabLineSpacing = eng.tabLineSpacing;   // px between tab strings
+  const oneStaffSpace  = eng.oneStaffSpace;     // px between notation lines
+  const slt            = eng.staffLineThickness;
+
   // ── Grid generation phase ─────────────────────────────────────────
   for (const [key, entry] of collected) {
     const track = score.tracks[entry.trackIndex];
@@ -1195,12 +1354,64 @@ function buildSnapGrids(): void {
     const staff = track.staves[entry.staffIndex];
     if (!staff) continue;
 
-    // Need at least some data to build a grid
-    if (entry.stringYs.size === 0 && entry.allYPositions.length === 0) continue;
-
     const medianW = median(entry.widths);
     const medianH = median(entry.heights);
     const positions: SnapPosition[] = [];
+
+    // Rest-only tracks: compute grid from AlphaTab's layout constants.
+    // For clean bars (no effects/ledger lines extending the bounds)
+    // the bar's realBounds tightly wraps the staff lines:
+    //   barH == (lineCount - 1) * lineSpacing
+    // and the top line sits at barY - staffLineThickness/2.
+    if (entry.stringYs.size === 0 && entry.allYPositions.length === 0) {
+      if (!entry.barRealBounds) continue;
+      const br = entry.barRealBounds;
+      const lineBase = br.y - slt / 2;
+
+      if (entry.isTab && !track.isPercussion) {
+        // Tab: getNoteLine(note) = tuning.length - note.string
+        //      getLineY(line)    = -slt/2 + tabLineSpacing * line
+        // String N (lowest pitch) at top, string 1 (highest pitch) at bottom.
+        const numStrings = staff.tuning.length || 6;
+        for (let s = 1; s <= numStrings; s++) {
+          positions.push({
+            string: s,
+            y: lineBase + tabLineSpacing * (numStrings - s),
+          });
+        }
+
+        positions.sort((a, b) => a.y - b.y);
+        snapGrids.set(key, {
+          positions,
+          noteWidth:  medianW > 0 ? medianW : tabLineSpacing,
+          noteHeight: medianH > 0 ? medianH : tabLineSpacing,
+        });
+      } else {
+        // Standard notation / percussion: 5 drawn lines at oneStaffSpace apart.
+        // Half-space = oneStaffSpace / 2.
+        const halfSpace = oneStaffSpace / 2;
+        // Center of the 5 staff lines is at line 2 (0-indexed).
+        const centerY = lineBase + 2 * oneStaffSpace;
+
+        if (track.isPercussion) {
+          for (let i = -10; i <= 10; i++) {
+            positions.push({ string: 3 + i, y: centerY + i * halfSpace });
+          }
+        } else {
+          for (let i = -10; i <= 10; i++) {
+            positions.push({ string: i + 11, y: centerY + i * halfSpace });
+          }
+        }
+
+        positions.sort((a, b) => a.y - b.y);
+        snapGrids.set(key, {
+          positions,
+          noteWidth:  medianW > 0 ? medianW : oneStaffSpace,
+          noteHeight: medianH > 0 ? medianH : oneStaffSpace,
+        });
+      }
+      continue;
+    }
 
     // Percussion notation uses a staff (lines + spaces); treat as standard
     // notation even when showTablature is true (GP drum tab uses fewer "strings").
@@ -1222,11 +1433,10 @@ function buildSnapGrids(): void {
         }
       } else {
         const [knownS, knownY] = [...entry.stringYs.entries()][0];
-        const defaultSpacing = medianH * 1.5;
         for (let s = 1; s <= numStrings; s++) {
           positions.push({
             string: s,
-            y: knownY + (s - knownS) * defaultSpacing,
+            y: knownY + (s - knownS) * tabLineSpacing,
           });
         }
       }
@@ -1271,11 +1481,9 @@ function buildSnapGrids(): void {
           }
         }
       } else {
-        // Only one (or zero) distinct positions; use note-head geometry
-        // or bar-geometry as last resort.
-        halfSpace = refHalfSpace > 0
-          ? refHalfSpace
-          : (entry.barRealBounds?.h ?? medianH * 10) / 12;
+        // Only one (or zero) distinct positions; use AlphaTab's
+        // oneStaffSpace setting directly — halfSpace is always oss/2.
+        halfSpace = oneStaffSpace / 2;
       }
 
       // Anchor at the median of observed Y values, or bar center
@@ -1752,6 +1960,7 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
 /** Extract track-level info from an AlphaTab Track model object. */
 function extractTrackInfo(track: alphaTab.model.Track): SelectedTrackInfo {
   const pi = track.playbackInfo;
+  const c = track.color;
   return {
     index: track.index,
     name: track.name,
@@ -1761,6 +1970,7 @@ function extractTrackInfo(track: alphaTab.model.Track): SelectedTrackInfo {
     playbackChannel: pi.primaryChannel,
     playbackProgram: pi.program,
     playbackPort: pi.port,
+    color: { r: c.r, g: c.g, b: c.b, a: c.a },
   };
 }
 
@@ -1774,6 +1984,8 @@ function extractStaffInfo(staff: alphaTab.model.Staff): SelectedStaffInfo {
     capo: staff.capo,
     transpositionPitch: staff.transpositionPitch,
     displayTranspositionPitch: staff.displayTranspositionPitch,
+    tuningName: staff.tuningName,
+    tuningValues: [...staff.tuning],
   };
 }
 
@@ -2332,6 +2544,118 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       .filter(Boolean);
 
     api.renderTracks(tracksToRender);
+  },
+
+  // ── Track Metadata Editing ───────────────────────────────────────────────
+
+  setTrackName: (trackIndex, name) => {
+    const track = getTrack(trackIndex);
+    if (!api || !track) return;
+    track.name = name;
+    set({
+      tracks: get().tracks.map((t) =>
+        t.index === trackIndex ? { ...t, name } : t,
+      ),
+    });
+    const sel = get().selectedBeat;
+    if (sel && sel.trackIndex === trackIndex) {
+      set({ selectedTrackInfo: extractTrackInfo(track) });
+    }
+    api.render();
+  },
+
+  setTrackShortName: (trackIndex, shortName) => {
+    const track = getTrack(trackIndex);
+    if (!api || !track) return;
+    track.shortName = shortName;
+    const sel = get().selectedBeat;
+    if (sel && sel.trackIndex === trackIndex) {
+      set({ selectedTrackInfo: extractTrackInfo(track) });
+    }
+    api.render();
+  },
+
+  setTrackColor: (trackIndex, r, g, b) => {
+    const track = getTrack(trackIndex);
+    if (!api || !track) return;
+    track.color = new alphaTab.model.Color(r, g, b, 255);
+    const sel = get().selectedBeat;
+    if (sel && sel.trackIndex === trackIndex) {
+      set({ selectedTrackInfo: extractTrackInfo(track) });
+    }
+    api.render();
+  },
+
+  setStaffCapo: (trackIndex, staffIndex, capo) => {
+    const track = getTrack(trackIndex);
+    if (!api || !track) return;
+    const staff = track.staves[staffIndex];
+    if (!staff) return;
+    staff.capo = capo;
+    const sel = get().selectedBeat;
+    if (sel && sel.trackIndex === trackIndex) {
+      set({ selectedStaffInfo: extractStaffInfo(staff) });
+    }
+    api.render();
+  },
+
+  setStaffTransposition: (trackIndex, staffIndex, semitones) => {
+    const track = getTrack(trackIndex);
+    if (!api || !track) return;
+    const staff = track.staves[staffIndex];
+    if (!staff) return;
+    staff.transpositionPitch = semitones;
+    staff.displayTranspositionPitch = semitones;
+    const sel = get().selectedBeat;
+    if (sel && sel.trackIndex === trackIndex) {
+      set({ selectedStaffInfo: extractStaffInfo(staff) });
+    }
+    api.render();
+  },
+
+  setStaffTuning: (trackIndex, staffIndex, tuningValues) => {
+    const track = getTrack(trackIndex);
+    if (!api || !track) return;
+    const staff = track.staves[staffIndex];
+    if (!staff) return;
+    const found = alphaTab.model.Tuning.findTuning(tuningValues);
+    if (found) {
+      staff.stringTuning = found;
+    } else {
+      staff.stringTuning = new alphaTab.model.Tuning(
+        undefined,
+        tuningValues,
+        false,
+      );
+    }
+    const sel = get().selectedBeat;
+    if (sel && sel.trackIndex === trackIndex) {
+      set({ selectedStaffInfo: extractStaffInfo(staff) });
+    }
+    api.render();
+  },
+
+  setTrackProgram: (trackIndex, program) => {
+    const track = getTrack(trackIndex);
+    if (!api || !track) return;
+    track.playbackInfo.program = program;
+    const sel = get().selectedBeat;
+    if (sel && sel.trackIndex === trackIndex) {
+      set({ selectedTrackInfo: extractTrackInfo(track) });
+    }
+  },
+
+  getTuningPresets: (stringCount) => {
+    const presets = alphaTab.model.Tuning.getPresetsFor(stringCount);
+    return presets.map((p) => ({
+      name: p.name,
+      isStandard: p.isStandard,
+      tunings: [...p.tunings],
+    }));
+  },
+
+  formatTuningNote: (midiValue) => {
+    return alphaTab.model.Tuning.getTextForTuning(midiValue, true);
   },
 
   // ── View Controls ────────────────────────────────────────────────────────
@@ -2951,6 +3275,152 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       debugLog("error", "deleteBar", "failed", {
+        error: err.message,
+        stack: err.stack,
+      });
+      return false;
+    }
+  },
+
+  addTrack: (presetId) => {
+    if (!api?.score) {
+      debugLog("warn", "addTrack", "no API or score");
+      return;
+    }
+    const preset = TRACK_PRESETS.find((p) => p.id === presetId);
+    if (!preset) {
+      debugLog("warn", "addTrack", "unknown preset", { presetId });
+      return;
+    }
+    const score = api.score;
+    try {
+      debugLog("info", "addTrack", "start", {
+        presetId,
+        presetName: preset.defaultName,
+        trackCount: score.tracks.length,
+        masterBarCount: score.masterBars.length,
+      });
+      const track = createTrackFromPreset(score, preset);
+      debugLog("debug", "addTrack", "calling score.addTrack", {
+        trackName: track.name,
+        staffCount: track.staves.length,
+        barCount: track.staves[0]?.bars.length ?? 0,
+      });
+      score.addTrack(track);
+      debugLog("debug", "addTrack", "calling score.finish()");
+      score.finish(api.settings);
+      debugLog("debug", "addTrack", "score.finish() completed");
+      applyBarWarningStyles();
+      const existing = get().tracks;
+      const tracks: TrackInfo[] = score.tracks.map((t, i) => ({
+        index: i,
+        name: t.name,
+        volume: existing[i]?.volume ?? 1,
+        isMuted: existing[i]?.isMuted ?? false,
+        isSolo: existing[i]?.isSolo ?? false,
+        isPercussion: t.isPercussion,
+      }));
+      set({ tracks });
+      debugLog("debug", "addTrack", "state updated", { newTracksLength: tracks.length });
+      api.renderTracks(score.tracks);
+      debugLog("info", "addTrack", "complete", {
+        newTrackIndex: track.index,
+        newTrackName: track.name,
+        totalTracks: score.tracks.length,
+      });
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      debugLog("error", "addTrack", "failed", {
+        presetId,
+        error: err.message,
+        stack: err.stack,
+      });
+      throw err;
+    }
+  },
+
+  deleteTrack: (trackIndex) => {
+    if (!api?.score) {
+      debugLog("warn", "deleteTrack", "no API or score");
+      return false;
+    }
+    const score = api.score;
+    if (score.tracks.length <= 1) {
+      debugLog("warn", "deleteTrack", "blocked — last track", {
+        trackCount: score.tracks.length,
+      });
+      return false;
+    }
+    const removedTrack = score.tracks[trackIndex];
+    try {
+      debugLog("info", "deleteTrack", "start", {
+        trackIndex,
+        trackName: removedTrack?.name ?? "—",
+        trackCount: score.tracks.length,
+        masterBarCount: score.masterBars.length,
+      });
+      const sel = get().selectedBeat;
+      score.tracks.splice(trackIndex, 1);
+      debugLog("debug", "deleteTrack", "spliced track", {
+        newTrackCount: score.tracks.length,
+      });
+      for (let i = 0; i < score.tracks.length; i++) {
+        score.tracks[i].index = i;
+      }
+      debugLog("debug", "deleteTrack", "track indices updated");
+      score.finish(api.settings);
+      debugLog("debug", "deleteTrack", "score.finish() completed");
+      applyBarWarningStyles();
+      if (sel && sel.trackIndex === trackIndex) {
+        debugLog("debug", "deleteTrack", "selection cleared (was on deleted track)");
+        set({
+          selectedBeat: null,
+          selectedTrackInfo: null,
+          selectedStaffInfo: null,
+          selectedBarInfo: null,
+          selectedVoiceInfo: null,
+          selectedBeatInfo: null,
+          selectedNoteIndex: -1,
+          selectedString: null,
+        });
+      } else if (sel && sel.trackIndex > trackIndex) {
+        debugLog("debug", "deleteTrack", "selection adjusted", {
+          oldTrackIndex: sel.trackIndex,
+          newTrackIndex: sel.trackIndex - 1,
+        });
+        pendingSelection = {
+          trackIndex: sel.trackIndex - 1,
+          barIndex: sel.barIndex,
+          beatIndex: sel.beatIndex,
+          staffIndex: sel.staffIndex,
+          voiceIndex: sel.voiceIndex,
+          string: sel.string,
+        };
+      }
+      const existing = get().tracks;
+      const tracks: TrackInfo[] = score.tracks.map((t, i) => {
+        const oldIndex = i < trackIndex ? i : i + 1;
+        return {
+          index: i,
+          name: t.name,
+          volume: existing[oldIndex]?.volume ?? 1,
+          isMuted: existing[oldIndex]?.isMuted ?? false,
+          isSolo: existing[oldIndex]?.isSolo ?? false,
+          isPercussion: t.isPercussion,
+        };
+      });
+      set({ tracks });
+      debugLog("debug", "deleteTrack", "state updated", { newTracksLength: tracks.length });
+      api.renderTracks(score.tracks);
+      debugLog("info", "deleteTrack", "complete", {
+        removedTrackName: removedTrack?.name ?? "—",
+        newTrackCount: score.tracks.length,
+      });
+      return true;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      debugLog("error", "deleteTrack", "failed", {
+        trackIndex,
         error: err.message,
         stack: err.stack,
       });

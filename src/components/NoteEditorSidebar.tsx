@@ -120,7 +120,10 @@ import {
   usePlayerStore,
   PERC_SNAP_GROUPS,
   TRACK_PRESETS,
+  ESSENTIAL_ARTICULATION_GROUPS,
+  GP7_DEF_BY_ID,
 } from "@/stores/player-store";
+import { getCategoryLabelKey } from "@/components/DrumIcons";
 import type {
   ScoreMetadataField,
   SelectedBeatInfo,
@@ -1780,6 +1783,7 @@ function ArticulationSection({
   const trackInfo = usePlayerStore((s) => s.selectedTrackInfo);
   const beat = usePlayerStore((s) => s.selectedBeatInfo);
   const selectedString = usePlayerStore((s) => s.selectedString);
+  const isAdvanced = usePlayerStore((s) => s.editorMode === "advanced");
 
   const isPercussion = trackInfo?.isPercussion ?? false;
 
@@ -1792,8 +1796,8 @@ function ArticulationSection({
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <SectionHeader
-        title={t("sidebar.selector.articulationTitle")}
-        helpText={t("sidebar.selector.articulationHelp")}
+        title={t("sidebar.articulation.title")}
+        helpText={t("sidebar.articulation.help")}
         isOpen={isOpen}
         dragHandleProps={dragHandleProps}
       />
@@ -1804,9 +1808,8 @@ function ArticulationSection({
               {t("sidebar.selector.noSelection")}
             </span>
           </div>
-        ) : (
+        ) : isAdvanced ? (
           <div className="px-2 pb-2 space-y-1">
-            {/* Toggle + current grid position */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -1829,18 +1832,14 @@ function ArticulationSection({
                 </span>
               )}
             </div>
-
-            {/* Grouped articulation buttons */}
             <div className="space-y-1">
               {PERC_SNAP_GROUPS.map((group) => {
                 const isGroupSelected = group.staffLine === selectedString;
                 const groupHidden = selectedOnly && !isGroupSelected;
-
                 if (groupHidden) {
                   const hasActiveInGroup = group.entries.some((e) => activeGp7Ids.has(e.id));
                   if (!hasActiveInGroup) return null;
                 }
-
                 return (
                   <div key={group.staffLine}>
                     <div className={cn(
@@ -1888,6 +1887,54 @@ function ArticulationSection({
                 );
               })}
             </div>
+          </div>
+        ) : (
+          <div className="px-2 pb-2 space-y-2">
+            {ESSENTIAL_ARTICULATION_GROUPS.map(({ category, ids }) => {
+              const entries = ids
+                .map((id) => GP7_DEF_BY_ID.get(id))
+                .filter((d): d is NonNullable<typeof d> => d !== undefined);
+              if (entries.length === 0) return null;
+              return (
+                <div key={category}>
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <span className="shrink-0 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {t(getCategoryLabelKey(category))}
+                    </span>
+                    <div className="flex-1 border-b border-border/30" />
+                  </div>
+                  <div className="flex flex-wrap gap-0.5">
+                    {entries.map((entry) => {
+                      const isActive = activeGp7Ids.has(entry.id);
+                      const isDisabled = !beat;
+                      return (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          disabled={isDisabled}
+                          className={cn(
+                            "rounded border px-1.5 py-0.5 text-[9px] leading-tight transition-colors",
+                            isActive
+                              ? "border-primary bg-primary/20 text-primary font-semibold"
+                              : "border-border/60 text-muted-foreground hover:bg-accent/50",
+                            isDisabled && !isActive && "opacity-30 cursor-not-allowed",
+                          )}
+                          title={t("sidebar.articulation.entryTitle", {
+                            element: entry.elementType,
+                            technique: entry.technique,
+                          })}
+                          onClick={() =>
+                            usePlayerStore.getState().togglePercussionArticulation(entry.id)
+                          }
+                        >
+                          {entry.elementType} ({entry.technique})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </CollapsibleContent>
@@ -2925,7 +2972,7 @@ const DEFAULT_SIDEBAR_WIDTH = 280;
 const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 480;
 const SIDEBAR_WIDTH_KEY = "cotab:sidebar-width";
-const STORAGE_KEY = "cotab:sidebar-tab-layout";
+const STORAGE_KEY = "cotab:sidebar-tab-layout-v2";
 
 function loadSidebarWidth(): number {
   try {
@@ -2948,12 +2995,12 @@ const TAB_COUNT = 3;
 type SectionId = "song" | "tracks" | "selector" | "articulation" | "log" | "fps" | "bar" | "note" | "effects";
 const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "articulation", "log", "fps", "bar", "note", "effects"];
 
-/** Default tab layout: tab0 = editing sections, tab1 = song+tracks, tab2 = selection */
+/** Default tab layout: tab0 = bar/note/effects/articulation, tab1 = song+tracks, tab2 = debug */
 type TabLayout = SectionId[][];
 const DEFAULT_LAYOUT: TabLayout = [
-  ["bar", "note", "effects"],
+  ["bar", "note", "effects", "articulation"],
   ["song", "tracks"],
-  ["selector", "articulation", "log", "fps"],
+  ["selector", "log", "fps"],
 ];
 
 function loadTabLayout(): TabLayout {

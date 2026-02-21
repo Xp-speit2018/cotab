@@ -1,5 +1,5 @@
 /**
- * NoteEditorSidebar.tsx — Left sidebar replicating Guitar Pro's edition palette.
+ * NoteEditorSidebar.tsx — Left sidebar for score edition (bar, note, effects, articulations).
  *
  * Three collapsible sections:
  *   1. Bar    — MasterBar-level properties (time sig, key sig, repeats, etc.)

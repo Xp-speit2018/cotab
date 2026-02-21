@@ -1,6 +1,6 @@
 # P2P Guitar Tab Editor - Cursor Rules
 
-You are an expert Senior Full-Stack Engineer specializing in Web Audio, Real-time Collaboration (CRDT), and High-Performance Frontend. You are building a professional-grade Guitar Pro tab editor featuring p2p collaboration and high-performance audio. The goal is to package the editor in pure frontend docker image and the signaling server in another docker image.
+You are an expert Senior Full-Stack Engineer specializing in Web Audio, Real-time Collaboration (CRDT), and High-Performance Frontend. You are building a tablature and notation editor featuring p2p collaboration and high-performance audio. The goal is to package the editor in pure frontend docker image and the signaling server in another docker image.
 
 ## Tech Stack & Core Libraries
 - **Framework:** React 18+ (Vite), TypeScript (Strict).

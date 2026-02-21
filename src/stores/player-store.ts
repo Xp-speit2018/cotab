@@ -401,12 +401,16 @@ export interface PlayerState {
   /** Sidebar NOTE/EFFECTS display mode: essentials (common) or advanced (full). Persisted in localStorage. */
   editorMode: "essentials" | "advanced";
 
+  /** Drum articulation icon style in essentials mode. Persisted in localStorage. */
+  drumIconStyle: "notation" | "instrument";
+
   // Debug
   /** When true, renders horizontal markers at each snap grid position on the score. */
   showSnapGrid: boolean;
 
   // Actions
   setEditorMode: (mode: "essentials" | "advanced") => void;
+  setDrumIconStyle: (style: "notation" | "instrument") => void;
   initialize: (mainEl: HTMLElement, viewportEl: HTMLElement) => void;
   destroy: () => void;
   loadFile: (data: File | ArrayBuffer | Uint8Array) => void;
@@ -730,6 +734,36 @@ export const PERC_SNAP_GROUPS: readonly PercSnapGroup[] = (() => {
     .sort(([a], [b]) => a - b)
     .map(([staffLine, entries]) => ({ staffLine, entries }));
 })();
+
+/** GP7 IDs for common 5-piece drumkit articulations (essentials mode). */
+export const ESSENTIAL_GP7_IDS: ReadonlySet<number> = new Set([
+  // Hi-Hat
+  42, 46, 92, 44,
+  // Ride
+  51, 53, 93,
+  // Crash / Splash / China
+  49, 55, 52,
+  // Snare
+  38, 37, 91,
+  // Toms
+  50, 48, 47, 45, 43,
+  // Kick
+  36, 35,
+]);
+
+/** Category key for grouping essential articulations in the UI. */
+export type DrumCategoryId = "cymbals" | "snare" | "toms" | "kick";
+
+/** Essential articulations grouped by category for display order. */
+export const ESSENTIAL_ARTICULATION_GROUPS: ReadonlyArray<{
+  category: DrumCategoryId;
+  ids: readonly number[];
+}> = [
+  { category: "cymbals", ids: [42, 46, 92, 44, 51, 53, 93, 49, 55, 52] },
+  { category: "snare", ids: [38, 37, 91] },
+  { category: "toms", ids: [50, 48, 47, 45, 43] },
+  { category: "kick", ids: [36, 35] },
+];
 
 /**
  * Resolve a note's `percussionArticulation` to its GP7 articulation ID.
@@ -2022,12 +2056,20 @@ function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
 }
 
 const EDITOR_MODE_STORAGE_KEY = "cotab:editorMode";
+const DRUM_ICON_STYLE_STORAGE_KEY = "cotab:drumIconStyle";
 
 function getInitialEditorMode(): "essentials" | "advanced" {
   if (typeof localStorage === "undefined") return "essentials";
   const raw = localStorage.getItem(EDITOR_MODE_STORAGE_KEY);
   if (raw === "essentials" || raw === "advanced") return raw;
   return "essentials";
+}
+
+function getInitialDrumIconStyle(): "notation" | "instrument" {
+  if (typeof localStorage === "undefined") return "notation";
+  const raw = localStorage.getItem(DRUM_ICON_STYLE_STORAGE_KEY);
+  if (raw === "notation" || raw === "instrument") return raw;
+  return "notation";
 }
 
 // ─── Store ───────────────────────────────────────────────────────────────────
@@ -2068,6 +2110,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedString: null,
   zoom: 1,
   editorMode: getInitialEditorMode(),
+  drumIconStyle: getInitialDrumIconStyle(),
   showSnapGrid: false,
 
   setEditorMode: (mode) => {
@@ -2075,6 +2118,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       localStorage.setItem(EDITOR_MODE_STORAGE_KEY, mode);
     }
     set({ editorMode: mode });
+  },
+
+  setDrumIconStyle: (style) => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(DRUM_ICON_STYLE_STORAGE_KEY, style);
+    }
+    set({ drumIconStyle: style });
   },
 
   // ── Score Metadata Editing ───────────────────────────────────────────────

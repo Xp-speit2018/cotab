@@ -183,6 +183,21 @@
       "articulationUnmapped": "未映射"
     },
 
+    "articulation": {
+      "title": "奏法",
+      "help": "切换选中节拍上的打击乐奏法。在「常用」模式下，常见鼓组奏法以图标显示。",
+      "category": {
+        "cymbals": "镲片",
+        "snare": "军鼓",
+        "toms": "通鼓",
+        "kick": "底鼓"
+      },
+      "drumIconStyle": "鼓图标样式",
+      "notationSymbols": "记谱",
+      "instrumentIcons": "乐器",
+      "entryTitle": "{{element}}（{{technique}}）"
+    },
+
     "song": {
       "title": "歌曲",
       "help": "歌曲元数据和文件信息。",

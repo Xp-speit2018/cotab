@@ -114,6 +114,7 @@ import {
   PERC_SNAP_GROUPS,
 } from "@/stores/player-store";
 import { useDebugLogStore, type LogLevel } from "@/stores/debug-log-store";
+import { FpsSection } from "@/components/FpsMonitor";
 import type {
   SelectedBeatInfo,
   SelectedBarInfo,
@@ -1673,50 +1674,24 @@ function LogSection({ dragHandleProps }: { dragHandleProps?: Record<string, unkn
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <div className="group flex w-full items-center border-b border-border/40 bg-card/50">
-        {/* Drag handle */}
-        <button
-          type="button"
-          className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-60 active:cursor-grabbing"
-          aria-label={t("sidebar.reorderSection")}
-          {...dragHandleProps}
-        >
-          <GripVertical className="h-3 w-3 text-muted-foreground" />
-        </button>
-        <CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 pr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/50">
-          <span className="flex items-center gap-1">
-            {t("sidebar.log.title")}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="h-3 w-3 opacity-50" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs text-xs">
-                {t("sidebar.log.help")}
-              </TooltipContent>
-            </Tooltip>
-          </span>
-          {isOpen ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
-        </CollapsibleTrigger>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 px-2 text-[10px] mr-2"
-          onClick={(e) => {
-            e.stopPropagation();
-            clear();
-          }}
-        >
-          {t("sidebar.log.clear")}
-        </Button>
-      </div>
+      <SectionHeader
+        title={t("sidebar.log.title")}
+        helpText={t("sidebar.log.help")}
+        isOpen={isOpen}
+        dragHandleProps={dragHandleProps}
+      />
       <CollapsibleContent>
         <div className="space-y-1 py-1">
-          {/* Level filter toggles */}
-          <div className="flex flex-wrap gap-1 px-3 py-1">
+          {/* Level filter toggles + clear */}
+          <div className="flex flex-wrap items-center gap-1 px-3 py-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-5 px-2 text-[9px]"
+              onClick={() => clear()}
+            >
+              {t("sidebar.log.clear")}
+            </Button>
             {(["debug", "info", "warn", "error"] as LogLevel[]).map((level) => {
               const levelOrder: Record<LogLevel, number> = {
                 debug: 0,
@@ -2169,15 +2144,15 @@ function saveSidebarWidth(w: number) {
 }
 const TAB_COUNT = 3;
 
-type SectionId = "song" | "tracks" | "selector" | "articulation" | "log" | "bar" | "note" | "effects";
-const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "articulation", "log", "bar", "note", "effects"];
+type SectionId = "song" | "tracks" | "selector" | "articulation" | "log" | "fps" | "bar" | "note" | "effects";
+const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "articulation", "log", "fps", "bar", "note", "effects"];
 
 /** Default tab layout: tab0 = editing sections, tab1 = song+tracks, tab2 = selection */
 type TabLayout = SectionId[][];
 const DEFAULT_LAYOUT: TabLayout = [
   ["bar", "note", "effects"],
   ["song", "tracks"],
-  ["selector", "articulation", "log"],
+  ["selector", "articulation", "log", "fps"],
 ];
 
 function loadTabLayout(): TabLayout {
@@ -2353,6 +2328,8 @@ export function NoteEditorSidebar() {
           return <ArticulationSection dragHandleProps={dragHandleProps} />;
         case "log":
           return <LogSection dragHandleProps={dragHandleProps} />;
+        case "fps":
+          return <FpsSection dragHandleProps={dragHandleProps} />;
         case "bar":
           return hasBeat ? (
             <BarSection bar={selectedBarInfo!} dragHandleProps={dragHandleProps} />

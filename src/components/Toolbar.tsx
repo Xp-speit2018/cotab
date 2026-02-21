@@ -5,7 +5,6 @@ import {
   Play,
   Pause,
   Square,
-  Activity,
   Globe,
   Check,
 } from "lucide-react";
@@ -165,25 +164,6 @@ export function Toolbar() {
             </option>
           ))}
         </select>
-
-        {/* FPS Monitor toggle (dev only) */}
-        {import.meta.env.DEV && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() =>
-                  window.dispatchEvent(new Event("toggle-fps-monitor"))
-                }
-              >
-                <Activity className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("toolbar.fpsMonitor")}</TooltipContent>
-          </Tooltip>
-        )}
 
         {/* Language Selector */}
         <Popover>

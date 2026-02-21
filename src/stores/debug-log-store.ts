@@ -57,7 +57,7 @@ export const useDebugLogStore = create<DebugLogState>((set, get) => ({
 
   addLog: (entry: Omit<LogEntry, "id" | "timestamp">) => {
     const state = get();
-    const { level, minLevel } = state;
+    const { minLevel } = state;
 
     // Filter by minimum level
     if (LEVEL_ORDER[entry.level] < LEVEL_ORDER[minLevel]) {

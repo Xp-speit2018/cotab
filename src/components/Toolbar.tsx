@@ -7,6 +7,7 @@ import {
   Square,
   Globe,
   Check,
+  Layers,
 } from "lucide-react";
 import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -53,8 +54,14 @@ export function Toolbar() {
   const playPause = usePlayerStore((s) => s.playPause);
   const stop = usePlayerStore((s) => s.stop);
   const setZoom = usePlayerStore((s) => s.setZoom);
+  const editorMode = usePlayerStore((s) => s.editorMode);
+  const setEditorMode = usePlayerStore((s) => s.setEditorMode);
 
   const isPlaying = playerState === "playing";
+
+  const cycleEditorMode = () => {
+    setEditorMode(editorMode === "essentials" ? "advanced" : "essentials");
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -149,8 +156,34 @@ export function Toolbar() {
 
       <Separator orientation="vertical" className="mx-1 h-6" />
 
-      {/* ── Right: Speed, Loop, Zoom, Track Visibility ─────────────────── */}
+      {/* ── Right: Editor mode, Zoom, Language ──────────────────────────── */}
       <div className="flex items-center gap-1">
+        {/* Editor palette mode: Essentials / Advanced */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground"
+              onClick={cycleEditorMode}
+              title={t("toolbar.editorMode")}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span className="text-xs">
+                {editorMode === "essentials"
+                  ? t("toolbar.essentials")
+                  : t("toolbar.advanced")}
+              </span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {t("toolbar.editorMode")}:{" "}
+            {editorMode === "essentials"
+              ? t("toolbar.essentials")
+              : t("toolbar.advanced")}
+          </TooltipContent>
+        </Tooltip>
+
         {/* Zoom */}
         <select
           value={zoom}

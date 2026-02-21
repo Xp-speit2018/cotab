@@ -8,7 +8,10 @@
     "loading": "加载中 {{percent}}%",
     "zoom": "缩放",
     "fpsMonitor": "帧率监视器 (Shift+F)",
-    "language": "语言"
+    "language": "语言",
+    "editorMode": "编辑面板模式",
+    "essentials": "常用",
+    "advanced": "高级"
   },
   "viewport": {
     "loadingScore": "正在加载乐谱..."
@@ -184,7 +187,18 @@
       "tempoLabel": "速度标记",
       "bpm": "{{value}} BPM",
       "noTitle": "未命名",
-      "noArtist": "未知"
+      "noArtist": "未知",
+      "placeholderTitle": "歌曲名称",
+      "placeholderSubTitle": "如：现场版、不插电版",
+      "placeholderArtist": "演奏者或乐队",
+      "placeholderAlbum": "专辑名称",
+      "placeholderWords": "作词者",
+      "placeholderMusic": "作曲者",
+      "placeholderCopyright": "如：© 2026 作者",
+      "placeholderTab": "制谱者",
+      "placeholderInstructions": "演奏说明",
+      "placeholderNotices": "附加信息",
+      "placeholderTempoLabel": "如：Allegro、Andante"
     },
 
     "tracks": {
@@ -231,7 +245,10 @@
       "deadNote": "闷音",
       "accent": "重音",
       "heavyAccent": "强重音",
+      "tenuto": "保持",
       "staccato": "断奏",
+      "deadSlapped": "死 slap",
+      "legatoOrigin": "连奏起点",
       "letRing": "延音",
       "palmMute": "闷弦",
       "slashed": "斜线",

@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
+import { ChevronUp, ChevronDown, HelpCircle, GripVertical } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -25,9 +36,13 @@ const SAMPLE_INTERVAL_MS = 500;
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FpsMonitor() {
+export function FpsSection({
+  dragHandleProps,
+}: {
+  dragHandleProps?: Record<string, unknown>;
+}) {
   const { t } = useTranslation();
-  const [visible, setVisible] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [showDiag, setShowDiag] = useState(true);
   const [stats, setStats] = useState<FpsStats>({
     current: 0,
@@ -68,7 +83,6 @@ export function FpsMonitor() {
 
     const maxMs = 80;
 
-    // 60fps line (16.67ms)
     const y60 = h - (16.67 / maxMs) * h;
     ctx.strokeStyle = "rgba(34, 197, 94, 0.5)";
     ctx.setLineDash([2, 2]);
@@ -77,7 +91,6 @@ export function FpsMonitor() {
     ctx.lineTo(w, y60);
     ctx.stroke();
 
-    // 30fps line (33.33ms)
     const y30 = h - (33.33 / maxMs) * h;
     ctx.strokeStyle = "rgba(234, 179, 8, 0.5)";
     ctx.beginPath();
@@ -108,7 +121,7 @@ export function FpsMonitor() {
 
   // Detect native display refresh rate
   useEffect(() => {
-    if (!visible) return;
+    if (!isOpen) return;
 
     let cancelled = false;
     const samples: number[] = [];
@@ -140,25 +153,22 @@ export function FpsMonitor() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [visible]);
+  }, [isOpen]);
 
-  // Detect prefers-reduced-motion
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     setDiagnostics((d) => ({ ...d, prefersReducedMotion: mq.matches }));
   }, []);
 
-  // Main measurement loop.
+  // Main measurement loop — only active when section is open.
   useEffect(() => {
-    if (!visible) return;
+    if (!isOpen) return;
 
     let cancelled = false;
 
     const loop = () => {
       if (cancelled) return;
 
-      // Use performance.now() for wall-clock accuracy (rAF timestamps
-      // don't account for busy-wait blocking).
       const now = performance.now();
 
       if (lastTimeRef.current > 0) {
@@ -173,7 +183,6 @@ export function FpsMonitor() {
           allFrameTimesRef.current = allFrameTimesRef.current.slice(-300);
         }
 
-        // Throttle UI updates to every SAMPLE_INTERVAL_MS
         if (now - lastUpdateRef.current >= SAMPLE_INTERVAL_MS) {
           lastUpdateRef.current = now;
           const recent = frameTimesRef.current;
@@ -245,25 +254,7 @@ export function FpsMonitor() {
       frameTimesRef.current = [];
       allFrameTimesRef.current = [];
     };
-  }, [visible, drawGraph]);
-
-  // Toggle via Shift+F or custom event from Toolbar
-  useEffect(() => {
-    const toggle = () => setVisible((v) => !v);
-
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.shiftKey && e.key === "F") toggle();
-    };
-
-    window.addEventListener("keydown", handleKey);
-    window.addEventListener("toggle-fps-monitor", toggle);
-    return () => {
-      window.removeEventListener("keydown", handleKey);
-      window.removeEventListener("toggle-fps-monitor", toggle);
-    };
-  }, []);
-
-  if (!visible) return null;
+  }, [isOpen, drawGraph]);
 
   const fpsColor =
     stats.current >= 55
@@ -301,118 +292,156 @@ export function FpsMonitor() {
   };
 
   return (
-    <div
-      className="fixed bottom-2 right-2 z-[9999] flex flex-col gap-1.5 rounded-lg border border-white/10 bg-black/85 p-2.5 font-mono text-[11px] text-white/90 shadow-xl backdrop-blur-sm"
-      style={{ maxWidth: 280 }}
-      title={t("fps.toggleHint")}
-    >
-      {/* Header row */}
-      <div className="flex items-center justify-between gap-3">
-        <span className={`text-base font-bold tabular-nums ${fpsColor}`}>
-          {stats.current} FPS
-        </span>
-        <div className="flex gap-1.5">
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <div className="group flex w-full items-center">
+        <button
+          type="button"
+          className="flex h-6 w-4 shrink-0 cursor-grab items-center justify-center opacity-0 transition-opacity group-hover:opacity-60 active:cursor-grabbing"
+          aria-label={t("sidebar.reorderSection")}
+          {...dragHandleProps}
+        >
+          <GripVertical className="h-3 w-3 text-muted-foreground" />
+        </button>
+        <CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 pr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/50">
+          <span className="flex items-center gap-1">
+            {t("sidebar.fps.title")}
+            {isOpen && (
+              <span className={`text-[10px] font-bold tabular-nums normal-case ${fpsColor}`}>
+                {stats.current} FPS
+              </span>
+            )}
+          </span>
+          {isOpen ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </CollapsibleTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              className="mr-2 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 hover:text-muted-foreground"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="max-w-[200px]">
+            {t("sidebar.fps.help")}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      <CollapsibleContent>
+        <div className="space-y-2 px-3 py-2 font-mono text-[11px]">
+          {/* Stats row */}
+          <div className="flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+            <span>
+              {t("fps.avg")}{" "}
+              <span className="text-foreground tabular-nums">{stats.avg}</span>
+            </span>
+            <span>
+              {t("fps.min")}{" "}
+              <span className="text-foreground tabular-nums">{stats.min}</span>
+            </span>
+            <span>
+              {t("fps.max")}{" "}
+              <span className="text-foreground tabular-nums">{stats.max}</span>
+            </span>
+            <span>
+              {t("fps.ft")}{" "}
+              <span className="text-foreground tabular-nums">
+                {stats.frameTimeMs}ms
+              </span>
+            </span>
+          </div>
+
+          {/* Frame time graph */}
+          <canvas
+            ref={canvasRef}
+            width={240}
+            height={40}
+            className="w-full rounded"
+          />
+
+          {/* Legend */}
+          <div className="flex gap-2 text-[9px] text-muted-foreground">
+            <span>
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />{" "}
+              {t("fps.fps60")}
+            </span>
+            <span>
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-yellow-400" />{" "}
+              {t("fps.fps30")}
+            </span>
+            <span>
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />{" "}
+              {t("fps.fpsBelow30")}
+            </span>
+          </div>
+
+          {/* Diagnostics toggle */}
           <button
             onClick={() => setShowDiag((v) => !v)}
-            className="text-[10px] text-white/40 hover:text-white/80"
+            className="text-[10px] text-muted-foreground hover:text-foreground"
           >
             {showDiag ? t("fps.hideDiag") : t("fps.showDiag")}
           </button>
-          <button
-            onClick={() => setVisible(false)}
-            className="text-white/40 hover:text-white/80"
-          >
-            ×
-          </button>
+
+          {/* Diagnostics panel */}
+          {showDiag && (
+            <div className="flex flex-col gap-1 border-t border-border/40 pt-1.5 text-[10px]">
+              <div className="font-semibold text-muted-foreground">
+                {t("fps.diagnostics")}
+              </div>
+
+              <div className="flex flex-col gap-0.5 text-muted-foreground">
+                <span>
+                  {t("fps.detectedRafRate")}{" "}
+                  <span className="text-foreground">
+                    {diagnostics.detectedRefreshRate !== null
+                      ? `${diagnostics.detectedRefreshRate} Hz`
+                      : t("fps.measuring")}
+                  </span>
+                </span>
+                <span>
+                  {t("fps.frameConsistency")}{" "}
+                  <span
+                    className={
+                      diagnostics.rAFConsistency === "locked"
+                        ? "text-yellow-400"
+                        : "text-foreground"
+                    }
+                  >
+                    {diagnostics.rAFConsistency}
+                    {diagnostics.rAFConsistency === "locked" &&
+                      ` ${t("fps.throttled")}`}
+                  </span>
+                </span>
+                <span>
+                  {t("fps.jankFrames")}{" "}
+                  <span className="text-foreground">
+                    {diagnostics.jankFrames}
+                  </span>
+                </span>
+                <span>
+                  {t("fps.prefersReducedMotion")}{" "}
+                  <span className="text-foreground">
+                    {diagnostics.prefersReducedMotion
+                      ? t("fps.yes")
+                      : t("fps.no")}
+                  </span>
+                </span>
+              </div>
+
+              {/* Analysis */}
+              <div className="mt-1 rounded bg-muted/50 p-1.5 text-[10px] leading-relaxed text-muted-foreground">
+                {getCauseAnalysis()}
+              </div>
+            </div>
+          )}
         </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="flex gap-3 text-[10px] text-white/60">
-        <span>
-          {t("fps.avg")}{" "}
-          <span className="text-white/80 tabular-nums">{stats.avg}</span>
-        </span>
-        <span>
-          {t("fps.min")}{" "}
-          <span className="text-white/80 tabular-nums">{stats.min}</span>
-        </span>
-        <span>
-          {t("fps.max")}{" "}
-          <span className="text-white/80 tabular-nums">{stats.max}</span>
-        </span>
-        <span>
-          {t("fps.ft")}{" "}
-          <span className="text-white/80 tabular-nums">
-            {stats.frameTimeMs}ms
-          </span>
-        </span>
-      </div>
-
-      {/* Frame time graph */}
-      <canvas ref={canvasRef} width={240} height={40} className="rounded" />
-
-      {/* Legend */}
-      <div className="flex gap-2 text-[9px] text-white/40">
-        <span>
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" />{" "}
-          {t("fps.fps60")}
-        </span>
-        <span>
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-yellow-400" />{" "}
-          {t("fps.fps30")}
-        </span>
-        <span>
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" />{" "}
-          {t("fps.fpsBelow30")}
-        </span>
-      </div>
-
-      {/* Diagnostics panel */}
-      {showDiag && (
-        <div className="mt-1 flex flex-col gap-1 border-t border-white/10 pt-1.5 text-[10px]">
-          <div className="font-semibold text-white/70">{t("fps.diagnostics")}</div>
-
-          <div className="flex flex-col gap-0.5 text-white/50">
-            <span>
-              {t("fps.detectedRafRate")}{" "}
-              <span className="text-white/80">
-                {diagnostics.detectedRefreshRate !== null
-                  ? `${diagnostics.detectedRefreshRate} Hz`
-                  : t("fps.measuring")}
-              </span>
-            </span>
-            <span>
-              {t("fps.frameConsistency")}{" "}
-              <span
-                className={
-                  diagnostics.rAFConsistency === "locked"
-                    ? "text-yellow-400"
-                    : "text-white/80"
-                }
-              >
-                {diagnostics.rAFConsistency}
-                {diagnostics.rAFConsistency === "locked" && ` ${t("fps.throttled")}`}
-              </span>
-            </span>
-            <span>
-              {t("fps.jankFrames")}{" "}
-              <span className="text-white/80">{diagnostics.jankFrames}</span>
-            </span>
-            <span>
-              {t("fps.prefersReducedMotion")}{" "}
-              <span className="text-white/80">
-                {diagnostics.prefersReducedMotion ? t("fps.yes") : t("fps.no")}
-              </span>
-            </span>
-          </div>
-
-          {/* Analysis */}
-          <div className="mt-1 rounded bg-white/5 p-1.5 text-[10px] leading-relaxed text-white/70">
-            {getCauseAnalysis()}
-          </div>
-        </div>
-      )}
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

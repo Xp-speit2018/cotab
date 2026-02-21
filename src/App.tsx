@@ -1,7 +1,6 @@
 import { Toolbar } from "@/components/Toolbar";
 import { ScoreViewport } from "@/components/ScoreViewport";
 import { NoteEditorSidebar } from "@/components/NoteEditorSidebar";
-import { FpsMonitor } from "@/components/FpsMonitor";
 
 export default function App() {
   return (
@@ -11,7 +10,6 @@ export default function App() {
         <NoteEditorSidebar />
         <ScoreViewport />
       </div>
-      {import.meta.env.DEV && <FpsMonitor />}
     </div>
   );
 }

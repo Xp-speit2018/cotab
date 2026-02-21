@@ -240,6 +240,11 @@
       "instrument": "Instrument"
     },
 
+    "fps": {
+      "title": "FPS Monitor",
+      "help": "Real-time frame rate monitor with diagnostics. Only measures while open."
+    },
+
     "log": {
       "title": "Log",
       "help": "Debug log output with severity levels",

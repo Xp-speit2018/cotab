@@ -174,12 +174,55 @@
 
 .at-snap-grid-marker--line {
   background: rgba(255, 40, 40, 0.45);
+  transition: opacity 0.15s;
 }
 
 .at-snap-grid-marker--space {
   background: rgba(40, 120, 255, 0.35);
   border-top: 1px dashed rgba(40, 120, 255, 0.35);
   height: 0;
+  transition: opacity 0.15s;
+}
+
+.at-snap-grid--dim {
+  opacity: 0.18;
+}
+
+/* Snap grid ID labels — anchored to the viewport's right edge */
+.at-snap-grid-labels {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1002;
+}
+
+.at-snap-grid-label {
+  position: absolute;
+  transform: rotate(-45deg) translateY(-75%);
+  transform-origin: right center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  transition: opacity 0.15s;
+}
+
+.at-snap-grid-label--line {
+  right: 4px;
+  color: rgba(255, 40, 40, 0.85);
+}
+
+.at-snap-grid-label--space {
+  right: 20px;
+  color: rgba(40, 120, 255, 0.80);
 }
 
 /* Hide "rendered by alphaTab" watermark */

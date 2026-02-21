@@ -17,6 +17,22 @@ dist-ssr
 .env.*
 !.env.example
 
+# Build artifacts
+*.tsbuildinfo
+vite.config.d.ts
+vite.config.js
+
+# Test artifacts
+test-results
+test-screenshots
+
+# Dev notes
+docs
+
+# E2E / Playwright (local debugging)
+e2e
+playwright.config.js
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

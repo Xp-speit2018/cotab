@@ -183,6 +183,21 @@
       "articulationUnmapped": "Unmapped"
     },
 
+    "articulation": {
+      "title": "Articulations",
+      "help": "Toggle percussion articulations on the selected beat. In Essentials mode, common drumkit articulations are shown with icons.",
+      "category": {
+        "cymbals": "Cymbals",
+        "snare": "Snare",
+        "toms": "Toms",
+        "kick": "Kick"
+      },
+      "drumIconStyle": "Drum icon style",
+      "notationSymbols": "Notation",
+      "instrumentIcons": "Instrument",
+      "entryTitle": "{{element}} ({{technique}})"
+    },
+
     "song": {
       "title": "Song",
       "help": "Song metadata and file information.",

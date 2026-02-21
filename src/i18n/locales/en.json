@@ -8,7 +8,10 @@
     "loading": "Loading {{percent}}%",
     "zoom": "Zoom",
     "fpsMonitor": "FPS Monitor (Shift+F)",
-    "language": "Language"
+    "language": "Language",
+    "editorMode": "Editor palette mode",
+    "essentials": "Essentials",
+    "advanced": "Advanced"
   },
   "viewport": {
     "loadingScore": "Loading score..."
@@ -184,7 +187,18 @@
       "tempoLabel": "Tempo Label",
       "bpm": "{{value}} BPM",
       "noTitle": "Untitled",
-      "noArtist": "Unknown"
+      "noArtist": "Unknown",
+      "placeholderTitle": "Song name",
+      "placeholderSubTitle": "e.g. Live version, Acoustic",
+      "placeholderArtist": "Performer or band",
+      "placeholderAlbum": "Album name",
+      "placeholderWords": "Lyricist",
+      "placeholderMusic": "Composer",
+      "placeholderCopyright": "e.g. © 2026 Author",
+      "placeholderTab": "Transcribed by",
+      "placeholderInstructions": "Playing notes",
+      "placeholderNotices": "Additional info",
+      "placeholderTempoLabel": "e.g. Allegro, Andante"
     },
 
     "tracks": {
@@ -231,7 +245,10 @@
       "deadNote": "Dead Note",
       "accent": "Accent",
       "heavyAccent": "Heavy Accent",
+      "tenuto": "Tenuto",
       "staccato": "Staccato",
+      "deadSlapped": "Dead slapped",
+      "legatoOrigin": "Legato start",
       "letRing": "Let Ring",
       "palmMute": "Palm Mute",
       "slashed": "Slashed",

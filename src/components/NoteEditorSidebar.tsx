@@ -113,13 +113,14 @@ import {
   usePlayerStore,
   PERC_SNAP_GROUPS,
 } from "@/stores/player-store";
-import { useDebugLogStore, type LogLevel } from "@/stores/debug-log-store";
-import { FpsSection } from "@/components/FpsMonitor";
 import type {
+  ScoreMetadataField,
   SelectedBeatInfo,
   SelectedBarInfo,
   SelectedNoteInfo,
 } from "@/stores/player-store";
+import { useDebugLogStore, type LogLevel } from "@/stores/debug-log-store";
+import { FpsSection } from "@/components/FpsMonitor";
 import {
   AccentuationType,
   BendType,
@@ -591,12 +592,14 @@ function SortableSection({
 function ToggleBtn({
   label,
   pressed,
+  onPressedChange,
   icon,
   textIcon,
   className,
 }: {
   label: string;
   pressed: boolean;
+  onPressedChange?: (pressed: boolean) => void;
   icon?: React.ReactNode;
   textIcon?: string;
   className?: string;
@@ -607,6 +610,7 @@ function ToggleBtn({
         <Toggle
           size="sm"
           pressed={pressed}
+          onPressedChange={onPressedChange}
           className={cn(
             "h-7 w-7 p-0",
             pressed && "bg-primary/15 text-primary ring-1 ring-primary/30",
@@ -649,6 +653,190 @@ function PropRow({
   );
 }
 
+/** An editable property row: clicking the value reveals an inline input. */
+function EditablePropRow({
+  label,
+  value,
+  placeholder,
+  icon,
+  onCommit,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  icon?: React.ReactNode;
+  onCommit: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const commit = useCallback(() => {
+    setEditing(false);
+    const trimmed = draft.trim();
+    if (trimmed !== value) onCommit(trimmed);
+  }, [draft, value, onCommit]);
+
+  const cancel = useCallback(() => {
+    setEditing(false);
+    setDraft(value);
+  }, [value]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancel();
+      }
+    },
+    [commit, cancel],
+  );
+
+  return (
+    <div
+      className="group flex items-center gap-2 px-3 py-0.5 cursor-text"
+      onClick={() => {
+        if (!editing) setEditing(true);
+      }}
+    >
+      {icon && (
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+          {icon}
+        </span>
+      )}
+      <span className="text-[11px] text-muted-foreground whitespace-nowrap">{label}</span>
+      {editing ? (
+        <input
+          ref={inputRef}
+          className="ml-auto w-0 min-w-0 flex-1 bg-transparent text-right text-[11px] font-medium outline-none border-b border-primary/40 py-0 px-0"
+          value={draft}
+          placeholder={placeholder}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+        />
+      ) : (
+        <span
+          className={cn(
+            "ml-auto text-[11px] font-medium tabular-nums truncate",
+            !value && placeholder && "text-muted-foreground/50 italic",
+            "group-hover:text-primary transition-colors",
+          )}
+        >
+          {value || placeholder}
+          <Pencil className="ml-1 inline-block h-2.5 w-2.5 opacity-0 group-hover:opacity-50 transition-opacity" />
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** An editable numeric property row for tempo. */
+function EditableNumberPropRow({
+  label,
+  value,
+  suffix,
+  icon,
+  min,
+  max,
+  onCommit,
+}: {
+  label: string;
+  value: number;
+  suffix?: string;
+  icon?: React.ReactNode;
+  min?: number;
+  max?: number;
+  onCommit: (value: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(String(value));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setDraft(String(value));
+  }, [value, editing]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus();
+  }, [editing]);
+
+  const commit = useCallback(() => {
+    setEditing(false);
+    const parsed = parseInt(draft, 10);
+    if (isNaN(parsed)) return;
+    const clamped = Math.max(min ?? 1, Math.min(max ?? 999, parsed));
+    if (clamped !== value) onCommit(clamped);
+  }, [draft, value, onCommit, min, max]);
+
+  const cancel = useCallback(() => {
+    setEditing(false);
+    setDraft(String(value));
+  }, [value]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        commit();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancel();
+      }
+    },
+    [commit, cancel],
+  );
+
+  return (
+    <div
+      className="group flex items-center gap-2 px-3 py-0.5 cursor-text"
+      onClick={() => {
+        if (!editing) setEditing(true);
+      }}
+    >
+      {icon && (
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+          {icon}
+        </span>
+      )}
+      <span className="text-[11px] text-muted-foreground whitespace-nowrap">{label}</span>
+      {editing ? (
+        <input
+          ref={inputRef}
+          type="number"
+          className="ml-auto w-16 bg-transparent text-right text-[11px] font-medium outline-none border-b border-primary/40 py-0 px-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+          value={draft}
+          min={min}
+          max={max}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+        />
+      ) : (
+        <span className="ml-auto text-[11px] font-medium tabular-nums group-hover:text-primary transition-colors">
+          {value > 0 ? `${value}${suffix ? ` ${suffix}` : ""}` : ""}
+          <Pencil className="ml-1 inline-block h-2.5 w-2.5 opacity-0 group-hover:opacity-50 transition-opacity" />
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Song Section ────────────────────────────────────────────────────────────
 
 function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {
@@ -666,6 +854,13 @@ function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unk
   const scoreNotices = usePlayerStore((s) => s.scoreNotices);
   const scoreTempo = usePlayerStore((s) => s.scoreTempo);
   const scoreTempoLabel = usePlayerStore((s) => s.scoreTempoLabel);
+  const setMeta = usePlayerStore((s) => s.setScoreMetadata);
+  const setTempo = usePlayerStore((s) => s.setScoreTempo);
+
+  const handleMeta = useCallback(
+    (field: ScoreMetadataField) => (value: string) => setMeta(field, value),
+    [setMeta],
+  );
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -677,65 +872,91 @@ function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unk
       />
       <CollapsibleContent>
         <div className="space-y-0.5 py-1">
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.songTitle")}
-            value={scoreTitle || t("sidebar.song.noTitle")}
+            value={scoreTitle}
+            placeholder={t("sidebar.song.placeholderTitle")}
             icon={<Music className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("title")}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.subTitle")}
             value={scoreSubTitle}
+            placeholder={t("sidebar.song.placeholderSubTitle")}
             icon={<FileText className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("subTitle")}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.songArtist")}
-            value={scoreArtist || t("sidebar.song.noArtist")}
+            value={scoreArtist}
+            placeholder={t("sidebar.song.placeholderArtist")}
             icon={<User className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("artist")}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.album")}
             value={scoreAlbum}
+            placeholder={t("sidebar.song.placeholderAlbum")}
             icon={<Album className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("album")}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.words")}
             value={scoreWords}
+            placeholder={t("sidebar.song.placeholderWords")}
             icon={<Pencil className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("words")}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.music")}
             value={scoreMusic}
+            placeholder={t("sidebar.song.placeholderMusic")}
             icon={<Music className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("music")}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.copyright")}
             value={scoreCopyright}
+            placeholder={t("sidebar.song.placeholderCopyright")}
             icon={<Copyright className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("copyright")}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.tab")}
             value={scoreTab}
+            placeholder={t("sidebar.song.placeholderTab")}
             icon={<Guitar className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("tab")}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.instructions")}
             value={scoreInstructions}
+            placeholder={t("sidebar.song.placeholderInstructions")}
             icon={<Info className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("instructions")}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.notices")}
             value={scoreNotices}
+            placeholder={t("sidebar.song.placeholderNotices")}
             icon={<MessageSquare className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("notices")}
           />
-          <PropRow
+          <EditableNumberPropRow
             label={t("sidebar.song.tempo")}
-            value={scoreTempo > 0 ? t("sidebar.song.bpm", { value: scoreTempo }) : ""}
+            value={scoreTempo}
+            suffix="BPM"
             icon={<Gauge className="h-3.5 w-3.5" />}
+            min={20}
+            max={400}
+            onCommit={setTempo}
           />
-          <PropRow
+          <EditablePropRow
             label={t("sidebar.song.tempoLabel")}
             value={scoreTempoLabel}
+            placeholder={t("sidebar.song.placeholderTempoLabel")}
             icon={<Gauge className="h-3.5 w-3.5" />}
+            onCommit={handleMeta("tempoLabel")}
           />
         </div>
         <Separator />
@@ -1463,12 +1684,16 @@ function NoteSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const isAdvanced = usePlayerStore((s) => s.editorMode === "advanced");
+  const updateBeat = usePlayerStore((s) => s.updateBeat);
+  const updateNote = usePlayerStore((s) => s.updateNote);
+  const durationDisabled = beat.graceType !== GraceType.None;
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <SectionHeader title={t("sidebar.note.title")} helpText={t("sidebar.note.help")} isOpen={isOpen} dragHandleProps={dragHandleProps} />
       <CollapsibleContent>
         <div className="space-y-1 py-1">
-          {/* Duration row */}
+          {/* Duration row — disabled when grace note (finish() overrides duration) */}
           <div className="px-2">
             <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
               {t("sidebar.note.duration")}
@@ -1479,6 +1704,13 @@ function NoteSection({
                   key={d}
                   label={durationTooltip(d, t)}
                   pressed={beat.duration === d}
+                  onPressedChange={
+                    durationDisabled
+                      ? undefined
+                      : (pressed) => {
+                          if (pressed) updateBeat({ duration: d });
+                        }
+                  }
                   textIcon={durationLabel(d)}
                 />
               ))}
@@ -1490,13 +1722,21 @@ function NoteSection({
             <ToggleBtn
               label={t("sidebar.note.dotted")}
               pressed={beat.dots >= 1}
+              onPressedChange={(pressed) =>
+                updateBeat({ dots: pressed ? Math.max(1, beat.dots) : 0 })
+              }
               icon={<CircleDot className="h-3.5 w-3.5" />}
             />
-            <ToggleBtn
-              label={t("sidebar.note.doubleDot")}
-              pressed={beat.dots >= 2}
-              textIcon=".."
-            />
+            {isAdvanced && (
+              <ToggleBtn
+                label={t("sidebar.note.doubleDot")}
+                pressed={beat.dots >= 2}
+                onPressedChange={(pressed) =>
+                  updateBeat({ dots: pressed ? 2 : 1 })
+                }
+                textIcon=".."
+              />
+            )}
             <ToggleBtn
               label={t("sidebar.note.rest")}
               pressed={beat.isRest}
@@ -1528,22 +1768,31 @@ function NoteSection({
                   {t("sidebar.note.noteProperties")}
                 </div>
                 <div className="flex flex-wrap gap-0.5">
-                  {/* Guitar-only toggles hidden for percussion */}
-                  {!note.isPercussion && (
+                  {/* Guitar-only toggles hidden for percussion; advanced only */}
+                  {isAdvanced && !note.isPercussion && (
                     <>
                       <ToggleBtn
                         label={t("sidebar.note.tie")}
                         pressed={note.isTieDestination}
+                        onPressedChange={(pressed) =>
+                          updateNote({ isTieDestination: pressed })
+                        }
                         icon={<Link2 className="h-3.5 w-3.5" />}
                       />
                       <ToggleBtn
                         label={t("sidebar.note.ghostNote")}
                         pressed={note.isGhost}
+                        onPressedChange={(pressed) =>
+                          updateNote({ isGhost: pressed })
+                        }
                         icon={<Parentheses className="h-3.5 w-3.5" />}
                       />
                       <ToggleBtn
                         label={t("sidebar.note.deadNote")}
                         pressed={note.isDead}
+                        onPressedChange={(pressed) =>
+                          updateNote({ isDead: pressed })
+                        }
                         icon={<X className="h-3.5 w-3.5" />}
                       />
                     </>
@@ -1552,29 +1801,66 @@ function NoteSection({
                   <ToggleBtn
                     label={t("sidebar.note.accent")}
                     pressed={note.accentuated === AccentuationType.Normal}
+                    onPressedChange={(pressed) =>
+                      updateNote({
+                        accentuated: pressed
+                          ? AccentuationType.Normal
+                          : AccentuationType.None,
+                      })
+                    }
                     icon={<AccentNormal className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.note.heavyAccent")}
                     pressed={note.accentuated === AccentuationType.Heavy}
+                    onPressedChange={(pressed) =>
+                      updateNote({
+                        accentuated: pressed
+                          ? AccentuationType.Heavy
+                          : AccentuationType.None,
+                      })
+                    }
                     icon={<AccentHeavy className="h-3.5 w-3.5" />}
                   />
+                  {isAdvanced && (
+                    <ToggleBtn
+                      label={t("sidebar.note.tenuto")}
+                      pressed={note.accentuated === AccentuationType.Tenuto}
+                      onPressedChange={(pressed) =>
+                        updateNote({
+                          accentuated: pressed
+                            ? AccentuationType.Tenuto
+                            : AccentuationType.None,
+                        })
+                      }
+                      textIcon="—"
+                    />
+                  )}
                   <ToggleBtn
                     label={t("sidebar.note.staccato")}
                     pressed={note.isStaccato}
+                    onPressedChange={(pressed) =>
+                      updateNote({ isStaccato: pressed })
+                    }
                     icon={<Disc className="h-3 w-3" />}
                   />
-                  {/* Guitar-only toggles hidden for percussion */}
-                  {!note.isPercussion && (
+                  {/* Guitar-only toggles hidden for percussion; advanced only */}
+                  {isAdvanced && !note.isPercussion && (
                     <>
                       <ToggleBtn
                         label={t("sidebar.note.letRing")}
                         pressed={note.isLetRing}
+                        onPressedChange={(pressed) =>
+                          updateNote({ isLetRing: pressed })
+                        }
                         icon={<BellRing className="h-3.5 w-3.5" />}
                       />
                       <ToggleBtn
                         label={t("sidebar.note.palmMute")}
                         pressed={note.isPalmMute}
+                        onPressedChange={(pressed) =>
+                          updateNote({ isPalmMute: pressed })
+                        }
                         icon={<Hand className="h-3.5 w-3.5" />}
                       />
                     </>
@@ -1582,8 +1868,8 @@ function NoteSection({
                 </div>
               </div>
 
-              {/* Fingering row — guitar only */}
-              {!note.isPercussion &&
+              {/* Fingering row — guitar only; advanced only */}
+              {isAdvanced && !note.isPercussion &&
                 (note.leftHandFinger >= 0 || note.rightHandFinger >= 0) && (
                 <div className="flex items-center gap-2 px-3">
                   <Fingerprint className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1599,14 +1885,35 @@ function NoteSection({
             </div>
           )}
 
-          {/* Slashed beat */}
-          <div className="flex flex-wrap gap-0.5 px-2">
-            <ToggleBtn
-              label={t("sidebar.note.slashed")}
-              pressed={beat.slashed}
-              textIcon="/"
-            />
-          </div>
+          {/* Slashed beat + beat flags — advanced only */}
+          {isAdvanced && (
+            <div className="flex flex-wrap items-center gap-0.5 px-2">
+              <ToggleBtn
+                label={t("sidebar.note.slashed")}
+                pressed={beat.slashed}
+                onPressedChange={(pressed) =>
+                  updateBeat({ slashed: pressed })
+                }
+                textIcon="/"
+              />
+              <ToggleBtn
+                label={t("sidebar.note.deadSlapped")}
+                pressed={beat.deadSlapped}
+                onPressedChange={(pressed) =>
+                  updateBeat({ deadSlapped: pressed })
+                }
+                textIcon="DS"
+              />
+              <ToggleBtn
+                label={t("sidebar.note.legatoOrigin")}
+                pressed={beat.isLegatoOrigin}
+                onPressedChange={(pressed) =>
+                  updateBeat({ isLegatoOrigin: pressed })
+                }
+                textIcon="L"
+              />
+            </div>
+          )}
         </div>
         <Separator />
       </CollapsibleContent>
@@ -1776,6 +2083,9 @@ function EffectsSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const isAdvanced = usePlayerStore((s) => s.editorMode === "advanced");
+  const updateBeat = usePlayerStore((s) => s.updateBeat);
+  const updateNote = usePlayerStore((s) => s.updateNote);
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <SectionHeader title={t("sidebar.effects.title")} helpText={t("sidebar.effects.help")} isOpen={isOpen} dragHandleProps={dragHandleProps} />
@@ -1792,16 +2102,35 @@ function EffectsSection({
                   <ToggleBtn
                     label={t("sidebar.effects.bend")}
                     pressed={note.bendType !== BendType.None}
+                    onPressedChange={(pressed) =>
+                      updateNote({
+                        bendType: pressed ? BendType.Bend : BendType.None,
+                      })
+                    }
                     icon={<TrendingUp className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.vibratoSlight")}
                     pressed={note.vibrato === VibratoType.Slight}
+                    onPressedChange={(pressed) =>
+                      updateNote({
+                        vibrato: pressed
+                          ? VibratoType.Slight
+                          : VibratoType.None,
+                      })
+                    }
                     icon={<Waves className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.vibratoWide")}
                     pressed={note.vibrato === VibratoType.Wide}
+                    onPressedChange={(pressed) =>
+                      updateNote({
+                        vibrato: pressed
+                          ? VibratoType.Wide
+                          : VibratoType.None,
+                      })
+                    }
                     icon={
                       <Waves className="h-3.5 w-3.5" strokeWidth={3} />
                     }
@@ -1809,43 +2138,96 @@ function EffectsSection({
                   <ToggleBtn
                     label={t("sidebar.effects.slideInBelow")}
                     pressed={note.slideInType === SlideInType.IntoFromBelow}
+                    onPressedChange={(pressed) =>
+                      updateNote({
+                        slideInType: pressed
+                          ? SlideInType.IntoFromBelow
+                          : SlideInType.None,
+                      })
+                    }
                     icon={<CornerRightUp className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.slideInAbove")}
                     pressed={note.slideInType === SlideInType.IntoFromAbove}
+                    onPressedChange={(pressed) =>
+                      updateNote({
+                        slideInType: pressed
+                          ? SlideInType.IntoFromAbove
+                          : SlideInType.None,
+                      })
+                    }
                     icon={<CornerRightDown className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.slideOut")}
                     pressed={note.slideOutType !== SlideOutType.None}
+                    onPressedChange={(pressed) =>
+                      updateNote({
+                        slideOutType: pressed
+                          ? SlideOutType.Shift
+                          : SlideOutType.None,
+                      })
+                    }
                     icon={<MoveRight className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.hammerPullOff")}
                     pressed={note.isHammerPullOrigin}
+                    onPressedChange={(pressed) =>
+                      updateNote({ isHammerPullOrigin: pressed })
+                    }
                     textIcon="H/P"
                   />
-                  <ToggleBtn
-                    label={t("sidebar.effects.leftHandTap")}
-                    pressed={note.isLeftHandTapped}
-                    textIcon="T+"
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.trill")}
-                    pressed={note.trillValue >= 0}
-                    textIcon="tr"
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.harmonics")}
-                    pressed={note.harmonicType !== HarmonicType.None}
-                    icon={<Sparkles className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.ornament")}
-                    pressed={note.ornament !== NoteOrnament.None}
-                    icon={<RotateCcw className="h-3.5 w-3.5" />}
-                  />
+                  {isAdvanced && (
+                    <>
+                      <ToggleBtn
+                        label={t("sidebar.effects.leftHandTap")}
+                        pressed={note.isLeftHandTapped}
+                        onPressedChange={(pressed) =>
+                          updateNote({ isLeftHandTapped: pressed })
+                        }
+                        textIcon="T+"
+                      />
+                      <ToggleBtn
+                        label={t("sidebar.effects.trill")}
+                        pressed={note.trillValue >= 0}
+                        onPressedChange={(pressed) =>
+                          updateNote({
+                            trillValue: pressed ? 0 : -1,
+                            trillSpeed: pressed
+                              ? Duration.Sixteenth
+                              : Duration.Quarter,
+                          })
+                        }
+                        textIcon="tr"
+                      />
+                      <ToggleBtn
+                        label={t("sidebar.effects.harmonics")}
+                        pressed={note.harmonicType !== HarmonicType.None}
+                        onPressedChange={(pressed) =>
+                          updateNote({
+                            harmonicType: pressed
+                              ? HarmonicType.Natural
+                              : HarmonicType.None,
+                          })
+                        }
+                        icon={<Sparkles className="h-3.5 w-3.5" />}
+                      />
+                      <ToggleBtn
+                        label={t("sidebar.effects.ornament")}
+                        pressed={note.ornament !== NoteOrnament.None}
+                        onPressedChange={(pressed) =>
+                          updateNote({
+                            ornament: pressed
+                              ? NoteOrnament.Turn
+                              : NoteOrnament.None,
+                          })
+                        }
+                        icon={<RotateCcw className="h-3.5 w-3.5" />}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -1892,40 +2274,14 @@ function EffectsSection({
             </div>
             <div className="flex flex-wrap gap-0.5">
               <ToggleBtn
-                label={t("sidebar.effects.whammyBar")}
-                pressed={beat.whammyBarType !== WhammyType.None}
-                icon={<AudioWaveform className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
                 label={t("sidebar.effects.beatVibrato")}
                 pressed={beat.vibrato !== VibratoType.None}
+                onPressedChange={(pressed) =>
+                  updateBeat({
+                    vibrato: pressed ? VibratoType.Slight : VibratoType.None,
+                  })
+                }
                 icon={<Waves className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.pickStrokeUp")}
-                pressed={beat.pickStroke === PickStroke.Up}
-                icon={<ArrowUp className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.pickStrokeDown")}
-                pressed={beat.pickStroke === PickStroke.Down}
-                icon={<ArrowDown className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.brushUp")}
-                pressed={
-                  beat.brushType === BrushType.BrushUp ||
-                  beat.brushType === BrushType.ArpeggioUp
-                }
-                icon={<AccentHeavy className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.brushDown")}
-                pressed={
-                  beat.brushType === BrushType.BrushDown ||
-                  beat.brushType === BrushType.ArpeggioDown
-                }
-                icon={<ChevronsDown className="h-3.5 w-3.5" />}
               />
               <ToggleBtn
                 label={t("sidebar.effects.graceNote")}
@@ -1933,15 +2289,81 @@ function EffectsSection({
                 icon={<Music className="h-3.5 w-3.5" />}
               />
               <ToggleBtn
-                label={t("sidebar.effects.tremoloPicking")}
-                pressed={false /* derived from beat model */}
-                icon={<Zap className="h-3.5 w-3.5" />}
+                label={t("sidebar.effects.pickStrokeUp")}
+                pressed={beat.pickStroke === PickStroke.Up}
+                onPressedChange={(pressed) =>
+                  updateBeat({
+                    pickStroke: pressed ? PickStroke.Up : PickStroke.None,
+                  })
+                }
+                icon={<ArrowUp className="h-3.5 w-3.5" />}
               />
               <ToggleBtn
-                label={t("sidebar.effects.fermata")}
-                pressed={beat.hasFermata}
-                textIcon="𝄐"
+                label={t("sidebar.effects.pickStrokeDown")}
+                pressed={beat.pickStroke === PickStroke.Down}
+                onPressedChange={(pressed) =>
+                  updateBeat({
+                    pickStroke: pressed ? PickStroke.Down : PickStroke.None,
+                  })
+                }
+                icon={<ArrowDown className="h-3.5 w-3.5" />}
               />
+              {isAdvanced && (
+                <>
+                  <ToggleBtn
+                    label={t("sidebar.effects.whammyBar")}
+                    pressed={beat.whammyBarType !== WhammyType.None}
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        whammyBarType: pressed
+                          ? WhammyType.Hold
+                          : WhammyType.None,
+                      })
+                    }
+                    icon={<AudioWaveform className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.brushUp")}
+                    pressed={
+                      beat.brushType === BrushType.BrushUp ||
+                      beat.brushType === BrushType.ArpeggioUp
+                    }
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        brushType: pressed
+                          ? BrushType.BrushUp
+                          : BrushType.None,
+                      })
+                    }
+                    icon={<AccentHeavy className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.brushDown")}
+                    pressed={
+                      beat.brushType === BrushType.BrushDown ||
+                      beat.brushType === BrushType.ArpeggioDown
+                    }
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        brushType: pressed
+                          ? BrushType.BrushDown
+                          : BrushType.None,
+                      })
+                    }
+                    icon={<ChevronsDown className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.tremoloPicking")}
+                    pressed={false}
+                    icon={<Zap className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.fermata")}
+                    pressed={beat.hasFermata}
+                    textIcon="𝄐"
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -1969,6 +2391,9 @@ function EffectsSection({
                   key={d}
                   label={dynamicTooltip(d, t)}
                   pressed={beat.dynamics === d}
+                  onPressedChange={(pressed) => {
+                    if (pressed) updateBeat({ dynamics: d });
+                  }}
                   textIcon={dynamicLabel(d)}
                   className="text-[9px]"
                 />
@@ -1981,111 +2406,175 @@ function EffectsSection({
             <ToggleBtn
               label={t("sidebar.effects.crescendo")}
               pressed={beat.crescendo === CrescendoType.Crescendo}
+              onPressedChange={(pressed) =>
+                updateBeat({
+                  crescendo: pressed
+                    ? CrescendoType.Crescendo
+                    : CrescendoType.None,
+                })
+              }
               textIcon="<"
             />
             <ToggleBtn
               label={t("sidebar.effects.decrescendo")}
               pressed={beat.crescendo === CrescendoType.Decrescendo}
+              onPressedChange={(pressed) =>
+                updateBeat({
+                  crescendo: pressed
+                    ? CrescendoType.Decrescendo
+                    : CrescendoType.None,
+                })
+              }
               textIcon=">"
             />
           </div>
 
-          <Separator className="my-0.5" />
+          {isAdvanced && (
+            <>
+              <Separator className="my-0.5" />
 
-          {/* ── Techniques ─────────────────────────────────────────── */}
-          <div className="px-2">
-            <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
-              {t("sidebar.effects.techniques")}
-            </div>
-            <div className="flex flex-wrap gap-0.5">
-              <ToggleBtn
-                label={t("sidebar.effects.tap")}
-                pressed={beat.tap}
-                icon={<Pointer className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.slap")}
-                pressed={beat.slap}
-                icon={<Hand className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.pop")}
-                pressed={beat.pop}
-                icon={<CircleDot className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.fadeIn")}
-                pressed={beat.fade === FadeType.FadeIn}
-                icon={<SunMedium className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.fadeOut")}
-                pressed={beat.fade === FadeType.FadeOut}
-                textIcon="FO"
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.volumeSwell")}
-                pressed={beat.fade === FadeType.VolumeSwell}
-                textIcon="VS"
-              />
-            </div>
-          </div>
+              {/* ── Techniques ─────────────────────────────────────────── */}
+              <div className="px-2">
+                <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
+                  {t("sidebar.effects.techniques")}
+                </div>
+                <div className="flex flex-wrap gap-0.5">
+                  <ToggleBtn
+                    label={t("sidebar.effects.tap")}
+                    pressed={beat.tap}
+                    onPressedChange={(pressed) =>
+                      updateBeat({ tap: pressed })
+                    }
+                    icon={<Pointer className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.slap")}
+                    pressed={beat.slap}
+                    onPressedChange={(pressed) =>
+                      updateBeat({ slap: pressed })
+                    }
+                    icon={<Hand className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.pop")}
+                    pressed={beat.pop}
+                    onPressedChange={(pressed) =>
+                      updateBeat({ pop: pressed })
+                    }
+                    icon={<CircleDot className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.fadeIn")}
+                    pressed={beat.fade === FadeType.FadeIn}
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        fade: pressed ? FadeType.FadeIn : FadeType.None,
+                      })
+                    }
+                    icon={<SunMedium className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.fadeOut")}
+                    pressed={beat.fade === FadeType.FadeOut}
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        fade: pressed ? FadeType.FadeOut : FadeType.None,
+                      })
+                    }
+                    textIcon="FO"
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.volumeSwell")}
+                    pressed={beat.fade === FadeType.VolumeSwell}
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        fade: pressed
+                          ? FadeType.VolumeSwell
+                          : FadeType.None,
+                      })
+                    }
+                    textIcon="VS"
+                  />
+                </div>
+              </div>
 
-          <Separator className="my-0.5" />
+              <Separator className="my-0.5" />
 
-          {/* ── Misc ───────────────────────────────────────────────── */}
-          <div className="px-2">
-            <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
-              {t("sidebar.effects.other")}
-            </div>
-            <div className="flex flex-wrap gap-0.5">
-              <ToggleBtn
-                label={t("sidebar.effects.golpeThumb")}
-                pressed={beat.golpe === GolpeType.Thumb}
-                icon={<Target className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.golpeFinger")}
-                pressed={beat.golpe === GolpeType.Finger}
-                textIcon="GF"
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.wahOpen")}
-                pressed={beat.wahPedal === WahPedal.Open}
-                icon={<ToggleLeft className="h-3.5 w-3.5" />}
-              />
-              <ToggleBtn
-                label={t("sidebar.effects.wahClosed")}
-                pressed={beat.wahPedal === WahPedal.Closed}
-                icon={<ToggleRight className="h-3.5 w-3.5" />}
-              />
-            </div>
-          </div>
+              {/* ── Misc ───────────────────────────────────────────────── */}
+              <div className="px-2">
+                <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
+                  {t("sidebar.effects.other")}
+                </div>
+                <div className="flex flex-wrap gap-0.5">
+                  <ToggleBtn
+                    label={t("sidebar.effects.golpeThumb")}
+                    pressed={beat.golpe === GolpeType.Thumb}
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        golpe: pressed ? GolpeType.Thumb : GolpeType.None,
+                      })
+                    }
+                    icon={<Target className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.golpeFinger")}
+                    pressed={beat.golpe === GolpeType.Finger}
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        golpe: pressed ? GolpeType.Finger : GolpeType.None,
+                      })
+                    }
+                    textIcon="GF"
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.wahOpen")}
+                    pressed={beat.wahPedal === WahPedal.Open}
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        wahPedal: pressed ? WahPedal.Open : WahPedal.None,
+                      })
+                    }
+                    icon={<ToggleLeft className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.wahClosed")}
+                    pressed={beat.wahPedal === WahPedal.Closed}
+                    onPressedChange={(pressed) =>
+                      updateBeat({
+                        wahPedal: pressed ? WahPedal.Closed : WahPedal.None,
+                      })
+                    }
+                    icon={<ToggleRight className="h-3.5 w-3.5" />}
+                  />
+                </div>
+              </div>
 
-          {/* Ottava */}
-          {beat.ottava !== Ottavia.Regular && (
-            <PropRow
-              label={t("sidebar.effects.ottava")}
-              value={
-                beat.ottava === Ottavia._8va
-                  ? "8va"
-                  : beat.ottava === Ottavia._8vb
-                    ? "8vb"
-                    : beat.ottava === Ottavia._15ma
-                      ? "15ma"
-                      : beat.ottava === Ottavia._15mb
-                        ? "15mb"
-                        : "Regular"
-              }
-            />
-          )}
+              {/* Ottava */}
+              {beat.ottava !== Ottavia.Regular && (
+                <PropRow
+                  label={t("sidebar.effects.ottava")}
+                  value={
+                    beat.ottava === Ottavia._8va
+                      ? "8va"
+                      : beat.ottava === Ottavia._8vb
+                        ? "8vb"
+                        : beat.ottava === Ottavia._15ma
+                          ? "15ma"
+                          : beat.ottava === Ottavia._15mb
+                            ? "15mb"
+                            : "Regular"
+                  }
+                />
+              )}
 
-          {/* Text annotation */}
-          {beat.text && (
-            <PropRow label={t("sidebar.effects.text")} value={beat.text} />
-          )}
-          {beat.chordId && (
-            <PropRow label={t("sidebar.effects.chord")} value={beat.chordId} />
+              {/* Text annotation */}
+              {beat.text && (
+                <PropRow label={t("sidebar.effects.text")} value={beat.text} />
+              )}
+              {beat.chordId && (
+                <PropRow label={t("sidebar.effects.chord")} value={beat.chordId} />
+              )}
+            </>
           )}
         </div>
         <Separator />

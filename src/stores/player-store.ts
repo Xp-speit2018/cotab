@@ -225,6 +225,8 @@ export interface SelectedBeatInfo {
   slashed: boolean;
   hasFermata: boolean;
   fermataType: FermataType | null;
+  deadSlapped: boolean;
+  isLegatoOrigin: boolean;
   notes: SelectedNoteInfo[];
 }
 
@@ -273,6 +275,34 @@ export interface SelectedVoiceInfo {
   beatCount: number;
 }
 
+export type ScoreMetadataField =
+  | "title"
+  | "subTitle"
+  | "artist"
+  | "album"
+  | "words"
+  | "music"
+  | "copyright"
+  | "tab"
+  | "instructions"
+  | "notices"
+  | "tempoLabel";
+
+/** Maps alphaTab Score field names to player-store state keys. */
+const SCORE_FIELD_TO_STATE: Record<ScoreMetadataField, keyof PlayerState> = {
+  title: "scoreTitle",
+  subTitle: "scoreSubTitle",
+  artist: "scoreArtist",
+  album: "scoreAlbum",
+  words: "scoreWords",
+  music: "scoreMusic",
+  copyright: "scoreCopyright",
+  tab: "scoreTab",
+  instructions: "scoreInstructions",
+  notices: "scoreNotices",
+  tempoLabel: "scoreTempoLabel",
+};
+
 export interface PlayerState {
   // Loading
   isLoading: boolean;
@@ -301,6 +331,10 @@ export interface PlayerState {
   scoreTempo: number;
   scoreTempoLabel: string;
 
+  // Score metadata editing
+  setScoreMetadata: (field: ScoreMetadataField, value: string) => void;
+  setScoreTempo: (tempo: number) => void;
+
   // Tracks
   tracks: TrackInfo[];
   /** Derived from api.tracks on every renderFinished — single source of truth. */
@@ -326,11 +360,15 @@ export interface PlayerState {
   // View
   zoom: number;
 
+  /** Sidebar NOTE/EFFECTS display mode: essentials (common) or advanced (full). Persisted in localStorage. */
+  editorMode: "essentials" | "advanced";
+
   // Debug
   /** When true, renders horizontal markers at each snap grid position on the score. */
   showSnapGrid: boolean;
 
   // Actions
+  setEditorMode: (mode: "essentials" | "advanced") => void;
   initialize: (mainEl: HTMLElement, viewportEl: HTMLElement) => void;
   destroy: () => void;
   loadFile: (data: File | ArrayBuffer | Uint8Array) => void;
@@ -356,6 +394,18 @@ export interface PlayerState {
   // Beat manipulation
   /** Toggle the `isEmpty` flag on the selected beat and re-render. */
   toggleBeatIsEmpty: () => void;
+
+  /**
+   * Apply property updates to the currently selected beat and re-render.
+   * Use for NOTE/EFFECTS sidebar reactivity (duration, dots, dynamics, etc.).
+   */
+  updateBeat: (updates: Record<string, unknown>) => void;
+
+  /**
+   * Apply property updates to the currently selected note and re-render.
+   * No-op if no note is selected. Use for note-level effects and articulation.
+   */
+  updateNote: (updates: Record<string, unknown>) => void;
 
   // Note placement
   /** Place a quarter note at the selected beat + string position. */
@@ -1693,6 +1743,8 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
     slashed: beat.slashed,
     hasFermata: fermata !== null,
     fermataType: fermata ? (fermata.type as unknown as FermataType) : null,
+    deadSlapped: (beat as unknown as Record<string, boolean>).deadSlapped ?? false,
+    isLegatoOrigin: (beat as unknown as Record<string, boolean>).isLegatoOrigin ?? false,
     notes: beat.notes.map(extractNoteInfo),
   };
 }
@@ -1757,6 +1809,15 @@ function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
   };
 }
 
+const EDITOR_MODE_STORAGE_KEY = "cotab:editorMode";
+
+function getInitialEditorMode(): "essentials" | "advanced" {
+  if (typeof localStorage === "undefined") return "essentials";
+  const raw = localStorage.getItem(EDITOR_MODE_STORAGE_KEY);
+  if (raw === "essentials" || raw === "advanced") return raw;
+  return "essentials";
+}
+
 // ─── Store ───────────────────────────────────────────────────────────────────
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -1794,7 +1855,36 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedNoteIndex: -1,
   selectedString: null,
   zoom: 1,
+  editorMode: getInitialEditorMode(),
   showSnapGrid: false,
+
+  setEditorMode: (mode) => {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(EDITOR_MODE_STORAGE_KEY, mode);
+    }
+    set({ editorMode: mode });
+  },
+
+  // ── Score Metadata Editing ───────────────────────────────────────────────
+
+  setScoreMetadata: (field, value) => {
+    const score = api?.score;
+    if (!score) return;
+    // alphaTab Score properties are typed individually; use bracket access via unknown
+    (score as unknown as Record<string, unknown>)[field] = value;
+    const stateKey = SCORE_FIELD_TO_STATE[field];
+    set({ [stateKey]: value } as Partial<PlayerState>);
+    api!.render();
+  },
+
+  setScoreTempo: (tempo) => {
+    const score = api?.score;
+    if (!score || tempo <= 0) return;
+    // tempo getter is read-only on Score; update via the first masterBar header
+    (score as unknown as Record<string, unknown>).tempo = tempo;
+    set({ scoreTempo: tempo });
+    api!.render();
+  },
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -2380,6 +2470,63 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         stack: err.stack,
       });
     }
+  },
+
+  updateBeat: (updates) => {
+    const sel = get().selectedBeat;
+    if (!sel || !api) return;
+    const beat = resolveBeat(
+      sel.trackIndex,
+      sel.barIndex,
+      sel.beatIndex,
+      sel.staffIndex,
+      sel.voiceIndex,
+    );
+    if (!beat) return;
+    const b = beat as unknown as Record<string, unknown>;
+    for (const [key, value] of Object.entries(updates)) {
+      b[key] = value;
+    }
+    beat.voice.finish(api.settings);
+    applyBarWarningStyles();
+    pendingSelection = {
+      trackIndex: sel.trackIndex,
+      barIndex: sel.barIndex,
+      beatIndex: sel.beatIndex,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    };
+    api.render();
+  },
+
+  updateNote: (updates) => {
+    const sel = get().selectedBeat;
+    const noteIndex = get().selectedNoteIndex;
+    if (!sel || !api || noteIndex < 0) return;
+    const beat = resolveBeat(
+      sel.trackIndex,
+      sel.barIndex,
+      sel.beatIndex,
+      sel.staffIndex,
+      sel.voiceIndex,
+    );
+    if (!beat || noteIndex >= beat.notes.length) return;
+    const note = beat.notes[noteIndex] as unknown as Record<string, unknown>;
+    for (const [key, value] of Object.entries(updates)) {
+      note[key] = value;
+    }
+    beat.voice.finish(api.settings);
+    applyBarWarningStyles();
+    pendingSelection = {
+      trackIndex: sel.trackIndex,
+      barIndex: sel.barIndex,
+      beatIndex: sel.beatIndex,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    };
+    api.render();
   },
 
   // ── Percussion Articulation Toggle ───────────────────────────────────

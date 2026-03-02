@@ -32,8 +32,11 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ChevronUp,
+  ChevronsLeft,
+  ChevronsRight,
   // Bar section
   Clock,
   Key,
@@ -1003,7 +1006,9 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const alphaTabApi = (window as unknown as Record<string, any>).__ALPHATAB_API__;
   const staffInfo = (() => {
-    const staff = alphaTabApi?.score?.tracks?.[trackIndex]?.staves?.[0];
+    const selected = usePlayerStore.getState().selectedBeat;
+    const staffIndex = selected?.trackIndex === trackIndex ? selected.staffIndex : 0;
+    const staff = alphaTabApi?.score?.tracks?.[trackIndex]?.staves?.[staffIndex ?? 0];
     if (!staff) return null;
     return {
       tuningValues: [...staff.tuning] as number[],
@@ -1027,7 +1032,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   })();
 
   const tuningPresets: TuningPresetInfo[] =
-    staffInfo && staffInfo.stringCount > 0
+    staffInfo && staffInfo.showTablature && staffInfo.stringCount > 0
       ? getTuningPresets(staffInfo.stringCount)
       : [];
 
@@ -1091,8 +1096,11 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
             onCommit={(v) => setTrackShortName(trackIndex, v)}
           />
 
-          {/* Tuning (only for stringed instruments) */}
-          {staffInfo && staffInfo.stringCount > 0 && !staffInfo.isPercussion && (
+          {/* Tuning (only for fretted/tab instruments) */}
+          {staffInfo &&
+            staffInfo.showTablature &&
+            staffInfo.stringCount > 0 &&
+            !staffInfo.isPercussion && (
             <>
               <div className="group flex items-center gap-2 px-3 py-0.5">
                 <span className="text-[11px] text-muted-foreground whitespace-nowrap">
@@ -1525,6 +1533,92 @@ function SelectorSection({
             <Grid3X3 className="h-3 w-3" />
             {t("sidebar.selector.showSnapGrid")}
           </button>
+        </div>
+        {/* Navigation buttons */}
+        <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 border-b border-border/40">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-1.5 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().navPrevBar()}
+          >
+            <ChevronsLeft className="h-3 w-3 mr-0.5" />
+            {t("sidebar.selector.navPrevBar")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-1.5 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().navPrevBeat()}
+          >
+            <ChevronLeft className="h-3 w-3 mr-0.5" />
+            {t("sidebar.selector.navPrevBeat")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-1.5 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().navMoveUp()}
+          >
+            <ArrowUp className="h-3 w-3 mr-0.5" />
+            {t("sidebar.selector.navMoveUp")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-1.5 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().navMoveDown()}
+          >
+            <ArrowDown className="h-3 w-3 mr-0.5" />
+            {t("sidebar.selector.navMoveDown")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-1.5 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().navNextBeat()}
+          >
+            {t("sidebar.selector.navNextBeat")}
+            <ChevronRight className="h-3 w-3 ml-0.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-1.5 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().navNextBar()}
+          >
+            {t("sidebar.selector.navNextBar")}
+            <ChevronsRight className="h-3 w-3 ml-0.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-1.5 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().navPrevStaff()}
+          >
+            <ChevronUp className="h-3 w-3 mr-0.5" />
+            {t("sidebar.selector.navPrevStaff")}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-6 px-1.5 text-[10px]"
+            disabled={!selectedBeat}
+            onClick={() => usePlayerStore.getState().navNextStaff()}
+          >
+            {t("sidebar.selector.navNextStaff")}
+            <ChevronDown className="h-3 w-3 ml-0.5" />
+          </Button>
+        </div>
+        {/* Debug editing actions */}
+        <div className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-border/40">
           <Button
             variant="outline"
             size="sm"

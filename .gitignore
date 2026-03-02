@@ -29,6 +29,9 @@ test-screenshots
 # Dev notes
 docs
 
+# Wiki (separate git repo)
+wiki
+
 # E2E / Playwright (local debugging)
 e2e
 playwright.config.js

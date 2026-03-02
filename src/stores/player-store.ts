@@ -502,6 +502,24 @@ export interface PlayerState {
    */
   togglePercussionArticulation: (gp7Id: number) => void;
 
+  // Navigation
+  /** Move cursor to the next beat; wraps to the first beat of the next bar. */
+  navNextBeat: () => void;
+  /** Move cursor to the previous beat; wraps to the last beat of the previous bar. */
+  navPrevBeat: () => void;
+  /** Move cursor up one string (tab) or snap-grid position (notation/percussion). */
+  navMoveUp: () => void;
+  /** Move cursor down one string (tab) or snap-grid position (notation/percussion). */
+  navMoveDown: () => void;
+  /** Move cursor to the first beat of the next bar. */
+  navNextBar: () => void;
+  /** Move cursor to the last beat of the previous bar. */
+  navPrevBar: () => void;
+  /** Move cursor to the next visible staff (across tracks). */
+  navNextStaff: () => void;
+  /** Move cursor to the previous visible staff (across tracks). */
+  navPrevStaff: () => void;
+
   // Selection
   /** Programmatic selection — single entry point for any selection trigger. */
   setSelection: (args: {
@@ -893,6 +911,16 @@ function findBeatBounds(
 
 const DIATONIC_TONES = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
 
+function formatPitch(octave: number | null | undefined, tone: number | null | undefined): string {
+  if (octave === null || octave === undefined || tone === null || tone === undefined) {
+    return "n/a";
+  }
+  const NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  const idx = ((tone % 12) + 12) % 12;
+  const name = NAMES[idx] ?? "?";
+  return `${name}${octave}`;
+}
+
 /**
  * Map a snap-grid position (1–21, 1 = top / highest pitch) to an
  * (octave, tone) pair based on the bar's clef.
@@ -1115,53 +1143,108 @@ function createTrackFromPreset(
   track.playbackInfo.volume = 15;
   track.playbackInfo.balance = 8;
 
-  const staff = new alphaTab.model.Staff();
-  staff.track = track;
-  staff.isPercussion = preset.isPercussion;
-  if (preset.stringCount > 0) {
-    const tuning = alphaTab.model.Tuning.getDefaultTuningFor(preset.stringCount);
-    staff.stringTuning = tuning ?? new alphaTab.model.Tuning(undefined, [40, 45, 50, 55, 59, 64], true);
-    staff.showTablature = true;
-    staff.showStandardNotation = false;
+  // ── Staff creation ────────────────────────────────────────────────────
+  // For piano (non-percussion with stringCount === 0), create a grand staff:
+  // treble clef on staff 0, bass clef on staff 1. For all other presets,
+  // create a single staff using the preset's clef.
+  const staffs: alphaTab.model.Staff[] = [];
+
+  const makeStaff = (opts: {
+    isPercussion: boolean;
+    showTablature: boolean;
+    showStandardNotation: boolean;
+    stringCount: number;
+  }): alphaTab.model.Staff => {
+    const s = new alphaTab.model.Staff();
+    s.track = track;
+    s.isPercussion = opts.isPercussion;
+    if (opts.stringCount > 0) {
+      const tuning = alphaTab.model.Tuning.getDefaultTuningFor(opts.stringCount);
+      s.stringTuning =
+        tuning ??
+        new alphaTab.model.Tuning(undefined, [40, 45, 50, 55, 59, 64], true);
+    } else {
+      // Notation-only instruments (e.g. piano, drums) don't rely on tuning,
+      // but AlphaTab expects a Tuning instance. Use a dummy tuning internally.
+      s.stringTuning =
+        alphaTab.model.Tuning.getDefaultTuningFor(6) ??
+        new alphaTab.model.Tuning(undefined, [40, 45, 50, 55, 59, 64], true);
+    }
+    s.showTablature = opts.showTablature;
+    s.showStandardNotation = opts.showStandardNotation;
+    return s;
+  };
+
+  if (!preset.isPercussion && preset.stringCount === 0) {
+    // Piano-style track: two staves with standard notation only.
+    const treble = makeStaff({
+      isPercussion: false,
+      showTablature: false,
+      showStandardNotation: true,
+      stringCount: 0,
+    });
+    const bass = makeStaff({
+      isPercussion: false,
+      showTablature: false,
+      showStandardNotation: true,
+      stringCount: 0,
+    });
+    staffs.push(treble, bass);
   } else {
-    staff.stringTuning = alphaTab.model.Tuning.getDefaultTuningFor(6) ?? new alphaTab.model.Tuning(undefined, [40, 45, 50, 55, 59, 64], true);
-    staff.showTablature = false;
-    staff.showStandardNotation = true;
+    const single = makeStaff({
+      isPercussion: preset.isPercussion,
+      showTablature: preset.stringCount > 0 && !preset.isPercussion,
+      showStandardNotation: preset.stringCount === 0 || preset.isPercussion,
+      stringCount: preset.stringCount,
+    });
+    staffs.push(single);
   }
 
-  debugLog("debug", "createTrackFromPreset", "staff created", {
-    showTablature: staff.showTablature,
-    isPercussion: staff.isPercussion,
+  debugLog("debug", "createTrackFromPreset", "staffs created", {
+    staffCount: staffs.length,
     masterBarCount: score.masterBars.length,
   });
 
   for (let barIndex = 0; barIndex < score.masterBars.length; barIndex++) {
-    const bar = new alphaTab.model.Bar();
-    bar.clef = preset.clef as unknown as alphaTab.model.Clef;
-    bar.staff = staff;
-    const voice = new alphaTab.model.Voice();
-    const restBeat = new alphaTab.model.Beat();
-    restBeat.isEmpty = false;
-    restBeat.notes = [];
-    restBeat.duration = alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
-    voice.addBeat(restBeat);
-    bar.addVoice(voice);
-    staff.addBar(bar);
+    const mbClef = preset.clef as unknown as alphaTab.model.Clef;
+    for (let staffIndex = 0; staffIndex < staffs.length; staffIndex++) {
+      const staff = staffs[staffIndex];
+      const bar = new alphaTab.model.Bar();
+      // Piano grand staff: treble on staff 0, bass on staff 1.
+      if (!preset.isPercussion && preset.stringCount === 0) {
+        bar.clef =
+          (staffIndex === 0 ? 4 : 3) as unknown as alphaTab.model.Clef;
+      } else {
+        bar.clef = mbClef;
+      }
+      bar.staff = staff;
+      const voice = new alphaTab.model.Voice();
+      const restBeat = new alphaTab.model.Beat();
+      restBeat.isEmpty = false;
+      restBeat.notes = [];
+      restBeat.duration =
+        alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
+      voice.addBeat(restBeat);
+      bar.addVoice(voice);
+      staff.addBar(bar);
+    }
   }
 
-  // Re-index bars and linked lists for the new staff
-  for (let i = 0; i < staff.bars.length; i++) {
-    const b = staff.bars[i];
-    b.staff = staff;
-    b.index = i;
-    b.previousBar = i > 0 ? staff.bars[i - 1] : null;
-    b.nextBar = i < staff.bars.length - 1 ? staff.bars[i + 1] : null;
+  // Re-index bars and linked lists for each staff
+  for (const staff of staffs) {
+    for (let i = 0; i < staff.bars.length; i++) {
+      const b = staff.bars[i];
+      b.staff = staff;
+      b.index = i;
+      b.previousBar = i > 0 ? staff.bars[i - 1] : null;
+      b.nextBar = i < staff.bars.length - 1 ? staff.bars[i + 1] : null;
+    }
+    track.addStaff(staff);
   }
 
-  track.addStaff(staff);
   debugLog("debug", "createTrackFromPreset", "track ready", {
     staffCount: track.staves.length,
-    barCount: staff.bars.length,
+    barCount: track.staves[0]?.bars.length ?? 0,
   });
   return track;
 }
@@ -1474,25 +1557,16 @@ function buildSnapGrids(): void {
           });
         }
       }
-    } else {
-      // ── Standard notation: 5 lines + 4 spaces = 9 core positions ──
-      // Cluster all observed note Y positions to find distinct staff
-      // positions, then derive halfSpace (line-to-space distance) from
-      // the minimum gap between clusters.
+    } else if (track.isPercussion) {
+      // ── Percussion notation: derive staffLine positions from articulations ──
       const distinctYs = clusterYPositions(entry.allYPositions, 1.0);
 
       // In standard notation a note head's height ≈ 1 staff space
       // (the distance between two adjacent lines) = 2 × halfSpace.
-      // This relationship is intrinsic to the music font and doesn't
-      // depend on bar padding, making it a robust reference.
       const refHalfSpace = medianH > 0 ? medianH / 2 : 0;
 
       let halfSpace: number;
       if (distinctYs.length >= 2) {
-        // Minimum gap between distinct note positions.  When notes are
-        // sparse (e.g. drumkit with notes only on lines, or only on
-        // spaces), this gap can be a small integer multiple of the true
-        // half-space.  Cross-validate against note-head geometry.
         let minGap = Infinity;
         for (let i = 1; i < distinctYs.length; i++) {
           const gap = distinctYs[i] - distinctYs[i - 1];
@@ -1506,21 +1580,16 @@ function buildSnapGrids(): void {
           if (ratio > 1.4) {
             const n = Math.round(ratio);
             if (n >= 2 && Math.abs(ratio - n) < 0.5) {
-              // Min gap is ~Nx the true half-space; divide down.
               halfSpace = minGap / n;
             } else {
-              // Can't align cleanly; trust note-head geometry.
               halfSpace = refHalfSpace;
             }
           }
         }
       } else {
-        // Only one (or zero) distinct positions; use AlphaTab's
-        // oneStaffSpace setting directly — halfSpace is always oss/2.
         halfSpace = oneStaffSpace / 2;
       }
 
-      // Anchor at the median of observed Y values, or bar center
       const anchorY =
         distinctYs.length > 0
           ? distinctYs[Math.floor(distinctYs.length / 2)]
@@ -1528,31 +1597,35 @@ function buildSnapGrids(): void {
             ? entry.barRealBounds.y + entry.barRealBounds.h / 2
             : 0;
 
-      if (track.isPercussion) {
-        // ── Percussion: label positions with alphaTab staffLine values ──
-        // Derive the anchor's staffLine from any observed (Y, articulation) pair.
-        let anchorStaffLine = 3; // default: snare line
-        const artics = track.percussionArticulations;
-        for (const pa of entry.percYArticulations) {
-          const gp7Id =
-            artics?.length > 0 && pa.artic >= 0 && pa.artic < artics.length
-              ? artics[pa.artic].id
-              : pa.artic;
-          const sl = GP7_ARTICULATION_MAP.get(gp7Id);
-          if (sl !== undefined) {
-            const stepsFromAnchor = Math.round((pa.y - anchorY) / halfSpace);
-            anchorStaffLine = sl - stepsFromAnchor;
-            break;
-          }
+      // ── Percussion: label positions with alphaTab staffLine values ──
+      // Derive the anchor's staffLine from any observed (Y, articulation) pair.
+      let anchorStaffLine = 3; // default: snare line
+      const artics = track.percussionArticulations;
+      for (const pa of entry.percYArticulations) {
+        const gp7Id =
+          artics?.length > 0 && pa.artic >= 0 && pa.artic < artics.length
+            ? artics[pa.artic].id
+            : pa.artic;
+        const sl = GP7_ARTICULATION_MAP.get(gp7Id);
+        if (sl !== undefined) {
+          const stepsFromAnchor = Math.round((pa.y - anchorY) / halfSpace);
+          anchorStaffLine = sl - stepsFromAnchor;
+          break;
         }
-        for (let i = -10; i <= 10; i++) {
-          positions.push({ string: anchorStaffLine + i, y: anchorY + i * halfSpace });
-        }
-      } else {
-        // ── Standard notation: 21 positions (1–21) centered on index 11 ──
-        for (let i = -10; i <= 10; i++) {
-          positions.push({ string: i + 11, y: anchorY + i * halfSpace });
-        }
+      }
+      for (let i = -10; i <= 10; i++) {
+        positions.push({ string: anchorStaffLine + i, y: anchorY + i * halfSpace });
+      }
+    } else {
+      // ── Standard notation (non-percussion): 21 positions (1–21) from engraving constants ──
+      if (!entry.barRealBounds) continue;
+      const br = entry.barRealBounds;
+      const lineBase = br.y - slt / 2;
+      const halfSpace = oneStaffSpace / 2;
+      const centerY = lineBase + 2 * oneStaffSpace;
+
+      for (let i = -10; i <= 10; i++) {
+        positions.push({ string: i + 11, y: centerY + i * halfSpace });
       }
     }
 
@@ -2014,7 +2087,9 @@ function extractStaffInfo(staff: alphaTab.model.Staff): SelectedStaffInfo {
     index: staff.index,
     showTablature: staff.showTablature,
     showStandardNotation: staff.showStandardNotation,
-    stringCount: staff.tuning.length,
+    // For notation-only instruments (e.g. piano), surface 0 strings even if
+    // AlphaTab carries an internal tuning array for compatibility.
+    stringCount: staff.showTablature ? staff.tuning.length : 0,
     capo: staff.capo,
     transpositionPitch: staff.transpositionPitch,
     displayTranspositionPitch: staff.displayTranspositionPitch,
@@ -2575,7 +2650,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setTrackVisible: (trackIndex, visible) => {
     if (!api?.score) return;
 
-    // Compute the new set of visible indices
     const current = new Set(get().visibleTrackIndices);
     if (visible) {
       current.add(trackIndex);
@@ -2583,11 +2657,30 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       current.delete(trackIndex);
     }
 
-    // Must keep at least one track visible
     if (current.size === 0) return;
 
-    // Tell AlphaTab to render exactly these tracks.
-    // renderFinished will update visibleTrackIndices + trackBounds.
+    // When hiding the currently selected track, move the selection to the
+    // nearest remaining visible staff so the cursor doesn't vanish.
+    const sel = get().selectedBeat;
+    if (!visible && sel && sel.trackIndex === trackIndex) {
+      const sorted = [...current].sort((a, b) => a - b);
+      const fallback = sorted.find((i) => i > trackIndex) ?? sorted[sorted.length - 1];
+      if (fallback !== undefined) {
+        const barIndex = Math.min(
+          sel.barIndex,
+          (api.score!.tracks[fallback]?.staves[0]?.bars.length ?? 1) - 1,
+        );
+        pendingSelection = {
+          trackIndex: fallback,
+          staffIndex: 0,
+          voiceIndex: 0,
+          barIndex,
+          beatIndex: 0,
+          string: null,
+        };
+      }
+    }
+
     const tracksToRender = [...current]
       .sort((a, b) => a - b)
       .map((i) => api!.score!.tracks[i])
@@ -3011,7 +3104,28 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // ── Cases 1 & 2: Beat has notes ─────────────────────────────────────
       if (noteIdx < 0 || noteIdx >= beat.notes.length) return false;
 
-    if (beat.notes.length > 1) {
+      const staff = beat.voice.bar.staff;
+      const track = staff.track;
+      const note = beat.notes[noteIdx];
+
+      if (!track.isPercussion && !staff.showTablature) {
+        debugLog("info", "deleteNote", "piano note", {
+          trackIndex: sel.trackIndex,
+          staffIndex: sel.staffIndex,
+          barIndex: sel.barIndex,
+          beatIndex: sel.beatIndex,
+          noteIndex: noteIdx,
+          clef: beat.voice.bar.clef as unknown as number,
+          octave: note.octave,
+          tone: note.tone,
+          pitch: formatPitch(
+            note.octave as unknown as number,
+            note.tone as unknown as number,
+          ),
+        });
+      }
+
+      if (beat.notes.length > 1) {
       // Case 1: Multiple notes on beat — remove only the selected one
       beat.notes.splice(noteIdx, 1);
       for (let i = 0; i < beat.notes.length; i++) {
@@ -3081,35 +3195,55 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const staff = track.staves[sel.staffIndex];
       if (!staff) return;
 
-    const note = new alphaTab.model.Note();
+      const note = new alphaTab.model.Note();
 
-    if (track.isPercussion) {
-      // sel.string IS the staffLine — look up articulation directly
-      const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
-      const grid = snapGrids.get(gridKey);
-      const observedArtic = grid?.percussionMap?.get(sel.string);
-      if (observedArtic !== undefined) {
-        note.percussionArticulation = observedArtic;
-      } else {
-        const defaultGp7Id = DRUM_STAFFLINE_DEFAULTS[sel.string];
-        if (defaultGp7Id !== undefined) {
-          note.percussionArticulation =
-            gp7IdToPercussionArticulation(track, defaultGp7Id);
+      if (track.isPercussion) {
+        // sel.string IS the staffLine — look up articulation directly
+        const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
+        const grid = snapGrids.get(gridKey);
+        const observedArtic = grid?.percussionMap?.get(sel.string);
+        if (observedArtic !== undefined) {
+          note.percussionArticulation = observedArtic;
         } else {
-          const idsAtLine = GP7_STAFF_LINE_MAP.get(sel.string);
-          const fallbackId = idsAtLine?.[0] ?? 42;
-          note.percussionArticulation =
-            gp7IdToPercussionArticulation(track, fallbackId);
+          const defaultGp7Id = DRUM_STAFFLINE_DEFAULTS[sel.string];
+          if (defaultGp7Id !== undefined) {
+            note.percussionArticulation =
+              gp7IdToPercussionArticulation(track, defaultGp7Id);
+          } else {
+            const idsAtLine = GP7_STAFF_LINE_MAP.get(sel.string);
+            const fallbackId = idsAtLine?.[0] ?? 42;
+            note.percussionArticulation =
+              gp7IdToPercussionArticulation(track, fallbackId);
+          }
         }
+      } else if (staff.showTablature && staff.tuning.length > 0) {
+        note.fret = 1;
+        note.string = sel.string!;
+      } else {
+        const clef = beat.voice.bar.clef as unknown as number;
+        const position = sel.string!;
+        const pitch = snapPositionToPitch(
+          beat.voice.bar.clef,
+          position,
+        );
+        note.octave = pitch.octave;
+        note.tone = pitch.tone;
+
+        debugLog("info", "placeNote", "piano note", {
+          trackIndex: sel.trackIndex,
+          staffIndex: sel.staffIndex,
+          barIndex: sel.barIndex,
+          beatIndex: sel.beatIndex,
+          snapPosition: position,
+          clef,
+          octave: note.octave,
+          tone: note.tone,
+          pitch: formatPitch(
+            note.octave as unknown as number,
+            note.tone as unknown as number,
+          ),
+        });
       }
-    } else if (staff.showTablature && staff.tuning.length > 0) {
-      note.fret = 1;
-      note.string = sel.string!;
-    } else {
-      const pitch = snapPositionToPitch(beat.voice.bar.clef, sel.string!);
-      note.octave = pitch.octave;
-      note.tone = pitch.tone;
-    }
 
     beat.addNote(note);
     beat.isEmpty = false;
@@ -3475,6 +3609,188 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         stack: err.stack,
       });
       return false;
+    }
+  },
+
+  // ── Navigation ──────────────────────────────────────────────────────────
+
+  navNextBeat: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api?.score) return;
+    const track = api.score.tracks[sel.trackIndex];
+    if (!track) return;
+    const staff = track.staves[sel.staffIndex];
+    if (!staff) return;
+    const bar = staff.bars[sel.barIndex];
+    if (!bar) return;
+    const voice = bar.voices[sel.voiceIndex];
+    if (!voice) return;
+
+    if (sel.beatIndex < voice.beats.length - 1) {
+      get().setSelection({ ...sel, beatIndex: sel.beatIndex + 1 });
+    } else if (sel.barIndex < staff.bars.length - 1) {
+      get().setSelection({ ...sel, barIndex: sel.barIndex + 1, beatIndex: 0 });
+    }
+  },
+
+  navPrevBeat: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api?.score) return;
+    const track = api.score.tracks[sel.trackIndex];
+    if (!track) return;
+    const staff = track.staves[sel.staffIndex];
+    if (!staff) return;
+
+    if (sel.beatIndex > 0) {
+      get().setSelection({ ...sel, beatIndex: sel.beatIndex - 1 });
+    } else if (sel.barIndex > 0) {
+      const prevBar = staff.bars[sel.barIndex - 1];
+      if (!prevBar) return;
+      const voice = prevBar.voices[sel.voiceIndex];
+      if (!voice) return;
+      get().setSelection({
+        ...sel,
+        barIndex: sel.barIndex - 1,
+        beatIndex: voice.beats.length - 1,
+      });
+    }
+  },
+
+  navMoveUp: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api?.score) return;
+    const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
+    const grid = snapGrids.get(gridKey);
+    if (!grid || grid.positions.length === 0) return;
+
+    if (sel.string === null) {
+      get().setSelection({ ...sel, string: grid.positions[grid.positions.length - 1].string });
+      return;
+    }
+
+    const curIdx = grid.positions.findIndex((p) => p.string === sel.string);
+    if (curIdx > 0) {
+      get().setSelection({ ...sel, string: grid.positions[curIdx - 1].string });
+    }
+  },
+
+  navMoveDown: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api?.score) return;
+    const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
+    const grid = snapGrids.get(gridKey);
+    if (!grid || grid.positions.length === 0) return;
+
+    if (sel.string === null) {
+      get().setSelection({ ...sel, string: grid.positions[0].string });
+      return;
+    }
+
+    const curIdx = grid.positions.findIndex((p) => p.string === sel.string);
+    if (curIdx >= 0 && curIdx < grid.positions.length - 1) {
+      get().setSelection({ ...sel, string: grid.positions[curIdx + 1].string });
+    }
+  },
+
+  navNextBar: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api?.score) return;
+    const track = api.score.tracks[sel.trackIndex];
+    if (!track) return;
+    const staff = track.staves[sel.staffIndex];
+    if (!staff) return;
+
+    if (sel.barIndex < staff.bars.length - 1) {
+      get().setSelection({ ...sel, barIndex: sel.barIndex + 1, beatIndex: 0 });
+    }
+  },
+
+  navPrevBar: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api?.score) return;
+    const track = api.score.tracks[sel.trackIndex];
+    if (!track) return;
+    const staff = track.staves[sel.staffIndex];
+    if (!staff) return;
+
+    if (sel.barIndex > 0) {
+      const prevBar = staff.bars[sel.barIndex - 1];
+      if (!prevBar) return;
+      const voice = prevBar.voices[sel.voiceIndex];
+      if (!voice) return;
+      get().setSelection({
+        ...sel,
+        barIndex: sel.barIndex - 1,
+        beatIndex: voice.beats.length - 1,
+      });
+    }
+  },
+
+  navNextStaff: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api?.score) return;
+    const visible = get().visibleTrackIndices;
+
+    const allStaves: { trackIndex: number; staffIndex: number }[] = [];
+    for (const ti of visible) {
+      const track = api.score.tracks[ti];
+      if (!track) continue;
+      for (let si = 0; si < track.staves.length; si++) {
+        allStaves.push({ trackIndex: ti, staffIndex: si });
+      }
+    }
+
+    const curPos = allStaves.findIndex(
+      (s) => s.trackIndex === sel.trackIndex && s.staffIndex === sel.staffIndex,
+    );
+    if (curPos >= 0 && curPos < allStaves.length - 1) {
+      const next = allStaves[curPos + 1];
+      const barIndex = Math.min(
+        sel.barIndex,
+        (api.score.tracks[next.trackIndex]?.staves[next.staffIndex]?.bars.length ?? 1) - 1,
+      );
+      get().setSelection({
+        trackIndex: next.trackIndex,
+        staffIndex: next.staffIndex,
+        voiceIndex: 0,
+        barIndex,
+        beatIndex: 0,
+        string: null,
+      });
+    }
+  },
+
+  navPrevStaff: () => {
+    const sel = get().selectedBeat;
+    if (!sel || !api?.score) return;
+    const visible = get().visibleTrackIndices;
+
+    const allStaves: { trackIndex: number; staffIndex: number }[] = [];
+    for (const ti of visible) {
+      const track = api.score.tracks[ti];
+      if (!track) continue;
+      for (let si = 0; si < track.staves.length; si++) {
+        allStaves.push({ trackIndex: ti, staffIndex: si });
+      }
+    }
+
+    const curPos = allStaves.findIndex(
+      (s) => s.trackIndex === sel.trackIndex && s.staffIndex === sel.staffIndex,
+    );
+    if (curPos > 0) {
+      const prev = allStaves[curPos - 1];
+      const barIndex = Math.min(
+        sel.barIndex,
+        (api.score.tracks[prev.trackIndex]?.staves[prev.staffIndex]?.bars.length ?? 1) - 1,
+      );
+      get().setSelection({
+        trackIndex: prev.trackIndex,
+        staffIndex: prev.staffIndex,
+        voiceIndex: 0,
+        barIndex,
+        beatIndex: 0,
+        string: null,
+      });
     }
   },
 

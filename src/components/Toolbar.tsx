@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
+import { executeAction } from "@/actions";
 import { usePlayerStore } from "@/stores/player-store";
 import { cn } from "@/lib/utils";
 
@@ -51,16 +52,13 @@ export function Toolbar() {
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
   const loadFile = usePlayerStore((s) => s.loadFile);
-  const playPause = usePlayerStore((s) => s.playPause);
-  const stop = usePlayerStore((s) => s.stop);
-  const setZoom = usePlayerStore((s) => s.setZoom);
   const editorMode = usePlayerStore((s) => s.editorMode);
-  const setEditorMode = usePlayerStore((s) => s.setEditorMode);
 
   const isPlaying = playerState === "playing";
 
   const cycleEditorMode = () => {
-    setEditorMode(editorMode === "essentials" ? "advanced" : "essentials");
+    const nextMode = editorMode === "essentials" ? "advanced" : "essentials";
+    executeAction("view.setEditorMode", nextMode, { t });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -117,7 +115,7 @@ export function Toolbar() {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={stop}
+              onClick={() => executeAction("playback.stop", undefined, { t })}
               disabled={!isPlayerReady}
             >
               <Square className="h-4 w-4" />
@@ -132,7 +130,7 @@ export function Toolbar() {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={playPause}
+              onClick={() => executeAction("playback.setPlaying", !isPlaying, { t })}
               disabled={!isPlayerReady}
             >
               {isPlaying ? (
@@ -187,7 +185,7 @@ export function Toolbar() {
         {/* Zoom */}
         <select
           value={zoom}
-          onChange={(e) => setZoom(Number(e.target.value))}
+          onChange={(e) => executeAction("view.setZoom", Number(e.target.value), { t })}
           className="h-8 rounded-md border bg-transparent px-2 text-xs"
           title={t("toolbar.zoom")}
         >

@@ -118,6 +118,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { executeAction } from "@/actions";
 import { cn } from "@/lib/utils";
 import {
   usePlayerStore,
@@ -869,12 +870,19 @@ function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unk
   const scoreNotices = usePlayerStore((s) => s.scoreNotices);
   const scoreTempo = usePlayerStore((s) => s.scoreTempo);
   const scoreTempoLabel = usePlayerStore((s) => s.scoreTempoLabel);
-  const setMeta = usePlayerStore((s) => s.setScoreMetadata);
-  const setTempo = usePlayerStore((s) => s.setScoreTempo);
 
   const handleMeta = useCallback(
-    (field: ScoreMetadataField) => (value: string) => setMeta(field, value),
-    [setMeta],
+    (field: ScoreMetadataField) => (value: string) => {
+      executeAction("edit.score.setMetadata", { field, value }, { t });
+    },
+    [t],
+  );
+
+  const handleTempo = useCallback(
+    (tempo: number) => {
+      executeAction("edit.score.setTempo", tempo, { t });
+    },
+    [t],
   );
 
   return (
@@ -964,7 +972,7 @@ function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unk
             icon={<Gauge className="h-3.5 w-3.5" />}
             min={20}
             max={400}
-            onCommit={setTempo}
+            onCommit={handleTempo}
           />
           <EditablePropRow
             label={t("sidebar.song.tempoLabel")}
@@ -989,13 +997,6 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   const [tuningOpen, setTuningOpen] = useState(false);
   const track = usePlayerStore((s) => s.tracks[trackIndex]);
   const visibleTrackIndices = usePlayerStore((s) => s.visibleTrackIndices);
-  const setTrackVisible = usePlayerStore((s) => s.setTrackVisible);
-  const setTrackName = usePlayerStore((s) => s.setTrackName);
-  const setTrackShortName = usePlayerStore((s) => s.setTrackShortName);
-  const setStaffCapo = usePlayerStore((s) => s.setStaffCapo);
-  const setStaffTransposition = usePlayerStore((s) => s.setStaffTransposition);
-  const setStaffTuning = usePlayerStore((s) => s.setStaffTuning);
-  const setTrackProgram = usePlayerStore((s) => s.setTrackProgram);
   const getTuningPresets = usePlayerStore((s) => s.getTuningPresets);
 
   if (!track) return null;
@@ -1054,7 +1055,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
         <button
           type="button"
           className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
-          onClick={() => setTrackVisible(trackIndex, !isVisible)}
+          onClick={() => executeAction("edit.track.setVisible", { trackIndex, visible: !isVisible }, { t })}
         >
           {isVisible ? (
             <Eye className="h-3 w-3" />
@@ -1087,13 +1088,13 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
             value={track.name}
             placeholder={t("sidebar.tracks.placeholderName")}
             icon={<Guitar className="h-3 w-3" />}
-            onCommit={(v) => setTrackName(trackIndex, v)}
+            onCommit={(v) => executeAction("edit.track.setName", { trackIndex, name: v }, { t })}
           />
           <EditablePropRow
             label={t("sidebar.tracks.shortName")}
             value={(alphaTabApi?.score?.tracks?.[trackIndex]?.shortName as string) ?? ""}
             placeholder={t("sidebar.tracks.placeholderShortName")}
-            onCommit={(v) => setTrackShortName(trackIndex, v)}
+            onCommit={(v) => executeAction("edit.track.setShortName", { trackIndex, shortName: v }, { t })}
           />
 
           {/* Tuning (only for fretted/tab instruments) */}
@@ -1132,7 +1133,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           preset.tunings.join(",") === staffInfo.tuningValues.join(",") && "bg-accent",
                         )}
                         onClick={() => {
-                          setStaffTuning(trackIndex, 0, preset.tunings);
+                          executeAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: preset.tunings }, { t });
                           setTuningOpen(false);
                         }}
                       >
@@ -1163,7 +1164,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           onClick={() => {
                             const next = [...staffInfo.tuningValues];
                             next[i] = Math.max(0, next[i] - 1);
-                            setStaffTuning(trackIndex, 0, next);
+                            executeAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: next }, { t });
                           }}
                         >
                           <ChevronDown className="h-2.5 w-2.5" />
@@ -1177,7 +1178,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           onClick={() => {
                             const next = [...staffInfo.tuningValues];
                             next[i] = Math.min(127, next[i] + 1);
-                            setStaffTuning(trackIndex, 0, next);
+                            executeAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: next }, { t });
                           }}
                         >
                           <ChevronUp className="h-2.5 w-2.5" />
@@ -1195,7 +1196,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                 value={staffInfo.capo}
                 min={0}
                 max={24}
-                onCommit={(v) => setStaffCapo(trackIndex, 0, v)}
+                onCommit={(v) => executeAction("edit.staff.setCapo", { trackIndex, staffIndex: 0, capo: v }, { t })}
               />
             </>
           )}
@@ -1208,7 +1209,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               suffix={t("sidebar.tracks.semitones")}
               min={-24}
               max={24}
-              onCommit={(v) => setStaffTransposition(trackIndex, 0, v)}
+              onCommit={(v) => executeAction("edit.staff.setTransposition", { trackIndex, staffIndex: 0, semitones: v }, { t })}
             />
           )}
 
@@ -1219,7 +1220,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               value={playbackInfo.program}
               min={0}
               max={127}
-              onCommit={(v) => setTrackProgram(trackIndex, v)}
+              onCommit={(v) => executeAction("edit.track.setProgram", { trackIndex, program: v }, { t })}
             />
           )}
 
@@ -1343,7 +1344,6 @@ function SelectorSection({
   const [addTrackOpen, setAddTrackOpen] = useState(false);
 
   const showSnapGrid = usePlayerStore((s) => s.showSnapGrid);
-  const setShowSnapGrid = usePlayerStore((s) => s.setShowSnapGrid);
 
   const selectedBeat = usePlayerStore((s) => s.selectedBeat);
   const trackInfo = usePlayerStore((s) => s.selectedTrackInfo);
@@ -1528,7 +1528,7 @@ function SelectorSection({
                 ? "bg-primary/15 text-primary"
                 : "text-muted-foreground hover:bg-accent/50",
             )}
-            onClick={() => setShowSnapGrid(!showSnapGrid)}
+            onClick={() => executeAction("view.setShowSnapGrid", !showSnapGrid, { t })}
           >
             <Grid3X3 className="h-3 w-3" />
             {t("sidebar.selector.showSnapGrid")}
@@ -1541,7 +1541,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().navPrevBar()}
+            onClick={() => executeAction("nav.prevBar", undefined, { t })}
           >
             <ChevronsLeft className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navPrevBar")}
@@ -1551,7 +1551,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().navPrevBeat()}
+            onClick={() => executeAction("nav.prevBeat", undefined, { t })}
           >
             <ChevronLeft className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navPrevBeat")}
@@ -1561,7 +1561,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().navMoveUp()}
+            onClick={() => executeAction("nav.moveUp", undefined, { t })}
           >
             <ArrowUp className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navMoveUp")}
@@ -1571,7 +1571,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().navMoveDown()}
+            onClick={() => executeAction("nav.moveDown", undefined, { t })}
           >
             <ArrowDown className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navMoveDown")}
@@ -1581,7 +1581,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().navNextBeat()}
+            onClick={() => executeAction("nav.nextBeat", undefined, { t })}
           >
             {t("sidebar.selector.navNextBeat")}
             <ChevronRight className="h-3 w-3 ml-0.5" />
@@ -1591,7 +1591,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().navNextBar()}
+            onClick={() => executeAction("nav.nextBar", undefined, { t })}
           >
             {t("sidebar.selector.navNextBar")}
             <ChevronsRight className="h-3 w-3 ml-0.5" />
@@ -1601,7 +1601,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().navPrevStaff()}
+            onClick={() => executeAction("nav.prevStaff", undefined, { t })}
           >
             <ChevronUp className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navPrevStaff")}
@@ -1611,7 +1611,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().navNextStaff()}
+            onClick={() => executeAction("nav.nextStaff", undefined, { t })}
           >
             {t("sidebar.selector.navNextStaff")}
             <ChevronDown className="h-3 w-3 ml-0.5" />
@@ -1624,7 +1624,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-2 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().appendRestBefore()}
+            onClick={() => executeAction("edit.beat.insertRestBefore", undefined, { t })}
           >
             {t("sidebar.selector.appendRestBefore")}
           </Button>
@@ -1633,7 +1633,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-2 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().appendRestAfter()}
+            onClick={() => executeAction("edit.beat.insertRestAfter", undefined, { t })}
           >
             {t("sidebar.selector.appendRestAfter")}
           </Button>
@@ -1647,7 +1647,7 @@ function SelectorSection({
             disabled={!selectedBeat || (!note && !beat?.isRest && !beat?.isEmpty)}
             title={deleteBlocked ? t("sidebar.selector.deleteNoteLastRest") : undefined}
             onClick={() => {
-              const ok = usePlayerStore.getState().deleteNote();
+              const ok = executeAction("edit.beat.deleteNote", undefined, { t });
               if (!ok) {
                 setDeleteBlocked(true);
                 if (deleteBlockedTimer.current) clearTimeout(deleteBlockedTimer.current);
@@ -1667,7 +1667,7 @@ function SelectorSection({
               beat?.isEmpty && "bg-primary/15 text-primary",
             )}
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().toggleBeatIsEmpty()}
+            onClick={() => executeAction("edit.beat.toggleEmpty", undefined, { t })}
           >
             {t("sidebar.selector.toggleBeatIsEmpty")}
             {beat != null ? `: ${beat.isEmpty}` : ""}
@@ -1677,7 +1677,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-2 text-[10px]"
             disabled={!selectedBeat || selectedBeat?.string === null || selectedBeat?.string === undefined}
-            onClick={() => usePlayerStore.getState().placeNote()}
+            onClick={() => executeAction("edit.beat.placeNote", undefined, { t })}
           >
             {t("sidebar.selector.placeNote")}
           </Button>
@@ -1686,7 +1686,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-2 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().insertBarBefore()}
+            onClick={() => executeAction("edit.bar.insertBefore", undefined, { t })}
           >
             {t("sidebar.selector.insertBarBefore")}
           </Button>
@@ -1695,7 +1695,7 @@ function SelectorSection({
             size="sm"
             className="h-6 px-2 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => usePlayerStore.getState().insertBarAfter()}
+            onClick={() => executeAction("edit.bar.insertAfter", undefined, { t })}
           >
             {t("sidebar.selector.insertBarAfter")}
           </Button>
@@ -1709,7 +1709,7 @@ function SelectorSection({
             disabled={!selectedBeat}
             title={deleteBarBlocked ? t("sidebar.selector.deleteBarNotEmpty") : undefined}
             onClick={() => {
-              const ok = usePlayerStore.getState().deleteBar();
+              const ok = executeAction("edit.bar.delete", undefined, { t });
               if (!ok) {
                 setDeleteBarBlocked(true);
                 if (deleteBarBlockedTimer.current) clearTimeout(deleteBarBlockedTimer.current);
@@ -1745,7 +1745,7 @@ function SelectorSection({
                     type="button"
                     className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] hover:bg-accent/50"
                     onClick={() => {
-                      usePlayerStore.getState().addTrack(preset.id);
+                      executeAction("edit.track.add", preset.id, { t });
                       setAddTrackOpen(false);
                     }}
                   >
@@ -1779,7 +1779,7 @@ function SelectorSection({
                   deleteTrackPendingTimer.current = null;
                 }
                 setDeleteTrackPending(false);
-                usePlayerStore.getState().deleteTrack(trackIndex);
+                executeAction("edit.track.delete", trackIndex, { t });
               } else {
                 setDeleteTrackPending(true);
                 if (deleteTrackPendingTimer.current) clearTimeout(deleteTrackPendingTimer.current);
@@ -1969,7 +1969,7 @@ function ArticulationSection({
                             )}
                             title={`ID ${entry.id} — staffLine ${entry.staffLine}`}
                             onClick={() =>
-                              usePlayerStore.getState().togglePercussionArticulation(entry.id)
+                              executeAction("edit.beat.togglePercussionArticulation", entry.id, { t })
                             }
                           >
                             {entry.elementType} ({entry.technique})
@@ -2018,7 +2018,7 @@ function ArticulationSection({
                             technique: entry.technique,
                           })}
                           onClick={() =>
-                            usePlayerStore.getState().togglePercussionArticulation(entry.id)
+                            executeAction("edit.beat.togglePercussionArticulation", entry.id, { t })
                           }
                         >
                           {entry.elementType} ({entry.technique})
@@ -2138,8 +2138,6 @@ function NoteSection({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   const isAdvanced = usePlayerStore((s) => s.editorMode === "advanced");
-  const updateBeat = usePlayerStore((s) => s.updateBeat);
-  const updateNote = usePlayerStore((s) => s.updateNote);
   const durationDisabled = beat.graceType !== GraceType.None;
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -2161,7 +2159,7 @@ function NoteSection({
                     durationDisabled
                       ? undefined
                       : (pressed) => {
-                          if (pressed) updateBeat({ duration: d });
+                          if (pressed) executeAction("edit.beat.setDuration", d, { t });
                         }
                   }
                   textIcon={durationLabel(d)}
@@ -2176,7 +2174,7 @@ function NoteSection({
               label={t("sidebar.note.dotted")}
               pressed={beat.dots >= 1}
               onPressedChange={(pressed) =>
-                updateBeat({ dots: pressed ? Math.max(1, beat.dots) : 0 })
+                executeAction("edit.beat.setDots", pressed ? Math.max(1, beat.dots) : 0, { t })
               }
               icon={<CircleDot className="h-3.5 w-3.5" />}
             />
@@ -2185,7 +2183,7 @@ function NoteSection({
                 label={t("sidebar.note.doubleDot")}
                 pressed={beat.dots >= 2}
                 onPressedChange={(pressed) =>
-                  updateBeat({ dots: pressed ? 2 : 1 })
+                  executeAction("edit.beat.setDots", pressed ? 2 : 1, { t })
                 }
                 textIcon=".."
               />
@@ -2228,7 +2226,7 @@ function NoteSection({
                         label={t("sidebar.note.tie")}
                         pressed={note.isTieDestination}
                         onPressedChange={(pressed) =>
-                          updateNote({ isTieDestination: pressed })
+                          executeAction("edit.note.setTie", pressed, { t })
                         }
                         icon={<Link2 className="h-3.5 w-3.5" />}
                       />
@@ -2236,7 +2234,7 @@ function NoteSection({
                         label={t("sidebar.note.ghostNote")}
                         pressed={note.isGhost}
                         onPressedChange={(pressed) =>
-                          updateNote({ isGhost: pressed })
+                          executeAction("edit.note.setGhost", pressed, { t })
                         }
                         icon={<Parentheses className="h-3.5 w-3.5" />}
                       />
@@ -2244,7 +2242,7 @@ function NoteSection({
                         label={t("sidebar.note.deadNote")}
                         pressed={note.isDead}
                         onPressedChange={(pressed) =>
-                          updateNote({ isDead: pressed })
+                          executeAction("edit.note.setDead", pressed, { t })
                         }
                         icon={<X className="h-3.5 w-3.5" />}
                       />
@@ -2255,11 +2253,7 @@ function NoteSection({
                     label={t("sidebar.note.accent")}
                     pressed={note.accentuated === AccentuationType.Normal}
                     onPressedChange={(pressed) =>
-                      updateNote({
-                        accentuated: pressed
-                          ? AccentuationType.Normal
-                          : AccentuationType.None,
-                      })
+                      executeAction("edit.note.setAccent", pressed ? AccentuationType.Normal : AccentuationType.None, { t })
                     }
                     icon={<AccentNormal className="h-3.5 w-3.5" />}
                   />
@@ -2267,11 +2261,7 @@ function NoteSection({
                     label={t("sidebar.note.heavyAccent")}
                     pressed={note.accentuated === AccentuationType.Heavy}
                     onPressedChange={(pressed) =>
-                      updateNote({
-                        accentuated: pressed
-                          ? AccentuationType.Heavy
-                          : AccentuationType.None,
-                      })
+                      executeAction("edit.note.setAccent", pressed ? AccentuationType.Heavy : AccentuationType.None, { t })
                     }
                     icon={<AccentHeavy className="h-3.5 w-3.5" />}
                   />
@@ -2280,11 +2270,7 @@ function NoteSection({
                       label={t("sidebar.note.tenuto")}
                       pressed={note.accentuated === AccentuationType.Tenuto}
                       onPressedChange={(pressed) =>
-                        updateNote({
-                          accentuated: pressed
-                            ? AccentuationType.Tenuto
-                            : AccentuationType.None,
-                        })
+                        executeAction("edit.note.setAccent", pressed ? AccentuationType.Tenuto : AccentuationType.None, { t })
                       }
                       textIcon="—"
                     />
@@ -2293,7 +2279,7 @@ function NoteSection({
                     label={t("sidebar.note.staccato")}
                     pressed={note.isStaccato}
                     onPressedChange={(pressed) =>
-                      updateNote({ isStaccato: pressed })
+                      executeAction("edit.note.setStaccato", pressed, { t })
                     }
                     icon={<Disc className="h-3 w-3" />}
                   />
@@ -2304,7 +2290,7 @@ function NoteSection({
                         label={t("sidebar.note.letRing")}
                         pressed={note.isLetRing}
                         onPressedChange={(pressed) =>
-                          updateNote({ isLetRing: pressed })
+                          executeAction("edit.note.setLetRing", pressed, { t })
                         }
                         icon={<BellRing className="h-3.5 w-3.5" />}
                       />
@@ -2312,7 +2298,7 @@ function NoteSection({
                         label={t("sidebar.note.palmMute")}
                         pressed={note.isPalmMute}
                         onPressedChange={(pressed) =>
-                          updateNote({ isPalmMute: pressed })
+                          executeAction("edit.note.setPalmMute", pressed, { t })
                         }
                         icon={<Hand className="h-3.5 w-3.5" />}
                       />
@@ -2345,7 +2331,7 @@ function NoteSection({
                 label={t("sidebar.note.slashed")}
                 pressed={beat.slashed}
                 onPressedChange={(pressed) =>
-                  updateBeat({ slashed: pressed })
+                  executeAction("edit.beat.setSlashed", pressed, { t })
                 }
                 textIcon="/"
               />
@@ -2353,7 +2339,7 @@ function NoteSection({
                 label={t("sidebar.note.deadSlapped")}
                 pressed={beat.deadSlapped}
                 onPressedChange={(pressed) =>
-                  updateBeat({ deadSlapped: pressed })
+                  executeAction("edit.beat.setDeadSlapped", pressed, { t })
                 }
                 textIcon="DS"
               />
@@ -2361,7 +2347,7 @@ function NoteSection({
                 label={t("sidebar.note.legatoOrigin")}
                 pressed={beat.isLegatoOrigin}
                 onPressedChange={(pressed) =>
-                  updateBeat({ isLegatoOrigin: pressed })
+                  executeAction("edit.beat.setLegatoOrigin", pressed, { t })
                 }
                 textIcon="L"
               />
@@ -2537,8 +2523,6 @@ function EffectsSection({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   const isAdvanced = usePlayerStore((s) => s.editorMode === "advanced");
-  const updateBeat = usePlayerStore((s) => s.updateBeat);
-  const updateNote = usePlayerStore((s) => s.updateNote);
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <SectionHeader title={t("sidebar.effects.title")} helpText={t("sidebar.effects.help")} isOpen={isOpen} dragHandleProps={dragHandleProps} />
@@ -2556,9 +2540,7 @@ function EffectsSection({
                     label={t("sidebar.effects.bend")}
                     pressed={note.bendType !== BendType.None}
                     onPressedChange={(pressed) =>
-                      updateNote({
-                        bendType: pressed ? BendType.Bend : BendType.None,
-                      })
+                      executeAction("edit.note.setBendType", pressed ? BendType.Bend : BendType.None, { t })
                     }
                     icon={<TrendingUp className="h-3.5 w-3.5" />}
                   />
@@ -2566,11 +2548,7 @@ function EffectsSection({
                     label={t("sidebar.effects.vibratoSlight")}
                     pressed={note.vibrato === VibratoType.Slight}
                     onPressedChange={(pressed) =>
-                      updateNote({
-                        vibrato: pressed
-                          ? VibratoType.Slight
-                          : VibratoType.None,
-                      })
+                      executeAction("edit.note.setVibrato", pressed ? VibratoType.Slight : VibratoType.None, { t })
                     }
                     icon={<Waves className="h-3.5 w-3.5" />}
                   />
@@ -2578,11 +2556,7 @@ function EffectsSection({
                     label={t("sidebar.effects.vibratoWide")}
                     pressed={note.vibrato === VibratoType.Wide}
                     onPressedChange={(pressed) =>
-                      updateNote({
-                        vibrato: pressed
-                          ? VibratoType.Wide
-                          : VibratoType.None,
-                      })
+                      executeAction("edit.note.setVibrato", pressed ? VibratoType.Wide : VibratoType.None, { t })
                     }
                     icon={
                       <Waves className="h-3.5 w-3.5" strokeWidth={3} />
@@ -2592,11 +2566,7 @@ function EffectsSection({
                     label={t("sidebar.effects.slideInBelow")}
                     pressed={note.slideInType === SlideInType.IntoFromBelow}
                     onPressedChange={(pressed) =>
-                      updateNote({
-                        slideInType: pressed
-                          ? SlideInType.IntoFromBelow
-                          : SlideInType.None,
-                      })
+                      executeAction("edit.note.setSlideInType", pressed ? SlideInType.IntoFromBelow : SlideInType.None, { t })
                     }
                     icon={<CornerRightUp className="h-3.5 w-3.5" />}
                   />
@@ -2604,11 +2574,7 @@ function EffectsSection({
                     label={t("sidebar.effects.slideInAbove")}
                     pressed={note.slideInType === SlideInType.IntoFromAbove}
                     onPressedChange={(pressed) =>
-                      updateNote({
-                        slideInType: pressed
-                          ? SlideInType.IntoFromAbove
-                          : SlideInType.None,
-                      })
+                      executeAction("edit.note.setSlideInType", pressed ? SlideInType.IntoFromAbove : SlideInType.None, { t })
                     }
                     icon={<CornerRightDown className="h-3.5 w-3.5" />}
                   />
@@ -2616,11 +2582,7 @@ function EffectsSection({
                     label={t("sidebar.effects.slideOut")}
                     pressed={note.slideOutType !== SlideOutType.None}
                     onPressedChange={(pressed) =>
-                      updateNote({
-                        slideOutType: pressed
-                          ? SlideOutType.Shift
-                          : SlideOutType.None,
-                      })
+                      executeAction("edit.note.setSlideOut", pressed ? SlideOutType.Shift : SlideOutType.None, { t })
                     }
                     icon={<MoveRight className="h-3.5 w-3.5" />}
                   />
@@ -2628,7 +2590,7 @@ function EffectsSection({
                     label={t("sidebar.effects.hammerPullOff")}
                     pressed={note.isHammerPullOrigin}
                     onPressedChange={(pressed) =>
-                      updateNote({ isHammerPullOrigin: pressed })
+                      executeAction("edit.note.setHammerPull", pressed, { t })
                     }
                     textIcon="H/P"
                   />
@@ -2637,21 +2599,19 @@ function EffectsSection({
                       <ToggleBtn
                         label={t("sidebar.effects.leftHandTap")}
                         pressed={note.isLeftHandTapped}
-                        onPressedChange={(pressed) =>
-                          updateNote({ isLeftHandTapped: pressed })
-                        }
+                      onPressedChange={(pressed) =>
+                        executeAction("edit.note.setLeftHandTapped", pressed, { t })
+                      }
                         textIcon="T+"
                       />
                       <ToggleBtn
                         label={t("sidebar.effects.trill")}
                         pressed={note.trillValue >= 0}
                         onPressedChange={(pressed) =>
-                          updateNote({
+                          executeAction("edit.note.setTrill", {
                             trillValue: pressed ? 0 : -1,
-                            trillSpeed: pressed
-                              ? Duration.Sixteenth
-                              : Duration.Quarter,
-                          })
+                            trillSpeed: pressed ? Duration.Sixteenth : Duration.Quarter,
+                          }, { t })
                         }
                         textIcon="tr"
                       />
@@ -2659,11 +2619,7 @@ function EffectsSection({
                         label={t("sidebar.effects.harmonics")}
                         pressed={note.harmonicType !== HarmonicType.None}
                         onPressedChange={(pressed) =>
-                          updateNote({
-                            harmonicType: pressed
-                              ? HarmonicType.Natural
-                              : HarmonicType.None,
-                          })
+                          executeAction("edit.note.setHarmonicType", pressed ? HarmonicType.Natural : HarmonicType.None, { t })
                         }
                         icon={<Sparkles className="h-3.5 w-3.5" />}
                       />
@@ -2671,11 +2627,7 @@ function EffectsSection({
                         label={t("sidebar.effects.ornament")}
                         pressed={note.ornament !== NoteOrnament.None}
                         onPressedChange={(pressed) =>
-                          updateNote({
-                            ornament: pressed
-                              ? NoteOrnament.Turn
-                              : NoteOrnament.None,
-                          })
+                          executeAction("edit.note.setOrnament", pressed ? NoteOrnament.Turn : NoteOrnament.None, { t })
                         }
                         icon={<RotateCcw className="h-3.5 w-3.5" />}
                       />
@@ -2730,9 +2682,7 @@ function EffectsSection({
                 label={t("sidebar.effects.beatVibrato")}
                 pressed={beat.vibrato !== VibratoType.None}
                 onPressedChange={(pressed) =>
-                  updateBeat({
-                    vibrato: pressed ? VibratoType.Slight : VibratoType.None,
-                  })
+                  executeAction("edit.beat.setVibrato", pressed ? VibratoType.Slight : VibratoType.None, { t })
                 }
                 icon={<Waves className="h-3.5 w-3.5" />}
               />
@@ -2745,9 +2695,7 @@ function EffectsSection({
                 label={t("sidebar.effects.pickStrokeUp")}
                 pressed={beat.pickStroke === PickStroke.Up}
                 onPressedChange={(pressed) =>
-                  updateBeat({
-                    pickStroke: pressed ? PickStroke.Up : PickStroke.None,
-                  })
+                  executeAction("edit.beat.setPickStroke", pressed ? PickStroke.Up : PickStroke.None, { t })
                 }
                 icon={<ArrowUp className="h-3.5 w-3.5" />}
               />
@@ -2755,9 +2703,7 @@ function EffectsSection({
                 label={t("sidebar.effects.pickStrokeDown")}
                 pressed={beat.pickStroke === PickStroke.Down}
                 onPressedChange={(pressed) =>
-                  updateBeat({
-                    pickStroke: pressed ? PickStroke.Down : PickStroke.None,
-                  })
+                  executeAction("edit.beat.setPickStroke", pressed ? PickStroke.Down : PickStroke.None, { t })
                 }
                 icon={<ArrowDown className="h-3.5 w-3.5" />}
               />
@@ -2767,11 +2713,7 @@ function EffectsSection({
                     label={t("sidebar.effects.whammyBar")}
                     pressed={beat.whammyBarType !== WhammyType.None}
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        whammyBarType: pressed
-                          ? WhammyType.Hold
-                          : WhammyType.None,
-                      })
+                      executeAction("edit.beat.setWhammyBarType", pressed ? WhammyType.Hold : WhammyType.None, { t })
                     }
                     icon={<AudioWaveform className="h-3.5 w-3.5" />}
                   />
@@ -2782,11 +2724,7 @@ function EffectsSection({
                       beat.brushType === BrushType.ArpeggioUp
                     }
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        brushType: pressed
-                          ? BrushType.BrushUp
-                          : BrushType.None,
-                      })
+                      executeAction("edit.beat.setBrushType", pressed ? BrushType.BrushUp : BrushType.None, { t })
                     }
                     icon={<AccentHeavy className="h-3.5 w-3.5" />}
                   />
@@ -2797,11 +2735,7 @@ function EffectsSection({
                       beat.brushType === BrushType.ArpeggioDown
                     }
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        brushType: pressed
-                          ? BrushType.BrushDown
-                          : BrushType.None,
-                      })
+                      executeAction("edit.beat.setBrushType", pressed ? BrushType.BrushDown : BrushType.None, { t })
                     }
                     icon={<ChevronsDown className="h-3.5 w-3.5" />}
                   />
@@ -2845,7 +2779,7 @@ function EffectsSection({
                   label={dynamicTooltip(d, t)}
                   pressed={beat.dynamics === d}
                   onPressedChange={(pressed) => {
-                    if (pressed) updateBeat({ dynamics: d });
+                    if (pressed) executeAction("edit.beat.setDynamics", d, { t });
                   }}
                   textIcon={dynamicLabel(d)}
                   className="text-[9px]"
@@ -2860,11 +2794,7 @@ function EffectsSection({
               label={t("sidebar.effects.crescendo")}
               pressed={beat.crescendo === CrescendoType.Crescendo}
               onPressedChange={(pressed) =>
-                updateBeat({
-                  crescendo: pressed
-                    ? CrescendoType.Crescendo
-                    : CrescendoType.None,
-                })
+                executeAction("edit.beat.setCrescendo", pressed ? CrescendoType.Crescendo : CrescendoType.None, { t })
               }
               textIcon="<"
             />
@@ -2872,11 +2802,7 @@ function EffectsSection({
               label={t("sidebar.effects.decrescendo")}
               pressed={beat.crescendo === CrescendoType.Decrescendo}
               onPressedChange={(pressed) =>
-                updateBeat({
-                  crescendo: pressed
-                    ? CrescendoType.Decrescendo
-                    : CrescendoType.None,
-                })
+                executeAction("edit.beat.setCrescendo", pressed ? CrescendoType.Decrescendo : CrescendoType.None, { t })
               }
               textIcon=">"
             />
@@ -2896,7 +2822,7 @@ function EffectsSection({
                     label={t("sidebar.effects.tap")}
                     pressed={beat.tap}
                     onPressedChange={(pressed) =>
-                      updateBeat({ tap: pressed })
+                      executeAction("edit.beat.setTap", pressed, { t })
                     }
                     icon={<Pointer className="h-3.5 w-3.5" />}
                   />
@@ -2904,7 +2830,7 @@ function EffectsSection({
                     label={t("sidebar.effects.slap")}
                     pressed={beat.slap}
                     onPressedChange={(pressed) =>
-                      updateBeat({ slap: pressed })
+                      executeAction("edit.beat.setSlap", pressed, { t })
                     }
                     icon={<Hand className="h-3.5 w-3.5" />}
                   />
@@ -2912,7 +2838,7 @@ function EffectsSection({
                     label={t("sidebar.effects.pop")}
                     pressed={beat.pop}
                     onPressedChange={(pressed) =>
-                      updateBeat({ pop: pressed })
+                      executeAction("edit.beat.setPop", pressed, { t })
                     }
                     icon={<CircleDot className="h-3.5 w-3.5" />}
                   />
@@ -2920,9 +2846,7 @@ function EffectsSection({
                     label={t("sidebar.effects.fadeIn")}
                     pressed={beat.fade === FadeType.FadeIn}
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        fade: pressed ? FadeType.FadeIn : FadeType.None,
-                      })
+                      executeAction("edit.beat.setFade", pressed ? FadeType.FadeIn : FadeType.None, { t })
                     }
                     icon={<SunMedium className="h-3.5 w-3.5" />}
                   />
@@ -2930,9 +2854,7 @@ function EffectsSection({
                     label={t("sidebar.effects.fadeOut")}
                     pressed={beat.fade === FadeType.FadeOut}
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        fade: pressed ? FadeType.FadeOut : FadeType.None,
-                      })
+                      executeAction("edit.beat.setFade", pressed ? FadeType.FadeOut : FadeType.None, { t })
                     }
                     textIcon="FO"
                   />
@@ -2940,11 +2862,7 @@ function EffectsSection({
                     label={t("sidebar.effects.volumeSwell")}
                     pressed={beat.fade === FadeType.VolumeSwell}
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        fade: pressed
-                          ? FadeType.VolumeSwell
-                          : FadeType.None,
-                      })
+                      executeAction("edit.beat.setFade", pressed ? FadeType.VolumeSwell : FadeType.None, { t })
                     }
                     textIcon="VS"
                   />
@@ -2963,9 +2881,7 @@ function EffectsSection({
                     label={t("sidebar.effects.golpeThumb")}
                     pressed={beat.golpe === GolpeType.Thumb}
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        golpe: pressed ? GolpeType.Thumb : GolpeType.None,
-                      })
+                      executeAction("edit.beat.setGolpe", pressed ? GolpeType.Thumb : GolpeType.None, { t })
                     }
                     icon={<Target className="h-3.5 w-3.5" />}
                   />
@@ -2973,9 +2889,7 @@ function EffectsSection({
                     label={t("sidebar.effects.golpeFinger")}
                     pressed={beat.golpe === GolpeType.Finger}
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        golpe: pressed ? GolpeType.Finger : GolpeType.None,
-                      })
+                      executeAction("edit.beat.setGolpe", pressed ? GolpeType.Finger : GolpeType.None, { t })
                     }
                     textIcon="GF"
                   />
@@ -2983,9 +2897,7 @@ function EffectsSection({
                     label={t("sidebar.effects.wahOpen")}
                     pressed={beat.wahPedal === WahPedal.Open}
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        wahPedal: pressed ? WahPedal.Open : WahPedal.None,
-                      })
+                      executeAction("edit.beat.setWahPedal", pressed ? WahPedal.Open : WahPedal.None, { t })
                     }
                     icon={<ToggleLeft className="h-3.5 w-3.5" />}
                   />
@@ -2993,9 +2905,7 @@ function EffectsSection({
                     label={t("sidebar.effects.wahClosed")}
                     pressed={beat.wahPedal === WahPedal.Closed}
                     onPressedChange={(pressed) =>
-                      updateBeat({
-                        wahPedal: pressed ? WahPedal.Closed : WahPedal.None,
-                      })
+                      executeAction("edit.beat.setWahPedal", pressed ? WahPedal.Closed : WahPedal.None, { t })
                     }
                     icon={<ToggleRight className="h-3.5 w-3.5" />}
                   />

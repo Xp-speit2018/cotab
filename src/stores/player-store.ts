@@ -49,6 +49,10 @@ import type {
 
 let api: alphaTab.AlphaTabApi | null = null;
 
+export function getApi(): alphaTab.AlphaTabApi | null {
+  return api;
+}
+
 /**
  * Captures the last mousedown coordinates (in AlphaTab rendering space)
  * so the beatMouseDown handler can use boundsLookup for precise per-track
@@ -78,14 +82,20 @@ let snapGridScrollHandler: (() => void) | null = null;
  * Used by rest insertion actions so the cursor is positioned with
  * fresh boundsLookup instead of stale pre-render data.
  */
-let pendingSelection: {
+export interface PendingSelection {
   trackIndex: number;
   barIndex: number;
   beatIndex: number;
   staffIndex: number;
   voiceIndex: number;
   string: number | null;
-} | null = null;
+}
+
+let pendingSelection: PendingSelection | null = null;
+
+export function setPendingSelection(selection: PendingSelection | null): void {
+  pendingSelection = selection;
+}
 
 /** Quarter-note tick constant (AlphaTab uses 960 ticks per quarter). */
 const QUARTER_TICKS = 960;
@@ -106,7 +116,7 @@ interface SnapPosition {
 }
 
 /** Per-track snap grid built from rendered NoteBounds. */
-interface SnapGrid {
+export interface SnapGrid {
   positions: SnapPosition[]; // sorted by y (ascending)
   noteWidth: number; // typical note head width
   noteHeight: number; // typical note head height
@@ -119,6 +129,10 @@ interface SnapGrid {
 
 /** Key = `${trackIndex}:${staffIndex}` → snap grid for that track/staff. */
 const snapGrids = new Map<string, SnapGrid>();
+
+export function getSnapGrids(): Map<string, SnapGrid> {
+  return snapGrids;
+}
 
 /** A group of percussion articulations sharing the same staff line. */
 export interface PercSnapGroup {
@@ -327,7 +341,7 @@ export type ScoreMetadataField =
   | "tempoLabel";
 
 /** Maps alphaTab Score field names to player-store state keys. */
-const SCORE_FIELD_TO_STATE: Record<ScoreMetadataField, keyof PlayerState> = {
+export const SCORE_FIELD_TO_STATE: Record<ScoreMetadataField, keyof PlayerState> = {
   title: "scoreTitle",
   subTitle: "scoreSubTitle",
   artist: "scoreArtist",
@@ -369,10 +383,6 @@ export interface PlayerState {
   scoreTempo: number;
   scoreTempoLabel: string;
 
-  // Score metadata editing
-  setScoreMetadata: (field: ScoreMetadataField, value: string) => void;
-  setScoreTempo: (tempo: number) => void;
-
   // Tracks
   tracks: TrackInfo[];
   /** Derived from api.tracks on every renderFinished — single source of truth. */
@@ -398,6 +408,9 @@ export interface PlayerState {
   // View
   zoom: number;
 
+  /** When false, the note editor sidebar is collapsed (e.g. toggle via view.setSidebarVisible). */
+  sidebarVisible: boolean;
+
   /** Sidebar NOTE/EFFECTS display mode: essentials (common) or advanced (full). Persisted in localStorage. */
   editorMode: "essentials" | "advanced";
 
@@ -409,116 +422,23 @@ export interface PlayerState {
   showSnapGrid: boolean;
 
   // Actions
-  setEditorMode: (mode: "essentials" | "advanced") => void;
   setDrumIconStyle: (style: "notation" | "instrument") => void;
   initialize: (mainEl: HTMLElement, viewportEl: HTMLElement) => void;
   destroy: () => void;
   loadFile: (data: File | ArrayBuffer | Uint8Array) => void;
   loadUrl: (url: string) => void;
-  playPause: () => void;
-  stop: () => void;
   setPlaybackSpeed: (speed: number) => void;
   setMasterVolume: (volume: number) => void;
   toggleLoop: () => void;
   setTrackVolume: (trackIndex: number, volume: number) => void;
   setTrackMute: (trackIndex: number, muted: boolean) => void;
   setTrackSolo: (trackIndex: number, solo: boolean) => void;
-  setTrackVisible: (trackIndex: number, visible: boolean) => void;
-  setTrackName: (trackIndex: number, name: string) => void;
-  setTrackShortName: (trackIndex: number, shortName: string) => void;
   setTrackColor: (trackIndex: number, r: number, g: number, b: number) => void;
-  setStaffCapo: (trackIndex: number, staffIndex: number, capo: number) => void;
-  setStaffTransposition: (trackIndex: number, staffIndex: number, semitones: number) => void;
-  setStaffTuning: (trackIndex: number, staffIndex: number, tuningValues: number[]) => void;
   setTrackProgram: (trackIndex: number, program: number) => void;
   getTuningPresets: (stringCount: number) => TuningPresetInfo[];
   formatTuningNote: (midiValue: number) => string;
   setZoom: (zoom: number) => void;
   setShowSnapGrid: (show: boolean) => void;
-
-  // Rest insertion
-  /** Insert a rest beat before the currently selected beat. */
-  appendRestBefore: (duration?: alphaTab.model.Duration) => void;
-  /** Insert a rest beat after the currently selected beat. */
-  appendRestAfter: (duration?: alphaTab.model.Duration) => void;
-
-  // Beat manipulation
-  /** Toggle the `isEmpty` flag on the selected beat and re-render. */
-  toggleBeatIsEmpty: () => void;
-
-  /**
-   * Apply property updates to the currently selected beat and re-render.
-   * Use for NOTE/EFFECTS sidebar reactivity (duration, dots, dynamics, etc.).
-   */
-  updateBeat: (updates: Record<string, unknown>) => void;
-
-  /**
-   * Apply property updates to the currently selected note and re-render.
-   * No-op if no note is selected. Use for note-level effects and articulation.
-   */
-  updateNote: (updates: Record<string, unknown>) => void;
-
-  // Note placement
-  /** Place a quarter note at the selected beat + string position. */
-  placeNote: () => void;
-
-  // Note deletion
-  /**
-   * Delete the selected note/rest programmatically.
-   *
-   * 1. Note shares a beat with other notes → remove just that note.
-   * 2. Note is the only one on its beat → clear notes so the beat becomes a rest.
-   * 3. Selected beat is a rest → remove it from the voice.
-   *    Returns `false` (and does nothing) when the rest is the last beat
-   *    in the bar, since removing it would leave the voice in an invalid state.
-   */
-  deleteNote: () => boolean;
-
-  // Bar manipulation
-  /** Insert an empty (rest-filled) bar before the selected bar, across all tracks. */
-  insertBarBefore: () => void;
-  /** Insert an empty (rest-filled) bar after the selected bar, across all tracks. */
-  insertBarAfter: () => void;
-  /**
-   * Delete the selected bar across all tracks.
-   * Returns `false` (and does nothing) when any track's bar contains notes,
-   * or when it is the only bar in the score.
-   */
-  deleteBar: () => boolean;
-
-  // Track manipulation (debug)
-  /** Add a new track from a preset (acoustic guitar, drumkit, etc.). */
-  addTrack: (presetId: string) => void;
-  /**
-   * Delete the track at the given index.
-   * Returns false when score has only one track (cannot delete the last track).
-   */
-  deleteTrack: (trackIndex: number) => boolean;
-
-  // Percussion articulation
-  /**
-   * Toggle a GP7 percussion articulation on the selected beat.
-   * Mutual exclusion: only one articulation per staffLine is allowed.
-   */
-  togglePercussionArticulation: (gp7Id: number) => void;
-
-  // Navigation
-  /** Move cursor to the next beat; wraps to the first beat of the next bar. */
-  navNextBeat: () => void;
-  /** Move cursor to the previous beat; wraps to the last beat of the previous bar. */
-  navPrevBeat: () => void;
-  /** Move cursor up one string (tab) or snap-grid position (notation/percussion). */
-  navMoveUp: () => void;
-  /** Move cursor down one string (tab) or snap-grid position (notation/percussion). */
-  navMoveDown: () => void;
-  /** Move cursor to the first beat of the next bar. */
-  navNextBar: () => void;
-  /** Move cursor to the last beat of the previous bar. */
-  navPrevBar: () => void;
-  /** Move cursor to the next visible staff (across tracks). */
-  navNextStaff: () => void;
-  /** Move cursor to the previous visible staff (across tracks). */
-  navPrevStaff: () => void;
 
   // Selection
   /** Programmatic selection — single entry point for any selection trigger. */
@@ -801,7 +721,7 @@ export function resolveGp7Id(note: alphaTab.model.Note): number {
  * Convert a GP7 articulation ID to the value expected by
  * `note.percussionArticulation` for the given track.
  */
-function gp7IdToPercussionArticulation(
+export function gp7IdToPercussionArticulation(
   track: alphaTab.model.Track,
   gp7Id: number,
 ): number {
@@ -841,7 +761,7 @@ function resolvePercussionName(
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getTrack(index: number): alphaTab.model.Track | undefined {
+export function getTrack(index: number): alphaTab.model.Track | undefined {
   return api?.score?.tracks[index];
 }
 
@@ -849,7 +769,7 @@ function getTrack(index: number): alphaTab.model.Track | undefined {
  * Navigate the AlphaTab score model to retrieve the Beat at the given indices.
  * Returns `null` if any index is out of range or the score is not loaded.
  */
-function resolveBeat(
+export function resolveBeat(
   trackIndex: number,
   barIndex: number,
   beatIndex: number,
@@ -911,7 +831,10 @@ function findBeatBounds(
 
 const DIATONIC_TONES = [0, 2, 4, 5, 7, 9, 11]; // C D E F G A B
 
-function formatPitch(octave: number | null | undefined, tone: number | null | undefined): string {
+export function formatPitch(
+  octave: number | null | undefined,
+  tone: number | null | undefined,
+): string {
   if (octave === null || octave === undefined || tone === null || tone === undefined) {
     return "n/a";
   }
@@ -927,7 +850,7 @@ function formatPitch(octave: number | null | undefined, tone: number | null | un
  *
  * Position 11 is the anchor (middle line of the staff).
  */
-function snapPositionToPitch(
+export function snapPositionToPitch(
   clef: alphaTab.model.Clef,
   position: number,
 ): { octave: number; tone: number } {
@@ -977,7 +900,7 @@ function snapPositionToPitch(
  * Covers a standard 5-piece kit spread across the staff.
  * Keys are alphaTab `InstrumentArticulation.staffLine` values.
  */
-const DRUM_STAFFLINE_DEFAULTS: Record<number, number> = {
+export const DRUM_STAFFLINE_DEFAULTS: Record<number, number> = {
   [-3]: 52,  // China
   [-2]: 49,  // Crash high
   [-1]: 42,  // Closed Hi-Hat
@@ -1000,7 +923,7 @@ const DRUM_STAFFLINE_DEFAULTS: Record<number, number> = {
  * Copies time signature from the nearest existing bar.
  * Calls `score.finish()` + `applyBarWarningStyles()` before returning.
  */
-function insertBarAtIndex(
+export function insertBarAtIndex(
   score: alphaTab.model.Score,
   insertIndex: number,
 ): void {
@@ -1103,7 +1026,7 @@ function insertBarAtIndex(
  * Build a new Track from a preset and add bars for every MasterBar in the score.
  * Caller must call score.addTrack(track), score.finish(), then api.renderTracks().
  */
-function createTrackFromPreset(
+export function createTrackFromPreset(
   score: alphaTab.model.Score,
   preset: TrackPreset,
 ): alphaTab.model.Track {
@@ -1304,7 +1227,7 @@ function sumBeatDurationTicks(voice: alphaTab.model.Voice): number {
  * Check whether a bar index is "empty" across ALL tracks — meaning every
  * track/staff/voice at that index contains only rests (no real notes).
  */
-function isBarEmptyAllTracks(barIndex: number): boolean {
+export function isBarEmptyAllTracks(barIndex: number): boolean {
   const score = api?.score;
   if (!score) return false;
   for (const track of score.tracks) {
@@ -1793,7 +1716,7 @@ function fixAlphaTabCursors(
  * Each grid position gets a thin horizontal line so developers can verify
  * that the snap grid aligns with actual staff lines and spaces.
  */
-function updateSnapGridOverlay(show: boolean): void {
+export function updateSnapGridOverlay(show: boolean): void {
   // Remove existing marker container
   if (snapGridOverlayContainer) {
     snapGridOverlayContainer.remove();
@@ -1937,7 +1860,7 @@ const BAR_STYLE_ELEMENTS: number[] = [
  * Must be called **before** `api.render()` / `api.renderTracks()` so the
  * renderer picks up the updated styles.
  */
-function applyBarWarningStyles(): void {
+export function applyBarWarningStyles(): void {
   const score = api?.score;
   if (!score) return;
 
@@ -2065,7 +1988,7 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
 }
 
 /** Extract track-level info from an AlphaTab Track model object. */
-function extractTrackInfo(track: alphaTab.model.Track): SelectedTrackInfo {
+export function extractTrackInfo(track: alphaTab.model.Track): SelectedTrackInfo {
   const pi = track.playbackInfo;
   const c = track.color;
   return {
@@ -2082,7 +2005,7 @@ function extractTrackInfo(track: alphaTab.model.Track): SelectedTrackInfo {
 }
 
 /** Extract staff-level info from an AlphaTab Staff model object. */
-function extractStaffInfo(staff: alphaTab.model.Staff): SelectedStaffInfo {
+export function extractStaffInfo(staff: alphaTab.model.Staff): SelectedStaffInfo {
   return {
     index: staff.index,
     showTablature: staff.showTablature,
@@ -2099,7 +2022,7 @@ function extractStaffInfo(staff: alphaTab.model.Staff): SelectedStaffInfo {
 }
 
 /** Extract voice-level info from an AlphaTab Voice model object. */
-function extractVoiceInfo(voice: alphaTab.model.Voice): SelectedVoiceInfo {
+export function extractVoiceInfo(voice: alphaTab.model.Voice): SelectedVoiceInfo {
   return {
     index: voice.index,
     isEmpty: voice.isEmpty,
@@ -2108,7 +2031,7 @@ function extractVoiceInfo(voice: alphaTab.model.Voice): SelectedVoiceInfo {
 }
 
 /** Extract detailed bar info from an AlphaTab Bar + MasterBar. */
-function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
+export function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
   const mb = bar.masterBar;
   const tempoAuto = mb.tempoAutomation;
   return {
@@ -2184,43 +2107,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedNoteIndex: -1,
   selectedString: null,
   zoom: 1,
+  sidebarVisible: true,
   editorMode: getInitialEditorMode(),
   drumIconStyle: getInitialDrumIconStyle(),
   showSnapGrid: false,
-
-  setEditorMode: (mode) => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(EDITOR_MODE_STORAGE_KEY, mode);
-    }
-    set({ editorMode: mode });
-  },
 
   setDrumIconStyle: (style) => {
     if (typeof localStorage !== "undefined") {
       localStorage.setItem(DRUM_ICON_STYLE_STORAGE_KEY, style);
     }
     set({ drumIconStyle: style });
-  },
-
-  // ── Score Metadata Editing ───────────────────────────────────────────────
-
-  setScoreMetadata: (field, value) => {
-    const score = api?.score;
-    if (!score) return;
-    // alphaTab Score properties are typed individually; use bracket access via unknown
-    (score as unknown as Record<string, unknown>)[field] = value;
-    const stateKey = SCORE_FIELD_TO_STATE[field];
-    set({ [stateKey]: value } as Partial<PlayerState>);
-    api!.render();
-  },
-
-  setScoreTempo: (tempo) => {
-    const score = api?.score;
-    if (!score || tempo <= 0) return;
-    // tempo getter is read-only on Score; update via the first masterBar header
-    (score as unknown as Record<string, unknown>).tempo = tempo;
-    set({ scoreTempo: tempo });
-    api!.render();
   },
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -2584,15 +2480,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   // ── Playback Controls ────────────────────────────────────────────────────
 
-  playPause: () => {
-    api?.playPause();
-  },
-
-  stop: () => {
-    api?.stop();
-    set({ playerState: "stopped", currentTime: 0 });
-  },
-
   setPlaybackSpeed: (speed) => {
     if (!api) return;
     api.playbackSpeed = speed;
@@ -2647,77 +2534,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
   },
 
-  setTrackVisible: (trackIndex, visible) => {
-    if (!api?.score) return;
-
-    const current = new Set(get().visibleTrackIndices);
-    if (visible) {
-      current.add(trackIndex);
-    } else {
-      current.delete(trackIndex);
-    }
-
-    if (current.size === 0) return;
-
-    // When hiding the currently selected track, move the selection to the
-    // nearest remaining visible staff so the cursor doesn't vanish.
-    const sel = get().selectedBeat;
-    if (!visible && sel && sel.trackIndex === trackIndex) {
-      const sorted = [...current].sort((a, b) => a - b);
-      const fallback = sorted.find((i) => i > trackIndex) ?? sorted[sorted.length - 1];
-      if (fallback !== undefined) {
-        const barIndex = Math.min(
-          sel.barIndex,
-          (api.score!.tracks[fallback]?.staves[0]?.bars.length ?? 1) - 1,
-        );
-        pendingSelection = {
-          trackIndex: fallback,
-          staffIndex: 0,
-          voiceIndex: 0,
-          barIndex,
-          beatIndex: 0,
-          string: null,
-        };
-      }
-    }
-
-    const tracksToRender = [...current]
-      .sort((a, b) => a - b)
-      .map((i) => api!.score!.tracks[i])
-      .filter(Boolean);
-
-    api.renderTracks(tracksToRender);
-  },
-
-  // ── Track Metadata Editing ───────────────────────────────────────────────
-
-  setTrackName: (trackIndex, name) => {
-    const track = getTrack(trackIndex);
-    if (!api || !track) return;
-    track.name = name;
-    set({
-      tracks: get().tracks.map((t) =>
-        t.index === trackIndex ? { ...t, name } : t,
-      ),
-    });
-    const sel = get().selectedBeat;
-    if (sel && sel.trackIndex === trackIndex) {
-      set({ selectedTrackInfo: extractTrackInfo(track) });
-    }
-    api.render();
-  },
-
-  setTrackShortName: (trackIndex, shortName) => {
-    const track = getTrack(trackIndex);
-    if (!api || !track) return;
-    track.shortName = shortName;
-    const sel = get().selectedBeat;
-    if (sel && sel.trackIndex === trackIndex) {
-      set({ selectedTrackInfo: extractTrackInfo(track) });
-    }
-    api.render();
-  },
-
   setTrackColor: (trackIndex, r, g, b) => {
     const track = getTrack(trackIndex);
     if (!api || !track) return;
@@ -2725,55 +2541,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const sel = get().selectedBeat;
     if (sel && sel.trackIndex === trackIndex) {
       set({ selectedTrackInfo: extractTrackInfo(track) });
-    }
-    api.render();
-  },
-
-  setStaffCapo: (trackIndex, staffIndex, capo) => {
-    const track = getTrack(trackIndex);
-    if (!api || !track) return;
-    const staff = track.staves[staffIndex];
-    if (!staff) return;
-    staff.capo = capo;
-    const sel = get().selectedBeat;
-    if (sel && sel.trackIndex === trackIndex) {
-      set({ selectedStaffInfo: extractStaffInfo(staff) });
-    }
-    api.render();
-  },
-
-  setStaffTransposition: (trackIndex, staffIndex, semitones) => {
-    const track = getTrack(trackIndex);
-    if (!api || !track) return;
-    const staff = track.staves[staffIndex];
-    if (!staff) return;
-    staff.transpositionPitch = semitones;
-    staff.displayTranspositionPitch = semitones;
-    const sel = get().selectedBeat;
-    if (sel && sel.trackIndex === trackIndex) {
-      set({ selectedStaffInfo: extractStaffInfo(staff) });
-    }
-    api.render();
-  },
-
-  setStaffTuning: (trackIndex, staffIndex, tuningValues) => {
-    const track = getTrack(trackIndex);
-    if (!api || !track) return;
-    const staff = track.staves[staffIndex];
-    if (!staff) return;
-    const found = alphaTab.model.Tuning.findTuning(tuningValues);
-    if (found) {
-      staff.stringTuning = found;
-    } else {
-      staff.stringTuning = new alphaTab.model.Tuning(
-        undefined,
-        tuningValues,
-        false,
-      );
-    }
-    const sel = get().selectedBeat;
-    if (sel && sel.trackIndex === trackIndex) {
-      set({ selectedStaffInfo: extractStaffInfo(staff) });
     }
     api.render();
   },
@@ -2814,984 +2581,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setShowSnapGrid: (show) => {
     set({ showSnapGrid: show });
     updateSnapGridOverlay(show);
-  },
-
-  // ── Rest Insertion ──────────────────────────────────────────────────────
-
-  appendRestBefore: (duration) => {
-    const sel = get().selectedBeat;
-    if (!sel || !api) return;
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return;
-    const voice = beat.voice;
-
-    const restBeat = new alphaTab.model.Beat();
-    restBeat.isEmpty = false;
-    restBeat.duration = duration ?? beat.duration;
-    restBeat.notes = [];
-
-    // Insert before the current beat by splicing into voice.beats
-    const idx = voice.beats.indexOf(beat);
-    if (idx >= 0) {
-      voice.beats.splice(idx, 0, restBeat);
-      // Re-parent: set voice reference
-      restBeat.voice = voice;
-    } else {
-      voice.addBeat(restBeat);
-    }
-    voice.finish(api.settings);
-    applyBarWarningStyles();
-
-    // Defer selection to postRenderFinished so the cursor uses fresh bounds
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: idx >= 0 ? idx : sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
-  },
-
-  appendRestAfter: (duration) => {
-    const sel = get().selectedBeat;
-    if (!sel || !api) return;
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return;
-    const voice = beat.voice;
-
-    const restBeat = new alphaTab.model.Beat();
-    restBeat.isEmpty = false;
-    restBeat.duration = duration ?? beat.duration;
-    restBeat.notes = [];
-
-    // Insert after the current beat
-    const idx = voice.beats.indexOf(beat);
-    if (idx >= 0 && idx < voice.beats.length - 1) {
-      voice.beats.splice(idx + 1, 0, restBeat);
-      restBeat.voice = voice;
-    } else {
-      voice.addBeat(restBeat);
-    }
-    voice.finish(api.settings);
-    applyBarWarningStyles();
-
-    // Defer selection to postRenderFinished so the cursor uses fresh bounds
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: idx >= 0 ? idx + 1 : voice.beats.length - 1,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
-  },
-
-  // ── Beat Manipulation ──────────────────────────────────────────────────
-
-  toggleBeatIsEmpty: () => {
-    try {
-      const sel = get().selectedBeat;
-      if (!sel || !api) return;
-
-      const beat = resolveBeat(
-        sel.trackIndex,
-        sel.barIndex,
-        sel.beatIndex,
-        sel.staffIndex,
-        sel.voiceIndex,
-      );
-      if (!beat) return;
-
-      beat.isEmpty = !beat.isEmpty;
-      beat.voice.finish(api.settings);
-      applyBarWarningStyles();
-
-      pendingSelection = {
-        trackIndex: sel.trackIndex,
-        barIndex: sel.barIndex,
-        beatIndex: sel.beatIndex,
-        staffIndex: sel.staffIndex,
-        voiceIndex: sel.voiceIndex,
-        string: sel.string,
-      };
-      api.render();
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      debugLog("error", "toggleBeatIsEmpty", "failed", {
-        error: err.message,
-        stack: err.stack,
-      });
-    }
-  },
-
-  updateBeat: (updates) => {
-    const sel = get().selectedBeat;
-    if (!sel || !api) return;
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return;
-    const b = beat as unknown as Record<string, unknown>;
-    for (const [key, value] of Object.entries(updates)) {
-      b[key] = value;
-    }
-    beat.voice.finish(api.settings);
-    applyBarWarningStyles();
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
-  },
-
-  updateNote: (updates) => {
-    const sel = get().selectedBeat;
-    const noteIndex = get().selectedNoteIndex;
-    if (!sel || !api || noteIndex < 0) return;
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat || noteIndex >= beat.notes.length) return;
-    const note = beat.notes[noteIndex] as unknown as Record<string, unknown>;
-    for (const [key, value] of Object.entries(updates)) {
-      note[key] = value;
-    }
-    beat.voice.finish(api.settings);
-    applyBarWarningStyles();
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
-  },
-
-  // ── Percussion Articulation Toggle ───────────────────────────────────
-
-  togglePercussionArticulation: (gp7Id: number) => {
-    const sel = get().selectedBeat;
-    if (!sel || !api) return;
-
-    const score = api.score;
-    if (!score) return;
-
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return;
-
-    const track = score.tracks[sel.trackIndex];
-    if (!track?.isPercussion) return;
-
-    let existingExact: alphaTab.model.Note | null = null;
-
-    for (const n of beat.notes) {
-      const nGp7 = resolveGp7Id(n);
-      if (nGp7 === gp7Id) {
-        existingExact = n;
-        break;
-      }
-    }
-
-    if (existingExact) {
-      // Toggle off — remove the note
-      const idx = beat.notes.indexOf(existingExact);
-      if (idx >= 0) beat.notes.splice(idx, 1);
-    } else {
-      // Toggle on — add new note
-      const note = new alphaTab.model.Note();
-      note.percussionArticulation =
-        gp7IdToPercussionArticulation(track, gp7Id);
-      beat.addNote(note);
-      beat.isEmpty = false;
-    }
-
-    beat.voice.finish(api.settings);
-    applyBarWarningStyles();
-
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
-  },
-
-  // ── Note Deletion ─────────────────────────────────────────────────────
-
-  deleteNote: () => {
-    try {
-      const sel = get().selectedBeat;
-      if (!sel || !api) return false;
-
-      const beat = resolveBeat(
-        sel.trackIndex,
-        sel.barIndex,
-        sel.beatIndex,
-        sel.staffIndex,
-        sel.voiceIndex,
-      );
-      if (!beat) return false;
-
-      const voice = beat.voice;
-      const noteIdx = get().selectedNoteIndex;
-
-      // ── Case 3: Beat is a rest — remove the beat ────────────────────────
-      if (beat.notes.length === 0 || beat.isRest) {
-        if (voice.beats.length <= 1) {
-          // Last rest in bar — block deletion
-          return false;
-        }
-
-        const beatIdx = voice.beats.indexOf(beat);
-        if (beatIdx < 0) return false;
-
-        voice.beats.splice(beatIdx, 1);
-        voice.finish(api.settings);
-        applyBarWarningStyles();
-
-        const newBeatIdx = Math.min(beatIdx, voice.beats.length - 1);
-        pendingSelection = {
-          trackIndex: sel.trackIndex,
-          barIndex: sel.barIndex,
-          beatIndex: newBeatIdx,
-          staffIndex: sel.staffIndex,
-          voiceIndex: sel.voiceIndex,
-          string: sel.string,
-        };
-
-        api.render();
-        return true;
-      }
-
-      // ── Cases 1 & 2: Beat has notes ─────────────────────────────────────
-      if (noteIdx < 0 || noteIdx >= beat.notes.length) return false;
-
-      const staff = beat.voice.bar.staff;
-      const track = staff.track;
-      const note = beat.notes[noteIdx];
-
-      if (!track.isPercussion && !staff.showTablature) {
-        debugLog("info", "deleteNote", "piano note", {
-          trackIndex: sel.trackIndex,
-          staffIndex: sel.staffIndex,
-          barIndex: sel.barIndex,
-          beatIndex: sel.beatIndex,
-          noteIndex: noteIdx,
-          clef: beat.voice.bar.clef as unknown as number,
-          octave: note.octave,
-          tone: note.tone,
-          pitch: formatPitch(
-            note.octave as unknown as number,
-            note.tone as unknown as number,
-          ),
-        });
-      }
-
-      if (beat.notes.length > 1) {
-      // Case 1: Multiple notes on beat — remove only the selected one
-      beat.notes.splice(noteIdx, 1);
-      for (let i = 0; i < beat.notes.length; i++) {
-        beat.notes[i].index = i;
-      }
-      voice.finish(api.settings);
-      applyBarWarningStyles();
-
-      const newNoteIdx = Math.min(noteIdx, beat.notes.length - 1);
-      pendingSelection = {
-        trackIndex: sel.trackIndex,
-        barIndex: sel.barIndex,
-        beatIndex: sel.beatIndex,
-        staffIndex: sel.staffIndex,
-        voiceIndex: sel.voiceIndex,
-        string: beat.notes[newNoteIdx]?.string ?? sel.string,
-      };
-    } else {
-      // Case 2: Only note on beat — remove it so the beat becomes a rest
-      beat.notes = [];
-      voice.finish(api.settings);
-      applyBarWarningStyles();
-
-      pendingSelection = {
-        trackIndex: sel.trackIndex,
-        barIndex: sel.barIndex,
-        beatIndex: sel.beatIndex,
-        staffIndex: sel.staffIndex,
-        voiceIndex: sel.voiceIndex,
-        string: sel.string,
-      };
-    }
-
-    api.render();
-    return true;
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      debugLog("error", "deleteNote", "failed", {
-        error: err.message,
-        stack: err.stack,
-      });
-      return false;
-    }
-  },
-
-  // ── Note Placement ────────────────────────────────────────────────────
-
-  placeNote: () => {
-    try {
-      const sel = get().selectedBeat;
-      if (!sel || !api || sel.string === null) return;
-
-      const score = api.score;
-      if (!score) return;
-
-      const beat = resolveBeat(
-        sel.trackIndex,
-        sel.barIndex,
-        sel.beatIndex,
-        sel.staffIndex,
-        sel.voiceIndex,
-      );
-      if (!beat) return;
-
-      const track = score.tracks[sel.trackIndex];
-      if (!track) return;
-      const staff = track.staves[sel.staffIndex];
-      if (!staff) return;
-
-      const note = new alphaTab.model.Note();
-
-      if (track.isPercussion) {
-        // sel.string IS the staffLine — look up articulation directly
-        const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
-        const grid = snapGrids.get(gridKey);
-        const observedArtic = grid?.percussionMap?.get(sel.string);
-        if (observedArtic !== undefined) {
-          note.percussionArticulation = observedArtic;
-        } else {
-          const defaultGp7Id = DRUM_STAFFLINE_DEFAULTS[sel.string];
-          if (defaultGp7Id !== undefined) {
-            note.percussionArticulation =
-              gp7IdToPercussionArticulation(track, defaultGp7Id);
-          } else {
-            const idsAtLine = GP7_STAFF_LINE_MAP.get(sel.string);
-            const fallbackId = idsAtLine?.[0] ?? 42;
-            note.percussionArticulation =
-              gp7IdToPercussionArticulation(track, fallbackId);
-          }
-        }
-      } else if (staff.showTablature && staff.tuning.length > 0) {
-        note.fret = 1;
-        note.string = sel.string!;
-      } else {
-        const clef = beat.voice.bar.clef as unknown as number;
-        const position = sel.string!;
-        const pitch = snapPositionToPitch(
-          beat.voice.bar.clef,
-          position,
-        );
-        note.octave = pitch.octave;
-        note.tone = pitch.tone;
-
-        debugLog("info", "placeNote", "piano note", {
-          trackIndex: sel.trackIndex,
-          staffIndex: sel.staffIndex,
-          barIndex: sel.barIndex,
-          beatIndex: sel.beatIndex,
-          snapPosition: position,
-          clef,
-          octave: note.octave,
-          tone: note.tone,
-          pitch: formatPitch(
-            note.octave as unknown as number,
-            note.tone as unknown as number,
-          ),
-        });
-      }
-
-    beat.addNote(note);
-    beat.isEmpty = false;
-    beat.duration = alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
-
-    beat.voice.finish(api.settings);
-    applyBarWarningStyles();
-
-    pendingSelection = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-    api.render();
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      debugLog("error", "placeNote", "failed", {
-        error: err.message,
-        stack: err.stack,
-      });
-    }
-  },
-
-  // ── Bar Manipulation ──────────────────────────────────────────────────
-
-  insertBarBefore: () => {
-    try {
-      const sel = get().selectedBeat;
-      if (!sel || !api) {
-        debugLog("warn", "insertBarBefore", "no selection or API");
-        return;
-      }
-      const score = api.score;
-      if (!score) {
-        debugLog("warn", "insertBarBefore", "no score");
-        return;
-      }
-
-      debugLog("info", "insertBarBefore", "start", {
-        barIndex: sel.barIndex,
-        trackCount: score.tracks.length,
-        masterBarCount: score.masterBars.length,
-      });
-
-      insertBarAtIndex(score, sel.barIndex);
-
-      pendingSelection = {
-        trackIndex: sel.trackIndex,
-        barIndex: sel.barIndex + 1,
-        beatIndex: sel.beatIndex,
-        staffIndex: sel.staffIndex,
-        voiceIndex: sel.voiceIndex,
-        string: sel.string,
-      };
-
-      debugLog("info", "insertBarBefore", "complete", {
-        newBarCount: score.masterBars.length,
-        newSelectionBarIndex: sel.barIndex + 1,
-      });
-
-      api.render();
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      debugLog("error", "insertBarBefore", "failed", {
-        error: err.message,
-        stack: err.stack,
-      });
-      // Re-throw to maintain existing behavior
-      throw err;
-    }
-  },
-
-  insertBarAfter: () => {
-    try {
-      const sel = get().selectedBeat;
-      if (!sel || !api) {
-        debugLog("warn", "insertBarAfter", "no selection or API");
-        return;
-      }
-      const score = api.score;
-      if (!score) {
-        debugLog("warn", "insertBarAfter", "no score");
-        return;
-      }
-
-      debugLog("info", "insertBarAfter", "start", {
-        barIndex: sel.barIndex,
-        insertIndex: sel.barIndex + 1,
-        trackCount: score.tracks.length,
-        masterBarCount: score.masterBars.length,
-      });
-
-      insertBarAtIndex(score, sel.barIndex + 1);
-
-      pendingSelection = {
-        trackIndex: sel.trackIndex,
-        barIndex: sel.barIndex,
-        beatIndex: sel.beatIndex,
-        staffIndex: sel.staffIndex,
-        voiceIndex: sel.voiceIndex,
-        string: sel.string,
-      };
-
-      debugLog("info", "insertBarAfter", "complete", {
-        newBarCount: score.masterBars.length,
-        selectionBarIndex: sel.barIndex,
-      });
-
-      api.render();
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      debugLog("error", "insertBarAfter", "failed", {
-        error: err.message,
-        stack: err.stack,
-      });
-      // Re-throw to maintain existing behavior
-      throw err;
-    }
-  },
-
-  deleteBar: () => {
-    try {
-      const sel = get().selectedBeat;
-      if (!sel || !api) {
-        debugLog("warn", "deleteBar", "no selection or API");
-        return false;
-      }
-      const score = api.score;
-      if (!score) {
-        debugLog("warn", "deleteBar", "no score");
-        return false;
-      }
-
-      debugLog("info", "deleteBar", "start", {
-        barIndex: sel.barIndex,
-        masterBarCount: score.masterBars.length,
-      });
-
-      if (score.masterBars.length <= 1) {
-        debugLog("warn", "deleteBar", "blocked — only bar remaining");
-        return false;
-      }
-
-      const isEmpty = isBarEmptyAllTracks(sel.barIndex);
-      debugLog("debug", "deleteBar", "bar empty check", {
-        barIndex: sel.barIndex,
-        isEmpty,
-      });
-
-      if (!isEmpty) {
-        debugLog("warn", "deleteBar", "blocked — bar not empty");
-        return false;
-      }
-
-      debugLog("debug", "deleteBar", "splicing masterBars and staff bars");
-      score.masterBars.splice(sel.barIndex, 1);
-      for (const track of score.tracks) {
-        for (const staff of track.staves) {
-          staff.bars.splice(sel.barIndex, 1);
-        }
-      }
-
-      // Re-index all masterBars and rebuild linked lists
-      for (let i = 0; i < score.masterBars.length; i++) {
-        const masterBar = score.masterBars[i];
-        masterBar.index = i;
-        masterBar.previousMasterBar = i > 0 ? score.masterBars[i - 1] : null;
-        masterBar.nextMasterBar = i < score.masterBars.length - 1 ? score.masterBars[i + 1] : null;
-      }
-      debugLog("debug", "deleteBar", "masterBar indices and links updated");
-
-      // Re-index all bars in all staves and rebuild linked lists
-      for (const track of score.tracks) {
-        for (const staff of track.staves) {
-          for (let i = 0; i < staff.bars.length; i++) {
-            const bar = staff.bars[i];
-            bar.staff = staff;
-            bar.index = i;
-            bar.previousBar = i > 0 ? staff.bars[i - 1] : null;
-            bar.nextBar = i < staff.bars.length - 1 ? staff.bars[i + 1] : null;
-          }
-        }
-      }
-      debugLog("debug", "deleteBar", "bar indices and links updated");
-
-      debugLog("debug", "deleteBar", "calling score.finish()");
-      score.finish(api.settings);
-      debugLog("debug", "deleteBar", "score.finish() completed");
-
-      debugLog("debug", "deleteBar", "calling applyBarWarningStyles()");
-      applyBarWarningStyles();
-
-      const newBarIndex = Math.min(sel.barIndex, score.masterBars.length - 1);
-      pendingSelection = {
-        trackIndex: sel.trackIndex,
-        barIndex: newBarIndex,
-        beatIndex: 0,
-        staffIndex: sel.staffIndex,
-        voiceIndex: sel.voiceIndex,
-        string: sel.string,
-      };
-
-      debugLog("info", "deleteBar", "complete", {
-        newBarCount: score.masterBars.length,
-        newSelectionBarIndex: newBarIndex,
-      });
-
-      api.render();
-      return true;
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      debugLog("error", "deleteBar", "failed", {
-        error: err.message,
-        stack: err.stack,
-      });
-      return false;
-    }
-  },
-
-  addTrack: (presetId) => {
-    if (!api?.score) {
-      debugLog("warn", "addTrack", "no API or score");
-      return;
-    }
-    const preset = TRACK_PRESETS.find((p) => p.id === presetId);
-    if (!preset) {
-      debugLog("warn", "addTrack", "unknown preset", { presetId });
-      return;
-    }
-    const score = api.score;
-    try {
-      debugLog("info", "addTrack", "start", {
-        presetId,
-        presetName: preset.defaultName,
-        trackCount: score.tracks.length,
-        masterBarCount: score.masterBars.length,
-      });
-      const track = createTrackFromPreset(score, preset);
-      debugLog("debug", "addTrack", "calling score.addTrack", {
-        trackName: track.name,
-        staffCount: track.staves.length,
-        barCount: track.staves[0]?.bars.length ?? 0,
-      });
-      score.addTrack(track);
-      debugLog("debug", "addTrack", "calling score.finish()");
-      score.finish(api.settings);
-      debugLog("debug", "addTrack", "score.finish() completed");
-      applyBarWarningStyles();
-      const existing = get().tracks;
-      const tracks: TrackInfo[] = score.tracks.map((t, i) => ({
-        index: i,
-        name: t.name,
-        volume: existing[i]?.volume ?? 1,
-        isMuted: existing[i]?.isMuted ?? false,
-        isSolo: existing[i]?.isSolo ?? false,
-        isPercussion: t.isPercussion,
-      }));
-      set({ tracks });
-      debugLog("debug", "addTrack", "state updated", { newTracksLength: tracks.length });
-      api.renderTracks(score.tracks);
-      debugLog("info", "addTrack", "complete", {
-        newTrackIndex: track.index,
-        newTrackName: track.name,
-        totalTracks: score.tracks.length,
-      });
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      debugLog("error", "addTrack", "failed", {
-        presetId,
-        error: err.message,
-        stack: err.stack,
-      });
-      throw err;
-    }
-  },
-
-  deleteTrack: (trackIndex) => {
-    if (!api?.score) {
-      debugLog("warn", "deleteTrack", "no API or score");
-      return false;
-    }
-    const score = api.score;
-    if (score.tracks.length <= 1) {
-      debugLog("warn", "deleteTrack", "blocked — last track", {
-        trackCount: score.tracks.length,
-      });
-      return false;
-    }
-    const removedTrack = score.tracks[trackIndex];
-    try {
-      debugLog("info", "deleteTrack", "start", {
-        trackIndex,
-        trackName: removedTrack?.name ?? "—",
-        trackCount: score.tracks.length,
-        masterBarCount: score.masterBars.length,
-      });
-      const sel = get().selectedBeat;
-      score.tracks.splice(trackIndex, 1);
-      debugLog("debug", "deleteTrack", "spliced track", {
-        newTrackCount: score.tracks.length,
-      });
-      for (let i = 0; i < score.tracks.length; i++) {
-        score.tracks[i].index = i;
-      }
-      debugLog("debug", "deleteTrack", "track indices updated");
-      score.finish(api.settings);
-      debugLog("debug", "deleteTrack", "score.finish() completed");
-      applyBarWarningStyles();
-      if (sel && sel.trackIndex === trackIndex) {
-        debugLog("debug", "deleteTrack", "selection cleared (was on deleted track)");
-        set({
-          selectedBeat: null,
-          selectedTrackInfo: null,
-          selectedStaffInfo: null,
-          selectedBarInfo: null,
-          selectedVoiceInfo: null,
-          selectedBeatInfo: null,
-          selectedNoteIndex: -1,
-          selectedString: null,
-        });
-      } else if (sel && sel.trackIndex > trackIndex) {
-        debugLog("debug", "deleteTrack", "selection adjusted", {
-          oldTrackIndex: sel.trackIndex,
-          newTrackIndex: sel.trackIndex - 1,
-        });
-        pendingSelection = {
-          trackIndex: sel.trackIndex - 1,
-          barIndex: sel.barIndex,
-          beatIndex: sel.beatIndex,
-          staffIndex: sel.staffIndex,
-          voiceIndex: sel.voiceIndex,
-          string: sel.string,
-        };
-      }
-      const existing = get().tracks;
-      const tracks: TrackInfo[] = score.tracks.map((t, i) => {
-        const oldIndex = i < trackIndex ? i : i + 1;
-        return {
-          index: i,
-          name: t.name,
-          volume: existing[oldIndex]?.volume ?? 1,
-          isMuted: existing[oldIndex]?.isMuted ?? false,
-          isSolo: existing[oldIndex]?.isSolo ?? false,
-          isPercussion: t.isPercussion,
-        };
-      });
-      set({ tracks });
-      debugLog("debug", "deleteTrack", "state updated", { newTracksLength: tracks.length });
-      api.renderTracks(score.tracks);
-      debugLog("info", "deleteTrack", "complete", {
-        removedTrackName: removedTrack?.name ?? "—",
-        newTrackCount: score.tracks.length,
-      });
-      return true;
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      debugLog("error", "deleteTrack", "failed", {
-        trackIndex,
-        error: err.message,
-        stack: err.stack,
-      });
-      return false;
-    }
-  },
-
-  // ── Navigation ──────────────────────────────────────────────────────────
-
-  navNextBeat: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api?.score) return;
-    const track = api.score.tracks[sel.trackIndex];
-    if (!track) return;
-    const staff = track.staves[sel.staffIndex];
-    if (!staff) return;
-    const bar = staff.bars[sel.barIndex];
-    if (!bar) return;
-    const voice = bar.voices[sel.voiceIndex];
-    if (!voice) return;
-
-    if (sel.beatIndex < voice.beats.length - 1) {
-      get().setSelection({ ...sel, beatIndex: sel.beatIndex + 1 });
-    } else if (sel.barIndex < staff.bars.length - 1) {
-      get().setSelection({ ...sel, barIndex: sel.barIndex + 1, beatIndex: 0 });
-    }
-  },
-
-  navPrevBeat: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api?.score) return;
-    const track = api.score.tracks[sel.trackIndex];
-    if (!track) return;
-    const staff = track.staves[sel.staffIndex];
-    if (!staff) return;
-
-    if (sel.beatIndex > 0) {
-      get().setSelection({ ...sel, beatIndex: sel.beatIndex - 1 });
-    } else if (sel.barIndex > 0) {
-      const prevBar = staff.bars[sel.barIndex - 1];
-      if (!prevBar) return;
-      const voice = prevBar.voices[sel.voiceIndex];
-      if (!voice) return;
-      get().setSelection({
-        ...sel,
-        barIndex: sel.barIndex - 1,
-        beatIndex: voice.beats.length - 1,
-      });
-    }
-  },
-
-  navMoveUp: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api?.score) return;
-    const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
-    const grid = snapGrids.get(gridKey);
-    if (!grid || grid.positions.length === 0) return;
-
-    if (sel.string === null) {
-      get().setSelection({ ...sel, string: grid.positions[grid.positions.length - 1].string });
-      return;
-    }
-
-    const curIdx = grid.positions.findIndex((p) => p.string === sel.string);
-    if (curIdx > 0) {
-      get().setSelection({ ...sel, string: grid.positions[curIdx - 1].string });
-    }
-  },
-
-  navMoveDown: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api?.score) return;
-    const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
-    const grid = snapGrids.get(gridKey);
-    if (!grid || grid.positions.length === 0) return;
-
-    if (sel.string === null) {
-      get().setSelection({ ...sel, string: grid.positions[0].string });
-      return;
-    }
-
-    const curIdx = grid.positions.findIndex((p) => p.string === sel.string);
-    if (curIdx >= 0 && curIdx < grid.positions.length - 1) {
-      get().setSelection({ ...sel, string: grid.positions[curIdx + 1].string });
-    }
-  },
-
-  navNextBar: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api?.score) return;
-    const track = api.score.tracks[sel.trackIndex];
-    if (!track) return;
-    const staff = track.staves[sel.staffIndex];
-    if (!staff) return;
-
-    if (sel.barIndex < staff.bars.length - 1) {
-      get().setSelection({ ...sel, barIndex: sel.barIndex + 1, beatIndex: 0 });
-    }
-  },
-
-  navPrevBar: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api?.score) return;
-    const track = api.score.tracks[sel.trackIndex];
-    if (!track) return;
-    const staff = track.staves[sel.staffIndex];
-    if (!staff) return;
-
-    if (sel.barIndex > 0) {
-      const prevBar = staff.bars[sel.barIndex - 1];
-      if (!prevBar) return;
-      const voice = prevBar.voices[sel.voiceIndex];
-      if (!voice) return;
-      get().setSelection({
-        ...sel,
-        barIndex: sel.barIndex - 1,
-        beatIndex: voice.beats.length - 1,
-      });
-    }
-  },
-
-  navNextStaff: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api?.score) return;
-    const visible = get().visibleTrackIndices;
-
-    const allStaves: { trackIndex: number; staffIndex: number }[] = [];
-    for (const ti of visible) {
-      const track = api.score.tracks[ti];
-      if (!track) continue;
-      for (let si = 0; si < track.staves.length; si++) {
-        allStaves.push({ trackIndex: ti, staffIndex: si });
-      }
-    }
-
-    const curPos = allStaves.findIndex(
-      (s) => s.trackIndex === sel.trackIndex && s.staffIndex === sel.staffIndex,
-    );
-    if (curPos >= 0 && curPos < allStaves.length - 1) {
-      const next = allStaves[curPos + 1];
-      const barIndex = Math.min(
-        sel.barIndex,
-        (api.score.tracks[next.trackIndex]?.staves[next.staffIndex]?.bars.length ?? 1) - 1,
-      );
-      get().setSelection({
-        trackIndex: next.trackIndex,
-        staffIndex: next.staffIndex,
-        voiceIndex: 0,
-        barIndex,
-        beatIndex: 0,
-        string: null,
-      });
-    }
-  },
-
-  navPrevStaff: () => {
-    const sel = get().selectedBeat;
-    if (!sel || !api?.score) return;
-    const visible = get().visibleTrackIndices;
-
-    const allStaves: { trackIndex: number; staffIndex: number }[] = [];
-    for (const ti of visible) {
-      const track = api.score.tracks[ti];
-      if (!track) continue;
-      for (let si = 0; si < track.staves.length; si++) {
-        allStaves.push({ trackIndex: ti, staffIndex: si });
-      }
-    }
-
-    const curPos = allStaves.findIndex(
-      (s) => s.trackIndex === sel.trackIndex && s.staffIndex === sel.staffIndex,
-    );
-    if (curPos > 0) {
-      const prev = allStaves[curPos - 1];
-      const barIndex = Math.min(
-        sel.barIndex,
-        (api.score.tracks[prev.trackIndex]?.staves[prev.staffIndex]?.bars.length ?? 1) - 1,
-      );
-      get().setSelection({
-        trackIndex: prev.trackIndex,
-        staffIndex: prev.staffIndex,
-        voiceIndex: 0,
-        barIndex,
-        beatIndex: 0,
-        string: null,
-      });
-    }
   },
 
   // ── Selection ───────────────────────────────────────────────────────────

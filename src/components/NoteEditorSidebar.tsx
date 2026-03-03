@@ -120,21 +120,23 @@ import {
 } from "@/components/ui/popover";
 import { executeAction } from "@/actions";
 import { cn } from "@/lib/utils";
+import { usePlayerStore } from "@/stores/player-store";
 import {
-  usePlayerStore,
-  PERC_SNAP_GROUPS,
-  TRACK_PRESETS,
   ESSENTIAL_ARTICULATION_GROUPS,
   GP7_DEF_BY_ID,
-} from "@/stores/player-store";
+  PERC_SNAP_GROUPS,
+  TRACK_PRESETS,
+} from "@/stores/player-internals";
 import { getCategoryLabelKey } from "@/components/DrumIcons";
 import type {
+  PercArticulationDef,
+  PercSnapGroup,
   ScoreMetadataField,
   SelectedBeatInfo,
   SelectedBarInfo,
   SelectedNoteInfo,
   TuningPresetInfo,
-} from "@/stores/player-store";
+} from "@/stores/player-types";
 import { useDebugLogStore, type LogLevel } from "@/stores/debug-log-store";
 import { FpsSection } from "@/components/FpsMonitor";
 import {
@@ -1927,11 +1929,11 @@ function ArticulationSection({
               )}
             </div>
             <div className="space-y-1">
-              {PERC_SNAP_GROUPS.map((group) => {
+              {PERC_SNAP_GROUPS.map((group: PercSnapGroup) => {
                 const isGroupSelected = group.staffLine === selectedString;
                 const groupHidden = selectedOnly && !isGroupSelected;
                 if (groupHidden) {
-                  const hasActiveInGroup = group.entries.some((e) => activeGp7Ids.has(e.id));
+                  const hasActiveInGroup = group.entries.some((e: PercArticulationDef) => activeGp7Ids.has(e.id));
                   if (!hasActiveInGroup) return null;
                 }
                 return (
@@ -1951,7 +1953,7 @@ function ArticulationSection({
                       <div className="flex-1 border-b border-border/30" />
                     </div>
                     <div className="flex flex-wrap gap-0.5">
-                      {group.entries.map((entry) => {
+                      {group.entries.map((entry: PercArticulationDef) => {
                         const isActive = activeGp7Ids.has(entry.id);
                         const isDisabled =
                           !beat || (groupHidden && !isActive);

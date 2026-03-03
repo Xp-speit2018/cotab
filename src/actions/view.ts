@@ -63,7 +63,17 @@ const setShowSnapGridAction: ActionDefinition<boolean> = {
   ],
   execute: (show, _context) => {
     usePlayerStore.setState({ showSnapGrid: show });
-    updateSnapGridOverlay(show);
+    const sel = usePlayerStore.getState().selectedBeat;
+    updateSnapGridOverlay(
+      show,
+      sel
+        ? {
+            selectedString: sel.string ?? null,
+            trackIndex: sel.trackIndex,
+            staffIndex: sel.staffIndex,
+          }
+        : undefined,
+    );
   },
 };
 

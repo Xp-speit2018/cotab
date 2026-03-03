@@ -258,7 +258,12 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
 
     if (existingExact) {
       const idx = beat.notes.indexOf(existingExact);
-      if (idx >= 0) beat.notes.splice(idx, 1);
+      if (idx >= 0) {
+        beat.notes.splice(idx, 1);
+        for (let i = 0; i < beat.notes.length; i++) {
+          beat.notes[i].index = i;
+        }
+      }
     } else {
       const note = new alphaTab.model.Note();
       note.percussionArticulation =

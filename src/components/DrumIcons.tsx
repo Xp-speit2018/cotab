@@ -4,12 +4,9 @@
  */
 
 import type { ReactNode } from "react";
-import {
-  GiDrum,
-  GiDrumKit,
-} from "react-icons/gi";
-import { GP7_DEF_BY_ID } from "@/stores/player-store";
-import type { DrumCategoryId } from "@/stores/player-store";
+import { GiDrum, GiDrumKit } from "react-icons/gi";
+import { GP7_DEF_BY_ID } from "@/stores/player-internals";
+import type { DrumCategoryId } from "@/stores/player-types";
 
 const SIZE = 16;
 

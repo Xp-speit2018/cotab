@@ -146,6 +146,8 @@ function updateCursorRect(
   cursorElement.style.height = `${h}px`;
 }
 
+// Monkey-patch: AlphaTab mis-positions its built-in bar/beat cursors on
+// overfull bars. We override the CSS transforms using the correct bounds.
 function fixAlphaTabCursors(
   trackIndex: number,
   staffIndex: number,

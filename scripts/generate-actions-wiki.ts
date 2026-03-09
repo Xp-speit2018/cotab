@@ -159,12 +159,14 @@ function formatParam(p: ActionParam): string {
 function generateMarkdown(actions: ActionInfo[], i18n: Record<string, unknown>): string {
   const lines: string[] = [];
 
-  lines.push("# Actions Reference");
+  lines.push("# Actions — Full List");
   lines.push("");
   lines.push(
     "> **Auto-generated** — do not edit manually. " +
     `Last updated: ${new Date().toISOString().slice(0, 10)}`
   );
+  lines.push("");
+  lines.push("See [Actions](Actions) for a conceptual overview of the action system.");
   lines.push("");
 
   // Group by category

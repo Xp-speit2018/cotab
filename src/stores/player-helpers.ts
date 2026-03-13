@@ -50,7 +50,21 @@ export function resolveBeat(
 
 // ─── Note placement / pitch ──────────────────────────────────────────────────
 
-const DIATONIC_TONES = [0, 2, 4, 5, 7, 9, 11];
+const DEGREE_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
+
+/**
+ * Mirrors AlphaTab AccidentalHelper._octaveSteps:
+ * the number of diatonic steps from the top of the rendering space
+ * down to note-value 0 for each clef.
+ * Index order: [Neutral=0, C3=1, C4=2, F4=3, G2=4]
+ */
+const CLEF_OCTAVE_STEPS: Record<number, number> = {
+  0: 38,
+  1: 32,
+  2: 30,
+  3: 26,
+  4: 38,
+};
 
 export function formatPitch(
   octave: number | null | undefined,
@@ -65,49 +79,32 @@ export function formatPitch(
   return `${name}${octave}`;
 }
 
+/**
+ * Convert a snap-grid position to AlphaTab note.octave / note.tone,
+ * using the exact same diatonic maths as AlphaTab's AccidentalHelper.
+ *
+ * Grid positions: string = staffStep + 7, where staffStep 0 = top staff
+ * line and each increment = one half-space downward.
+ *
+ * AlphaTab formula (AccidentalHelper.calculateNoteSteps):
+ *   staffStep = octaveSteps[clef] − spellingOctave × 7 − degree
+ *
+ * We invert it to recover spellingOctave & degree, then convert to
+ * the note-model convention where note.octave = spellingOctave + 1.
+ */
 export function snapPositionToPitch(
   clef: alphaTab.model.Clef,
   position: number,
 ): { octave: number; tone: number } {
-  let refOctave: number;
-  let refScaleIdx: number;
+  const clefValue = clef as unknown as number;
+  const staffStep = position - 7;
+  const octaveSteps = CLEF_OCTAVE_STEPS[clefValue] ?? 38;
 
-  switch (clef as unknown as number) {
-    case 4:
-      refOctave = 4;
-      refScaleIdx = 6;
-      break;
-    case 3:
-      refOctave = 3;
-      refScaleIdx = 1;
-      break;
-    case 1:
-      refOctave = 4;
-      refScaleIdx = 0;
-      break;
-    case 2:
-      refOctave = 3;
-      refScaleIdx = 5;
-      break;
-    default:
-      refOctave = 4;
-      refScaleIdx = 6;
-  }
+  const total = octaveSteps - staffStep;
+  const spellingOctave = Math.floor(total / 7);
+  const degree = ((total % 7) + 7) % 7;
 
-  const steps = 11 - position;
-  let scaleIdx = refScaleIdx + steps;
-  let octave = refOctave;
-
-  while (scaleIdx >= 7) {
-    scaleIdx -= 7;
-    octave++;
-  }
-  while (scaleIdx < 0) {
-    scaleIdx += 7;
-    octave--;
-  }
-
-  return { octave, tone: DIATONIC_TONES[scaleIdx] };
+  return { octave: spellingOctave + 1, tone: DEGREE_SEMITONES[degree] };
 }
 
 // ─── Duration helpers (internal for applyBarWarningStyles) ────────────────────

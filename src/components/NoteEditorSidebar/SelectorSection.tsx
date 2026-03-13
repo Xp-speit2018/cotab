@@ -27,15 +27,9 @@ import {
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { executeAction } from "@/actions";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/player-store";
-import { TRACK_PRESETS } from "@/stores/player-internals";
 import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/player-types";
 import { SectionHeader } from "./primitives";
 import {
@@ -132,7 +126,6 @@ export function SelectorSection({
   const deleteBarBlockedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [deleteTrackPending, setDeleteTrackPending] = useState(false);
   const deleteTrackPendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [addTrackOpen, setAddTrackOpen] = useState(false);
 
   const showSnapGrid = usePlayerStore((s) => s.showSnapGrid);
 
@@ -506,40 +499,20 @@ export function SelectorSection({
               ? t("sidebar.selector.deleteBarNotEmpty")
               : t("sidebar.selector.deleteBar")}
           </Button>
-          <Popover open={addTrackOpen} onOpenChange={setAddTrackOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className={cn(
-                  "inline-flex items-center justify-center rounded-md border bg-background shadow-xs",
-                  "h-6 px-2 text-[10px] font-medium transition-all",
-                  "hover:bg-accent hover:text-accent-foreground",
-                  "disabled:pointer-events-none disabled:opacity-50",
-                )}
-                disabled={tracks.length === 0}
-              >
-                <Plus className="mr-1 h-3 w-3" />
-                {t("sidebar.selector.addTrack")}
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56 p-1" side="right" align="start">
-              <div className="flex flex-col gap-0.5">
-                {TRACK_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    className="flex w-full items-center rounded px-2 py-1.5 text-left text-[11px] hover:bg-accent/50"
-                    onClick={() => {
-                      executeAction("edit.track.add", preset.id, { t });
-                      setAddTrackOpen(false);
-                    }}
-                  >
-                    {t(preset.nameKey)}
-                  </button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <button
+            type="button"
+            className={cn(
+              "inline-flex items-center justify-center rounded-md border bg-background shadow-xs",
+              "h-6 px-2 text-[10px] font-medium transition-all",
+              "hover:bg-accent hover:text-accent-foreground",
+              "disabled:pointer-events-none disabled:opacity-50",
+            )}
+            disabled={tracks.length === 0}
+            onClick={() => usePlayerStore.setState({ addTrackDialogOpen: true })}
+          >
+            <Plus className="mr-1 h-3 w-3" />
+            {t("sidebar.selector.addTrack")}
+          </button>
           <Button
             variant="outline"
             size="sm"

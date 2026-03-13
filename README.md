@@ -24,10 +24,10 @@ Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
 - [x] **Sidebar editor** — Bar, Note, Effects, and Articulations sections (Notes tab); Song and Tracks (Meta tab); debug tools.
 - [x] **Playback** — Load GP/GPX, play/pause, zoom, track volume/mute/solo, SoundFont-based playback.
 - [x] **Collaboration plumbing** — Yjs doc, WebRTC room connection, signaling server, IndexedDB persistence; CRDT schema aligned with the score model (commands for metadata, tempo, tracks, bars, beats, notes).
+- [x] **Shortcuts system** — Customisable keyboard shortcuts with platform-adaptive modifiers, multi-digit fret input, percussion digit mapping, cycle/toggle behaviours, and browser conflict detection.
 
 ## Roadmap
 
-- [ ] **Shortcuts system** — Keyboard shortcuts and command palette (e.g. `react-hotkeys-hook`, `cmdk`).
 - [ ] **Drag selection and copy/paste** — Selection ranges and copy/paste using alphatex data.
 - [ ] **Undo/redo local stack** — Local history for score edits.
 - [ ] **CRDT-style p2p coop** — Full real-time collaboration over the Yjs score doc.

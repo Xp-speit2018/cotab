@@ -455,5 +455,125 @@
     "reducedMotionEnabled": "prefers-reduced-motion is enabled. This shouldn't cap FPS but may affect animations.",
     "performanceGood": "Performance looks good \u2014 hitting display refresh rate.",
     "belowTarget": "Frame rate below target. Run DevTools \u2192 Performance profiling for details."
+  },
+
+  "shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "description": "Customize keyboard shortcuts. Shortcuts use platform-adaptive modifiers.",
+    "searchPlaceholder": "Search shortcuts...",
+    "noResults": "No shortcuts match your search.",
+    "comingSoon": "Coming soon",
+    "unbound": "Unbound",
+    "edit": "Edit shortcut",
+    "unbind": "Remove shortcut",
+    "resetOne": "Reset to default",
+    "resetAll": "Reset All",
+
+    "category": {
+      "playback": "Playback",
+      "navigation": "Navigation",
+      "editing.beat": "Editing — Beat",
+      "editing.bar": "Editing — Bar",
+      "editing.track": "Editing — Track",
+      "history": "History",
+      "clipboard": "Clipboard",
+      "view": "View"
+    },
+
+    "recorder": {
+      "prompt": "Press a key combination...",
+      "disallowed": "This shortcut is reserved by the browser and cannot be used.",
+      "duplicateWarning": "Already bound to {{actions}}. Binding anyway..."
+    },
+
+    "conflict": {
+      "duplicate": "Duplicate",
+      "duplicateDetail": "Also bound to: {{actions}}",
+      "browserOverride": "Browser",
+      "reopenTab": "Browser: reopen closed tab",
+      "prevTab": "Browser: switch to previous tab",
+      "nextTab": "Browser: switch to next tab",
+      "closeTab": "Browser: close tab",
+      "newWindow": "Browser: new window",
+      "newTab": "Browser: new tab",
+      "quitBrowser": "Browser: quit"
+    },
+
+    "softOverride": {
+      "scrollDown": "Overrides browser scroll down",
+      "scrollUp": "Overrides browser scroll up",
+      "scrollLeft": "Overrides browser scroll left",
+      "scrollRight": "Overrides browser scroll right",
+      "navigateBack": "Overrides browser navigate back",
+      "bookmarks": "Overrides browser bookmarks bar toggle",
+      "undo": "Overrides browser undo",
+      "redo": "Overrides browser redo",
+      "copy": "Overrides browser copy",
+      "paste": "Overrides browser paste",
+      "cut": "Overrides browser cut"
+    },
+
+    "playback": {
+      "togglePlaying": { "name": "Toggle Playing" }
+    },
+    "nav": {
+      "nextBeat": { "name": "Next Beat" },
+      "prevBeat": { "name": "Previous Beat" },
+      "moveUp": { "name": "Move Up" },
+      "moveDown": { "name": "Move Down" },
+      "nextBar": { "name": "Next Bar" },
+      "prevBar": { "name": "Previous Bar" },
+      "nextStaff": { "name": "Next Visible Staff" },
+      "prevStaff": { "name": "Previous Visible Staff" }
+    },
+    "edit": {
+      "beat": {
+        "placeNote": { "name": "Place Note (0\u20139)" },
+        "toggleRest": { "name": "Toggle Rest" },
+        "insertRestBefore": { "name": "Insert Rest Before" },
+        "insertRestAfter": { "name": "Insert Rest After" },
+        "deleteNote": { "name": "Delete Note" },
+        "cycleDurationUp": { "name": "Cycle Duration (Next)" },
+        "cycleDurationDown": { "name": "Cycle Duration (Prev)" },
+        "cycleDots": { "name": "Cycle Dots" }
+      },
+      "bar": {
+        "insertBefore": { "name": "Insert Bar Before" },
+        "insertAfter": { "name": "Insert Bar After" },
+        "delete": { "name": "Delete Bar" }
+      },
+      "track": {
+        "add": { "name": "Add Track" },
+        "delete": { "name": "Delete Track" }
+      }
+    },
+    "history": {
+      "undo": { "name": "Undo" },
+      "redo": { "name": "Redo" }
+    },
+    "clipboard": {
+      "copy": { "name": "Copy" },
+      "paste": { "name": "Paste" },
+      "cut": { "name": "Cut" }
+    },
+    "view": {
+      "toggleSidebar": { "name": "Toggle Sidebar" }
+    },
+
+    "percussionMapping": {
+      "title": "Percussion Digit Mapping",
+      "description": "Configure which articulation each digit key (0–9) triggers on percussion tracks.",
+      "category": {
+        "cymbals": "Cymbals",
+        "snare": "Snare",
+        "toms": "Toms",
+        "kick": "Kick"
+      }
+    }
+  },
+
+  "trackPresetDialog": {
+    "title": "Add Track",
+    "description": "Choose an instrument preset for the new track."
   }
 }

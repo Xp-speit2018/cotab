@@ -52,7 +52,9 @@ import { LogSection } from "./LogSection";
 
 export function NoteEditorSidebar() {
   const { t } = useTranslation();
-  const [collapsed, setCollapsed] = useState(false);
+  const sidebarVisible = usePlayerStore((s) => s.sidebarVisible);
+  const collapsed = !sidebarVisible;
+  const setCollapsed = (val: boolean) => usePlayerStore.setState({ sidebarVisible: !val });
   const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
   const widthAtDragStart = useRef(sidebarWidth);
   const [activeTab, setActiveTab] = useState(0);

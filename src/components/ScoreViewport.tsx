@@ -241,7 +241,7 @@ export function ScoreViewport() {
       {/* AlphaTab Viewport (scroll container) */}
       <div
         ref={viewportRef}
-        className="at-viewport flex-1 overflow-auto"
+        className="at-viewport flex-1 overflow-auto isolate"
         onScroll={syncMixerTransform}
       >
         {/* AlphaTab Main (rendering target) */}

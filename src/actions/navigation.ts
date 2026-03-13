@@ -75,9 +75,11 @@ const navMoveUp: NavAction = {
     if (!grid || grid.positions.length === 0) return;
 
     if (sel.string === null) {
+      const mid = Math.floor(grid.positions.length / 2);
+      const target = Math.max(0, mid - 1);
       store.setSelection({
         ...sel,
-        string: grid.positions[grid.positions.length - 1]?.string ?? null,
+        string: grid.positions[target].string,
       });
       return;
     }
@@ -103,9 +105,11 @@ const navMoveDown: NavAction = {
     if (!grid || grid.positions.length === 0) return;
 
     if (sel.string === null) {
+      const mid = Math.floor(grid.positions.length / 2);
+      const target = Math.min(grid.positions.length - 1, mid + 1);
       store.setSelection({
         ...sel,
-        string: grid.positions[0]?.string ?? null,
+        string: grid.positions[target].string,
       });
       return;
     }

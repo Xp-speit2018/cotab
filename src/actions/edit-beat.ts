@@ -1,4 +1,4 @@
-import * as alphaTab from "@coderline/alphatab";
+import * as Y from "yjs";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
 import { debugLog } from "@/stores/debug-log-store";
@@ -6,7 +6,6 @@ import {
   getApi,
   getSnapGrids,
   resolveBeat,
-  applyBarWarningStyles,
   setPendingSelection,
   formatPitch,
   snapPositionToPitch,
@@ -15,34 +14,30 @@ import {
   GP7_STAFF_LINE_MAP,
 } from "@/stores/player-internals";
 import { usePlayerStore } from "@/stores/player-store";
+import { createBeat, createNote } from "@/core/schema";
+import {
+  transact,
+  resolveYBeat,
+  resolveYVoice,
+} from "@/core/sync";
 
 function applyBeatUpdates(updates: Record<string, unknown>): void {
   const sel = usePlayerStore.getState().selectedBeat;
-  const api = getApi();
-  if (!sel || !api) {
-    debugLog("debug", "edit.beat.applyBeatUpdates", "no selection or API", { updates });
+  if (!sel) {
+    debugLog("debug", "edit.beat.applyBeatUpdates", "no selection", { updates });
     return;
   }
-  const beat = resolveBeat(
+  const yBeat = resolveYBeat(
     sel.trackIndex,
-    sel.barIndex,
-    sel.beatIndex,
     sel.staffIndex,
+    sel.barIndex,
     sel.voiceIndex,
+    sel.beatIndex,
   );
-  if (!beat) {
-    debugLog("debug", "edit.beat.applyBeatUpdates", "no beat resolved", {
-      updates,
-      sel,
-    });
+  if (!yBeat) {
+    debugLog("debug", "edit.beat.applyBeatUpdates", "no Y.Beat resolved", { updates, sel });
     return;
   }
-  const b = beat as unknown as Record<string, unknown>;
-  for (const [key, value] of Object.entries(updates)) {
-    b[key] = value;
-  }
-  beat.voice.finish(api.settings);
-  applyBarWarningStyles();
   setPendingSelection({
     trackIndex: sel.trackIndex,
     barIndex: sel.barIndex,
@@ -51,7 +46,11 @@ function applyBeatUpdates(updates: Record<string, unknown>): void {
     voiceIndex: sel.voiceIndex,
     string: sel.string,
   });
-  api.render();
+  transact(() => {
+    for (const [key, value] of Object.entries(updates)) {
+      yBeat.set(key, value);
+    }
+  });
 }
 
 const placeNoteAction: ActionDefinition<number | void> = {
@@ -81,67 +80,15 @@ const placeNoteAction: ActionDefinition<number | void> = {
     const staff = track.staves[sel.staffIndex];
     if (!staff) return;
 
-    if (track.isPercussion) {
-      const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
-      const grid = getSnapGrids().get(gridKey);
-      const observedArtic = grid?.percussionMap?.get(sel.string);
-
-      const note = new alphaTab.model.Note();
-      if (observedArtic !== undefined) {
-        note.percussionArticulation = observedArtic;
-      } else {
-        const defaultGp7Id = DRUM_STAFFLINE_DEFAULTS[sel.string];
-        if (defaultGp7Id !== undefined) {
-          note.percussionArticulation =
-            gp7IdToPercussionArticulation(track, defaultGp7Id);
-        } else {
-          const idsAtLine = GP7_STAFF_LINE_MAP.get(sel.string);
-          const fallbackId = idsAtLine?.[0] ?? 42;
-          note.percussionArticulation =
-            gp7IdToPercussionArticulation(track, fallbackId);
-        }
-      }
-      beat.addNote(note);
-    } else if (staff.showTablature && staff.tuning.length > 0) {
-      const fret = typeof targetValue === "number" ? targetValue : 1;
-      const existingNote = beat.notes.find((n) => n.string === sel.string);
-      if (existingNote) {
-        existingNote.fret = fret;
-      } else {
-        const note = new alphaTab.model.Note();
-        note.fret = fret;
-        note.string = sel.string;
-        beat.addNote(note);
-      }
-    } else {
-      const position = typeof targetValue === "number" ? targetValue : sel.string;
-      const pitch = snapPositionToPitch(beat.voice.bar.clef, position);
-
-      const note = new alphaTab.model.Note();
-      note.octave = pitch.octave;
-      note.tone = pitch.tone;
-
-      debugLog("info", "edit.beat.placeNote", "piano note", {
-        trackIndex: sel.trackIndex,
-        staffIndex: sel.staffIndex,
-        barIndex: sel.barIndex,
-        beatIndex: sel.beatIndex,
-        snapPosition: position,
-        clef: beat.voice.bar.clef as unknown as number,
-        octave: note.octave,
-        tone: note.tone,
-        pitch: formatPitch(
-          note.octave as unknown as number,
-          note.tone as unknown as number,
-        ),
-      });
-      beat.addNote(note);
-    }
-
-    beat.isEmpty = false;
-
-    beat.voice.finish(api.settings);
-    applyBarWarningStyles();
+    const yBeat = resolveYBeat(
+      sel.trackIndex,
+      sel.staffIndex,
+      sel.barIndex,
+      sel.voiceIndex,
+      sel.beatIndex,
+    );
+    if (!yBeat) return;
+    const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
 
     setPendingSelection({
       trackIndex: sel.trackIndex,
@@ -151,7 +98,77 @@ const placeNoteAction: ActionDefinition<number | void> = {
       voiceIndex: sel.voiceIndex,
       string: sel.string,
     });
-    api.render();
+
+    if (track.isPercussion) {
+      const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
+      const grid = getSnapGrids().get(gridKey);
+      const observedArtic = grid?.percussionMap?.get(sel.string);
+
+      let percArticulation: number;
+      if (observedArtic !== undefined) {
+        percArticulation = observedArtic;
+      } else {
+        const defaultGp7Id = DRUM_STAFFLINE_DEFAULTS[sel.string];
+        if (defaultGp7Id !== undefined) {
+          percArticulation = gp7IdToPercussionArticulation(track, defaultGp7Id);
+        } else {
+          const idsAtLine = GP7_STAFF_LINE_MAP.get(sel.string);
+          const fallbackId = idsAtLine?.[0] ?? 42;
+          percArticulation = gp7IdToPercussionArticulation(track, fallbackId);
+        }
+      }
+
+      const yNote = createNote(0, 0);
+      yNote.set("percussionArticulation", percArticulation);
+
+      transact(() => {
+        yNotes.push([yNote]);
+        yBeat.set("isEmpty", false);
+      });
+    } else if (staff.showTablature && staff.tuning.length > 0) {
+      const fret = typeof targetValue === "number" ? targetValue : 1;
+      let existingIdx = -1;
+      for (let i = 0; i < yNotes.length; i++) {
+        if ((yNotes.get(i).get("string") as number) === sel.string) {
+          existingIdx = i;
+          break;
+        }
+      }
+
+      transact(() => {
+        if (existingIdx >= 0) {
+          yNotes.get(existingIdx).set("fret", fret);
+        } else {
+          const yNote = createNote(fret, sel.string!);
+          yNotes.push([yNote]);
+        }
+        yBeat.set("isEmpty", false);
+      });
+    } else {
+      const position = typeof targetValue === "number" ? targetValue : sel.string;
+      const pitch = snapPositionToPitch(beat.voice.bar.clef, position);
+
+      const yNote = createNote(0, 0);
+      yNote.set("octave", pitch.octave);
+      yNote.set("tone", pitch.tone);
+
+      debugLog("info", "edit.beat.placeNote", "piano note", {
+        trackIndex: sel.trackIndex,
+        staffIndex: sel.staffIndex,
+        barIndex: sel.barIndex,
+        beatIndex: sel.beatIndex,
+        snapPosition: position,
+        clef: beat.voice.bar.clef as unknown as number,
+        octave: pitch.octave,
+        tone: pitch.tone,
+        pitch: formatPitch(pitch.octave, pitch.tone),
+      });
+
+      transact(() => {
+        yNotes.push([yNote]);
+        yBeat.set("isEmpty", false);
+      });
+    }
   },
 };
 
@@ -173,20 +190,29 @@ const deleteNoteAction: ActionDefinition<void> = {
     );
     if (!beat) return false;
 
-    const voice = beat.voice;
+    const yVoice = resolveYVoice(
+      sel.trackIndex,
+      sel.staffIndex,
+      sel.barIndex,
+      sel.voiceIndex,
+    );
+    const yBeat = resolveYBeat(
+      sel.trackIndex,
+      sel.staffIndex,
+      sel.barIndex,
+      sel.voiceIndex,
+      sel.beatIndex,
+    );
+    if (!yVoice || !yBeat) return false;
+
+    const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
+    const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
     const noteIdx = usePlayerStore.getState().selectedNoteIndex;
 
     if (beat.notes.length === 0 || beat.isRest) {
-      if (voice.beats.length <= 1) return false;
+      if (yBeats.length <= 1) return false;
 
-      const beatIdx = voice.beats.indexOf(beat);
-      if (beatIdx < 0) return false;
-
-      voice.beats.splice(beatIdx, 1);
-      voice.finish(api.settings);
-      applyBarWarningStyles();
-
-      const newBeatIdx = Math.min(beatIdx, voice.beats.length - 1);
+      const newBeatIdx = Math.min(sel.beatIndex, yBeats.length - 2);
       setPendingSelection({
         trackIndex: sel.trackIndex,
         barIndex: sel.barIndex,
@@ -196,55 +222,31 @@ const deleteNoteAction: ActionDefinition<void> = {
         string: sel.string,
       });
 
-      api.render();
+      transact(() => {
+        yBeats.delete(sel.beatIndex, 1);
+      });
       return true;
     }
 
     if (noteIdx < 0 || noteIdx >= beat.notes.length) return false;
 
-    const staff = beat.voice.bar.staff;
-    const track = staff.track;
-    const note = beat.notes[noteIdx];
-
-    if (!track.isPercussion && !staff.showTablature) {
-      debugLog("info", "edit.beat.deleteNote", "piano note", {
-        trackIndex: sel.trackIndex,
-        staffIndex: sel.staffIndex,
-        barIndex: sel.barIndex,
-        beatIndex: sel.beatIndex,
-        noteIndex: noteIdx,
-        clef: beat.voice.bar.clef as unknown as number,
-        octave: note.octave,
-        tone: note.tone,
-        pitch: formatPitch(
-          note.octave as unknown as number,
-          note.tone as unknown as number,
-        ),
-      });
-    }
-
     if (beat.notes.length > 1) {
-      beat.notes.splice(noteIdx, 1);
-      for (let i = 0; i < beat.notes.length; i++) {
-        beat.notes[i].index = i;
-      }
-      voice.finish(api.settings);
-      applyBarWarningStyles();
+      const newNoteIdx = Math.min(noteIdx, beat.notes.length - 2);
+      const nextNote = beat.notes[newNoteIdx >= noteIdx ? newNoteIdx + 1 : newNoteIdx];
 
-      const newNoteIdx = Math.min(noteIdx, beat.notes.length - 1);
       setPendingSelection({
         trackIndex: sel.trackIndex,
         barIndex: sel.barIndex,
         beatIndex: sel.beatIndex,
         staffIndex: sel.staffIndex,
         voiceIndex: sel.voiceIndex,
-        string: beat.notes[newNoteIdx]?.string ?? sel.string,
+        string: nextNote?.string ?? sel.string,
+      });
+
+      transact(() => {
+        yNotes.delete(noteIdx, 1);
       });
     } else {
-      beat.notes = [];
-      voice.finish(api.settings);
-      applyBarWarningStyles();
-
       setPendingSelection({
         trackIndex: sel.trackIndex,
         barIndex: sel.barIndex,
@@ -253,9 +255,12 @@ const deleteNoteAction: ActionDefinition<void> = {
         voiceIndex: sel.voiceIndex,
         string: sel.string,
       });
+
+      transact(() => {
+        yNotes.delete(0, yNotes.length);
+      });
     }
 
-    api.render();
     return true;
   },
 };
@@ -267,8 +272,8 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestBefore.params.duration" }],
   execute: (duration, _context) => {
     const sel = usePlayerStore.getState().selectedBeat;
-    const api = getApi();
-    if (!sel || !api) return;
+    if (!sel) return;
+
     const beat = resolveBeat(
       sel.trackIndex,
       sel.barIndex,
@@ -277,32 +282,32 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
       sel.voiceIndex,
     );
     if (!beat) return;
-    const voice = beat.voice;
 
-    const restBeat = new alphaTab.model.Beat();
-    restBeat.isEmpty = false;
-    restBeat.duration = (duration as alphaTab.model.Duration) ?? beat.duration;
-    restBeat.notes = [];
+    const yVoice = resolveYVoice(
+      sel.trackIndex,
+      sel.staffIndex,
+      sel.barIndex,
+      sel.voiceIndex,
+    );
+    if (!yVoice) return;
 
-    const idx = voice.beats.indexOf(beat);
-    if (idx >= 0) {
-      voice.beats.splice(idx, 0, restBeat);
-      restBeat.voice = voice;
-    } else {
-      voice.addBeat(restBeat);
-    }
-    voice.finish(api.settings);
-    applyBarWarningStyles();
+    const dur = typeof duration === "number" ? duration : (beat.duration as unknown as number);
+    const restBeat = createBeat(dur);
+    restBeat.set("isEmpty", false);
 
     setPendingSelection({
       trackIndex: sel.trackIndex,
       barIndex: sel.barIndex,
-      beatIndex: idx >= 0 ? idx : sel.beatIndex,
+      beatIndex: sel.beatIndex,
       staffIndex: sel.staffIndex,
       voiceIndex: sel.voiceIndex,
       string: sel.string,
     });
-    api.render();
+
+    transact(() => {
+      const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
+      yBeats.insert(sel.beatIndex, [restBeat]);
+    });
   },
 };
 
@@ -313,8 +318,8 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestAfter.params.duration" }],
   execute: (duration, _context) => {
     const sel = usePlayerStore.getState().selectedBeat;
-    const api = getApi();
-    if (!sel || !api) return;
+    if (!sel) return;
+
     const beat = resolveBeat(
       sel.trackIndex,
       sel.barIndex,
@@ -323,32 +328,34 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
       sel.voiceIndex,
     );
     if (!beat) return;
-    const voice = beat.voice;
 
-    const restBeat = new alphaTab.model.Beat();
-    restBeat.isEmpty = false;
-    restBeat.duration = (duration as alphaTab.model.Duration) ?? beat.duration;
-    restBeat.notes = [];
+    const yVoice = resolveYVoice(
+      sel.trackIndex,
+      sel.staffIndex,
+      sel.barIndex,
+      sel.voiceIndex,
+    );
+    if (!yVoice) return;
 
-    const idx = voice.beats.indexOf(beat);
-    if (idx >= 0 && idx < voice.beats.length - 1) {
-      voice.beats.splice(idx + 1, 0, restBeat);
-      restBeat.voice = voice;
-    } else {
-      voice.addBeat(restBeat);
-    }
-    voice.finish(api.settings);
-    applyBarWarningStyles();
+    const dur = typeof duration === "number" ? duration : (beat.duration as unknown as number);
+    const restBeat = createBeat(dur);
+    restBeat.set("isEmpty", false);
+
+    const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
+    const insertIdx = sel.beatIndex + 1;
 
     setPendingSelection({
       trackIndex: sel.trackIndex,
       barIndex: sel.barIndex,
-      beatIndex: idx >= 0 ? idx + 1 : voice.beats.length - 1,
+      beatIndex: insertIdx,
       staffIndex: sel.staffIndex,
       voiceIndex: sel.voiceIndex,
       string: sel.string,
     });
-    api.render();
+
+    transact(() => {
+      yBeats.insert(insertIdx, [restBeat]);
+    });
   },
 };
 
@@ -362,31 +369,14 @@ const setRestAction: ActionDefinition<boolean> = {
     const api = getApi();
     if (!sel || !api) return;
 
-    const beat = resolveBeat(
+    const yBeat = resolveYBeat(
       sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
       sel.staffIndex,
+      sel.barIndex,
       sel.voiceIndex,
+      sel.beatIndex,
     );
-    if (!beat) return;
-
-    if (value && !beat.isRest) {
-      beat.notes = [];
-    } else if (!value && beat.isRest) {
-      const track = api.score?.tracks[sel.trackIndex];
-      const staff = track?.staves[sel.staffIndex];
-      if (staff?.showTablature && staff.tuning.length > 0 && sel.string !== null) {
-        const note = new alphaTab.model.Note();
-        note.fret = 0;
-        note.string = sel.string;
-        beat.addNote(note);
-      }
-    }
-
-    beat.isEmpty = false;
-    beat.voice.finish(api.settings);
-    applyBarWarningStyles();
+    if (!yBeat) return;
 
     setPendingSelection({
       trackIndex: sel.trackIndex,
@@ -396,7 +386,28 @@ const setRestAction: ActionDefinition<boolean> = {
       voiceIndex: sel.voiceIndex,
       string: sel.string,
     });
-    api.render();
+
+    if (value) {
+      transact(() => {
+        const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+        if (yNotes.length > 0) {
+          yNotes.delete(0, yNotes.length);
+        }
+        yBeat.set("isEmpty", false);
+      });
+    } else {
+      const track = api.score?.tracks[sel.trackIndex];
+      const staff = track?.staves[sel.staffIndex];
+
+      transact(() => {
+        if (staff?.showTablature && staff.tuning.length > 0 && sel.string !== null) {
+          const yNote = createNote(0, sel.string);
+          const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+          yNotes.push([yNote]);
+        }
+        yBeat.set("isEmpty", false);
+      });
+    }
   },
 };
 
@@ -576,21 +587,18 @@ const toggleBeatIsEmptyAction: ActionDefinition<void> = {
   category: "edit.beat",
   execute: (_args, _context) => {
     const sel = usePlayerStore.getState().selectedBeat;
-    const api = getApi();
-    if (!sel || !api) return;
+    if (!sel) return;
 
-    const beat = resolveBeat(
+    const yBeat = resolveYBeat(
       sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
       sel.staffIndex,
+      sel.barIndex,
       sel.voiceIndex,
+      sel.beatIndex,
     );
-    if (!beat) return;
+    if (!yBeat) return;
 
-    beat.isEmpty = !beat.isEmpty;
-    beat.voice.finish(api.settings);
-    applyBarWarningStyles();
+    const current = (yBeat.get("isEmpty") as boolean) ?? true;
 
     setPendingSelection({
       trackIndex: sel.trackIndex,
@@ -600,7 +608,10 @@ const toggleBeatIsEmptyAction: ActionDefinition<void> = {
       voiceIndex: sel.voiceIndex,
       string: sel.string,
     });
-    api.render();
+
+    transact(() => {
+      yBeat.set("isEmpty", !current);
+    });
   },
 };
 
@@ -657,4 +668,3 @@ declare global {
 }
 
 export {};
-

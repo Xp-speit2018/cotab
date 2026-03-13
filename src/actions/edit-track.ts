@@ -1,18 +1,21 @@
+import * as Y from "yjs";
 import * as alphaTab from "@coderline/alphatab";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import type { TrackInfo } from "@/stores/player-store";
 import { usePlayerStore } from "@/stores/player-store";
 import { debugLog } from "@/stores/debug-log-store";
 import {
-  applyBarWarningStyles,
   createTrackFromPreset,
   getApi,
-  getTrack,
-  extractTrackInfo,
   setPendingSelection,
   TRACK_PRESETS,
 } from "@/stores/player-internals";
+import { importTrack } from "@/core/converters";
+import {
+  transact,
+  getScoreMap,
+  resolveYTrack,
+} from "@/core/sync";
 
 const addTrackAction: ActionDefinition<string | void> = {
   id: "edit.track.add",
@@ -36,46 +39,25 @@ const addTrackAction: ActionDefinition<string | void> = {
       debugLog("warn", "edit.track.add", "unknown preset", { presetId });
       return;
     }
+    const yScore = getScoreMap();
+    if (!yScore) return;
+
     const score = api.score;
-    try {
-      debugLog("info", "edit.track.add", "start", {
-        presetId,
-        presetName: preset.defaultName,
-        trackCount: score.tracks.length,
-        masterBarCount: score.masterBars.length,
-      });
-      const track = createTrackFromPreset(score, preset);
-      debugLog("debug", "edit.track.add", "calling score.addTrack", {
-        trackName: track.name,
-        staffCount: track.staves.length,
-        barCount: track.staves[0]?.bars.length ?? 0,
-      });
-      score.addTrack(track);
-      debugLog("debug", "edit.track.add", "calling score.finish()");
-      score.finish(api.settings);
-      debugLog("debug", "edit.track.add", "score.finish() completed");
-      applyBarWarningStyles();
-      const existing = usePlayerStore.getState().tracks;
-      const tracks: TrackInfo[] = score.tracks.map((t, i) => ({
-        index: i,
-        name: t.name,
-        volume: existing[i]?.volume ?? 1,
-        isMuted: existing[i]?.isMuted ?? false,
-        isSolo: existing[i]?.isSolo ?? false,
-        isPercussion: t.isPercussion,
-      }));
-      usePlayerStore.setState({ tracks });
-      debugLog("debug", "edit.track.add", "state updated", { newTracksLength: tracks.length });
-      api.renderTracks(score.tracks);
-      debugLog("info", "edit.track.add", "complete", {
-        newTrackIndex: track.index,
-        newTrackName: track.name,
-        totalTracks: score.tracks.length,
-      });
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      throw err;
-    }
+    const atTrack = createTrackFromPreset(score, preset);
+    const yTrack = importTrack(atTrack);
+
+    debugLog("info", "edit.track.add", "start", {
+      presetId,
+      presetName: preset.defaultName,
+      trackCount: score.tracks.length,
+    });
+
+    transact(() => {
+      const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
+      yTracks.push([yTrack]);
+    });
+
+    debugLog("info", "edit.track.add", "complete");
   },
 };
 
@@ -94,83 +76,44 @@ const deleteTrackAction: ActionDefinition<number> = {
     }
     const score = api.score;
     if (score.tracks.length <= 1) {
-      debugLog("warn", "edit.track.delete", "blocked — last track", {
-        trackCount: score.tracks.length,
-      });
+      debugLog("warn", "edit.track.delete", "blocked — last track");
       return false;
     }
-    const removedTrack = score.tracks[trackIndex];
-    try {
-      debugLog("info", "edit.track.delete", "start", {
-        trackIndex,
-        trackName: removedTrack?.name ?? "—",
-        trackCount: score.tracks.length,
-        masterBarCount: score.masterBars.length,
+    const yScore = getScoreMap();
+    if (!yScore) return false;
+
+    const sel = usePlayerStore.getState().selectedBeat;
+    if (sel && sel.trackIndex === trackIndex) {
+      usePlayerStore.setState({
+        selectedBeat: null,
+        selectedTrackInfo: null,
+        selectedStaffInfo: null,
+        selectedBarInfo: null,
+        selectedVoiceInfo: null,
+        selectedBeatInfo: null,
+        selectedNoteIndex: -1,
+        selectedString: null,
       });
-      const sel = usePlayerStore.getState().selectedBeat;
-      score.tracks.splice(trackIndex, 1);
-      debugLog("debug", "edit.track.delete", "spliced track", {
-        newTrackCount: score.tracks.length,
+    } else if (sel && sel.trackIndex > trackIndex) {
+      setPendingSelection({
+        trackIndex: sel.trackIndex - 1,
+        barIndex: sel.barIndex,
+        beatIndex: sel.beatIndex,
+        staffIndex: sel.staffIndex,
+        voiceIndex: sel.voiceIndex,
+        string: sel.string,
       });
-      for (let i = 0; i < score.tracks.length; i++) {
-        score.tracks[i].index = i;
-      }
-      debugLog("debug", "edit.track.delete", "track indices updated");
-      score.finish(api.settings);
-      debugLog("debug", "edit.track.delete", "score.finish() completed");
-      applyBarWarningStyles();
-      if (sel && sel.trackIndex === trackIndex) {
-        debugLog("debug", "edit.track.delete", "selection cleared (was on deleted track)");
-        usePlayerStore.setState({
-          selectedBeat: null,
-          selectedTrackInfo: null,
-          selectedStaffInfo: null,
-          selectedBarInfo: null,
-          selectedVoiceInfo: null,
-          selectedBeatInfo: null,
-          selectedNoteIndex: -1,
-          selectedString: null,
-        });
-      } else if (sel && sel.trackIndex > trackIndex) {
-        debugLog("debug", "edit.track.delete", "selection adjusted", {
-          oldTrackIndex: sel.trackIndex,
-          newTrackIndex: sel.trackIndex - 1,
-        });
-        setPendingSelection({
-          trackIndex: sel.trackIndex - 1,
-          barIndex: sel.barIndex,
-          beatIndex: sel.beatIndex,
-          staffIndex: sel.staffIndex,
-          voiceIndex: sel.voiceIndex,
-          string: sel.string,
-        });
-      }
-      const existing = usePlayerStore.getState().tracks;
-      const tracks: TrackInfo[] = score.tracks.map((t, i) => {
-        const oldIndex = i < trackIndex ? i : i + 1;
-        return {
-          index: i,
-          name: t.name,
-          volume: existing[oldIndex]?.volume ?? 1,
-          isMuted: existing[oldIndex]?.isMuted ?? false,
-          isSolo: existing[oldIndex]?.isSolo ?? false,
-          isPercussion: t.isPercussion,
-        };
-      });
-      usePlayerStore.setState({ tracks });
-      debugLog("debug", "edit.track.delete", "state updated", {
-        newTracksLength: tracks.length,
-      });
-      api.renderTracks(score.tracks);
-      debugLog("info", "edit.track.delete", "complete", {
-        removedTrackName: removedTrack?.name ?? "—",
-        newTrackCount: score.tracks.length,
-      });
-      return true;
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      throw err;
     }
+
+    debugLog("info", "edit.track.delete", "start", { trackIndex });
+
+    transact(() => {
+      const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
+      yTracks.delete(trackIndex, 1);
+    });
+
+    debugLog("info", "edit.track.delete", "complete");
+    return true;
   },
 };
 
@@ -183,20 +126,11 @@ const setTrackNameAction: ActionDefinition<{ trackIndex: number; name: string }>
     { name: "name", type: "string", i18nKey: "actions.edit.track.setName.params.name" },
   ],
   execute: ({ trackIndex, name }, _context) => {
-    const api = getApi();
-    const track = getTrack(trackIndex);
-    if (!api || !track) return;
-    track.name = name;
-    usePlayerStore.setState({
-      tracks: usePlayerStore.getState().tracks.map((t) =>
-        t.index === trackIndex ? { ...t, name } : t,
-      ),
+    const yTrack = resolveYTrack(trackIndex);
+    if (!yTrack) return;
+    transact(() => {
+      yTrack.set("name", name);
     });
-    const sel = usePlayerStore.getState().selectedBeat;
-    if (sel && sel.trackIndex === trackIndex) {
-      usePlayerStore.setState({ selectedTrackInfo: extractTrackInfo(track) });
-    }
-    api.render();
   },
 };
 
@@ -209,15 +143,11 @@ const setTrackShortNameAction: ActionDefinition<{ trackIndex: number; shortName:
     { name: "shortName", type: "string", i18nKey: "actions.edit.track.setShortName.params.shortName" },
   ],
   execute: ({ trackIndex, shortName }, _context) => {
-    const api = getApi();
-    const track = getTrack(trackIndex);
-    if (!api || !track) return;
-    track.shortName = shortName;
-    const sel = usePlayerStore.getState().selectedBeat;
-    if (sel && sel.trackIndex === trackIndex) {
-      usePlayerStore.setState({ selectedTrackInfo: extractTrackInfo(track) });
-    }
-    api.render();
+    const yTrack = resolveYTrack(trackIndex);
+    if (!yTrack) return;
+    transact(() => {
+      yTrack.set("shortName", shortName);
+    });
   },
 };
 
@@ -280,14 +210,11 @@ const setTrackProgramAction: ActionDefinition<{ trackIndex: number; program: num
     { name: "program", type: "number", i18nKey: "actions.edit.track.setProgram.params.program" },
   ],
   execute: ({ trackIndex, program }, _context) => {
-    const api = getApi();
-    const track = getTrack(trackIndex);
-    if (!api || !track) return;
-    track.playbackInfo.program = program;
-    const sel = usePlayerStore.getState().selectedBeat;
-    if (sel && sel.trackIndex === trackIndex) {
-      usePlayerStore.setState({ selectedTrackInfo: extractTrackInfo(track) });
-    }
+    const yTrack = resolveYTrack(trackIndex);
+    if (!yTrack) return;
+    transact(() => {
+      yTrack.set("playbackProgram", program);
+    });
   },
 };
 
@@ -319,4 +246,3 @@ declare global {
 }
 
 export {};
-

@@ -1,52 +1,49 @@
-import * as alphaTab from "@coderline/alphatab";
+import * as Y from "yjs";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
 import {
   getApi,
   resolveBeat,
-  applyBarWarningStyles,
   setPendingSelection,
   gp7IdToPercussionArticulation,
   resolveGp7Id,
 } from "@/stores/player-internals";
 import { usePlayerStore } from "@/stores/player-store";
 import { debugLog } from "@/stores/debug-log-store";
+import { createNote } from "@/core/schema";
+import {
+  transact,
+  resolveYBeat,
+  resolveYNote,
+} from "@/core/sync";
 
 function applyNoteUpdates(updates: Record<string, unknown>): void {
   const sel = usePlayerStore.getState().selectedBeat;
   const noteIndex = usePlayerStore.getState().selectedNoteIndex;
-  const api = getApi();
-  if (!sel || !api || noteIndex < 0) {
-    debugLog("debug", "edit.note.applyNoteUpdates", "no selection, API, or note index", {
+  if (!sel || noteIndex < 0) {
+    debugLog("debug", "edit.note.applyNoteUpdates", "no selection or note index", {
       updates,
       hasSelection: !!sel,
-      hasApi: !!api,
       noteIndex,
     });
     return;
   }
-  const beat = resolveBeat(
+  const yNote = resolveYNote(
     sel.trackIndex,
-    sel.barIndex,
-    sel.beatIndex,
     sel.staffIndex,
+    sel.barIndex,
     sel.voiceIndex,
+    sel.beatIndex,
+    noteIndex,
   );
-  if (!beat || noteIndex >= beat.notes.length) {
-    debugLog("debug", "edit.note.applyNoteUpdates", "no beat or note out of range", {
+  if (!yNote) {
+    debugLog("debug", "edit.note.applyNoteUpdates", "no Y.Note resolved", {
       updates,
       sel,
       noteIndex,
-      noteCount: beat?.notes.length ?? 0,
     });
     return;
   }
-  const note = beat.notes[noteIndex] as unknown as Record<string, unknown>;
-  for (const [key, value] of Object.entries(updates)) {
-    note[key] = value;
-  }
-  beat.voice.finish(api.settings);
-  applyBarWarningStyles();
   setPendingSelection({
     trackIndex: sel.trackIndex,
     barIndex: sel.barIndex,
@@ -55,7 +52,11 @@ function applyNoteUpdates(updates: Record<string, unknown>): void {
     voiceIndex: sel.voiceIndex,
     string: sel.string,
   });
-  api.render();
+  transact(() => {
+    for (const [key, value] of Object.entries(updates)) {
+      yNote.set(key, value);
+    }
+  });
 }
 
 const setTieAction: ActionDefinition<boolean> = {
@@ -94,7 +95,7 @@ const setAccentAction: ActionDefinition<number> = {
   category: "edit.note",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setAccent.params.value" }],
   execute: (value, _context) => {
-    applyNoteUpdates({ accent: value });
+    applyNoteUpdates({ accentuated: value });
   },
 };
 
@@ -246,34 +247,23 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
     const track = score.tracks[sel.trackIndex];
     if (!track?.isPercussion) return;
 
-    let existingExact: alphaTab.model.Note | null = null;
+    const yBeat = resolveYBeat(
+      sel.trackIndex,
+      sel.staffIndex,
+      sel.barIndex,
+      sel.voiceIndex,
+      sel.beatIndex,
+    );
+    if (!yBeat) return;
+    const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
 
-    for (const n of beat.notes) {
-      const nGp7 = resolveGp7Id(n);
-      if (nGp7 === gp7Id) {
-        existingExact = n;
+    let existingIdx = -1;
+    for (let i = 0; i < beat.notes.length; i++) {
+      if (resolveGp7Id(beat.notes[i]) === gp7Id) {
+        existingIdx = i;
         break;
       }
     }
-
-    if (existingExact) {
-      const idx = beat.notes.indexOf(existingExact);
-      if (idx >= 0) {
-        beat.notes.splice(idx, 1);
-        for (let i = 0; i < beat.notes.length; i++) {
-          beat.notes[i].index = i;
-        }
-      }
-    } else {
-      const note = new alphaTab.model.Note();
-      note.percussionArticulation =
-        gp7IdToPercussionArticulation(track, gp7Id);
-      beat.addNote(note);
-      beat.isEmpty = false;
-    }
-
-    beat.voice.finish(api.settings);
-    applyBarWarningStyles();
 
     setPendingSelection({
       trackIndex: sel.trackIndex,
@@ -283,7 +273,17 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
       voiceIndex: sel.voiceIndex,
       string: sel.string,
     });
-    api.render();
+
+    transact(() => {
+      if (existingIdx >= 0) {
+        yNotes.delete(existingIdx, 1);
+      } else {
+        const yNote = createNote(0, 0);
+        yNote.set("percussionArticulation", gp7IdToPercussionArticulation(track, gp7Id));
+        yNotes.push([yNote]);
+        yBeat.set("isEmpty", false);
+      }
+    });
   },
 };
 
@@ -331,4 +331,3 @@ declare global {
 }
 
 export {};
-

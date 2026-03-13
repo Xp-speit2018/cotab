@@ -8,6 +8,7 @@ import "./edit-staff";
 import "./edit-bar";
 import "./edit-beat";
 import "./edit-note";
+import "./edit-history";
 import "./view";
 
 export { actionRegistry, getAllActions } from "./registry";

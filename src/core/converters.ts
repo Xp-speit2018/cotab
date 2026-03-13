@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from "uuid";
 export function importScoreToYDoc(
   score: alphaTab.model.Score,
   doc: Y.Doc,
+  origin?: string,
 ): void {
   const yScore = doc.getMap("score");
 
@@ -46,7 +47,7 @@ export function importScoreToYDoc(
       yTracks.push([importTrack(track)]);
     }
     yScore.set("tracks", yTracks);
-  });
+  }, origin);
 }
 
 function importMasterBar(mb: alphaTab.model.MasterBar): Y.Map<unknown> {
@@ -80,7 +81,7 @@ function importMasterBar(mb: alphaTab.model.MasterBar): Y.Map<unknown> {
   return y;
 }
 
-function importTrack(track: alphaTab.model.Track): Y.Map<unknown> {
+export function importTrack(track: alphaTab.model.Track): Y.Map<unknown> {
   const y = new Y.Map<unknown>();
   y.set("uuid", uuidv4());
   y.set("name", track.name || "");

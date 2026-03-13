@@ -14,7 +14,7 @@ import {
   TRACK_PRESETS,
 } from "@/stores/player-internals";
 
-const addTrackAction: ActionDefinition<string> = {
+const addTrackAction: ActionDefinition<string | void> = {
   id: "edit.track.add",
   i18nKey: "actions.edit.track.add",
   category: "edit.track",
@@ -22,6 +22,10 @@ const addTrackAction: ActionDefinition<string> = {
     { name: "presetId", type: "string", i18nKey: "actions.edit.track.add.params.presetId" },
   ],
   execute: (presetId, _context) => {
+    if (!presetId) {
+      usePlayerStore.setState({ addTrackDialogOpen: true });
+      return;
+    }
     const api = getApi();
     if (!api?.score) {
       debugLog("warn", "edit.track.add", "no API or score");
@@ -296,7 +300,7 @@ actionRegistry.register(setTrackProgramAction);
 
 declare global {
   interface ActionMap {
-    "edit.track.add": { args: string; result: void };
+    "edit.track.add": { args: string | void; result: void };
     "edit.track.delete": { args: number; result: boolean };
     "edit.track.setName": { args: { trackIndex: number; name: string }; result: void };
     "edit.track.setShortName": {

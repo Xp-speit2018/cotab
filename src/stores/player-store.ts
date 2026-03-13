@@ -347,6 +347,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   editorMode: getInitialEditorMode(),
   drumIconStyle: getInitialDrumIconStyle(),
   showSnapGrid: false,
+  addTrackDialogOpen: false,
 
   setDrumIconStyle: (style) => {
     if (typeof localStorage !== "undefined") {

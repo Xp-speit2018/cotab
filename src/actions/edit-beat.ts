@@ -54,11 +54,12 @@ function applyBeatUpdates(updates: Record<string, unknown>): void {
   api.render();
 }
 
-const placeNoteAction: ActionDefinition<void> = {
+const placeNoteAction: ActionDefinition<number | void> = {
   id: "edit.beat.placeNote",
   i18nKey: "actions.edit.beat.placeNote",
   category: "edit.beat",
-  execute: (_args, _context) => {
+  params: [{ name: "targetValue", type: "number", i18nKey: "actions.edit.beat.placeNote.params.targetValue" }],
+  execute: (targetValue, _context) => {
     const sel = usePlayerStore.getState().selectedBeat;
     const api = getApi();
     if (!sel || !api || sel.string === null) return;
@@ -80,12 +81,12 @@ const placeNoteAction: ActionDefinition<void> = {
     const staff = track.staves[sel.staffIndex];
     if (!staff) return;
 
-    const note = new alphaTab.model.Note();
-
     if (track.isPercussion) {
       const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
       const grid = getSnapGrids().get(gridKey);
       const observedArtic = grid?.percussionMap?.get(sel.string);
+
+      const note = new alphaTab.model.Note();
       if (observedArtic !== undefined) {
         note.percussionArticulation = observedArtic;
       } else {
@@ -100,12 +101,23 @@ const placeNoteAction: ActionDefinition<void> = {
             gp7IdToPercussionArticulation(track, fallbackId);
         }
       }
+      beat.addNote(note);
     } else if (staff.showTablature && staff.tuning.length > 0) {
-      note.fret = 1;
-      note.string = sel.string;
+      const fret = typeof targetValue === "number" ? targetValue : 1;
+      const existingNote = beat.notes.find((n) => n.string === sel.string);
+      if (existingNote) {
+        existingNote.fret = fret;
+      } else {
+        const note = new alphaTab.model.Note();
+        note.fret = fret;
+        note.string = sel.string;
+        beat.addNote(note);
+      }
     } else {
-      const position = sel.string;
+      const position = typeof targetValue === "number" ? targetValue : sel.string;
       const pitch = snapPositionToPitch(beat.voice.bar.clef, position);
+
+      const note = new alphaTab.model.Note();
       note.octave = pitch.octave;
       note.tone = pitch.tone;
 
@@ -123,11 +135,10 @@ const placeNoteAction: ActionDefinition<void> = {
           note.tone as unknown as number,
         ),
       });
+      beat.addNote(note);
     }
 
-    beat.addNote(note);
     beat.isEmpty = false;
-    beat.duration = alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
 
     beat.voice.finish(api.settings);
     applyBarWarningStyles();
@@ -347,7 +358,45 @@ const setRestAction: ActionDefinition<boolean> = {
   category: "edit.beat",
   params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setRest.params.value" }],
   execute: (value, _context) => {
-    applyBeatUpdates({ isRest: value });
+    const sel = usePlayerStore.getState().selectedBeat;
+    const api = getApi();
+    if (!sel || !api) return;
+
+    const beat = resolveBeat(
+      sel.trackIndex,
+      sel.barIndex,
+      sel.beatIndex,
+      sel.staffIndex,
+      sel.voiceIndex,
+    );
+    if (!beat) return;
+
+    if (value && !beat.isRest) {
+      beat.notes = [];
+    } else if (!value && beat.isRest) {
+      const track = api.score?.tracks[sel.trackIndex];
+      const staff = track?.staves[sel.staffIndex];
+      if (staff?.showTablature && staff.tuning.length > 0 && sel.string !== null) {
+        const note = new alphaTab.model.Note();
+        note.fret = 0;
+        note.string = sel.string;
+        beat.addNote(note);
+      }
+    }
+
+    beat.isEmpty = false;
+    beat.voice.finish(api.settings);
+    applyBarWarningStyles();
+
+    setPendingSelection({
+      trackIndex: sel.trackIndex,
+      barIndex: sel.barIndex,
+      beatIndex: sel.beatIndex,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    });
+    api.render();
   },
 };
 
@@ -581,7 +630,7 @@ actionRegistry.register(toggleBeatIsEmptyAction);
 
 declare global {
   interface ActionMap {
-    "edit.beat.placeNote": { args: void; result: void };
+    "edit.beat.placeNote": { args: number | void; result: void };
     "edit.beat.deleteNote": { args: void; result: boolean };
     "edit.beat.insertRestBefore": { args: number | void; result: void };
     "edit.beat.insertRestAfter": { args: number | void; result: void };

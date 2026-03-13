@@ -8,6 +8,7 @@ import {
   Globe,
   Check,
   Layers,
+  Keyboard,
 } from "lucide-react";
 import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
 } from "@/components/ui/popover";
 import { executeAction } from "@/actions";
 import { usePlayerStore } from "@/stores/player-store";
+import { useShortcutStore } from "@/shortcuts";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -195,6 +197,21 @@ export function Toolbar() {
             </option>
           ))}
         </select>
+
+        {/* Keyboard Shortcuts */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => useShortcutStore.getState().setConfigPanelOpen(true)}
+            >
+              <Keyboard className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("shortcuts.title")}</TooltipContent>
+        </Tooltip>
 
         {/* Language Selector */}
         <Popover>

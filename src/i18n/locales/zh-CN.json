@@ -455,5 +455,125 @@
     "reducedMotionEnabled": "偏好减少动效已启用。这不应限制帧率，但可能影响动画。",
     "performanceGood": "性能良好 \u2014 达到显示器刷新率。",
     "belowTarget": "帧率低于目标。请运行 DevTools \u2192 性能分析了解详情。"
+  },
+
+  "shortcuts": {
+    "title": "键盘快捷键",
+    "description": "自定义键盘快捷键。快捷键会自动适配当前平台。",
+    "searchPlaceholder": "搜索快捷键...",
+    "noResults": "没有匹配的快捷键。",
+    "comingSoon": "即将推出",
+    "unbound": "未绑定",
+    "edit": "编辑快捷键",
+    "unbind": "移除快捷键",
+    "resetOne": "恢复默认",
+    "resetAll": "全部重置",
+
+    "category": {
+      "playback": "播放",
+      "navigation": "导航",
+      "editing.beat": "编辑 — 节拍",
+      "editing.bar": "编辑 — 小节",
+      "editing.track": "编辑 — 音轨",
+      "history": "历史记录",
+      "clipboard": "剪贴板",
+      "view": "视图"
+    },
+
+    "recorder": {
+      "prompt": "请按下组合键...",
+      "disallowed": "此快捷键已被浏览器保留，无法使用。",
+      "duplicateWarning": "已绑定到 {{actions}}，仍然绑定..."
+    },
+
+    "conflict": {
+      "duplicate": "重复",
+      "duplicateDetail": "同时绑定到：{{actions}}",
+      "browserOverride": "浏览器",
+      "reopenTab": "浏览器：重新打开已关闭的标签页",
+      "prevTab": "浏览器：切换到上一个标签页",
+      "nextTab": "浏览器：切换到下一个标签页",
+      "closeTab": "浏览器：关闭标签页",
+      "newWindow": "浏览器：新建窗口",
+      "newTab": "浏览器：新建标签页",
+      "quitBrowser": "浏览器：退出"
+    },
+
+    "softOverride": {
+      "scrollDown": "覆盖浏览器向下滚动",
+      "scrollUp": "覆盖浏览器向上滚动",
+      "scrollLeft": "覆盖浏览器向左滚动",
+      "scrollRight": "覆盖浏览器向右滚动",
+      "navigateBack": "覆盖浏览器后退导航",
+      "bookmarks": "覆盖浏览器书签栏切换",
+      "undo": "覆盖浏览器撤销",
+      "redo": "覆盖浏览器重做",
+      "copy": "覆盖浏览器复制",
+      "paste": "覆盖浏览器粘贴",
+      "cut": "覆盖浏览器剪切"
+    },
+
+    "playback": {
+      "togglePlaying": { "name": "切换播放" }
+    },
+    "nav": {
+      "nextBeat": { "name": "下一拍" },
+      "prevBeat": { "name": "上一拍" },
+      "moveUp": { "name": "上移" },
+      "moveDown": { "name": "下移" },
+      "nextBar": { "name": "下一小节" },
+      "prevBar": { "name": "上一小节" },
+      "nextStaff": { "name": "下一谱表" },
+      "prevStaff": { "name": "上一谱表" }
+    },
+    "edit": {
+      "beat": {
+        "placeNote": { "name": "放置音符 (0\u20139)" },
+        "toggleRest": { "name": "切换休止符" },
+        "insertRestBefore": { "name": "在前方插入休止符" },
+        "insertRestAfter": { "name": "在后方插入休止符" },
+        "deleteNote": { "name": "删除音符" },
+        "cycleDurationUp": { "name": "循环时值（下一个）" },
+        "cycleDurationDown": { "name": "循环时值（上一个）" },
+        "cycleDots": { "name": "循环附点" }
+      },
+      "bar": {
+        "insertBefore": { "name": "在前方插入小节" },
+        "insertAfter": { "name": "在后方插入小节" },
+        "delete": { "name": "删除小节" }
+      },
+      "track": {
+        "add": { "name": "添加音轨" },
+        "delete": { "name": "删除音轨" }
+      }
+    },
+    "history": {
+      "undo": { "name": "撤销" },
+      "redo": { "name": "重做" }
+    },
+    "clipboard": {
+      "copy": { "name": "复制" },
+      "paste": { "name": "粘贴" },
+      "cut": { "name": "剪切" }
+    },
+    "view": {
+      "toggleSidebar": { "name": "切换侧边栏" }
+    },
+
+    "percussionMapping": {
+      "title": "打击乐数字映射",
+      "description": "配置打击乐音轨中每个数字键（0–9）触发的演奏技法。",
+      "category": {
+        "cymbals": "镲片",
+        "snare": "军鼓",
+        "toms": "嗵鼓",
+        "kick": "底鼓"
+      }
+    }
+  },
+
+  "trackPresetDialog": {
+    "title": "添加音轨",
+    "description": "为新音轨选择一个乐器预设。"
   }
 }

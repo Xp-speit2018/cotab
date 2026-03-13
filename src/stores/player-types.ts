@@ -294,6 +294,7 @@ export interface PlayerState {
   editorMode: "essentials" | "advanced";
   drumIconStyle: "notation" | "instrument";
   showSnapGrid: boolean;
+  addTrackDialogOpen: boolean;
   setDrumIconStyle: (style: "notation" | "instrument") => void;
   initialize: (mainEl: HTMLElement, viewportEl: HTMLElement) => void;
   destroy: () => void;

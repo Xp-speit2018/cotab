@@ -29,7 +29,6 @@ Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
 ## Roadmap
 
 - [ ] **Drag selection and copy/paste** — Selection ranges and copy/paste using alphatex data.
-- [ ] **Undo/redo local stack** — Local history for score edits.
 - [ ] **CRDT-style p2p coop** — Full real-time collaboration over the Yjs score doc.
 - [ ] **Undo/redo coop stack** — Collaborative undo/redo.
 - [ ] **Tests** - Add tests covering core features.

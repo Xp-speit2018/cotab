@@ -5,7 +5,11 @@
  * Plain-object "snapshot" interfaces are defined for UI consumption.
  * Factory functions create properly initialized Y.Map instances.
  *
- * Enums and property names mirror AlphaTab's data model (alphaTab.model.*)
+ * Hierarchy mirrors AlphaTab's data model:
+ *   Score → MasterBar[]  (shared bar metadata)
+ *        → Track[] → Staff[] → Bar[] → Voice[] → Beat[] → Note[]
+ *
+ * Enums and property names mirror AlphaTab's model (alphaTab.model.*)
  * so that converting between CRDT state and AlphaTab rendering is direct.
  */
 
@@ -209,6 +213,14 @@ export const enum KeySignatureType {
   Minor = 1,
 }
 
+export const enum Clef {
+  Neutral = 0,
+  C3 = 1,
+  C4 = 2,
+  F4 = 3,
+  G2 = 4,
+}
+
 // ─── Sub-schemas ─────────────────────────────────────────────────────────────
 
 export interface BendPointSchema {
@@ -233,6 +245,13 @@ export interface NoteSchema {
   fret: number;
   /** 1-indexed guitar string number (1 = highest pitch string) */
   string: number;
+
+  // ── Notation (non-tab) ───────────────────────────────────────────────────
+  octave: number;
+  tone: number;
+
+  // ── Percussion ───────────────────────────────────────────────────────────
+  percussionArticulation: number;
 
   // ── Boolean flags ─────────────────────────────────────────────────────────
   isDead: boolean;
@@ -271,9 +290,11 @@ export interface NoteSchema {
 
 export interface BeatSchema {
   uuid: string;
-  /** Duration value: 1 (whole), 2 (half), 4 (quarter), 8 (eighth), 16, 32, 64 */
   duration: Duration;
   notes: NoteSchema[];
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  isEmpty: boolean;
 
   // ── Rhythm modifiers ──────────────────────────────────────────────────────
   dots: number;
@@ -306,18 +327,28 @@ export interface BeatSchema {
   slap: boolean;
   pop: boolean;
   slashed: boolean;
+  deadSlapped: boolean;
+  isLegatoOrigin: boolean;
 
   // ── Fermata ───────────────────────────────────────────────────────────────
   fermata: FermataSchema | null;
 }
 
-export interface MeasureSchema {
+export interface VoiceSchema {
+  uuid: string;
+  beats: BeatSchema[];
+}
+
+export interface BarSchema {
+  uuid: string;
+  clef: Clef;
+  voices: VoiceSchema[];
+}
+
+export interface MasterBarSchema {
   uuid: string;
   timeSignatureNumerator: number;
   timeSignatureDenominator: number;
-  beats: BeatSchema[];
-
-  // ── MasterBar-level properties ────────────────────────────────────────────
   keySignature: number;
   keySignatureType: KeySignatureType;
   isRepeatStart: boolean;
@@ -327,27 +358,47 @@ export interface MeasureSchema {
   isFreeTime: boolean;
   isDoubleBar: boolean;
   section: SectionSchema | null;
+  fermata: FermataSchema | null;
   /** Tempo override for this bar (null = inherit from previous) */
   tempo: number | null;
 }
 
 export interface StaffSchema {
   uuid: string;
-  measures: MeasureSchema[];
+  capo: number;
+  transpositionPitch: number;
+  showTablature: boolean;
+  showStandardNotation: boolean;
+  tuning: number[];
+  bars: BarSchema[];
 }
 
 export interface TrackSchema {
   uuid: string;
   name: string;
+  shortName: string;
   instrument: string;
-  tuning: number[];
+  color: { r: number; g: number; b: number; a: number };
+  playbackProgram: number;
+  playbackPrimaryChannel: number;
+  playbackSecondaryChannel: number;
   staves: StaffSchema[];
 }
 
 export interface ScoreSchema {
   title: string;
+  subTitle: string;
   artist: string;
+  album: string;
+  words: string;
+  music: string;
+  copyright: string;
+  tab: string;
+  instructions: string;
+  notices: string;
   tempo: number;
+  tempoLabel: string;
+  masterBars: MasterBarSchema[];
   tracks: TrackSchema[];
 }
 
@@ -362,7 +413,10 @@ export function createNote(fret: number, stringNum: number): Y.Map<unknown> {
   note.set("fret", fret);
   note.set("string", stringNum);
 
-  // Boolean flags
+  note.set("octave", 0);
+  note.set("tone", 0);
+  note.set("percussionArticulation", -1);
+
   note.set("isDead", false);
   note.set("isGhost", false);
   note.set("isStaccato", false);
@@ -372,7 +426,6 @@ export function createNote(fret: number, stringNum: number): Y.Map<unknown> {
   note.set("isHammerPullOrigin", false);
   note.set("isLeftHandTapped", false);
 
-  // Enum properties
   note.set("accentuated", AccentuationType.None);
   note.set("vibrato", VibratoType.None);
   note.set("slideInType", SlideInType.None);
@@ -388,11 +441,9 @@ export function createNote(fret: number, stringNum: number): Y.Map<unknown> {
   note.set("ornament", NoteOrnament.None);
   note.set("accidentalMode", NoteAccidentalMode.Default);
 
-  // Trill
   note.set("trillValue", -1);
   note.set("trillSpeed", Duration.Sixteenth);
 
-  // Misc
   note.set("durationPercent", 1);
 
   return note;
@@ -404,13 +455,13 @@ export function createBeat(duration: number = 4): Y.Map<unknown> {
   beat.set("duration", duration);
   beat.set("notes", new Y.Array<Y.Map<unknown>>());
 
-  // Rhythm modifiers
+  beat.set("isEmpty", true);
+
   beat.set("dots", 0);
   beat.set("isRest", false);
   beat.set("tupletNumerator", 0);
   beat.set("tupletDenominator", 0);
 
-  // Enum properties
   beat.set("graceType", GraceType.None);
   beat.set("pickStroke", PickStroke.None);
   beat.set("brushType", BrushType.None);
@@ -422,55 +473,74 @@ export function createBeat(duration: number = 4): Y.Map<unknown> {
   beat.set("golpe", GolpeType.None);
   beat.set("wahPedal", WahPedal.None);
 
-  // Whammy bar
   beat.set("whammyBarType", WhammyType.None);
   beat.set("whammyBarPoints", new Y.Array<Y.Map<unknown>>());
 
-  // Text / chord
   beat.set("text", null);
   beat.set("chordId", null);
 
-  // Technique toggles
   beat.set("tap", false);
   beat.set("slap", false);
   beat.set("pop", false);
   beat.set("slashed", false);
+  beat.set("deadSlapped", false);
+  beat.set("isLegatoOrigin", false);
 
-  // Fermata
   beat.set("fermata", null);
 
   return beat;
 }
 
-export function createMeasure(
+export function createVoice(): Y.Map<unknown> {
+  const voice = new Y.Map<unknown>();
+  voice.set("uuid", uuidv4());
+  voice.set("beats", new Y.Array<Y.Map<unknown>>());
+  return voice;
+}
+
+export function createBar(clef: number = Clef.G2): Y.Map<unknown> {
+  const bar = new Y.Map<unknown>();
+  bar.set("uuid", uuidv4());
+  bar.set("clef", clef);
+  bar.set("voices", new Y.Array<Y.Map<unknown>>());
+  return bar;
+}
+
+export function createMasterBar(
   numerator: number = 4,
   denominator: number = 4,
 ): Y.Map<unknown> {
-  const measure = new Y.Map<unknown>();
-  measure.set("uuid", uuidv4());
-  measure.set("timeSignatureNumerator", numerator);
-  measure.set("timeSignatureDenominator", denominator);
-  measure.set("beats", new Y.Array<Y.Map<unknown>>());
-
-  // MasterBar-level properties
-  measure.set("keySignature", 0);
-  measure.set("keySignatureType", KeySignatureType.Major);
-  measure.set("isRepeatStart", false);
-  measure.set("repeatCount", 0);
-  measure.set("alternateEndings", 0);
-  measure.set("tripletFeel", TripletFeel.NoTripletFeel);
-  measure.set("isFreeTime", false);
-  measure.set("isDoubleBar", false);
-  measure.set("section", null);
-  measure.set("tempo", null);
-
-  return measure;
+  const mb = new Y.Map<unknown>();
+  mb.set("uuid", uuidv4());
+  mb.set("timeSignatureNumerator", numerator);
+  mb.set("timeSignatureDenominator", denominator);
+  mb.set("keySignature", 0);
+  mb.set("keySignatureType", KeySignatureType.Major);
+  mb.set("isRepeatStart", false);
+  mb.set("repeatCount", 0);
+  mb.set("alternateEndings", 0);
+  mb.set("tripletFeel", TripletFeel.NoTripletFeel);
+  mb.set("isFreeTime", false);
+  mb.set("isDoubleBar", false);
+  mb.set("section", null);
+  mb.set("fermata", null);
+  mb.set("tempo", null);
+  return mb;
 }
 
-export function createStaff(): Y.Map<unknown> {
+export function createStaff(tuning: number[] = STANDARD_TUNING): Y.Map<unknown> {
   const staff = new Y.Map<unknown>();
   staff.set("uuid", uuidv4());
-  staff.set("measures", new Y.Array<Y.Map<unknown>>());
+  staff.set("capo", 0);
+  staff.set("transpositionPitch", 0);
+  staff.set("showTablature", true);
+  staff.set("showStandardNotation", true);
+
+  const yTuning = new Y.Array<number>();
+  yTuning.push(tuning);
+  staff.set("tuning", yTuning);
+
+  staff.set("bars", new Y.Array<Y.Map<unknown>>());
   return staff;
 }
 
@@ -478,12 +548,15 @@ export function createTrack(name: string = "Track 1"): Y.Map<unknown> {
   const track = new Y.Map<unknown>();
   track.set("uuid", uuidv4());
   track.set("name", name);
+  track.set("shortName", "");
   track.set("instrument", "acoustic-guitar");
-
-  const tuning = new Y.Array<number>();
-  tuning.push(STANDARD_TUNING);
-  track.set("tuning", tuning);
-
+  track.set("colorR", 255);
+  track.set("colorG", 99);
+  track.set("colorB", 71);
+  track.set("colorA", 255);
+  track.set("playbackProgram", 25);
+  track.set("playbackPrimaryChannel", 0);
+  track.set("playbackSecondaryChannel", 1);
   track.set("staves", new Y.Array<Y.Map<unknown>>());
   return track;
 }
@@ -491,8 +564,8 @@ export function createTrack(name: string = "Track 1"): Y.Map<unknown> {
 // ─── Initialization ──────────────────────────────────────────────────────────
 
 /**
- * Set up the root Y.Map ('score') with default metadata and an empty tracks
- * array. Only writes if the map is empty (first peer to initialize).
+ * Set up the root Y.Map ('score') with default metadata and empty arrays.
+ * Only writes if the map is empty (first peer to initialize).
  */
 export function initializeScore(doc: Y.Doc): Y.Map<unknown> {
   const score = doc.getMap("score");
@@ -500,8 +573,18 @@ export function initializeScore(doc: Y.Doc): Y.Map<unknown> {
   if (!score.has("title")) {
     doc.transact(() => {
       score.set("title", "Untitled");
+      score.set("subTitle", "");
       score.set("artist", "");
+      score.set("album", "");
+      score.set("words", "");
+      score.set("music", "");
+      score.set("copyright", "");
+      score.set("tab", "");
+      score.set("instructions", "");
+      score.set("notices", "");
       score.set("tempo", 120);
+      score.set("tempoLabel", "");
+      score.set("masterBars", new Y.Array<Y.Map<unknown>>());
       score.set("tracks", new Y.Array<Y.Map<unknown>>());
     });
   }
@@ -511,7 +594,6 @@ export function initializeScore(doc: Y.Doc): Y.Map<unknown> {
 
 // ─── Snapshot Helpers ────────────────────────────────────────────────────────
 
-/** Snapshot a Y.Array of BendPoint Y.Maps into plain objects. */
 function snapshotBendPoints(
   yPoints: Y.Array<Y.Map<unknown>> | null | undefined,
 ): BendPointSchema[] {
@@ -522,7 +604,6 @@ function snapshotBendPoints(
   }));
 }
 
-/** Snapshot a section Y.Map or null. */
 function snapshotSection(
   ySection: Y.Map<unknown> | null | undefined,
 ): SectionSchema | null {
@@ -533,7 +614,6 @@ function snapshotSection(
   };
 }
 
-/** Snapshot a fermata Y.Map or null. */
 function snapshotFermata(
   yFermata: Y.Map<unknown> | null | undefined,
 ): FermataSchema | null {
@@ -544,14 +624,16 @@ function snapshotFermata(
   };
 }
 
-/** Convert a Note Y.Map to a plain NoteSchema object. */
 export function snapshotNote(yNote: Y.Map<unknown>): NoteSchema {
   return {
     uuid: yNote.get("uuid") as string,
     fret: yNote.get("fret") as number,
     string: yNote.get("string") as number,
 
-    // Boolean flags
+    octave: (yNote.get("octave") as number) ?? 0,
+    tone: (yNote.get("tone") as number) ?? 0,
+    percussionArticulation: (yNote.get("percussionArticulation") as number) ?? -1,
+
     isDead: (yNote.get("isDead") as boolean) ?? false,
     isGhost: (yNote.get("isGhost") as boolean) ?? false,
     isStaccato: (yNote.get("isStaccato") as boolean) ?? false,
@@ -561,14 +643,10 @@ export function snapshotNote(yNote: Y.Map<unknown>): NoteSchema {
     isHammerPullOrigin: (yNote.get("isHammerPullOrigin") as boolean) ?? false,
     isLeftHandTapped: (yNote.get("isLeftHandTapped") as boolean) ?? false,
 
-    // Enum properties
     accentuated:
-      (yNote.get("accentuated") as AccentuationType) ??
-      AccentuationType.None,
-    vibrato:
-      (yNote.get("vibrato") as VibratoType) ?? VibratoType.None,
-    slideInType:
-      (yNote.get("slideInType") as SlideInType) ?? SlideInType.None,
+      (yNote.get("accentuated") as AccentuationType) ?? AccentuationType.None,
+    vibrato: (yNote.get("vibrato") as VibratoType) ?? VibratoType.None,
+    slideInType: (yNote.get("slideInType") as SlideInType) ?? SlideInType.None,
     slideOutType:
       (yNote.get("slideOutType") as SlideOutType) ?? SlideOutType.None,
     harmonicType:
@@ -589,17 +667,13 @@ export function snapshotNote(yNote: Y.Map<unknown>): NoteSchema {
       (yNote.get("accidentalMode") as NoteAccidentalMode) ??
       NoteAccidentalMode.Default,
 
-    // Trill
     trillValue: (yNote.get("trillValue") as number) ?? -1,
-    trillSpeed:
-      (yNote.get("trillSpeed") as Duration) ?? Duration.Sixteenth,
+    trillSpeed: (yNote.get("trillSpeed") as Duration) ?? Duration.Sixteenth,
 
-    // Misc
     durationPercent: (yNote.get("durationPercent") as number) ?? 1,
   };
 }
 
-/** Convert a Beat Y.Map to a plain BeatSchema object. */
 export function snapshotBeat(yBeat: Y.Map<unknown>): BeatSchema {
   const notes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
   return {
@@ -607,13 +681,13 @@ export function snapshotBeat(yBeat: Y.Map<unknown>): BeatSchema {
     duration: (yBeat.get("duration") as Duration) ?? Duration.Quarter,
     notes: notes.map((n) => snapshotNote(n)),
 
-    // Rhythm modifiers
+    isEmpty: (yBeat.get("isEmpty") as boolean) ?? true,
+
     dots: (yBeat.get("dots") as number) ?? 0,
     isRest: (yBeat.get("isRest") as boolean) ?? false,
     tupletNumerator: (yBeat.get("tupletNumerator") as number) ?? 0,
     tupletDenominator: (yBeat.get("tupletDenominator") as number) ?? 0,
 
-    // Enum properties
     graceType: (yBeat.get("graceType") as GraceType) ?? GraceType.None,
     pickStroke: (yBeat.get("pickStroke") as PickStroke) ?? PickStroke.None,
     brushType: (yBeat.get("brushType") as BrushType) ?? BrushType.None,
@@ -626,91 +700,127 @@ export function snapshotBeat(yBeat: Y.Map<unknown>): BeatSchema {
     golpe: (yBeat.get("golpe") as GolpeType) ?? GolpeType.None,
     wahPedal: (yBeat.get("wahPedal") as WahPedal) ?? WahPedal.None,
 
-    // Whammy bar
     whammyBarType:
       (yBeat.get("whammyBarType") as WhammyType) ?? WhammyType.None,
     whammyBarPoints: snapshotBendPoints(
       yBeat.get("whammyBarPoints") as Y.Array<Y.Map<unknown>> | undefined,
     ),
 
-    // Text / chord
     text: (yBeat.get("text") as string) ?? null,
     chordId: (yBeat.get("chordId") as string) ?? null,
 
-    // Technique toggles
     tap: (yBeat.get("tap") as boolean) ?? false,
     slap: (yBeat.get("slap") as boolean) ?? false,
     pop: (yBeat.get("pop") as boolean) ?? false,
     slashed: (yBeat.get("slashed") as boolean) ?? false,
+    deadSlapped: (yBeat.get("deadSlapped") as boolean) ?? false,
+    isLegatoOrigin: (yBeat.get("isLegatoOrigin") as boolean) ?? false,
 
-    // Fermata
     fermata: snapshotFermata(
       yBeat.get("fermata") as Y.Map<unknown> | null | undefined,
     ),
   };
 }
 
-/** Convert a Measure Y.Map to a plain MeasureSchema object. */
-export function snapshotMeasure(yMeasure: Y.Map<unknown>): MeasureSchema {
-  const beats = yMeasure.get("beats") as Y.Array<Y.Map<unknown>>;
+export function snapshotVoice(yVoice: Y.Map<unknown>): VoiceSchema {
+  const beats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
   return {
-    uuid: yMeasure.get("uuid") as string,
-    timeSignatureNumerator: yMeasure.get("timeSignatureNumerator") as number,
-    timeSignatureDenominator: yMeasure.get(
-      "timeSignatureDenominator",
-    ) as number,
+    uuid: yVoice.get("uuid") as string,
     beats: beats.map((b) => snapshotBeat(b)),
-
-    // MasterBar-level properties
-    keySignature: (yMeasure.get("keySignature") as number) ?? 0,
-    keySignatureType:
-      (yMeasure.get("keySignatureType") as KeySignatureType) ??
-      KeySignatureType.Major,
-    isRepeatStart: (yMeasure.get("isRepeatStart") as boolean) ?? false,
-    repeatCount: (yMeasure.get("repeatCount") as number) ?? 0,
-    alternateEndings: (yMeasure.get("alternateEndings") as number) ?? 0,
-    tripletFeel:
-      (yMeasure.get("tripletFeel") as TripletFeel) ??
-      TripletFeel.NoTripletFeel,
-    isFreeTime: (yMeasure.get("isFreeTime") as boolean) ?? false,
-    isDoubleBar: (yMeasure.get("isDoubleBar") as boolean) ?? false,
-    section: snapshotSection(
-      yMeasure.get("section") as Y.Map<unknown> | null | undefined,
-    ),
-    tempo: (yMeasure.get("tempo") as number) ?? null,
   };
 }
 
-/** Convert a Staff Y.Map to a plain StaffSchema object. */
+export function snapshotBar(yBar: Y.Map<unknown>): BarSchema {
+  const voices = yBar.get("voices") as Y.Array<Y.Map<unknown>>;
+  return {
+    uuid: yBar.get("uuid") as string,
+    clef: (yBar.get("clef") as Clef) ?? Clef.G2,
+    voices: voices.map((v) => snapshotVoice(v)),
+  };
+}
+
+export function snapshotMasterBar(yMb: Y.Map<unknown>): MasterBarSchema {
+  return {
+    uuid: yMb.get("uuid") as string,
+    timeSignatureNumerator: (yMb.get("timeSignatureNumerator") as number) ?? 4,
+    timeSignatureDenominator:
+      (yMb.get("timeSignatureDenominator") as number) ?? 4,
+    keySignature: (yMb.get("keySignature") as number) ?? 0,
+    keySignatureType:
+      (yMb.get("keySignatureType") as KeySignatureType) ??
+      KeySignatureType.Major,
+    isRepeatStart: (yMb.get("isRepeatStart") as boolean) ?? false,
+    repeatCount: (yMb.get("repeatCount") as number) ?? 0,
+    alternateEndings: (yMb.get("alternateEndings") as number) ?? 0,
+    tripletFeel:
+      (yMb.get("tripletFeel") as TripletFeel) ?? TripletFeel.NoTripletFeel,
+    isFreeTime: (yMb.get("isFreeTime") as boolean) ?? false,
+    isDoubleBar: (yMb.get("isDoubleBar") as boolean) ?? false,
+    section: snapshotSection(
+      yMb.get("section") as Y.Map<unknown> | null | undefined,
+    ),
+    fermata: snapshotFermata(
+      yMb.get("fermata") as Y.Map<unknown> | null | undefined,
+    ),
+    tempo: (yMb.get("tempo") as number) ?? null,
+  };
+}
+
 export function snapshotStaff(yStaff: Y.Map<unknown>): StaffSchema {
-  const measures = yStaff.get("measures") as Y.Array<Y.Map<unknown>>;
+  const bars = yStaff.get("bars") as Y.Array<Y.Map<unknown>>;
+  const tuning = yStaff.get("tuning") as Y.Array<number> | undefined;
   return {
     uuid: yStaff.get("uuid") as string,
-    measures: measures.map((m) => snapshotMeasure(m)),
+    capo: (yStaff.get("capo") as number) ?? 0,
+    transpositionPitch: (yStaff.get("transpositionPitch") as number) ?? 0,
+    showTablature: (yStaff.get("showTablature") as boolean) ?? true,
+    showStandardNotation:
+      (yStaff.get("showStandardNotation") as boolean) ?? true,
+    tuning: tuning ? tuning.toArray() : [],
+    bars: bars.map((b) => snapshotBar(b)),
   };
 }
 
-/** Convert a Track Y.Map to a plain TrackSchema object. */
 export function snapshotTrack(yTrack: Y.Map<unknown>): TrackSchema {
   const staves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
-  const tuning = yTrack.get("tuning") as Y.Array<number>;
   return {
     uuid: yTrack.get("uuid") as string,
-    name: yTrack.get("name") as string,
-    instrument: yTrack.get("instrument") as string,
-    tuning: tuning.toArray(),
+    name: (yTrack.get("name") as string) ?? "",
+    shortName: (yTrack.get("shortName") as string) ?? "",
+    instrument: (yTrack.get("instrument") as string) ?? "",
+    color: {
+      r: (yTrack.get("colorR") as number) ?? 255,
+      g: (yTrack.get("colorG") as number) ?? 99,
+      b: (yTrack.get("colorB") as number) ?? 71,
+      a: (yTrack.get("colorA") as number) ?? 255,
+    },
+    playbackProgram: (yTrack.get("playbackProgram") as number) ?? 25,
+    playbackPrimaryChannel:
+      (yTrack.get("playbackPrimaryChannel") as number) ?? 0,
+    playbackSecondaryChannel:
+      (yTrack.get("playbackSecondaryChannel") as number) ?? 1,
     staves: staves.map((s) => snapshotStaff(s)),
   };
 }
 
-/** Snapshot the entire score Y.Map into a plain ScoreSchema object. */
 export function snapshotScore(yScore: Y.Map<unknown>): ScoreSchema {
+  const masterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
   const tracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
   return {
-    title: yScore.get("title") as string,
-    artist: yScore.get("artist") as string,
-    tempo: yScore.get("tempo") as number,
-    tracks: tracks.map((t) => snapshotTrack(t)),
+    title: (yScore.get("title") as string) ?? "",
+    subTitle: (yScore.get("subTitle") as string) ?? "",
+    artist: (yScore.get("artist") as string) ?? "",
+    album: (yScore.get("album") as string) ?? "",
+    words: (yScore.get("words") as string) ?? "",
+    music: (yScore.get("music") as string) ?? "",
+    copyright: (yScore.get("copyright") as string) ?? "",
+    tab: (yScore.get("tab") as string) ?? "",
+    instructions: (yScore.get("instructions") as string) ?? "",
+    notices: (yScore.get("notices") as string) ?? "",
+    tempo: (yScore.get("tempo") as number) ?? 120,
+    tempoLabel: (yScore.get("tempoLabel") as string) ?? "",
+    masterBars: masterBars ? masterBars.map((mb) => snapshotMasterBar(mb)) : [],
+    tracks: tracks ? tracks.map((t) => snapshotTrack(t)) : [],
   };
 }
 
@@ -725,6 +835,15 @@ export function buildUuidIndex(
 ): Map<string, Y.Map<unknown>> {
   const index = new Map<string, Y.Map<unknown>>();
 
+  const masterBars = yScore.get("masterBars") as
+    | Y.Array<Y.Map<unknown>>
+    | undefined;
+  if (masterBars) {
+    for (const yMb of masterBars) {
+      index.set(yMb.get("uuid") as string, yMb);
+    }
+  }
+
   const tracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
   if (!tracks) return index;
 
@@ -735,17 +854,22 @@ export function buildUuidIndex(
     for (const yStaff of staves) {
       index.set(yStaff.get("uuid") as string, yStaff);
 
-      const measures = yStaff.get("measures") as Y.Array<Y.Map<unknown>>;
-      for (const yMeasure of measures) {
-        index.set(yMeasure.get("uuid") as string, yMeasure);
+      const bars = yStaff.get("bars") as Y.Array<Y.Map<unknown>>;
+      for (const yBar of bars) {
+        index.set(yBar.get("uuid") as string, yBar);
 
-        const beats = yMeasure.get("beats") as Y.Array<Y.Map<unknown>>;
-        for (const yBeat of beats) {
-          index.set(yBeat.get("uuid") as string, yBeat);
+        const voices = yBar.get("voices") as Y.Array<Y.Map<unknown>>;
+        for (const yVoice of voices) {
+          index.set(yVoice.get("uuid") as string, yVoice);
 
-          const notes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
-          for (const yNote of notes) {
-            index.set(yNote.get("uuid") as string, yNote);
+          const beats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
+          for (const yBeat of beats) {
+            index.set(yBeat.get("uuid") as string, yBeat);
+
+            const notes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+            for (const yNote of notes) {
+              index.set(yNote.get("uuid") as string, yNote);
+            }
           }
         }
       }

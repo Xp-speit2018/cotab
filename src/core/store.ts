@@ -6,7 +6,7 @@
  *
  *   User Intent  ──command()──▶  Y.Doc  ──observeDeep──▶  Zustand State
  *                                                              │
- *                                                      React UI (future)
+ *                                                      React UI / AlphaTab sync
  *
  * AlphaTab / UI events must NEVER write back to Y.Doc.
  * Only direct user intent (mouse/keyboard) triggers commands.
@@ -19,15 +19,15 @@ import { create } from "zustand";
 
 import {
   type ScoreSchema,
-  type NoteSchema,
   initializeScore,
   snapshotScore,
   buildUuidIndex,
   createTrack,
   createStaff,
-  createMeasure,
+  createBar,
+  createVoice,
   createBeat,
-  createNote,
+  createMasterBar,
 } from "./schema";
 
 // ─── Internal State (not exposed via Zustand) ───────────────────────────────
@@ -35,8 +35,23 @@ import {
 let doc: Y.Doc | null = null;
 let provider: WebrtcProvider | null = null;
 let persistence: IndexeddbPersistence | null = null;
+let undoManager: Y.UndoManager | null = null;
 let uuidIndex: Map<string, Y.Map<unknown>> = new Map();
 let scoreMap: Y.Map<unknown> | null = null;
+
+// ─── Accessors (used by actions and sync engine) ─────────────────────────────
+
+export function getDoc(): Y.Doc | null {
+  return doc;
+}
+
+export function getScoreMap(): Y.Map<unknown> | null {
+  return scoreMap;
+}
+
+export function getUndoManager(): Y.UndoManager | null {
+  return undoManager;
+}
 
 // ─── UUID Index Maintenance ──────────────────────────────────────────────────
 
@@ -46,7 +61,7 @@ function rebuildIndex(): void {
   }
 }
 
-function lookupYMap(uuid: string): Y.Map<unknown> {
+export function lookupYMap(uuid: string): Y.Map<unknown> {
   const yMap = uuidIndex.get(uuid);
   if (!yMap) {
     throw new Error(`Entity with uuid "${uuid}" not found in Y.Doc`);
@@ -54,63 +69,106 @@ function lookupYMap(uuid: string): Y.Map<unknown> {
   return yMap;
 }
 
-/**
- * Find the parent Y.Array that contains a child Y.Map with the given uuid,
- * and return both the array and the index. Used for removal operations.
- */
-function findParentArray(
-  childUuid: string,
-  parentUuid: string,
-  arrayKey: string,
-): { array: Y.Array<Y.Map<unknown>>; index: number } {
-  const parent = lookupYMap(parentUuid);
-  const array = parent.get(arrayKey) as Y.Array<Y.Map<unknown>>;
+// ─── Index-based Y.Doc Navigators ────────────────────────────────────────────
 
-  let targetIndex = -1;
-  for (let i = 0; i < array.length; i++) {
-    const item = array.get(i);
-    if (item.get("uuid") === childUuid) {
-      targetIndex = i;
-      break;
-    }
-  }
+export function resolveYTrack(trackIndex: number): Y.Map<unknown> | null {
+  if (!scoreMap) return null;
+  const tracks = scoreMap.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
+  if (!tracks || trackIndex < 0 || trackIndex >= tracks.length) return null;
+  return tracks.get(trackIndex);
+}
 
-  if (targetIndex === -1) {
-    throw new Error(
-      `Child "${childUuid}" not found in ${arrayKey} of "${parentUuid}"`,
-    );
-  }
+export function resolveYStaff(
+  trackIndex: number,
+  staffIndex: number,
+): Y.Map<unknown> | null {
+  const yTrack = resolveYTrack(trackIndex);
+  if (!yTrack) return null;
+  const staves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
+  if (!staves || staffIndex < 0 || staffIndex >= staves.length) return null;
+  return staves.get(staffIndex);
+}
 
-  return { array, index: targetIndex };
+export function resolveYBar(
+  trackIndex: number,
+  staffIndex: number,
+  barIndex: number,
+): Y.Map<unknown> | null {
+  const yStaff = resolveYStaff(trackIndex, staffIndex);
+  if (!yStaff) return null;
+  const bars = yStaff.get("bars") as Y.Array<Y.Map<unknown>>;
+  if (!bars || barIndex < 0 || barIndex >= bars.length) return null;
+  return bars.get(barIndex);
+}
+
+export function resolveYVoice(
+  trackIndex: number,
+  staffIndex: number,
+  barIndex: number,
+  voiceIndex: number,
+): Y.Map<unknown> | null {
+  const yBar = resolveYBar(trackIndex, staffIndex, barIndex);
+  if (!yBar) return null;
+  const voices = yBar.get("voices") as Y.Array<Y.Map<unknown>>;
+  if (!voices || voiceIndex < 0 || voiceIndex >= voices.length) return null;
+  return voices.get(voiceIndex);
+}
+
+export function resolveYBeat(
+  trackIndex: number,
+  staffIndex: number,
+  barIndex: number,
+  voiceIndex: number,
+  beatIndex: number,
+): Y.Map<unknown> | null {
+  const yVoice = resolveYVoice(trackIndex, staffIndex, barIndex, voiceIndex);
+  if (!yVoice) return null;
+  const beats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
+  if (!beats || beatIndex < 0 || beatIndex >= beats.length) return null;
+  return beats.get(beatIndex);
+}
+
+export function resolveYNote(
+  trackIndex: number,
+  staffIndex: number,
+  barIndex: number,
+  voiceIndex: number,
+  beatIndex: number,
+  noteIndex: number,
+): Y.Map<unknown> | null {
+  const yBeat = resolveYBeat(
+    trackIndex,
+    staffIndex,
+    barIndex,
+    voiceIndex,
+    beatIndex,
+  );
+  if (!yBeat) return null;
+  const notes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+  if (!notes || noteIndex < 0 || noteIndex >= notes.length) return null;
+  return notes.get(noteIndex);
+}
+
+export function resolveYMasterBar(barIndex: number): Y.Map<unknown> | null {
+  if (!scoreMap) return null;
+  const masterBars = scoreMap.get("masterBars") as
+    | Y.Array<Y.Map<unknown>>
+    | undefined;
+  if (!masterBars || barIndex < 0 || barIndex >= masterBars.length) return null;
+  return masterBars.get(barIndex);
 }
 
 // ─── Zustand Store ───────────────────────────────────────────────────────────
 
 export interface TabState {
-  // Connection
   connected: boolean;
   roomCode: string | null;
   peers: Array<{ id: string; name: string }>;
 
-  // Score snapshot (derived from Y.Doc on every update)
   score: ScoreSchema | null;
 
-  // Commands — these write to Y.Doc, never to Zustand directly
   connect: (roomCode: string, userName: string) => void;
   disconnect: () => void;
-  setMetadata: (
-    field: "title" | "artist",
-    value: string,
-  ) => void;
-  setTempo: (tempo: number) => void;
-  addTrack: (name: string) => void;
-  removeTrack: (trackUuid: string) => void;
-  addStaff: (trackUuid: string) => void;
-  addMeasure: (staffUuid: string, numerator?: number, denominator?: number) => void;
-  addBeat: (measureUuid: string, duration?: number) => void;
-  addNote: (beatUuid: string, fret: number, stringNum: number) => void;
-  updateNote: (noteUuid: string, updates: Partial<Pick<NoteSchema, "fret" | "string">>) => void;
-  removeNote: (beatUuid: string, noteUuid: string) => void;
 }
 
 /** Sync the Y.Doc score snapshot into Zustand state + rebuild the UUID index. */
@@ -121,7 +179,6 @@ function syncToStore(): void {
   useTabStore.setState({ score: snapshot });
 }
 
-/** Attach a deep observer on the score Y.Map so any nested change triggers sync. */
 function attachObserver(): void {
   if (!scoreMap) return;
   scoreMap.observeDeep(syncToStore);
@@ -132,32 +189,23 @@ function detachObserver(): void {
   scoreMap.unobserveDeep(syncToStore);
 }
 
-export const useTabStore = create<TabState>((set, _get) => ({
-  // ── Initial State ──────────────────────────────────────────────────────────
-
+export const useTabStore = create<TabState>((set) => ({
   connected: false,
   roomCode: null,
   peers: [],
   score: null,
 
-  // ── Connection Commands ────────────────────────────────────────────────────
-
   connect: (roomCode: string, userName: string) => {
-    // Tear down previous session if any
     useTabStore.getState().disconnect();
 
-    // Create Y.Doc and initialize score structure
     doc = new Y.Doc();
     scoreMap = initializeScore(doc);
 
-    // IndexedDB persistence for offline support
     persistence = new IndexeddbPersistence(`cotab:${roomCode}`, doc);
     persistence.on("synced", () => {
-      // Re-snapshot after IndexedDB state is loaded
       syncToStore();
     });
 
-    // WebRTC provider connecting through the signaling server
     const signalingBase = import.meta.env.VITE_SIGNALING_URL;
     const signalingUrl = `${signalingBase}?roomCode=${encodeURIComponent(roomCode)}&name=${encodeURIComponent(userName)}`;
 
@@ -169,20 +217,23 @@ export const useTabStore = create<TabState>((set, _get) => ({
       syncToStore();
     });
 
-    // Observe changes and push to Zustand
-    attachObserver();
+    undoManager = new Y.UndoManager([scoreMap], {
+      trackedOrigins: new Set([doc.clientID]),
+    });
 
-    // Initial snapshot
+    attachObserver();
     syncToStore();
 
-    set({
-      connected: true,
-      roomCode,
-    });
+    set({ connected: true, roomCode });
   },
 
   disconnect: () => {
     detachObserver();
+
+    if (undoManager) {
+      undoManager.destroy();
+      undoManager = null;
+    }
 
     if (provider) {
       provider.destroy();
@@ -209,131 +260,36 @@ export const useTabStore = create<TabState>((set, _get) => ({
       score: null,
     });
   },
-
-  // ── Metadata Commands ──────────────────────────────────────────────────────
-
-  setMetadata: (field, value) => {
-    if (!doc || !scoreMap) return;
-    doc.transact(() => {
-      scoreMap!.set(field, value);
-    });
-  },
-
-  setTempo: (tempo) => {
-    if (!doc || !scoreMap) return;
-    doc.transact(() => {
-      scoreMap!.set("tempo", tempo);
-    });
-  },
-
-  // ── Track Commands ─────────────────────────────────────────────────────────
-
-  addTrack: (name) => {
-    if (!doc || !scoreMap) return;
-    doc.transact(() => {
-      const tracks = scoreMap!.get("tracks") as Y.Array<Y.Map<unknown>>;
-      const track = createTrack(name);
-
-      // Every new track gets one staff with one empty measure
-      const staff = createStaff();
-      const measure = createMeasure();
-      const beat = createBeat();
-
-      (measure.get("beats") as Y.Array<Y.Map<unknown>>).push([beat]);
-      (staff.get("measures") as Y.Array<Y.Map<unknown>>).push([measure]);
-      (track.get("staves") as Y.Array<Y.Map<unknown>>).push([staff]);
-
-      tracks.push([track]);
-    });
-  },
-
-  removeTrack: (trackUuid) => {
-    if (!doc || !scoreMap) return;
-    doc.transact(() => {
-      const tracks = scoreMap!.get("tracks") as Y.Array<Y.Map<unknown>>;
-      for (let i = 0; i < tracks.length; i++) {
-        if (tracks.get(i).get("uuid") === trackUuid) {
-          tracks.delete(i, 1);
-          break;
-        }
-      }
-    });
-  },
-
-  // ── Staff Commands ─────────────────────────────────────────────────────────
-
-  addStaff: (trackUuid) => {
-    if (!doc) return;
-    doc.transact(() => {
-      const track = lookupYMap(trackUuid);
-      const staves = track.get("staves") as Y.Array<Y.Map<unknown>>;
-      const staff = createStaff();
-
-      // New staff gets one empty measure with one beat
-      const measure = createMeasure();
-      const beat = createBeat();
-      (measure.get("beats") as Y.Array<Y.Map<unknown>>).push([beat]);
-      (staff.get("measures") as Y.Array<Y.Map<unknown>>).push([measure]);
-
-      staves.push([staff]);
-    });
-  },
-
-  // ── Measure Commands ───────────────────────────────────────────────────────
-
-  addMeasure: (staffUuid, numerator = 4, denominator = 4) => {
-    if (!doc) return;
-    doc.transact(() => {
-      const staff = lookupYMap(staffUuid);
-      const measures = staff.get("measures") as Y.Array<Y.Map<unknown>>;
-      const measure = createMeasure(numerator, denominator);
-
-      // New measure starts with one empty beat
-      const beat = createBeat();
-      (measure.get("beats") as Y.Array<Y.Map<unknown>>).push([beat]);
-
-      measures.push([measure]);
-    });
-  },
-
-  // ── Beat Commands ──────────────────────────────────────────────────────────
-
-  addBeat: (measureUuid, duration = 4) => {
-    if (!doc) return;
-    doc.transact(() => {
-      const measure = lookupYMap(measureUuid);
-      const beats = measure.get("beats") as Y.Array<Y.Map<unknown>>;
-      const beat = createBeat(duration);
-      beats.push([beat]);
-    });
-  },
-
-  // ── Note Commands ──────────────────────────────────────────────────────────
-
-  addNote: (beatUuid, fret, stringNum) => {
-    if (!doc) return;
-    doc.transact(() => {
-      const beat = lookupYMap(beatUuid);
-      const notes = beat.get("notes") as Y.Array<Y.Map<unknown>>;
-      const note = createNote(fret, stringNum);
-      notes.push([note]);
-    });
-  },
-
-  updateNote: (noteUuid, updates) => {
-    if (!doc) return;
-    doc.transact(() => {
-      const note = lookupYMap(noteUuid);
-      if (updates.fret !== undefined) note.set("fret", updates.fret);
-      if (updates.string !== undefined) note.set("string", updates.string);
-    });
-  },
-
-  removeNote: (beatUuid, noteUuid) => {
-    if (!doc) return;
-    doc.transact(() => {
-      const { array, index } = findParentArray(noteUuid, beatUuid, "notes");
-      array.delete(index, 1);
-    });
-  },
 }));
+
+// ─── Convenience: create a default empty bar structure ───────────────────────
+
+/**
+ * Create a bar Y.Map with one voice containing one empty beat.
+ * Commonly needed when adding tracks, inserting bars, etc.
+ */
+export function createDefaultBar(clef?: number): Y.Map<unknown> {
+  const bar = createBar(clef);
+  const voice = createVoice();
+  const beat = createBeat();
+  (voice.get("beats") as Y.Array<Y.Map<unknown>>).push([beat]);
+  (bar.get("voices") as Y.Array<Y.Map<unknown>>).push([voice]);
+  return bar;
+}
+
+/**
+ * Create a track with one staff, one bar, one voice, and one empty beat,
+ * plus a corresponding master bar. Returns both for the caller to insert.
+ */
+export function createDefaultTrack(
+  name: string = "Track 1",
+): { track: Y.Map<unknown>; masterBar: Y.Map<unknown> } {
+  const track = createTrack(name);
+  const staff = createStaff();
+  const bar = createDefaultBar();
+  (staff.get("bars") as Y.Array<Y.Map<unknown>>).push([bar]);
+  (track.get("staves") as Y.Array<Y.Map<unknown>>).push([staff]);
+
+  const masterBar = createMasterBar();
+  return { track, masterBar };
+}

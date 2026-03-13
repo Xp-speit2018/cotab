@@ -1,14 +1,15 @@
+import * as Y from "yjs";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
 import { debugLog } from "@/stores/debug-log-store";
 import {
-  getApi,
-  insertBarAtIndex,
   isBarEmptyAllTracks,
-  applyBarWarningStyles,
   setPendingSelection,
 } from "@/stores/player-internals";
 import { usePlayerStore } from "@/stores/player-store";
+import { createMasterBar } from "@/core/schema";
+import { createDefaultBar } from "@/core/store";
+import { transact, getScoreMap } from "@/core/sync";
 
 const insertBarBeforeAction: ActionDefinition<void> = {
   id: "edit.bar.insertBefore",
@@ -16,24 +17,18 @@ const insertBarBeforeAction: ActionDefinition<void> = {
   category: "edit.bar",
   execute: (_args, _context) => {
     const sel = usePlayerStore.getState().selectedBeat;
-    const api = getApi();
-    if (!sel || !api) {
-      debugLog("warn", "edit.bar.insertBefore", "no selection or API");
+    if (!sel) {
+      debugLog("warn", "edit.bar.insertBefore", "no selection");
       return;
     }
-    const score = api.score;
-    if (!score) {
-      debugLog("warn", "edit.bar.insertBefore", "no score");
-      return;
-    }
+    const yScore = getScoreMap();
+    if (!yScore) return;
 
-    debugLog("info", "edit.bar.insertBefore", "start", {
-      barIndex: sel.barIndex,
-      trackCount: score.tracks.length,
-      masterBarCount: score.masterBars.length,
-    });
-
-    insertBarAtIndex(score, sel.barIndex);
+    const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    const refIndex = Math.min(sel.barIndex, yMasterBars.length - 1);
+    const refMb = yMasterBars.get(refIndex);
+    const num = (refMb.get("timeSignatureNumerator") as number) ?? 4;
+    const den = (refMb.get("timeSignatureDenominator") as number) ?? 4;
 
     setPendingSelection({
       trackIndex: sel.trackIndex,
@@ -44,12 +39,22 @@ const insertBarBeforeAction: ActionDefinition<void> = {
       string: sel.string,
     });
 
-    debugLog("info", "edit.bar.insertBefore", "complete", {
-      newBarCount: score.masterBars.length,
-      newSelectionBarIndex: sel.barIndex + 1,
+    transact(() => {
+      yMasterBars.insert(sel.barIndex, [createMasterBar(num, den)]);
+
+      const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
+      for (let ti = 0; ti < yTracks.length; ti++) {
+        const yStaves = yTracks.get(ti).get("staves") as Y.Array<Y.Map<unknown>>;
+        for (let si = 0; si < yStaves.length; si++) {
+          const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
+          const refBarIdx = Math.min(sel.barIndex, yBars.length - 1);
+          const clef = (yBars.get(refBarIdx).get("clef") as number) ?? 4;
+          yBars.insert(sel.barIndex, [createDefaultBar(clef)]);
+        }
+      }
     });
 
-    api.render();
+    debugLog("info", "edit.bar.insertBefore", "complete");
   },
 };
 
@@ -59,25 +64,18 @@ const insertBarAfterAction: ActionDefinition<void> = {
   category: "edit.bar",
   execute: (_args, _context) => {
     const sel = usePlayerStore.getState().selectedBeat;
-    const api = getApi();
-    if (!sel || !api) {
-      debugLog("warn", "edit.bar.insertAfter", "no selection or API");
+    if (!sel) {
+      debugLog("warn", "edit.bar.insertAfter", "no selection");
       return;
     }
-    const score = api.score;
-    if (!score) {
-      debugLog("warn", "edit.bar.insertAfter", "no score");
-      return;
-    }
+    const yScore = getScoreMap();
+    if (!yScore) return;
 
-    debugLog("info", "edit.bar.insertAfter", "start", {
-      barIndex: sel.barIndex,
-      insertIndex: sel.barIndex + 1,
-      trackCount: score.tracks.length,
-      masterBarCount: score.masterBars.length,
-    });
-
-    insertBarAtIndex(score, sel.barIndex + 1);
+    const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    const refMb = yMasterBars.get(sel.barIndex);
+    const num = (refMb.get("timeSignatureNumerator") as number) ?? 4;
+    const den = (refMb.get("timeSignatureDenominator") as number) ?? 4;
+    const insertIdx = sel.barIndex + 1;
 
     setPendingSelection({
       trackIndex: sel.trackIndex,
@@ -88,12 +86,21 @@ const insertBarAfterAction: ActionDefinition<void> = {
       string: sel.string,
     });
 
-    debugLog("info", "edit.bar.insertAfter", "complete", {
-      newBarCount: score.masterBars.length,
-      selectionBarIndex: sel.barIndex,
+    transact(() => {
+      yMasterBars.insert(insertIdx, [createMasterBar(num, den)]);
+
+      const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
+      for (let ti = 0; ti < yTracks.length; ti++) {
+        const yStaves = yTracks.get(ti).get("staves") as Y.Array<Y.Map<unknown>>;
+        for (let si = 0; si < yStaves.length; si++) {
+          const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
+          const clef = (yBars.get(sel.barIndex).get("clef") as number) ?? 4;
+          yBars.insert(insertIdx, [createDefaultBar(clef)]);
+        }
+      }
     });
 
-    api.render();
+    debugLog("info", "edit.bar.insertAfter", "complete");
   },
 };
 
@@ -102,97 +109,50 @@ const deleteBarAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.bar.delete",
   category: "edit.bar",
   execute: (_args, _context): boolean => {
-    try {
-      const sel = usePlayerStore.getState().selectedBeat;
-      const api = getApi();
-      if (!sel || !api) {
-        debugLog("warn", "edit.bar.delete", "no selection or API");
-        return false;
-      }
-      const score = api.score;
-      if (!score) {
-        debugLog("warn", "edit.bar.delete", "no score");
-        return false;
-      }
-
-      debugLog("info", "edit.bar.delete", "start", {
-        barIndex: sel.barIndex,
-        masterBarCount: score.masterBars.length,
-      });
-
-      if (score.masterBars.length <= 1) {
-        debugLog("warn", "edit.bar.delete", "blocked — only bar remaining");
-        return false;
-      }
-
-      const isEmpty = isBarEmptyAllTracks(sel.barIndex);
-      debugLog("debug", "edit.bar.delete", "bar empty check", {
-        barIndex: sel.barIndex,
-        isEmpty,
-      });
-
-      if (!isEmpty) {
-        debugLog("warn", "edit.bar.delete", "blocked — bar not empty");
-        return false;
-      }
-
-      debugLog("debug", "edit.bar.delete", "splicing masterBars and staff bars");
-      score.masterBars.splice(sel.barIndex, 1);
-      for (const track of score.tracks) {
-        for (const staff of track.staves) {
-          staff.bars.splice(sel.barIndex, 1);
-        }
-      }
-
-      for (let i = 0; i < score.masterBars.length; i++) {
-        const masterBar = score.masterBars[i];
-        masterBar.index = i;
-        masterBar.previousMasterBar = i > 0 ? score.masterBars[i - 1] : null;
-        masterBar.nextMasterBar = i < score.masterBars.length - 1 ? score.masterBars[i + 1] : null;
-      }
-      debugLog("debug", "edit.bar.delete", "masterBar indices and links updated");
-
-      for (const track of score.tracks) {
-        for (const staff of track.staves) {
-          for (let i = 0; i < staff.bars.length; i++) {
-            const bar = staff.bars[i];
-            bar.staff = staff;
-            bar.index = i;
-            bar.previousBar = i > 0 ? staff.bars[i - 1] : null;
-            bar.nextBar = i < staff.bars.length - 1 ? staff.bars[i + 1] : null;
-          }
-        }
-      }
-      debugLog("debug", "edit.bar.delete", "bar indices and links updated");
-
-      debugLog("debug", "edit.bar.delete", "calling score.finish()");
-      score.finish(api.settings);
-      debugLog("debug", "edit.bar.delete", "score.finish() completed");
-
-      debugLog("debug", "edit.bar.delete", "calling applyBarWarningStyles()");
-      applyBarWarningStyles();
-
-      const newBarIndex = Math.min(sel.barIndex, score.masterBars.length - 1);
-      setPendingSelection({
-        trackIndex: sel.trackIndex,
-        barIndex: newBarIndex,
-        beatIndex: 0,
-        staffIndex: sel.staffIndex,
-        voiceIndex: sel.voiceIndex,
-        string: sel.string,
-      });
-
-      debugLog("info", "edit.bar.delete", "complete", {
-        newBarCount: score.masterBars.length,
-        newSelectionBarIndex: newBarIndex,
-      });
-
-      api.render();
-      return true;
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error));
-      throw err;
+    const sel = usePlayerStore.getState().selectedBeat;
+    if (!sel) {
+      debugLog("warn", "edit.bar.delete", "no selection");
+      return false;
     }
+    const yScore = getScoreMap();
+    if (!yScore) return false;
+
+    const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    if (yMasterBars.length <= 1) {
+      debugLog("warn", "edit.bar.delete", "blocked — only bar remaining");
+      return false;
+    }
+
+    if (!isBarEmptyAllTracks(sel.barIndex)) {
+      debugLog("warn", "edit.bar.delete", "blocked — bar not empty");
+      return false;
+    }
+
+    const newBarIndex = Math.min(sel.barIndex, yMasterBars.length - 2);
+    setPendingSelection({
+      trackIndex: sel.trackIndex,
+      barIndex: newBarIndex,
+      beatIndex: 0,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      string: sel.string,
+    });
+
+    transact(() => {
+      yMasterBars.delete(sel.barIndex, 1);
+
+      const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
+      for (let ti = 0; ti < yTracks.length; ti++) {
+        const yStaves = yTracks.get(ti).get("staves") as Y.Array<Y.Map<unknown>>;
+        for (let si = 0; si < yStaves.length; si++) {
+          const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
+          yBars.delete(sel.barIndex, 1);
+        }
+      }
+    });
+
+    debugLog("info", "edit.bar.delete", "complete");
+    return true;
   },
 };
 
@@ -209,4 +169,3 @@ declare global {
 }
 
 export {};
-

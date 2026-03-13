@@ -65,6 +65,12 @@ import {
   findNearestSnap,
   destroySnapGridOverlay,
 } from "./snap-grid";
+import {
+  initDoc,
+  destroyDoc,
+  importFromAlphaTab,
+  isRebuildingFromYDoc,
+} from "@/core/sync";
 
 // Re-export for consumers that still import from player-store
 export type { PendingSelection } from "./player-api";
@@ -362,6 +368,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // Tear down any previous instance
     get().destroy();
 
+    initDoc();
     set({ isLoading: true });
 
     setMainElement(mainEl);
@@ -573,6 +580,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
 
     api.scoreLoaded.on((score: alphaTab.model.Score) => {
+      // Import into Y.Doc for CRDT sync (skipped when the load
+      // originated from a Y.Doc rebuild to prevent infinite loops).
+      if (!isRebuildingFromYDoc()) {
+        importFromAlphaTab(score);
+      }
+
       const existing = get().tracks;
       const tracks: TrackInfo[] = score.tracks.map((t, i) => ({
         index: i,
@@ -599,10 +612,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         tracks,
       });
 
-      // Apply bar-warning colors before the initial render
       applyBarWarningStyles();
-
-      // Render ALL tracks by default so visibility list matches
       api!.renderTracks(score.tracks);
     });
 
@@ -643,17 +653,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   destroy: () => {
-    // Remove cursor element
+    destroyDoc();
+
     const cursor = getCursorElement();
     if (cursor) {
       cursor.remove();
       setCursorElement(null);
     }
 
-    // Remove snap grid overlay + labels and clear snap grids
     destroySnapGridOverlay();
-
-    // Clear pending selection
     setPendingSelection(null);
 
     const api = getApi();

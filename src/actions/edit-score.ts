@@ -1,17 +1,14 @@
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { getApi, SCORE_FIELD_TO_STATE } from "@/stores/player-internals";
-import type { PlayerState, ScoreMetadataField } from "@/stores/player-store";
-import { usePlayerStore } from "@/stores/player-store";
+import type { ScoreMetadataField } from "@/stores/player-types";
+import { transact, getScoreMap } from "@/core/sync";
 
 function setScoreField(field: ScoreMetadataField, value: string): void {
-  const api = getApi();
-  const score = api?.score;
-  if (!score) return;
-  (score as unknown as Record<string, unknown>)[field] = value;
-  const stateKey = SCORE_FIELD_TO_STATE[field];
-  usePlayerStore.setState({ [stateKey]: value } as Partial<PlayerState>);
-  api.render();
+  const yScore = getScoreMap();
+  if (!yScore) return;
+  transact(() => {
+    yScore.set(field, value);
+  });
 }
 
 const setMetadataAction: ActionDefinition<{ field: ScoreMetadataField; value: string }> = {
@@ -61,12 +58,11 @@ const setTempoAction: ActionDefinition<number> = {
     { name: "tempo", type: "number", i18nKey: "actions.edit.score.setTempo.params.tempo" },
   ],
   execute: (tempo, _context) => {
-    const api = getApi();
-    const score = api?.score;
-    if (!score || tempo <= 0) return;
-    (score as unknown as Record<string, unknown>).tempo = tempo;
-    usePlayerStore.setState({ scoreTempo: tempo });
-    api.render();
+    const yScore = getScoreMap();
+    if (!yScore || tempo <= 0) return;
+    transact(() => {
+      yScore.set("tempo", tempo);
+    });
   },
 };
 
@@ -87,5 +83,3 @@ declare global {
 }
 
 export {};
-
-

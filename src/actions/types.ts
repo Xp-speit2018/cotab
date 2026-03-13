@@ -9,6 +9,7 @@ export type ActionCategory =
   | "edit.bar"
   | "edit.beat"
   | "edit.note"
+  | "edit.history"
   | "view";
 
 export type PrimitiveParamType = "boolean" | "number" | "string" | "enum";

@@ -8,7 +8,7 @@ import {
 } from "@/stores/player-internals";
 import { usePlayerStore } from "@/stores/player-store";
 import { createMasterBar } from "@/core/schema";
-import { createDefaultBar } from "@/core/store";
+import { pushDefaultBar } from "@/core/store";
 import { transact, getScoreMap } from "@/core/sync";
 
 const insertBarBeforeAction: ActionDefinition<void> = {
@@ -49,7 +49,7 @@ const insertBarBeforeAction: ActionDefinition<void> = {
           const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
           const refBarIdx = Math.min(sel.barIndex, yBars.length - 1);
           const clef = (yBars.get(refBarIdx).get("clef") as number) ?? 4;
-          yBars.insert(sel.barIndex, [createDefaultBar(clef)]);
+          pushDefaultBar(yBars, sel.barIndex, clef);
         }
       }
     });
@@ -95,7 +95,7 @@ const insertBarAfterAction: ActionDefinition<void> = {
         for (let si = 0; si < yStaves.length; si++) {
           const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
           const clef = (yBars.get(sel.barIndex).get("clef") as number) ?? 4;
-          yBars.insert(insertIdx, [createDefaultBar(clef)]);
+          pushDefaultBar(yBars, insertIdx, clef);
         }
       }
     });

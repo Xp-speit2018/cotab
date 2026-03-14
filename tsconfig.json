@@ -25,7 +25,10 @@
     /* Emit */
     "noEmit": true,
     "isolatedModules": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+
+    /* Test */
+    "types": ["vitest/globals"]
   },
   "include": ["src", "vite-env.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]

@@ -118,31 +118,86 @@ export const useTabStore = create<TabState>((set) => ({
 // ─── Convenience: create a default empty bar structure ───────────────────────
 
 /**
- * Create a bar Y.Map with one voice containing one empty beat.
- * Commonly needed when adding tracks, inserting bars, etc.
+ * Insert a bar with one voice and one empty beat into an already-integrated
+ * Y.Array of bars. Yjs requires types to be integrated into a doc before
+ * nested types can be read, so the bar is pushed first, then populated.
+ *
+ * Returns the integrated bar Y.Map.
  */
-export function createDefaultBar(clef?: number): Y.Map<unknown> {
+export function pushDefaultBar(
+  yBars: Y.Array<Y.Map<unknown>>,
+  index?: number,
+  clef?: number,
+): Y.Map<unknown> {
   const bar = createBar(clef);
-  const voice = createVoice();
-  const beat = createBeat();
-  (voice.get("beats") as Y.Array<Y.Map<unknown>>).push([beat]);
-  (bar.get("voices") as Y.Array<Y.Map<unknown>>).push([voice]);
-  return bar;
+  if (index !== undefined) {
+    yBars.insert(index, [bar]);
+  } else {
+    yBars.push([bar]);
+  }
+  const intBar = yBars.get(index ?? yBars.length - 1);
+  const voices = intBar.get("voices") as Y.Array<Y.Map<unknown>>;
+  voices.push([createVoice()]);
+  const intVoice = voices.get(0);
+  (intVoice.get("beats") as Y.Array<Y.Map<unknown>>).push([createBeat()]);
+  return intBar;
 }
 
 /**
- * Create a track with one staff, one bar, one voice, and one empty beat,
- * plus a corresponding master bar. Returns both for the caller to insert.
+ * Push a track with one staff, one bar (one voice, one empty beat), and a
+ * corresponding master bar, into already-integrated Y.Arrays.
+ *
+ * Yjs requires integration before nested reads, so this operates on the
+ * doc's arrays directly rather than returning standalone types.
  */
-export function createDefaultTrack(
+export function pushDefaultTrack(
+  yTracks: Y.Array<Y.Map<unknown>>,
+  yMasterBars: Y.Array<Y.Map<unknown>>,
   name: string = "Track 1",
 ): { track: Y.Map<unknown>; masterBar: Y.Map<unknown> } {
-  const track = createTrack(name);
-  const staff = createStaff();
-  const bar = createDefaultBar();
-  (staff.get("bars") as Y.Array<Y.Map<unknown>>).push([bar]);
-  (track.get("staves") as Y.Array<Y.Map<unknown>>).push([staff]);
+  yTracks.push([createTrack(name)]);
+  const intTrack = yTracks.get(yTracks.length - 1);
+  const staves = intTrack.get("staves") as Y.Array<Y.Map<unknown>>;
+  staves.push([createStaff()]);
+  const intStaff = staves.get(0);
+  const yBars = intStaff.get("bars") as Y.Array<Y.Map<unknown>>;
+  pushDefaultBar(yBars);
 
-  const masterBar = createMasterBar();
-  return { track, masterBar };
+  yMasterBars.push([createMasterBar()]);
+  const intMb = yMasterBars.get(yMasterBars.length - 1);
+
+  return { track: intTrack, masterBar: intMb };
+}
+
+/**
+ * Build a minimal playable score inside an already-initialized Y.Doc.
+ * Sets default metadata, one 4/4 master bar, and one acoustic guitar track
+ * with a single staff, one bar, one voice, and one empty beat.
+ */
+export function createNewScore(scoreMap: Y.Map<unknown>): void {
+  const doc = scoreMap.doc;
+  if (!doc) return;
+
+  doc.transact(() => {
+    scoreMap.set("title", "Untitled");
+    scoreMap.set("subTitle", "");
+    scoreMap.set("artist", "");
+    scoreMap.set("album", "");
+    scoreMap.set("words", "");
+    scoreMap.set("music", "");
+    scoreMap.set("copyright", "");
+    scoreMap.set("tab", "");
+    scoreMap.set("instructions", "");
+    scoreMap.set("notices", "");
+    scoreMap.set("tempo", 120);
+    scoreMap.set("tempoLabel", "");
+
+    scoreMap.set("masterBars", new Y.Array<Y.Map<unknown>>());
+    scoreMap.set("tracks", new Y.Array<Y.Map<unknown>>());
+
+    const yMasterBars = scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    const yTracks = scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>;
+
+    pushDefaultTrack(yTracks, yMasterBars, "Acoustic Guitar");
+  });
 }

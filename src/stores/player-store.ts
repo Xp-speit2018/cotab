@@ -44,8 +44,14 @@ import {
   getCursorElement,
   getPendingSelection,
   setPendingSelection,
+  getDragState,
+  setDragState,
+  getDragMoveHandler,
+  setDragMoveHandler,
+  getDragEndHandler,
+  setDragEndHandler,
 } from "./player-api";
-import type { PlayerState, SelectedBeatInfo, SelectedNoteInfo, TrackBounds, TrackInfo } from "./player-types";
+import type { PlayerState, SelectionRange, SelectedBeatInfo, SelectedNoteInfo, TrackBounds, TrackInfo } from "./player-types";
 import { GP7_DEF_BY_ID } from "./percussion-data";
 import { resolveGp7Id } from "./percussion-data";
 import {
@@ -80,6 +86,7 @@ export type {
   TrackInfo,
   TrackPreset,
   SelectedBeat,
+  SelectionRange,
   TrackBounds,
   SelectedNoteInfo,
   SelectedBeatInfo,
@@ -128,6 +135,87 @@ function findBeatBounds(
   return null;
 }
 
+/** Resolve bar/beat at a given point (in unscaled AlphaTab coords). */
+function resolveBarAtPoint(
+  x: number,
+  y: number,
+): {
+  trackIndex: number;
+  staffIndex: number;
+  voiceIndex: number;
+  barIndex: number;
+  beatIndex: number;
+  beat: alphaTab.model.Beat;
+  snappedString: number | null;
+} | null {
+  const api = getApi();
+  if (!api) return null;
+  const lookup = api.boundsLookup;
+  if (!lookup) return null;
+
+  for (const system of lookup.staffSystems) {
+    const sb = system.realBounds;
+    if (y < sb.y || y > sb.y + sb.h) continue;
+
+    for (const masterBar of system.bars) {
+      const mb = masterBar.realBounds;
+      if (x < mb.x || x > mb.x + mb.w) continue;
+
+      let closestBarBounds: (typeof masterBar.bars)[number] | null = null;
+      let closestBarDist = Infinity;
+      for (const barBounds of masterBar.bars) {
+        const bb = barBounds.realBounds;
+        const centerY = bb.y + bb.h / 2;
+        const dist = Math.abs(y - centerY);
+        if (dist < closestBarDist) {
+          closestBarDist = dist;
+          closestBarBounds = barBounds;
+        }
+      }
+
+      if (!closestBarBounds) return null;
+
+      let targetBeat: alphaTab.model.Beat | null = null;
+      let bestBeatDist = Infinity;
+      for (const beatBounds of closestBarBounds.beats) {
+        const bx = beatBounds.realBounds;
+        const dist = Math.abs(x - (bx.x + bx.w / 2));
+        if (dist < bestBeatDist) {
+          bestBeatDist = dist;
+          targetBeat = beatBounds.beat;
+        }
+      }
+
+      if (!targetBeat) return null;
+
+      const bar = targetBeat.voice.bar;
+      const staff = bar.staff;
+      const track = staff.track;
+      const gridKey = `${track.index}:${staff.index}`;
+      const grid = getSnapGrids().get(gridKey);
+      let snappedString: number | null = null;
+      if (grid) {
+        const snap = findNearestSnap(grid, y);
+        if (snap) snappedString = snap.string;
+      }
+      if (snappedString === null) {
+        snappedString = track.isPercussion ? 3 : 11;
+      }
+
+      return {
+        trackIndex: track.index,
+        staffIndex: staff.index,
+        voiceIndex: targetBeat.voice.index,
+        barIndex: bar.index,
+        beatIndex: targetBeat.index,
+        beat: targetBeat,
+        snappedString,
+      };
+    }
+  }
+  return null;
+}
+
 function updateCursorRect(
   beatBounds: alphaTab.rendering.BeatBounds | null,
   snap: { string: number; y: number } | null,
@@ -150,6 +238,108 @@ function updateCursorRect(
   cursorElement.style.top = `${y}px`;
   cursorElement.style.width = `${w}px`;
   cursorElement.style.height = `${h}px`;
+}
+
+// ─── Bar selection overlay (multi-bar drag) ──────────────────────────────────
+
+let barSelectionElements: HTMLDivElement[] = [];
+
+function updateBarSelectionOverlay(range: SelectionRange | null): void {
+  const api = getApi();
+  const mainElement = getMainElement();
+
+  if (!range || !api || !mainElement) {
+    for (const el of barSelectionElements) el.style.display = "none";
+    return;
+  }
+
+  const lookup = api.boundsLookup;
+  if (!lookup) {
+    for (const el of barSelectionElements) el.style.display = "none";
+    return;
+  }
+
+  const cursorsWrapper = mainElement.querySelector(".at-cursors");
+  if (!cursorsWrapper) return;
+
+  // Collect rectangles per staff system row
+  const rects: { x: number; y: number; w: number; h: number }[] = [];
+
+  for (const system of lookup.staffSystems) {
+    let rowFirstX: number | null = null;
+    let rowLastXW: number | null = null;
+    let rowY = 0;
+    let rowH = 0;
+
+    for (const masterBar of system.bars) {
+      // Check if this master bar's index is in our range
+      // Get bar index from the first barBounds
+      if (masterBar.bars.length === 0) continue;
+      const refBar = masterBar.bars[0].beats.length > 0
+        ? masterBar.bars[0].beats[0].beat.voice.bar
+        : null;
+      if (!refBar) continue;
+      const barIdx = refBar.index;
+
+      if (barIdx < range.startBarIndex || barIdx > range.endBarIndex) continue;
+
+      // Find the BarBounds for the target track/staff
+      for (const barBounds of masterBar.bars) {
+        if (barBounds.beats.length === 0) continue;
+        const bb = barBounds.beats[0].beat.voice.bar;
+        if (
+          bb.staff.track.index !== range.trackIndex ||
+          bb.staff.index !== range.staffIndex
+        ) continue;
+
+        const rb = barBounds.realBounds;
+        if (rowFirstX === null) {
+          rowFirstX = rb.x;
+          rowY = rb.y;
+          rowH = rb.h;
+        }
+        rowLastXW = rb.x + rb.w;
+        // Update height to cover the tallest bar
+        if (rb.h > rowH) rowH = rb.h;
+        break;
+      }
+    }
+
+    if (rowFirstX !== null && rowLastXW !== null) {
+      rects.push({ x: rowFirstX, y: rowY, w: rowLastXW - rowFirstX, h: rowH });
+    }
+  }
+
+  // Create/reuse elements
+  while (barSelectionElements.length < rects.length) {
+    const el = document.createElement("div");
+    el.classList.add("at-bar-selection");
+    cursorsWrapper.appendChild(el);
+    barSelectionElements.push(el);
+  }
+
+  for (let i = 0; i < barSelectionElements.length; i++) {
+    const el = barSelectionElements[i];
+    if (i < rects.length) {
+      const r = rects[i];
+      el.style.display = "";
+      el.style.left = `${r.x}px`;
+      el.style.top = `${r.y}px`;
+      el.style.width = `${r.w}px`;
+      el.style.height = `${r.h}px`;
+    } else {
+      el.style.display = "none";
+    }
+  }
+}
+
+function hideBarSelectionOverlay(): void {
+  for (const el of barSelectionElements) el.style.display = "none";
+}
+
+function destroyBarSelectionOverlay(): void {
+  for (const el of barSelectionElements) el.remove();
+  barSelectionElements = [];
 }
 
 // Monkey-patch: AlphaTab mis-positions its built-in bar/beat cursors on
@@ -341,6 +531,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   visibleTrackIndices: [],
   trackBounds: [],
   selectedBeat: null,
+  selectionRange: null,
   selectedTrackInfo: null,
   selectedStaffInfo: null,
   selectedBarInfo: null,
@@ -393,114 +584,126 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // (capture phase) and stop propagation so AlphaTab's internal click
     // handling never fires.  This prevents AlphaTab's tick-based cursor
     // from jumping to the wrong bar in overfull bars.
-    const onMouseDown = (e: MouseEvent) => {
+
+    /** Convert a MouseEvent to unscaled AlphaTab coords. */
+    const toAlphaTabCoords = (e: MouseEvent): { x: number; y: number } | null => {
       const api = getApi();
       const mainElement = getMainElement();
-      if (!api || !mainElement) return;
-      // .at-main's getBoundingClientRect already accounts for the viewport
-      // scroll, so we just need the offset from its top-left corner,
-      // divided by the display scale.
+      if (!api || !mainElement) return null;
       const rect = mainElement.getBoundingClientRect();
       const scale = api.settings.display.scale;
-      const x = (e.clientX - rect.left) / scale;
-      const y = (e.clientY - rect.top) / scale;
+      return {
+        x: (e.clientX - rect.left) / scale,
+        y: (e.clientY - rect.top) / scale,
+      };
+    };
 
-      const lookup = api.boundsLookup;
-      if (!lookup) return; // No bounds yet — let AlphaTab handle it
+    const onDragMove = (e: MouseEvent) => {
+      const ds = getDragState();
+      if (!ds) return;
+      e.preventDefault();
 
-      let targetBeat: alphaTab.model.Beat | null = null;
-      let snappedString: number | null = null;
+      const coords = toAlphaTabCoords(e);
+      if (!coords) return;
 
-      // 1. Find the staff system that contains the Y position
-      for (const system of lookup.staffSystems) {
-        const sb = system.realBounds;
-        if (y < sb.y || y > sb.y + sb.h) continue;
+      const hit = resolveBarAtPoint(coords.x, coords.y);
+      if (!hit) return;
 
-        // 2. Find the master bar whose X range contains the click
-        for (const masterBar of system.bars) {
-          const mb = masterBar.realBounds;
-          if (x < mb.x || x > mb.x + mb.w) continue;
+      // Only update if same track/staff and bar index changed
+      if (
+        hit.trackIndex !== ds.anchorTrackIndex ||
+        hit.staffIndex !== ds.anchorStaffIndex
+      ) return;
+      if (hit.barIndex === ds.currentBarIndex) return;
 
-          // 3. Find the bar (= track) closest to the click Y
-          let closestBarBounds: (typeof masterBar.bars)[number] | null = null;
-          let closestBarDist = Infinity;
-          for (const barBounds of masterBar.bars) {
-            const bb = barBounds.realBounds;
-            const centerY = bb.y + bb.h / 2;
-            const dist = Math.abs(y - centerY);
-            if (dist < closestBarDist) {
-              closestBarDist = dist;
-              closestBarBounds = barBounds;
-            }
-          }
+      ds.currentBarIndex = hit.barIndex;
+      const startBarIndex = Math.min(ds.anchorBarIndex, ds.currentBarIndex);
+      const endBarIndex = Math.max(ds.anchorBarIndex, ds.currentBarIndex);
+      const range: SelectionRange = {
+        trackIndex: ds.anchorTrackIndex,
+        staffIndex: ds.anchorStaffIndex,
+        voiceIndex: ds.anchorVoiceIndex,
+        startBarIndex,
+        endBarIndex,
+      };
+      set({ selectionRange: range });
+      updateBarSelectionOverlay(range);
+    };
 
-          if (closestBarBounds) {
-            // 4. Find the beat closest by X
-            let bestBeatDist = Infinity;
-            for (const beatBounds of closestBarBounds.beats) {
-              const bx = beatBounds.realBounds;
-              const dist = Math.abs(x - (bx.x + bx.w / 2));
-              if (dist < bestBeatDist) {
-                bestBeatDist = dist;
-                targetBeat = beatBounds.beat;
-              }
-            }
+    const onDragEnd = (_e: MouseEvent) => {
+      // Remove document listeners
+      const moveH = getDragMoveHandler();
+      const endH = getDragEndHandler();
+      if (moveH) document.removeEventListener("mousemove", moveH);
+      if (endH) document.removeEventListener("mouseup", endH);
+      setDragMoveHandler(null);
+      setDragEndHandler(null);
 
-            if (targetBeat) {
-              // 5. Snap to nearest string/line position
-              const bar = targetBeat.voice.bar;
-              const staff = bar.staff;
-              const track = staff.track;
-              const gridKey = `${track.index}:${staff.index}`;
-              const grid = getSnapGrids().get(gridKey);
-              if (grid) {
-                const snap = findNearestSnap(grid, y);
-                if (snap) snappedString = snap.string;
-              }
-              // Fallback when grid is missing or returns no snap (e.g. newly added
-              // piano/drumkit before buildSnapGrids has valid positions). Ensures
-              // Place Note stays enabled so users can add notes.
-              if (snappedString === null) {
-                snappedString = track.isPercussion ? 3 : 11;
-              }
-            }
-          }
-          break; // found the matching master bar
+      const ds = getDragState();
+      if (ds) {
+        // If single bar (click, no real drag), clear range
+        if (ds.anchorBarIndex === ds.currentBarIndex) {
+          set({ selectionRange: null });
+          hideBarSelectionOverlay();
         }
-        break; // found the matching system
       }
+      setDragState(null);
+    };
 
-      if (!targetBeat) return; // Click missed all beats — let AlphaTab handle it
+    const onMouseDown = (e: MouseEvent) => {
+      const coords = toAlphaTabCoords(e);
+      if (!coords) return;
 
-      // Prevent AlphaTab from processing this click (avoids tick-based
-      // cursor positioning that breaks for overfull bars).
+      const hit = resolveBarAtPoint(coords.x, coords.y);
+      if (!hit) return; // Click missed all beats — let AlphaTab handle it
+
+      // Prevent AlphaTab from processing this click
       e.stopPropagation();
-
-      const bar = targetBeat.voice.bar;
+      // Prevent text selection during drag
+      e.preventDefault();
 
       if (import.meta.env.DEV) {
         (window as unknown as Record<string, unknown>).__SELECTION_DEBUG__ = {
-          mouseX: x,
-          mouseY: y,
+          mouseX: coords.x,
+          mouseY: coords.y,
           hitSource: "bounds",
-          trackIndex: bar.staff.track.index,
-          staffIndex: bar.staff.index,
-          voiceIndex: targetBeat.voice.index,
-          barIndex: bar.index,
-          beatIndex: targetBeat.index,
-          noteCount: targetBeat.notes.length,
-          snappedString,
+          trackIndex: hit.trackIndex,
+          staffIndex: hit.staffIndex,
+          voiceIndex: hit.voiceIndex,
+          barIndex: hit.barIndex,
+          beatIndex: hit.beatIndex,
+          noteCount: hit.beat.notes.length,
+          snappedString: hit.snappedString,
         };
       }
 
+      // Clear any existing selection range
+      set({ selectionRange: null });
+      hideBarSelectionOverlay();
+
       get().setSelection({
-        trackIndex: bar.staff.track.index,
-        staffIndex: bar.staff.index,
-        voiceIndex: targetBeat.voice.index,
-        barIndex: bar.index,
-        beatIndex: targetBeat.index,
-        string: snappedString,
+        trackIndex: hit.trackIndex,
+        staffIndex: hit.staffIndex,
+        voiceIndex: hit.voiceIndex,
+        barIndex: hit.barIndex,
+        beatIndex: hit.beatIndex,
+        string: hit.snappedString,
       });
+
+      // Initialize drag tracking
+      setDragState({
+        anchorBarIndex: hit.barIndex,
+        anchorTrackIndex: hit.trackIndex,
+        anchorStaffIndex: hit.staffIndex,
+        anchorVoiceIndex: hit.voiceIndex,
+        currentBarIndex: hit.barIndex,
+      });
+
+      // Attach drag listeners to document (so drag works outside viewport)
+      setDragMoveHandler(onDragMove);
+      setDragEndHandler(onDragEnd);
+      document.addEventListener("mousemove", onDragMove);
+      document.addEventListener("mouseup", onDragEnd);
     };
     viewportEl.addEventListener("mousedown", onMouseDown, { capture: true });
 
@@ -585,6 +788,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           fixAlphaTabCursors(sel.trackIndex, sel.staffIndex, sel.barIndex, freshBB);
         }
       }
+
+      // 7. Reposition bar selection overlay after re-render
+      updateBarSelectionOverlay(get().selectionRange);
     });
 
     api.scoreLoaded.on((score: alphaTab.model.Score) => {
@@ -670,7 +876,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
 
     destroySnapGridOverlay();
+    destroyBarSelectionOverlay();
     setPendingSelection(null);
+
+    // Clean up drag listeners
+    const moveH = getDragMoveHandler();
+    const endH = getDragEndHandler();
+    if (moveH) document.removeEventListener("mousemove", moveH);
+    if (endH) document.removeEventListener("mouseup", endH);
+    setDragMoveHandler(null);
+    setDragEndHandler(null);
+    setDragState(null);
 
     const api = getApi();
     if (api) {
@@ -703,6 +919,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       visibleTrackIndices: [],
       trackBounds: [],
       selectedBeat: null,
+      selectionRange: null,
       selectedTrackInfo: null,
       selectedStaffInfo: null,
       selectedBarInfo: null,
@@ -958,7 +1175,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       const track = beat.voice.bar.staff.track;
 
+      // Clear selection range when not actively dragging
+      const rangeUpdate = getDragState() === null
+        ? { selectionRange: null as SelectionRange | null }
+        : {};
+      if (!getDragState()) hideBarSelectionOverlay();
+
       set({
+        ...rangeUpdate,
         selectedBeat: {
           trackIndex,
           staffIndex,
@@ -988,8 +1212,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   clearSelection: () => {
     updateCursorRect(null, null, null);
+    hideBarSelectionOverlay();
     set({
       selectedBeat: null,
+      selectionRange: null,
       selectedTrackInfo: null,
       selectedStaffInfo: null,
       selectedBarInfo: null,
@@ -1001,6 +1227,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (get().showSnapGrid) {
       setSnapGridSelection(null, null, null);
     }
+  },
+
+  clearSelectionRange: () => {
+    hideBarSelectionOverlay();
+    set({ selectionRange: null });
   },
 }));
 

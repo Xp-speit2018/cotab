@@ -145,6 +145,16 @@
   stroke: #0078ff;
 }
 
+/* ─── Bar Selection (multi-bar drag selection rectangles) ──────────────────── */
+
+.at-bar-selection {
+  position: absolute;
+  background: rgba(0, 120, 255, 0.08);
+  border: 1.5px solid rgba(0, 120, 255, 0.35);
+  pointer-events: none;
+  z-index: 1000;
+}
+
 /* ─── Edit Cursor (click-to-position rectangle) ───────────────────────────── */
 
 .at-edit-cursor {

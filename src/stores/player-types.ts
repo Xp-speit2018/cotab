@@ -254,6 +254,16 @@ export type ScoreMetadataField =
 
 export type DrumCategoryId = "cymbals" | "snare" | "toms" | "kick";
 
+// ─── Selection range (multi-bar drag selection) ─────────────────────────────
+
+export interface SelectionRange {
+  trackIndex: number;
+  staffIndex: number;
+  voiceIndex: number;
+  startBarIndex: number; // inclusive
+  endBarIndex: number;   // inclusive, >= startBarIndex
+}
+
 // ─── Player state ───────────────────────────────────────────────────────────
 
 export interface PlayerState {
@@ -282,6 +292,7 @@ export interface PlayerState {
   visibleTrackIndices: number[];
   trackBounds: TrackBounds[];
   selectedBeat: SelectedBeat | null;
+  selectionRange: SelectionRange | null;
   selectedTrackInfo: SelectedTrackInfo | null;
   selectedStaffInfo: SelectedStaffInfo | null;
   selectedBarInfo: SelectedBarInfo | null;
@@ -322,6 +333,7 @@ export interface PlayerState {
     string?: number | null;
   }) => void;
   clearSelection: () => void;
+  clearSelectionRange: () => void;
 }
 
 export const SCORE_FIELD_TO_STATE: Record<ScoreMetadataField, keyof PlayerState> = {

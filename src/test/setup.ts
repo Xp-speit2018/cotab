@@ -13,7 +13,7 @@ import { vi, expect } from "vitest";
 import * as Y from "yjs";
 import type { TFunction } from "i18next";
 import type { ActionExecutionContext } from "@/actions/types";
-import type { SelectedBeat } from "@/stores/player-types";
+import type { SelectedBeat, SelectionRange } from "@/stores/player-types";
 import {
   initDoc,
   destroyDoc,
@@ -38,6 +38,7 @@ import {
 // ─── Mock state ──────────────────────────────────────────────────────────────
 
 let _selectedBeat: SelectedBeat | null = null;
+let _selectionRange: SelectionRange | null = null;
 let _selectedNoteIndex = -1;
 let _visibleTrackIndices: number[] = [0];
 let _addTrackDialogOpen = false;
@@ -129,6 +130,7 @@ vi.mock("@/stores/player-store", () => ({
   usePlayerStore: {
     getState: vi.fn(() => ({
       selectedBeat: _selectedBeat,
+      selectionRange: _selectionRange,
       selectedNoteIndex: _selectedNoteIndex,
       visibleTrackIndices: _visibleTrackIndices,
       addTrackDialogOpen: _addTrackDialogOpen,
@@ -136,6 +138,7 @@ vi.mock("@/stores/player-store", () => ({
     })),
     setState: vi.fn((partial: Record<string, unknown>) => {
       if ("selectedBeat" in partial) _selectedBeat = partial.selectedBeat as SelectedBeat | null;
+      if ("selectionRange" in partial) _selectionRange = partial.selectionRange as SelectionRange | null;
       if ("selectedNoteIndex" in partial) _selectedNoteIndex = partial.selectedNoteIndex as number;
       if ("visibleTrackIndices" in partial) _visibleTrackIndices = partial.visibleTrackIndices as number[];
       if ("addTrackDialogOpen" in partial) _addTrackDialogOpen = partial.addTrackDialogOpen as boolean;
@@ -190,6 +193,10 @@ export function resetTestDoc(): { doc: Y.Doc; scoreMap: Y.Map<unknown> } {
 
 export function selectBeat(sel: SelectedBeat | null): void {
   _selectedBeat = sel;
+}
+
+export function setSelectionRange(range: SelectionRange | null): void {
+  _selectionRange = range;
 }
 
 export function setSelectedNoteIndex(idx: number): void {
@@ -488,6 +495,7 @@ export function testContext(): ActionExecutionContext {
 
 export function resetMockState(): void {
   _selectedBeat = null;
+  _selectionRange = null;
   _selectedNoteIndex = -1;
   _visibleTrackIndices = [0];
   _addTrackDialogOpen = false;

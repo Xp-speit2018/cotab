@@ -53,3 +53,42 @@ export function getPendingSelection(): PendingSelection | null {
 export function setPendingSelection(selection: PendingSelection | null): void {
   pendingSelection = selection;
 }
+
+// ─── Drag state (mutable refs, not Zustand — avoids re-renders during drag) ─
+
+export interface DragState {
+  anchorBarIndex: number;
+  anchorTrackIndex: number;
+  anchorStaffIndex: number;
+  anchorVoiceIndex: number;
+  currentBarIndex: number;
+}
+
+let dragState: DragState | null = null;
+
+export function getDragState(): DragState | null {
+  return dragState;
+}
+
+export function setDragState(s: DragState | null): void {
+  dragState = s;
+}
+
+let dragMoveHandler: ((e: MouseEvent) => void) | null = null;
+let dragEndHandler: ((e: MouseEvent) => void) | null = null;
+
+export function getDragMoveHandler(): ((e: MouseEvent) => void) | null {
+  return dragMoveHandler;
+}
+
+export function setDragMoveHandler(h: ((e: MouseEvent) => void) | null): void {
+  dragMoveHandler = h;
+}
+
+export function getDragEndHandler(): ((e: MouseEvent) => void) | null {
+  return dragEndHandler;
+}
+
+export function setDragEndHandler(h: ((e: MouseEvent) => void) | null): void {
+  dragEndHandler = h;
+}

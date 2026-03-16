@@ -27,11 +27,11 @@ Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
 - [x] **Shortcuts system** — Customisable keyboard shortcuts with platform-adaptive modifiers, multi-digit fret input, percussion digit mapping, cycle/toggle behaviours, and browser conflict detection.
 - [x] **CRDT-style p2p coop** — Full real-time collaboration over the Yjs score doc.
 - [x] **Tests** — Unit and integration tests covering CRDT schema, sync, actions, and converters.
+- [x] **Drag selection and copy/paste** — Multi-bar drag selection with visual overlay, copy/cut/paste single or range of bars (clamped to score bounds), structured clipboard with full beat/note fidelity.
+- [x] **Undo/redo coop stack** — Collaborative undo/redo with per-client undo managers, toolbar buttons, and keyboard shortcuts.
 
 ## Roadmap
 
-- [ ] **Drag selection and copy/paste** — Selection ranges and copy/paste using alphatex data.
-- [x] **Undo/redo coop stack** — Collaborative undo/redo.
 - [ ] **Local GP saving, import/export** — Save/load .gp/.gpx and related formats.
 - [ ] **Cloud storage support** — Optional sync/storage in the cloud.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.

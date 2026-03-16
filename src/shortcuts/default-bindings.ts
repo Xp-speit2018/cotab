@@ -222,7 +222,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
 
-  // ── History (not yet implemented) ────────────────────────────────────────
+  // ── History ─────────────────────────────────────────────────────────────
   {
     id: "edit.undo",
     actionId: "edit.undo",
@@ -231,7 +231,6 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     defaultKeys: "mod+z",
     keys: "mod+z",
     behavior: direct,
-    placeholder: true,
   },
   {
     id: "edit.redo",
@@ -241,7 +240,6 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     defaultKeys: "mod+shift+z",
     keys: "mod+shift+z",
     behavior: direct,
-    placeholder: true,
   },
 
   // ── Clipboard (placeholder) ───────────────────────────────────────────────

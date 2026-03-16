@@ -11,7 +11,9 @@
     "language": "语言",
     "editorMode": "编辑面板模式",
     "essentials": "常用",
-    "advanced": "高级"
+    "advanced": "高级",
+    "undo": "撤销",
+    "redo": "重做"
   },
   "viewport": {
     "loadingScore": "正在加载乐谱..."

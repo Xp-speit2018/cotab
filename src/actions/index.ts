@@ -1,5 +1,6 @@
 import { executeAction as executeActionInternal } from "./registry";
 import type { ActionExecutionContext, ActionId, ActionArgs, ActionResult } from "./types";
+import "./file";
 import "./playback";
 import "./navigation";
 import "./edit-score";
@@ -9,6 +10,7 @@ import "./edit-bar";
 import "./edit-beat";
 import "./edit-note";
 import "./edit-history";
+import "./edit-clipboard";
 import "./view";
 
 export { actionRegistry, getAllActions } from "./registry";

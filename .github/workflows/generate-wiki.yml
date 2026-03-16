@@ -42,7 +42,26 @@ jobs:
         run: |
           cp /tmp/Actions-Full-List.md Actions-Full-List.md
           cp /tmp/Signaling-Server-API.md Signaling-Server-API.md
-          git add Actions-Full-List.md Signaling-Server-API.md
+
+          # Update the auto-generated pages table in Home.md
+          node -e "
+            const fs = require('fs');
+            const today = new Date().toISOString().slice(0, 10);
+            const table = [
+              '| Page | Last updated |',
+              '|------|-------------|',
+              '| [Actions — Full List](Actions-Full-List) | ' + today + ' |',
+              '| [Signaling Server API](Signaling-Server-API) | ' + today + ' |',
+            ].join('\n');
+            let home = fs.readFileSync('Home.md', 'utf-8');
+            home = home.replace(
+              /<!-- GENERATED-PAGES:START -->[\s\S]*?<!-- GENERATED-PAGES:END -->/,
+              '<!-- GENERATED-PAGES:START -->\n' + table + '\n<!-- GENERATED-PAGES:END -->'
+            );
+            fs.writeFileSync('Home.md', home);
+          "
+
+          git add Actions-Full-List.md Signaling-Server-API.md Home.md
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"

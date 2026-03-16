@@ -11,5 +11,5 @@
     "outDir": "../dist-scripts",
     "rootDir": "."
   },
-  "include": ["generate-actions-wiki.ts"]
+  "include": ["generate-actions-wiki.ts", "generate-server-api-wiki.ts"]
 }

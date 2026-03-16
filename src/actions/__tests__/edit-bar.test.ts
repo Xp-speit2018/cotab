@@ -4,7 +4,7 @@ import {
   resetMockState,
   selectBeat,
   seedOneTrackScore,
-  placeNoteDirectly,
+  testContext,
 } from "@/test/setup";
 import {
   initDoc,
@@ -25,7 +25,7 @@ const defaultSel = {
   beatIndex: 0,
   string: 1 as number | null,
 };
-const ctx = { source: "test" as const };
+const ctx = testContext();
 
 beforeEach(() => {
   resetMockState();

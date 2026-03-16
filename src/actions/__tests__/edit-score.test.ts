@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   resetMockState,
-  getScoreMap,
+  testContext,
 } from "@/test/setup";
 import {
   initDoc,
@@ -17,7 +17,7 @@ beforeEach(() => {
   initDoc();
 });
 
-const ctx = { source: "test" as const };
+const ctx = testContext();
 
 describe("edit.score.setTitle", () => {
   it("updates title in Y.Doc", () => {

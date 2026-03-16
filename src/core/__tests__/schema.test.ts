@@ -11,8 +11,6 @@ import {
   snapshotNote,
   snapshotBeat,
   snapshotMasterBar,
-  snapshotStaff,
-  snapshotTrack,
   snapshotScore,
   buildUuidIndex,
   initializeScore,
@@ -65,7 +63,7 @@ describe("createNote", () => {
     const note = integrate(createNote(0, 1));
     expect(note.get("accentuated")).toBe(AccentuationType.None);
     expect(note.get("vibrato")).toBe(VibratoType.None);
-    expect(note.get("dynamics")).toBe(DynamicValue.F);
+    expect(note.get("dynamics")).toBeUndefined();
   });
 
   it("generates unique uuids", () => {

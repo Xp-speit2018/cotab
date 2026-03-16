@@ -13,19 +13,17 @@ import {
   selectBeat,
   setSelectedNoteIndex,
   setMockApiScore,
-  clearMockApiScore,
   seedOneTrackScore,
-  placeNoteDirectly,
   addBeatsDirectly,
   buildMockAlphaTabScore,
   snapshotDoc,
+  testContext,
 } from "@/test/setup";
 import {
   initDoc,
   destroyDoc,
   getScoreMap,
   resolveYBeat,
-  resolveYVoice,
   resolveYTrack,
   resolveYNote,
   transact,
@@ -43,7 +41,7 @@ import "@/actions/edit-track";
 import "@/actions/edit-history";
 import "@/actions/edit-staff";
 
-const ctx = { source: "test" as const };
+const ctx = testContext();
 
 function sel(overrides: Partial<{
   trackIndex: number;
@@ -64,7 +62,7 @@ function sel(overrides: Partial<{
   };
 }
 
-function mockTabBeat(beatSel: ReturnType<typeof sel>) {
+function mockTabBeat(_beatSel: ReturnType<typeof sel>) {
   const mockBeat = {
     notes: [] as Array<{ string: number; fret: number }>,
     duration: 4,
@@ -88,12 +86,6 @@ function barCount(trackIdx = 0, staffIdx = 0): number {
   const tracks = getScoreMap()!.get("tracks") as Y.Array<Y.Map<unknown>>;
   const staves = tracks.get(trackIdx).get("staves") as Y.Array<Y.Map<unknown>>;
   return (staves.get(staffIdx).get("bars") as Y.Array<unknown>).length;
-}
-
-function beatCount(trackIdx: number, barIdx: number, staffIdx = 0, voiceIdx = 0): number {
-  const yVoice = resolveYVoice(trackIdx, staffIdx, barIdx, voiceIdx);
-  if (!yVoice) return 0;
-  return (yVoice.get("beats") as Y.Array<unknown>).length;
 }
 
 /**

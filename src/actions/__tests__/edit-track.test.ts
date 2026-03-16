@@ -5,7 +5,9 @@ import {
   selectBeat,
   setMockApiScore,
   seedOneTrackScore,
+  seedTrackWithConfig,
   buildMockAlphaTabScore,
+  testContext,
 } from "@/test/setup";
 import { createTrack, createStaff } from "@/core/schema";
 import {
@@ -27,7 +29,7 @@ const defaultSel = {
   beatIndex: 0,
   string: 1 as number | null,
 };
-const ctx = { source: "test" as const };
+const ctx = testContext();
 
 function trackCount(): number {
   return (getScoreMap()!.get("tracks") as Y.Array<unknown>).length;
@@ -113,6 +115,50 @@ describe("edit.track.delete", () => {
     expect(vi.mocked(usePlayerStore.setState)).toHaveBeenCalledWith(
       expect.objectContaining({ selectedBeat: null }),
     );
+  });
+});
+
+describe("edit.track.setName (all track types)", () => {
+  it("updates violin track name", () => {
+    resetMockState();
+    destroyDoc();
+    initDoc();
+    seedTrackWithConfig(getScoreMap()!, 1, { name: "Violin", tuning: [55, 62, 69, 76] });
+    setMockApiScore(buildMockAlphaTabScore({
+      tracks: [{ staves: [{ showTablature: true, tuning: [55, 62, 69, 76], bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }] }] }],
+    }));
+    selectBeat({ ...defaultSel, string: 2 as number | null });
+
+    executeAction("edit.track.setName", { trackIndex: 0, name: "Solo Violin" }, ctx);
+    expect(resolveYTrack(0)!.get("name")).toBe("Solo Violin");
+  });
+
+  it("updates piano track name", () => {
+    resetMockState();
+    destroyDoc();
+    initDoc();
+    seedTrackWithConfig(getScoreMap()!, 1, { name: "Piano", showTablature: false });
+    setMockApiScore(buildMockAlphaTabScore({
+      tracks: [{ staves: [{ showTablature: false, tuning: [], bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }] }] }],
+    }));
+    selectBeat(defaultSel);
+
+    executeAction("edit.track.setName", { trackIndex: 0, name: "Grand Piano" }, ctx);
+    expect(resolveYTrack(0)!.get("name")).toBe("Grand Piano");
+  });
+
+  it("updates drumkit track name", () => {
+    resetMockState();
+    destroyDoc();
+    initDoc();
+    seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
+    setMockApiScore(buildMockAlphaTabScore({
+      tracks: [{ isPercussion: true, staves: [{ showTablature: false, tuning: [], bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }] }] }],
+    }));
+    selectBeat(defaultSel);
+
+    executeAction("edit.track.setName", { trackIndex: 0, name: "Kit" }, ctx);
+    expect(resolveYTrack(0)!.get("name")).toBe("Kit");
   });
 });
 

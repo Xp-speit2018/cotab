@@ -13,7 +13,8 @@
     "essentials": "常用",
     "advanced": "高级",
     "undo": "撤销",
-    "redo": "重做"
+    "redo": "重做",
+    "exportFile": "导出 GP 文件"
   },
   "viewport": {
     "loadingScore": "正在加载乐谱..."
@@ -472,6 +473,7 @@
     "resetAll": "全部重置",
 
     "category": {
+      "file": "文件",
       "playback": "播放",
       "navigation": "导航",
       "editing.beat": "编辑 — 节拍",
@@ -515,6 +517,9 @@
       "cut": "覆盖浏览器剪切"
     },
 
+    "file": {
+      "exportGp": { "name": "导出 GP 文件" }
+    },
     "playback": {
       "togglePlaying": { "name": "切换播放" }
     },

@@ -29,14 +29,14 @@ Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
 - [x] **Tests** — Unit and integration tests covering CRDT schema, sync, actions, and converters.
 - [x] **Drag selection and copy/paste** — Multi-bar drag selection with visual overlay, copy/cut/paste single or range of bars (clamped to score bounds), structured clipboard with full beat/note fidelity.
 - [x] **Undo/redo coop stack** — Collaborative undo/redo with per-client undo managers, toolbar buttons, and keyboard shortcuts.
+- [x] **GP export** — Export scores to GP7 format via toolbar button (unbound shortcut, user-configurable), with export/reimport round-trip tests. Compatibility with other GP7 editors is not verified yet.
 
 ## Roadmap
 
-- [ ] **Local GP saving, import/export** — Save/load .gp/.gpx and related formats.
+- [ ] **Agentic score editing** — Expose score editing functions (add/delete tracks, bars, notes, metadata, etc.) as an MCP server, or skills, so AI agents and external tools can drive the editor programmatically.
+- [ ] **UI/UX improvements and unification** — Polish, consistency, and accessibility.
 - [ ] **Cloud storage support** — Optional sync/storage in the cloud.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.
-- [ ] **UI/UX improvements and unification** — Polish, consistency, and accessibility.
-- [ ] **MCP server** — Expose score editing functions (add/delete tracks, bars, notes, metadata, etc.) as an MCP server so AI agents and external tools can drive the editor programmatically.
 - [ ] **High-quality soundfont and effects** — Better default soundfont and audio effects (e.g. AudioWorklet/WASM).
 
 ## Getting started

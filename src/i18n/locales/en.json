@@ -13,7 +13,8 @@
     "essentials": "Essentials",
     "advanced": "Advanced",
     "undo": "Undo",
-    "redo": "Redo"
+    "redo": "Redo",
+    "exportFile": "Export GP file"
   },
   "viewport": {
     "loadingScore": "Loading score..."
@@ -472,6 +473,7 @@
     "resetAll": "Reset All",
 
     "category": {
+      "file": "File",
       "playback": "Playback",
       "navigation": "Navigation",
       "editing.beat": "Editing — Beat",
@@ -515,6 +517,9 @@
       "cut": "Overrides browser cut"
     },
 
+    "file": {
+      "exportGp": { "name": "Export GP File" }
+    },
     "playback": {
       "togglePlaying": { "name": "Toggle Playing" }
     },

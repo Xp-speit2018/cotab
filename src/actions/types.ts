@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 
 export type ActionCategory =
+  | "file"
   | "playback"
   | "navigation"
   | "edit.score"
@@ -10,6 +11,7 @@ export type ActionCategory =
   | "edit.beat"
   | "edit.note"
   | "edit.history"
+  | "edit.clipboard"
   | "view";
 
 export type PrimitiveParamType = "boolean" | "number" | "string" | "enum";

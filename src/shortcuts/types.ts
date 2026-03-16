@@ -40,6 +40,7 @@ export interface ShortcutBinding {
 }
 
 export type ShortcutCategory =
+  | "file"
   | "playback"
   | "navigation"
   | "editing.beat"
@@ -50,6 +51,7 @@ export type ShortcutCategory =
   | "view";
 
 export const SHORTCUT_CATEGORY_ORDER: readonly ShortcutCategory[] = [
+  "file",
   "playback",
   "navigation",
   "editing.beat",
@@ -102,10 +104,12 @@ export function shortcutCategoryToActionCategory(cat: ShortcutCategory): ActionC
       return "edit.bar";
     case "editing.track":
       return "edit.track";
+    case "file":
+      return "file";
     case "history":
       return null;
     case "clipboard":
-      return null;
+      return "edit.clipboard";
     case "view":
       return "view";
   }

@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FolderOpen,
+  Download,
   Play,
   Pause,
   Square,
@@ -95,6 +96,21 @@ export function Toolbar() {
           </Button>
         </TooltipTrigger>
         <TooltipContent>{t("toolbar.openFile")}</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            disabled={!isPlayerReady}
+            onClick={() => executeAction("file.exportGp", undefined, { t })}
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t("toolbar.exportFile")}</TooltipContent>
       </Tooltip>
 
       <input

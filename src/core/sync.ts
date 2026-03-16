@@ -104,11 +104,19 @@ export function importFromAlphaTab(
  * Swap the current local Y.Doc for a collaborative one connected to a room.
  * Attaches WebRTC and IndexedDB providers. Previous doc is destroyed.
  */
-export function connectProviders(roomCode: string, userName: string): void {
+export function connectProviders(
+  roomCode: string,
+  userName: string,
+  onPresenceMessage?: (msg: Record<string, unknown>) => void,
+): void {
   destroyDoc();
 
   doc = new Y.Doc();
-  scoreMap = initializeScore(doc);
+  // Don't call initializeScore here — it would create default data that
+  // competes with the remote state in the CRDT merge (e.g., empty tracks
+  // array overwrites the creator's populated tracks). The remote sync or
+  // IndexedDB persistence will populate the doc.
+  scoreMap = doc.getMap("score");
   scoreMap.observeDeep(onYDocChange);
 
   persistence = new IndexeddbPersistence(`cotab:${roomCode}`, doc);
@@ -116,8 +124,9 @@ export function connectProviders(roomCode: string, userName: string): void {
     rebuildFromYDoc();
   });
 
-  const signalingBase = import.meta.env.VITE_SIGNALING_URL;
-  const signalingUrl = `${signalingBase}?roomCode=${encodeURIComponent(roomCode)}&name=${encodeURIComponent(userName)}`;
+  const httpBase = import.meta.env.VITE_SIGNALING_URL;
+  const wsBase = httpBase.replace(/^http/, "ws");
+  const signalingUrl = `${wsBase}?roomCode=${encodeURIComponent(roomCode)}&name=${encodeURIComponent(userName)}`;
 
   provider = new WebrtcProvider(`room:${roomCode}`, doc, {
     signaling: [signalingUrl],
@@ -125,6 +134,14 @@ export function connectProviders(roomCode: string, userName: string): void {
   provider.on("synced", () => {
     rebuildFromYDoc();
   });
+
+  if (onPresenceMessage) {
+    for (const sigConn of provider.signalingConns) {
+      sigConn.on("message", (msg: Record<string, unknown>) => {
+        onPresenceMessage(msg);
+      });
+    }
+  }
 
   undoManager = new Y.UndoManager([scoreMap], {
     trackedOrigins: new Set([doc.clientID]),
@@ -155,6 +172,11 @@ export function disconnectProviders(): void {
 export function rebuildFromYDoc(): void {
   const api = getApi();
   if (!scoreMap || !api) return;
+
+  // Don't load an empty score — it causes AlphaTab errors and breaks bounds/cursor.
+  // Let the next change (createNewScore or remote sync) trigger a proper rebuild.
+  const yTracks = scoreMap.get("tracks") as Y.Array<unknown> | undefined;
+  if (!yTracks || yTracks.length === 0) return;
 
   _rebuildingFromYDoc = true;
   try {

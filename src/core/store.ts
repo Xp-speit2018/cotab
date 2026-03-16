@@ -57,11 +57,16 @@ export interface TabState {
   connected: boolean;
   roomCode: string | null;
   peers: Array<{ id: string; name: string }>;
-
   score: ScoreSchema | null;
 
-  connect: (roomCode: string, userName: string) => void;
+  roomDialogOpen: boolean;
+  connectionStatus: "idle" | "connecting" | "connected" | "error";
+  connectionError: string | null;
+  userName: string;
+
+  connect: (roomCode: string, userName: string) => Promise<void>;
   disconnect: () => void;
+  createRoom: (userName: string) => Promise<void>;
 }
 
 function syncToStore(): void {
@@ -84,20 +89,63 @@ function detachSnapshotObserver(): void {
   scoreMap.unobserveDeep(syncToStore);
 }
 
+function handlePresenceMessage(msg: Record<string, unknown>): void {
+  const type = msg.type as string | undefined;
+  if (!type) return;
+
+  const state = useTabStore.getState();
+
+  if (type === "auth-ok") {
+    const peerList = msg.peers as Array<{ id: string; name: string }> | undefined;
+    useTabStore.setState({ peers: peerList ?? [] });
+  } else if (type === "peer-joined") {
+    const id = (msg.peerId ?? msg.id) as string;
+    const name = msg.name as string;
+    if (id && !state.peers.some((p) => p.id === id)) {
+      useTabStore.setState({ peers: [...state.peers, { id, name: name ?? id }] });
+    }
+  } else if (type === "peer-left") {
+    const id = (msg.peerId ?? msg.id) as string;
+    if (id) {
+      useTabStore.setState({ peers: state.peers.filter((p) => p.id !== id) });
+    }
+  }
+}
+
 export const useTabStore = create<TabState>((set) => ({
   connected: false,
   roomCode: null,
   peers: [],
   score: null,
 
-  connect: (roomCode: string, userName: string) => {
+  roomDialogOpen: false,
+  connectionStatus: "idle",
+  connectionError: null,
+  userName: "",
+
+  connect: async (roomCode: string, userName: string) => {
     useTabStore.getState().disconnect();
+    set({ connectionStatus: "connecting", connectionError: null, userName });
 
-    connectProviders(roomCode, userName);
-    attachSnapshotObserver();
-    syncToStore();
+    try {
+      const signalingBase = import.meta.env.VITE_SIGNALING_URL;
+      const res = await fetch(`${signalingBase}/api/rooms/${encodeURIComponent(roomCode)}`);
+      if (!res.ok) {
+        set({ connectionStatus: "error", connectionError: "errorRoomNotFound" });
+        return;
+      }
+    } catch {
+      // If the API is not available, proceed anyway (server may not have the endpoint)
+    }
 
-    set({ connected: true, roomCode });
+    try {
+      connectProviders(roomCode, userName, handlePresenceMessage);
+      attachSnapshotObserver();
+      syncToStore();
+      set({ connected: true, roomCode, connectionStatus: "connected" });
+    } catch {
+      set({ connectionStatus: "error", connectionError: "errorConnection" });
+    }
   },
 
   disconnect: () => {
@@ -111,7 +159,36 @@ export const useTabStore = create<TabState>((set) => ({
       roomCode: null,
       peers: [],
       score: null,
+      connectionStatus: "idle",
+      connectionError: null,
     });
+  },
+
+  createRoom: async (userName: string) => {
+    set({ connectionStatus: "connecting", connectionError: null, userName });
+
+    try {
+      const signalingBase = import.meta.env.VITE_SIGNALING_URL;
+      const res = await fetch(`${signalingBase}/api/rooms`, { method: "POST" });
+      if (!res.ok) {
+        set({ connectionStatus: "error", connectionError: "errorConnection" });
+        return;
+      }
+      const data = (await res.json()) as { code: string };
+      await useTabStore.getState().connect(data.code, userName);
+
+      // The new room starts with an empty Y.Doc — populate it with a default
+      // score so AlphaTab has something to render and the cursor works.
+      const currentScoreMap = getScoreMap();
+      if (currentScoreMap) {
+        const yTracks = currentScoreMap.get("tracks") as Y.Array<unknown> | undefined;
+        if (!yTracks || yTracks.length === 0) {
+          createNewScore(currentScoreMap);
+        }
+      }
+    } catch {
+      set({ connectionStatus: "error", connectionError: "errorConnection" });
+    }
   },
 }));
 

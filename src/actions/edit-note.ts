@@ -278,7 +278,7 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
       if (existingIdx >= 0) {
         yNotes.delete(existingIdx, 1);
       } else {
-        const yNote = createNote(0, 0);
+        const yNote = createNote(-1, -1);
         yNote.set("percussionArticulation", gp7IdToPercussionArticulation(track, gp7Id));
         yNotes.push([yNote]);
         yBeat.set("isEmpty", false);

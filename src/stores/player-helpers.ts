@@ -309,10 +309,6 @@ export function createTrackFromPreset(
       s.stringTuning =
         tuning ??
         new alphaTab.model.Tuning(undefined, [40, 45, 50, 55, 59, 64], true);
-    } else {
-      s.stringTuning =
-        alphaTab.model.Tuning.getDefaultTuningFor(6) ??
-        new alphaTab.model.Tuning(undefined, [40, 45, 50, 55, 59, 64], true);
     }
     s.showTablature = opts.showTablature;
     s.showStandardNotation = opts.showStandardNotation;

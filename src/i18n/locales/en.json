@@ -575,5 +575,27 @@
   "trackPresetDialog": {
     "title": "Add Track",
     "description": "Choose an instrument preset for the new track."
+  },
+
+  "room": {
+    "button": "Collaborate",
+    "dialogTitle": "Collaboration Room",
+    "createTab": "Create",
+    "joinTab": "Join",
+    "createRoom": "Create Room",
+    "joinRoom": "Join Room",
+    "disconnect": "Disconnect",
+    "roomCode": "Room Code",
+    "roomCodePlaceholder": "Enter 6-character code",
+    "userName": "Display Name",
+    "userNamePlaceholder": "Your name",
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "peers": "Peers",
+    "noPeers": "No other peers connected",
+    "errorRoomNotFound": "Room not found",
+    "errorConnection": "Connection failed",
+    "copyCode": "Copy Code",
+    "copied": "Copied!"
   }
 }

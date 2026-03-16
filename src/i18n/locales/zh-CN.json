@@ -575,5 +575,27 @@
   "trackPresetDialog": {
     "title": "添加音轨",
     "description": "为新音轨选择一个乐器预设。"
+  },
+
+  "room": {
+    "button": "协作",
+    "dialogTitle": "协作房间",
+    "createTab": "创建",
+    "joinTab": "加入",
+    "createRoom": "创建房间",
+    "joinRoom": "加入房间",
+    "disconnect": "断开连接",
+    "roomCode": "房间代码",
+    "roomCodePlaceholder": "输入6位代码",
+    "userName": "显示名称",
+    "userNamePlaceholder": "你的名字",
+    "connecting": "连接中...",
+    "connected": "已连接",
+    "peers": "参与者",
+    "noPeers": "没有其他参与者连接",
+    "errorRoomNotFound": "房间未找到",
+    "errorConnection": "连接失败",
+    "copyCode": "复制代码",
+    "copied": "已复制！"
   }
 }

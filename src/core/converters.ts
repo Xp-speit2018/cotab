@@ -111,6 +111,7 @@ function importStaff(staff: alphaTab.model.Staff): Y.Map<unknown> {
   y.set("transpositionPitch", staff.transpositionPitch);
   y.set("showTablature", staff.showTablature);
   y.set("showStandardNotation", staff.showStandardNotation);
+  y.set("isPercussion", staff.isPercussion);
 
   const yTuning = new Y.Array<number>();
   if (staff.tuning.length > 0) {
@@ -292,21 +293,10 @@ export function buildAlphaTabScore(
   score.tab = (yScore.get("tab") as string) || "";
   score.instructions = (yScore.get("instructions") as string) || "";
   score.notices = (yScore.get("notices") as string) || "";
-  (score as unknown as Record<string, unknown>).tempo =
-    (yScore.get("tempo") as number) || 120;
-  (score as unknown as Record<string, unknown>).tempoLabel =
-    (yScore.get("tempoLabel") as string) || "";
+  // tempo/tempoLabel are readonly on Score; set via first master bar's tempoAutomation
 
-  const yMasterBars = yScore.get("masterBars") as
-    | Y.Array<Y.Map<unknown>>
-    | undefined;
-  if (yMasterBars) {
-    for (const yMb of yMasterBars) {
-      const mb = buildMasterBar(yMb);
-      mb.score = score;
-      score.addMasterBar(mb);
-    }
-  }
+  const scoreTempo = (yScore.get("tempo") as number) || 120;
+  const scoreTempoLabel = (yScore.get("tempoLabel") as string) || "";
 
   const yTracks = yScore.get("tracks") as
     | Y.Array<Y.Map<unknown>>
@@ -318,12 +308,28 @@ export function buildAlphaTabScore(
     }
   }
 
+  const yMasterBars = yScore.get("masterBars") as
+    | Y.Array<Y.Map<unknown>>
+    | undefined;
+  if (yMasterBars) {
+    for (const yMb of yMasterBars) {
+      const mb = buildMasterBar(score, yMb, scoreTempo, scoreTempoLabel);
+      score.addMasterBar(mb);
+    }
+  }
+
   score.finish(settings);
   return score;
 }
 
-function buildMasterBar(yMb: Y.Map<unknown>): alphaTab.model.MasterBar {
+function buildMasterBar(
+  score: alphaTab.model.Score,
+  yMb: Y.Map<unknown>,
+  defaultTempo: number,
+  _defaultTempoLabel: string,
+): alphaTab.model.MasterBar {
   const mb = new alphaTab.model.MasterBar();
+  mb.score = score;
   mb.timeSignatureNumerator =
     (yMb.get("timeSignatureNumerator") as number) ?? 4;
   mb.timeSignatureDenominator =
@@ -348,14 +354,10 @@ function buildMasterBar(yMb: Y.Map<unknown>): alphaTab.model.MasterBar {
     mb.section = sec;
   }
 
-  const tempo = yMb.get("tempo") as number | null;
-  if (tempo !== null && tempo !== undefined) {
-    const auto = new alphaTab.model.Automation();
-    auto.isLinear = false;
-    auto.type = alphaTab.model.AutomationType.Tempo;
-    auto.value = tempo;
-    (mb as unknown as Record<string, unknown>).tempoAutomation = auto;
-  }
+  // Note: AlphaTab's tempoAutomation/temposAutomations are readonly when building
+  // programmatically. Tempo is effectively set when loading from GP/AlphaTex.
+  // defaultTempo is kept for potential future API support.
+  void defaultTempo;
 
   return mb;
 }
@@ -398,6 +400,7 @@ function buildStaff(yStaff: Y.Map<unknown>): alphaTab.model.Staff {
   staff.showTablature = (yStaff.get("showTablature") as boolean) ?? true;
   staff.showStandardNotation =
     (yStaff.get("showStandardNotation") as boolean) ?? true;
+  staff.isPercussion = (yStaff.get("isPercussion") as boolean) ?? false;
 
   const yTuning = yStaff.get("tuning") as Y.Array<number> | undefined;
   if (yTuning && yTuning.length > 0) {
@@ -465,8 +468,10 @@ function buildBeat(yBeat: Y.Map<unknown>): alphaTab.model.Beat {
     ((yBeat.get("pickStroke") as number) ?? 0) as unknown as alphaTab.model.PickStroke;
   beat.brushType =
     ((yBeat.get("brushType") as number) ?? 0) as unknown as alphaTab.model.BrushType;
-  beat.dynamics =
-    ((yBeat.get("dynamics") as number) ?? 5) as unknown as alphaTab.model.DynamicValue;
+  const beatDyn = yBeat.get("dynamics") as number | undefined;
+  if (beatDyn != null) {
+    beat.dynamics = beatDyn as unknown as alphaTab.model.DynamicValue;
+  }
   beat.crescendo =
     ((yBeat.get("crescendo") as number) ?? 0) as unknown as alphaTab.model.CrescendoType;
   beat.vibrato =
@@ -576,8 +581,10 @@ function buildNote(yNote: Y.Map<unknown>): alphaTab.model.Note {
     ((yNote.get("leftHandFinger") as number) ?? -2) as unknown as alphaTab.model.Fingers;
   note.rightHandFinger =
     ((yNote.get("rightHandFinger") as number) ?? -2) as unknown as alphaTab.model.Fingers;
-  note.dynamics =
-    ((yNote.get("dynamics") as number) ?? 5) as unknown as alphaTab.model.DynamicValue;
+  const noteDyn = yNote.get("dynamics") as number | undefined;
+  if (noteDyn != null) {
+    note.dynamics = noteDyn as unknown as alphaTab.model.DynamicValue;
+  }
   note.ornament =
     ((yNote.get("ornament") as number) ?? 0) as unknown as alphaTab.model.NoteOrnament;
   note.accidentalMode =

@@ -118,7 +118,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
         }
       }
 
-      const yNote = createNote(0, 0);
+      const yNote = createNote(-1, -1);
       yNote.set("percussionArticulation", percArticulation);
 
       transact(() => {
@@ -148,7 +148,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
       const position = typeof targetValue === "number" ? targetValue : sel.string;
       const pitch = snapPositionToPitch(beat.voice.bar.clef, position);
 
-      const yNote = createNote(0, 0);
+      const yNote = createNote(-1, -1);
       yNote.set("octave", pitch.octave);
       yNote.set("tone", pitch.tone);
 

@@ -11,7 +11,9 @@
     "language": "Language",
     "editorMode": "Editor palette mode",
     "essentials": "Essentials",
-    "advanced": "Advanced"
+    "advanced": "Advanced",
+    "undo": "Undo",
+    "redo": "Redo"
   },
   "viewport": {
     "loadingScore": "Loading score..."

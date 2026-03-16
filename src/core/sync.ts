@@ -16,6 +16,7 @@ import { IndexeddbPersistence } from "y-indexeddb";
 import { initializeScore } from "./schema";
 import { importScoreToYDoc, buildAlphaTabScore } from "./converters";
 import { getApi } from "@/stores/player-api";
+import { syncUndoState } from "@/stores/undo-store";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -59,10 +60,12 @@ export function initDoc(): void {
   undoManager = new Y.UndoManager([scoreMap], {
     trackedOrigins: new Set([doc.clientID]),
   });
+  attachUndoListeners(undoManager);
 }
 
 export function destroyDoc(): void {
   if (undoManager) {
+    detachUndoListeners(undoManager);
     undoManager.destroy();
     undoManager = null;
   }
@@ -146,6 +149,7 @@ export function connectProviders(
   undoManager = new Y.UndoManager([scoreMap], {
     trackedOrigins: new Set([doc.clientID]),
   });
+  attachUndoListeners(undoManager);
 }
 
 /**
@@ -286,6 +290,22 @@ export function resolveYMasterBar(barIndex: number): Y.Map<unknown> | null {
     | undefined;
   if (!masterBars || barIndex < 0 || barIndex >= masterBars.length) return null;
   return masterBars.get(barIndex);
+}
+
+// ─── Undo Manager Listeners ──────────────────────────────────────────────────
+
+function attachUndoListeners(um: Y.UndoManager): void {
+  um.on("stack-item-added", syncUndoState);
+  um.on("stack-item-popped", syncUndoState);
+  um.on("stack-cleared", syncUndoState);
+  syncUndoState();
+}
+
+function detachUndoListeners(um: Y.UndoManager): void {
+  um.off("stack-item-added", syncUndoState);
+  um.off("stack-item-popped", syncUndoState);
+  um.off("stack-cleared", syncUndoState);
+  syncUndoState();
 }
 
 // ─── Observer ────────────────────────────────────────────────────────────────

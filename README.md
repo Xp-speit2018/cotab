@@ -31,7 +31,7 @@ Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
 ## Roadmap
 
 - [ ] **Drag selection and copy/paste** — Selection ranges and copy/paste using alphatex data.
-- [ ] **Undo/redo coop stack** — Collaborative undo/redo.
+- [x] **Undo/redo coop stack** — Collaborative undo/redo.
 - [ ] **Local GP saving, import/export** — Save/load .gp/.gpx and related formats.
 - [ ] **Cloud storage support** — Optional sync/storage in the cloud.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.

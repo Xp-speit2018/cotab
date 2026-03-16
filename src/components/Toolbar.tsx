@@ -10,6 +10,8 @@ import {
   Layers,
   Keyboard,
   Users,
+  Undo2,
+  Redo2,
 } from "lucide-react";
 import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ import { executeAction } from "@/actions";
 import { usePlayerStore } from "@/stores/player-store";
 import { useShortcutStore } from "@/shortcuts";
 import { useTabStore } from "@/core/store";
+import { useUndoStore } from "@/stores/undo-store";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -59,6 +62,8 @@ export function Toolbar() {
   const editorMode = usePlayerStore((s) => s.editorMode);
   const tabConnected = useTabStore((s) => s.connected);
   const tabRoomCode = useTabStore((s) => s.roomCode);
+  const canUndo = useUndoStore((s) => s.canUndo);
+  const canRedo = useUndoStore((s) => s.canRedo);
 
   const isPlaying = playerState === "playing";
 
@@ -110,6 +115,39 @@ export function Toolbar() {
           </span>
         )}
       </div>
+
+      <Separator orientation="vertical" className="mx-1 h-6" />
+
+      {/* ── Undo / Redo ────────────────────────────────────────────────── */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            disabled={!canUndo}
+            onClick={() => executeAction("edit.undo", undefined, { t })}
+          >
+            <Undo2 className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t("toolbar.undo")}</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            disabled={!canRedo}
+            onClick={() => executeAction("edit.redo", undefined, { t })}
+          >
+            <Redo2 className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>{t("toolbar.redo")}</TooltipContent>
+      </Tooltip>
 
       <Separator orientation="vertical" className="mx-1 h-6" />
 

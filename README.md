@@ -4,7 +4,7 @@
 
 A tablature and notation editor with peer-to-peer collaboration. The goal is to make co-working with tabs easier—for example, to facilitate band rehearsal.
 
-Copilot with [Cursor](https://cursor.com).
+Copilot with [Cursor](https://cursor.com) and [Claude Code](https://claude.ai/code).
 
 ## Tech stack
 
@@ -25,13 +25,13 @@ Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
 - [x] **Playback** — Load GP/GPX, play/pause, zoom, track volume/mute/solo, SoundFont-based playback.
 - [x] **Collaboration plumbing** — Yjs doc, WebRTC room connection, signaling server, IndexedDB persistence; CRDT schema aligned with the score model (commands for metadata, tempo, tracks, bars, beats, notes).
 - [x] **Shortcuts system** — Customisable keyboard shortcuts with platform-adaptive modifiers, multi-digit fret input, percussion digit mapping, cycle/toggle behaviours, and browser conflict detection.
+- [x] **CRDT-style p2p coop** — Full real-time collaboration over the Yjs score doc.
+- [x] **Tests** — Unit and integration tests covering CRDT schema, sync, actions, and converters.
 
 ## Roadmap
 
 - [ ] **Drag selection and copy/paste** — Selection ranges and copy/paste using alphatex data.
-- [ ] **CRDT-style p2p coop** — Full real-time collaboration over the Yjs score doc.
 - [ ] **Undo/redo coop stack** — Collaborative undo/redo.
-- [ ] **Tests** - Add tests covering core features.
 - [ ] **Local GP saving, import/export** — Save/load .gp/.gpx and related formats.
 - [ ] **Cloud storage support** — Optional sync/storage in the cloud.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.

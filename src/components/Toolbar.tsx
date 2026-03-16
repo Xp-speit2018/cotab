@@ -9,6 +9,7 @@ import {
   Check,
   Layers,
   Keyboard,
+  Users,
 } from "lucide-react";
 import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ import {
 import { executeAction } from "@/actions";
 import { usePlayerStore } from "@/stores/player-store";
 import { useShortcutStore } from "@/shortcuts";
+import { useTabStore } from "@/core/store";
 import { cn } from "@/lib/utils";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -55,6 +57,8 @@ export function Toolbar() {
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
   const loadFile = usePlayerStore((s) => s.loadFile);
   const editorMode = usePlayerStore((s) => s.editorMode);
+  const tabConnected = useTabStore((s) => s.connected);
+  const tabRoomCode = useTabStore((s) => s.roomCode);
 
   const isPlaying = playerState === "playing";
 
@@ -197,6 +201,30 @@ export function Toolbar() {
             </option>
           ))}
         </select>
+
+        {/* Collaborate */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="relative h-8 gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground"
+              onClick={() => useTabStore.setState({ roomDialogOpen: true })}
+            >
+              <Users className="h-3.5 w-3.5" />
+              {tabConnected && (
+                <>
+                  <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-green-500" />
+                  <span className="text-xs">{tabRoomCode}</span>
+                </>
+              )}
+              {!tabConnected && (
+                <span className="text-xs">{t("room.button")}</span>
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("room.button")}</TooltipContent>
+        </Tooltip>
 
         {/* Keyboard Shortcuts */}
         <Tooltip>

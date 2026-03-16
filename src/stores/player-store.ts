@@ -449,11 +449,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             if (targetBeat) {
               // 5. Snap to nearest string/line position
               const bar = targetBeat.voice.bar;
-              const gridKey = `${bar.staff.track.index}:${bar.staff.index}`;
+              const staff = bar.staff;
+              const track = staff.track;
+              const gridKey = `${track.index}:${staff.index}`;
               const grid = getSnapGrids().get(gridKey);
               if (grid) {
                 const snap = findNearestSnap(grid, y);
                 if (snap) snappedString = snap.string;
+              }
+              // Fallback when grid is missing or returns no snap (e.g. newly added
+              // piano/drumkit before buildSnapGrids has valid positions). Ensures
+              // Place Note stays enabled so users can add notes.
+              if (snappedString === null) {
+                snappedString = track.isPercussion ? 3 : 11;
               }
             }
           }

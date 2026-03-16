@@ -369,6 +369,7 @@ export interface StaffSchema {
   transpositionPitch: number;
   showTablature: boolean;
   showStandardNotation: boolean;
+  isPercussion: boolean;
   tuning: number[];
   bars: BarSchema[];
 }
@@ -437,7 +438,6 @@ export function createNote(fret: number, stringNum: number): Y.Map<unknown> {
   note.set("bendPoints", new Y.Array<Y.Map<unknown>>());
   note.set("leftHandFinger", Fingers.Unknown);
   note.set("rightHandFinger", Fingers.Unknown);
-  note.set("dynamics", DynamicValue.F);
   note.set("ornament", NoteOrnament.None);
   note.set("accidentalMode", NoteAccidentalMode.Default);
 
@@ -465,7 +465,6 @@ export function createBeat(duration: number = 4): Y.Map<unknown> {
   beat.set("graceType", GraceType.None);
   beat.set("pickStroke", PickStroke.None);
   beat.set("brushType", BrushType.None);
-  beat.set("dynamics", DynamicValue.F);
   beat.set("crescendo", CrescendoType.None);
   beat.set("vibrato", VibratoType.None);
   beat.set("fade", FadeType.None);
@@ -776,6 +775,7 @@ export function snapshotStaff(yStaff: Y.Map<unknown>): StaffSchema {
     showTablature: (yStaff.get("showTablature") as boolean) ?? true,
     showStandardNotation:
       (yStaff.get("showStandardNotation") as boolean) ?? true,
+    isPercussion: (yStaff.get("isPercussion") as boolean) ?? false,
     tuning: tuning ? tuning.toArray() : [],
     bars: bars.map((b) => snapshotBar(b)),
   };

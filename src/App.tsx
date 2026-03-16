@@ -5,6 +5,7 @@ import { ScoreViewport } from "@/components/ScoreViewport";
 import { NoteEditorSidebar } from "@/components/NoteEditorSidebar";
 import { ShortcutConfigPanel } from "@/components/ShortcutConfigPanel";
 import { TrackPresetDialog } from "@/components/TrackPresetDialog";
+import { RoomDialog } from "@/components/RoomDialog";
 import { installShortcutManager, uninstallShortcutManager, updateTranslation } from "@/shortcuts";
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
       </div>
       <ShortcutConfigPanel />
       <TrackPresetDialog />
+      <RoomDialog />
     </div>
   );
 }

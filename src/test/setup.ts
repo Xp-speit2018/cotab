@@ -9,8 +9,10 @@
  * The real Y.Doc layer (sync.ts, schema.ts, store.ts) is NOT mocked.
  */
 
-import { vi } from "vitest";
+import { vi, expect } from "vitest";
 import * as Y from "yjs";
+import type { TFunction } from "i18next";
+import type { ActionExecutionContext } from "@/actions/types";
 import type { SelectedBeat } from "@/stores/player-types";
 import {
   initDoc,
@@ -44,11 +46,29 @@ const _storeOverrides: Record<string, unknown> = {};
 /** Minimal mock for getApi().score with configurable tracks */
 let _mockApiScore: unknown = null;
 
+/**
+ * When set, getApi() returns this instead of null.
+ * Used by action-alphatab-integration tests to verify rebuildFromYDoc → api.load.
+ */
+let _integrationApi: {
+  load: ReturnType<typeof vi.fn>;
+  settings: unknown;
+} | null = null;
+
 // ─── Module mocks (call before importing action modules) ─────────────────────
 
 vi.mock("@/stores/player-api", () => ({
-  getApi: vi.fn(() =>
-    _mockApiScore
+  getApi: vi.fn(() => {
+    if (_integrationApi) {
+      return {
+        score: null,
+        settings: _integrationApi.settings,
+        load: _integrationApi.load,
+        render: vi.fn(),
+        renderTracks: vi.fn(),
+      };
+    }
+    return _mockApiScore
       ? {
           score: _mockApiScore,
           settings: { notation: {}, display: {}, player: {} },
@@ -56,8 +76,8 @@ vi.mock("@/stores/player-api", () => ({
           render: vi.fn(),
           renderTracks: vi.fn(),
         }
-      : null,
-  ),
+      : null;
+  }),
   setApi: vi.fn(),
   setPendingSelection: vi.fn(),
   getPendingSelection: vi.fn(() => null),
@@ -184,6 +204,21 @@ export function clearMockApiScore(): void {
   _mockApiScore = null;
 }
 
+/**
+ * Set getApi() to return an API with real Settings and a load spy.
+ * Used by action-alphatab-integration tests.
+ */
+export function setIntegrationApi(api: {
+  load: ReturnType<typeof vi.fn>;
+  settings: unknown;
+}): void {
+  _integrationApi = api;
+}
+
+export function clearIntegrationApi(): void {
+  _integrationApi = null;
+}
+
 export function snapshotDoc(): ScoreSchema {
   return snapshotScore(getScoreMap()!);
 }
@@ -202,10 +237,11 @@ export function buildMockAlphaTabScore(opts: {
         clef?: number;
         voices?: Array<{
           beats: Array<{
-            notes: Array<{ string?: number; fret?: number }>;
+            notes: Array<{ string?: number; fret?: number; percussionArticulation?: number }>;
             duration?: number;
             isEmpty?: boolean;
             isRest?: boolean;
+            voice?: unknown;
           }>;
         }>;
       }>;
@@ -269,6 +305,60 @@ export function seedOneTrackScore(
   });
 }
 
+/** Violin GDAE tuning (G3 D4 A4 E5) in MIDI note numbers. */
+export const VIOLIN_TUNING = [55, 62, 69, 76];
+
+export interface TrackSeedConfig {
+  name?: string;
+  showTablature?: boolean;
+  tuning?: number[];
+  isPercussion?: boolean;
+}
+
+/**
+ * Populate the Y.Doc with a single track using custom staff config.
+ * Use for violin (4-string tab), piano (notation only), or drumkit (percussion).
+ */
+export function seedTrackWithConfig(
+  scoreMap: Y.Map<unknown>,
+  barCount: number = 1,
+  config: TrackSeedConfig = {},
+): void {
+  const doc = scoreMap.doc!;
+  const name = config.name ?? "Test Track";
+  const tuning = config.tuning ?? [40, 45, 50, 55, 59, 64];
+
+  doc.transact(() => {
+    const yMasterBars = scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    const yTracks = scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>;
+
+    const track = createTrack(name);
+    if (config.isPercussion) {
+      track.set("playbackProgram", 0);
+      track.set("playbackPrimaryChannel", 9);
+    }
+    yTracks.push([track]);
+    const intTrack = yTracks.get(yTracks.length - 1);
+
+    const staff = createStaff(tuning);
+    if (config.showTablature === false) {
+      staff.set("showTablature", false);
+    }
+    if (config.isPercussion) {
+      staff.set("isPercussion", true);
+    }
+    const stavesArr = intTrack.get("staves") as Y.Array<Y.Map<unknown>>;
+    stavesArr.push([staff]);
+    const intStaff = stavesArr.get(0);
+    const yBars = intStaff.get("bars") as Y.Array<Y.Map<unknown>>;
+
+    for (let i = 0; i < barCount; i++) {
+      yMasterBars.push([createMasterBar(4, 4)]);
+      pushDefaultBar(yBars);
+    }
+  });
+}
+
 /** Place a note into the Y.Doc directly (bypassing actions). */
 export function placeNoteDirectly(
   scoreMap: Y.Map<unknown>,
@@ -290,6 +380,60 @@ export function placeNoteDirectly(
     const yBeat = yBeats.get(beatIndex);
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
     yNotes.push([createNote(fret, stringNum)]);
+    yBeat.set("isEmpty", false);
+  }, doc.clientID);
+}
+
+/** Place a percussion note into the Y.Doc directly (bypassing actions). */
+export function placePercussionNoteDirectly(
+  scoreMap: Y.Map<unknown>,
+  trackIndex: number,
+  barIndex: number,
+  beatIndex: number,
+  percussionArticulation: number,
+  staffIndex = 0,
+  voiceIndex = 0,
+): void {
+  const doc = scoreMap.doc!;
+  doc.transact(() => {
+    const yTracks = scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>;
+    const yStaves = yTracks.get(trackIndex).get("staves") as Y.Array<Y.Map<unknown>>;
+    const yBars = yStaves.get(staffIndex).get("bars") as Y.Array<Y.Map<unknown>>;
+    const yVoices = yBars.get(barIndex).get("voices") as Y.Array<Y.Map<unknown>>;
+    const yBeats = yVoices.get(voiceIndex).get("beats") as Y.Array<Y.Map<unknown>>;
+    const yBeat = yBeats.get(beatIndex);
+    const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+    const yNote = createNote(-1, -1);
+    yNote.set("percussionArticulation", percussionArticulation);
+    yNotes.push([yNote]);
+    yBeat.set("isEmpty", false);
+  }, doc.clientID);
+}
+
+/** Place a piano note (octave/tone) into the Y.Doc directly (bypassing actions). */
+export function placePianoNoteDirectly(
+  scoreMap: Y.Map<unknown>,
+  trackIndex: number,
+  barIndex: number,
+  beatIndex: number,
+  octave: number,
+  tone: number,
+  staffIndex = 0,
+  voiceIndex = 0,
+): void {
+  const doc = scoreMap.doc!;
+  doc.transact(() => {
+    const yTracks = scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>;
+    const yStaves = yTracks.get(trackIndex).get("staves") as Y.Array<Y.Map<unknown>>;
+    const yBars = yStaves.get(staffIndex).get("bars") as Y.Array<Y.Map<unknown>>;
+    const yVoices = yBars.get(barIndex).get("voices") as Y.Array<Y.Map<unknown>>;
+    const yBeats = yVoices.get(voiceIndex).get("beats") as Y.Array<Y.Map<unknown>>;
+    const yBeat = yBeats.get(beatIndex);
+    const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+    const yNote = createNote(-1, -1);
+    yNote.set("octave", octave);
+    yNote.set("tone", tone);
+    yNotes.push([yNote]);
     yBeat.set("isEmpty", false);
   }, doc.clientID);
 }
@@ -318,15 +462,37 @@ export function addBeatsDirectly(
 }
 
 /**
+ * Assert that a Y.Map note has the correct percussion note structure:
+ * fret=-1, string=-1, and the expected percussionArticulation value.
+ *
+ * Percussion notes must use fret=-1/string=-1 so AlphaTab positions
+ * them by percussionArticulation rather than by string/fret mapping.
+ */
+export function expectPercussionNote(
+  yNote: Y.Map<unknown>,
+  expectedArticulation: number,
+): void {
+  expect(yNote.get("fret"), "percussion note fret must be -1").toBe(-1);
+  expect(yNote.get("string"), "percussion note string must be -1").toBe(-1);
+  expect(yNote.get("percussionArticulation")).toBe(expectedArticulation);
+}
+
+/**
  * Reset all mock state between tests.
  * Call in beforeEach after resetTestDoc().
  */
+/** Create a minimal ActionExecutionContext for tests. */
+export function testContext(): ActionExecutionContext {
+  return { t: ((key: string) => key) as unknown as TFunction };
+}
+
 export function resetMockState(): void {
   _selectedBeat = null;
   _selectedNoteIndex = -1;
   _visibleTrackIndices = [0];
   _addTrackDialogOpen = false;
   _mockApiScore = null;
+  _integrationApi = null;
   for (const key of Object.keys(_storeOverrides)) {
     delete _storeOverrides[key];
   }

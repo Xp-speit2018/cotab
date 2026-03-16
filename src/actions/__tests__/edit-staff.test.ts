@@ -3,6 +3,7 @@ import * as Y from "yjs";
 import {
   resetMockState,
   seedOneTrackScore,
+  testContext,
 } from "@/test/setup";
 import {
   initDoc,
@@ -20,7 +21,7 @@ beforeEach(() => {
   seedOneTrackScore(getScoreMap()!, 1);
 });
 
-const ctx = { source: "test" as const };
+const ctx = testContext();
 
 describe("edit.staff.setCapo", () => {
   it("updates capo on the Y.Map", () => {

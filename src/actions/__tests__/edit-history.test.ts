@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   resetMockState,
+  testContext,
 } from "@/test/setup";
 import {
   initDoc,
@@ -18,7 +19,7 @@ beforeEach(() => {
   initDoc();
 });
 
-const ctx = { source: "test" as const };
+const ctx = testContext();
 
 describe("edit.undo", () => {
   it("undoes a Y.Doc mutation", () => {

@@ -1,4 +1,4 @@
-name: Generate Actions Wiki
+name: Generate Wiki
 
 on:
   workflow_dispatch:
@@ -28,21 +28,25 @@ jobs:
       - name: Generate Actions-Full-List.md
         run: node dist-scripts/generate-actions-wiki.js > /tmp/Actions-Full-List.md
 
+      - name: Generate Signaling-Server-API.md
+        run: node dist-scripts/generate-server-api-wiki.js > /tmp/Signaling-Server-API.md
+
       - name: Checkout wiki
         uses: actions/checkout@v4
         with:
           repository: ${{ github.repository }}.wiki
           path: wiki
 
-      - name: Update wiki page
+      - name: Update wiki pages
         working-directory: wiki
         run: |
           cp /tmp/Actions-Full-List.md Actions-Full-List.md
-          git add Actions-Full-List.md
+          cp /tmp/Signaling-Server-API.md Signaling-Server-API.md
+          git add Actions-Full-List.md Signaling-Server-API.md
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git commit -m "docs: update Actions-Full-List wiki page"
+            git commit -m "docs: update wiki pages"
             git push
           else
             echo "No changes to wiki"

@@ -11,8 +11,7 @@ export type ActionCategory =
   | "edit.beat"
   | "edit.note"
   | "edit.history"
-  | "edit.clipboard"
-  | "view";
+  | "edit.clipboard";
 
 export type PrimitiveParamType = "boolean" | "number" | "string" | "enum";
 

@@ -51,8 +51,7 @@ export type ShortcutCategory =
   | "editing.bar"
   | "editing.track"
   | "history"
-  | "clipboard"
-  | "view";
+  | "clipboard";
 
 export const SHORTCUT_CATEGORY_ORDER: readonly ShortcutCategory[] = [
   "file",
@@ -63,7 +62,6 @@ export const SHORTCUT_CATEGORY_ORDER: readonly ShortcutCategory[] = [
   "editing.track",
   "history",
   "clipboard",
-  "view",
 ];
 
 export interface ParsedKeyCombo {
@@ -114,7 +112,5 @@ export function shortcutCategoryToActionCategory(cat: ShortcutCategory): ActionC
       return null;
     case "clipboard":
       return "edit.clipboard";
-    case "view":
-      return "view";
   }
 }

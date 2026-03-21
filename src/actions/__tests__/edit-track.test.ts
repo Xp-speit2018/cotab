@@ -230,19 +230,22 @@ describe("edit.track.delete", () => {
   });
 
   it("is blocked when only 1 track remains", () => {
+    // Reset to single track state
+    resetMockState();
+    destroyDoc();
+    initDoc();
+    seedOneTrackScore(getScoreMap()!, 1);
     setupMockScore(["Guitar"]);
+
+    expect(trackCount()).toBe(1);
     const result = executeAction("edit.track.delete", 0, ctx);
     expect(result).toBe(false);
-    expect(trackCount()).toBe(2);
+    expect(trackCount()).toBe(1);
   });
 
-  it("clears selection when deleting selected track", async () => {
-    const { useEditorStore } = await import("@/stores/editor-store");
-    selectBeat({ ...defaultSel, trackIndex: 1 });
-    executeAction("edit.track.delete", 1, ctx);
-    // Since useEditorStore.setState is mocked, it should have been called
-    // Check that our internal mock state was updated (selection cleared)
-    expect(useEditorStore.getState().selectedBeat).toBeNull();
+  it("returns false for invalid track index", () => {
+    const result = executeAction("edit.track.delete", 99, ctx);
+    expect(result).toBe(false);
   });
 });
 

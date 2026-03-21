@@ -1,13 +1,40 @@
 /**
  * converters.ts — Bidirectional bridge between AlphaTab's model and the Y.Doc.
  *
- * importScoreToYDoc:   AlphaTab Score → Y.Doc  (after GP file load)
- * buildAlphaTabScore:  Y.Doc → AlphaTab Score  (for full render sync)
+ * AlphaTab is imported here ONLY for file import/export (GP7 round-trips) and
+ * Y.Doc ↔ AlphaTab Score conversion. It is NOT used for rendering — that lives
+ * in the renderer store (render-store.ts) which owns the AlphaTab API instance.
+ *
+ * Pure conversion:
+ *   importScoreToYDoc:   AlphaTab Score → Y.Doc  (after GP file load)
+ *   buildAlphaTabScore:  Y.Doc → AlphaTab Score  (for full render sync)
+ *   importTrack:         AlphaTab Track → Y.Map   (single track import)
+ *   importFromAlphaTab:  Score → Y.Doc via FILE_IMPORT_ORIGIN
+ *
+ * Renderer bridge functions (rebuildFromYDoc, installRendererObserver, etc.)
+ * live in src/stores/renderer-bridge.ts since they require the AlphaTab API.
  */
 
 import * as Y from "yjs";
 import * as alphaTab from "@coderline/alphatab";
 import { v4 as uuidv4 } from "uuid";
+
+// ─── Engine back-reference (set by engine.ts to avoid circular import) ──────
+
+interface EngineRef {
+  getDoc(): Y.Doc | null;
+  getScoreMap(): Y.Map<unknown> | null;
+  getUndoManager(): Y.UndoManager | null;
+}
+
+let _engine: EngineRef | null = null;
+let _fileImportOrigin: string = "file-import";
+
+/** Called by engine.ts after the singleton is created. */
+export function _setEngineRef(ref: EngineRef, fileImportOrigin: string): void {
+  _engine = ref;
+  _fileImportOrigin = fileImportOrigin;
+}
 
 // ─── AlphaTab → Y.Doc ───────────────────────────────────────────────────────
 
@@ -259,7 +286,10 @@ function importNote(note: alphaTab.model.Note): Y.Map<unknown> {
 
   y.set("leftHandFinger", note.leftHandFinger as unknown as number);
   y.set("rightHandFinger", note.rightHandFinger as unknown as number);
-  y.set("dynamics", note.dynamics as unknown as number);
+  const noteDyn = note.dynamics as unknown as number | undefined;
+  if (noteDyn != null) {
+    y.set("dynamics", noteDyn);
+  }
   y.set("ornament", note.ornament as unknown as number);
   y.set("accidentalMode", note.accidentalMode as unknown as number);
 
@@ -597,4 +627,20 @@ function buildNote(yNote: Y.Map<unknown>): alphaTab.model.Note {
   note.durationPercent = (yNote.get("durationPercent") as number) ?? 1;
 
   return note;
+}
+
+// ─── Import from AlphaTab (convenience wrapper) ──────────────────────────────
+
+/**
+ * Import an AlphaTab Score into Y.Doc using the FILE_IMPORT_ORIGIN
+ * so the observer knows NOT to rebuild AlphaTab (it already has the score).
+ */
+export function importFromAlphaTab(
+  score: import("@coderline/alphatab").model.Score,
+): void {
+  if (!_engine) return;
+  const doc = _engine.getDoc();
+  if (!doc) return;
+  importScoreToYDoc(score, doc, _fileImportOrigin);
+  _engine.getUndoManager()?.clear();
 }

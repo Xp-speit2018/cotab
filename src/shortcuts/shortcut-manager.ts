@@ -5,13 +5,41 @@ import { useShortcutStore } from "./shortcut-store";
 import { keyboardEventToCombo } from "./platform";
 import { handleDigitInput, cancelDigitInput } from "./fret-input";
 import { getNextCycleValue } from "./behaviors";
-import { debugLog } from "@/stores/debug-log-store";
-
+import { debugLog } from "@/core/editor/action-log";
+import { engine } from "@/core/engine";
+import {
+  computeNextBeat,
+  computePrevBeat,
+  computeMoveUp,
+  computeMoveDown,
+  computeNextBar,
+  computePrevBar,
+  computeNextStaff,
+  computePrevStaff,
+} from "@/components/navigation/navigation-helpers";
 let installed = false;
 let tFunction: TFunction | null = null;
 
 function getContext(): ActionExecutionContext {
   return { t: tFunction! };
+}
+
+/** Map navigation direction to target computation function. */
+function computeNavigationTarget(
+  direction: "nextBeat" | "prevBeat" | "moveUp" | "moveDown" | "nextBar" | "prevBar" | "nextStaff" | "prevStaff",
+  current: import("@/core/engine").SelectedBeat,
+): import("@/core/engine").SelectedBeat | null {
+  switch (direction) {
+    case "nextBeat": return computeNextBeat(current);
+    case "prevBeat": return computePrevBeat(current);
+    case "moveUp": return computeMoveUp(current);
+    case "moveDown": return computeMoveDown(current);
+    case "nextBar": return computeNextBar(current);
+    case "prevBar": return computePrevBar(current);
+    case "nextStaff": return computeNextStaff(current);
+    case "prevStaff": return computePrevStaff(current);
+    default: return null;
+  }
 }
 
 function isInputFocused(): boolean {
@@ -69,6 +97,18 @@ function handleKeyDown(e: KeyboardEvent): void {
       if (digitMatch) {
         const digit = parseInt(digitMatch[1], 10);
         handleDigitInput(digit, context);
+      }
+      break;
+    }
+
+    case "navigate": {
+      cancelDigitInput();
+      const current = engine.selectedBeat;
+      if (!current) return;
+
+      const target = computeNavigationTarget(behavior.direction, current);
+      if (target) {
+        executeActionUnsafe("nav.setSelection", target, context);
       }
       break;
     }

@@ -1,7 +1,7 @@
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { usePlayerStore } from "@/stores/player-store";
-import { getApi, updateSnapGridOverlay } from "@/stores/player-internals";
+import { usePlayerStore } from "@/stores/render-store";
+import { getApi, updateSnapGridOverlay } from "@/stores/render-internals";
 
 const EDITOR_MODE_STORAGE_KEY = "cotab:editorMode";
 

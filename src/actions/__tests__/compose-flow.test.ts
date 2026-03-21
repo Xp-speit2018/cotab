@@ -18,21 +18,129 @@ import {
   buildMockAlphaTabScore,
   snapshotDoc,
   testContext,
-} from "@/test/setup";
-import {
   initDoc,
   destroyDoc,
   getScoreMap,
-  resolveYBeat,
-  resolveYTrack,
-  resolveYNote,
   transact,
-} from "@/core/sync";
+  resolveYBeatHelper,
+  resolveYTrackHelper,
+  resolveYNoteHelper,
+} from "@/test/setup";
+
+// Mock render-store for edit-track.ts which calls usePlayerStore.setState
+vi.mock("@/stores/render-store", () => {
+  const ms = () => (globalThis as Record<string, unknown>).__testMockState as Record<string, unknown> | undefined;
+  const mockGetState = vi.fn(() => {
+    const s = ms();
+    return {
+      selectedBeat: s?.selectedBeat ?? null,
+      selectionRange: s?.selectionRange ?? null,
+      selectedNoteIndex: s?.selectedNoteIndex ?? -1,
+      visibleTrackIndices: s?.visibleTrackIndices ?? [0],
+      addTrackDialogOpen: s?.addTrackDialogOpen ?? false,
+      ...(s?.storeOverrides ?? {}),
+    };
+  });
+  const mockSetState = vi.fn((partial: Record<string, unknown>) => {
+    const s = ms();
+    if (!s) return;
+    if ("selectedBeat" in partial) s.selectedBeat = partial.selectedBeat;
+    if ("selectionRange" in partial) s.selectionRange = partial.selectionRange;
+    if ("selectedNoteIndex" in partial) s.selectedNoteIndex = partial.selectedNoteIndex;
+    if ("visibleTrackIndices" in partial) s.visibleTrackIndices = partial.visibleTrackIndices;
+    if ("addTrackDialogOpen" in partial) s.addTrackDialogOpen = partial.addTrackDialogOpen;
+    Object.assign(s.storeOverrides, partial);
+  });
+  const mockSubscribe = vi.fn(() => vi.fn());
+  return {
+    usePlayerStore: Object.assign(
+      vi.fn(() => mockGetState()),
+      {
+        getState: mockGetState,
+        setState: mockSetState,
+        subscribe: mockSubscribe,
+      }
+    ),
+  };
+});
+
+// Inline factory helpers to avoid module resolution issues in hoisted mock
+const _createYMap = () => new Y.Map<unknown>();
+const _createBar = (clef?: number) => {
+  const bar = _createYMap();
+  bar.set("clef", clef ?? 4);
+  bar.set("voices", new Y.Array<Y.Map<unknown>>());
+  bar.set("uuid", `bar-${Math.random().toString(36).slice(2)}`);
+  return bar;
+};
+const _createVoice = () => {
+  const voice = _createYMap();
+  voice.set("beats", new Y.Array<Y.Map<unknown>>());
+  return voice;
+};
+const _createBeat = (duration?: number) => {
+  const beat = _createYMap();
+  beat.set("duration", duration ?? 4);
+  beat.set("isEmpty", true);
+  beat.set("isRest", false);
+  beat.set("notes", new Y.Array<Y.Map<unknown>>());
+  return beat;
+};
+
+vi.mock("@/core/engine", () => {
+  const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;
+  const resolve = (path: number[]) => {
+    const sm = refs()?.scoreMap; if (!sm) return null;
+    let node: Y.Map<unknown> | null = null;
+    const keys = ["tracks", "staves", "bars", "voices", "beats", "notes"];
+    for (let i = 0; i < path.length; i++) {
+      const arr = (i === 0 ? sm : node!).get(keys[i]) as Y.Array<Y.Map<unknown>> | undefined;
+      if (!arr || path[i] < 0 || path[i] >= arr.length) return null;
+      node = arr.get(path[i]);
+    }
+    return node;
+  };
+  return {
+    engine: {
+      resolveYTrack: vi.fn((t: number) => resolve([t])),
+      resolveYStaff: vi.fn((t: number, s: number) => resolve([t, s])),
+      resolveYBar: vi.fn((t: number, s: number, b: number) => resolve([t, s, b])),
+      resolveYVoice: vi.fn((t: number, s: number, b: number, v: number) => resolve([t, s, b, v])),
+      resolveYBeat: vi.fn((t: number, s: number, b: number, v: number, bt: number) => resolve([t, s, b, v, bt])),
+      resolveYNote: vi.fn((t: number, s: number, b: number, v: number, bt: number, n: number) => resolve([t, s, b, v, bt, n])),
+      resolveYMasterBar: vi.fn((idx: number) => {
+        const sm = refs()?.scoreMap; if (!sm) return null;
+        const mbs = sm.get("masterBars") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!mbs || idx < 0 || idx >= mbs.length) return null;
+        return mbs.get(idx);
+      }),
+      getScoreMap: vi.fn(() => refs()?.scoreMap ?? null),
+      getUndoManager: vi.fn(() => refs()?.undoManager ?? null),
+      localEditYDoc: vi.fn((fn: () => void) => {
+        const d = refs()?.doc; if (d) d.transact(fn, d.clientID);
+      }),
+    },
+    EditorEngine: {
+      pushDefaultBar: vi.fn((yBars: Y.Array<Y.Map<unknown>>, index?: number, clef?: number) => {
+        const bar = _createBar(clef);
+        if (index !== undefined) yBars.insert(index, [bar]); else yBars.push([bar]);
+        const intBar = yBars.get(index ?? yBars.length - 1);
+        const voices = intBar.get("voices") as Y.Array<Y.Map<unknown>>;
+        voices.push([_createVoice()]);
+        const intVoice = voices.get(0);
+        (intVoice.get("beats") as Y.Array<Y.Map<unknown>>).push([_createBeat()]);
+        return intBar;
+      }),
+    },
+    importTrack: vi.fn(),
+    FILE_IMPORT_ORIGIN: "file-import",
+  };
+});
+
+import { EditorEngine } from "@/core/engine";
 import { createTrack, createStaff, Duration } from "@/core/schema";
-import { pushDefaultBar } from "@/core/store";
 import { executeAction } from "@/actions/registry";
-import { resolveBeat } from "@/stores/player-helpers";
-import { isBarEmptyAllTracks } from "@/stores/player-helpers";
+import { resolveBeat, isBarEmptyAllTracks } from "@/stores/render-internals";
 import "@/actions/edit-score";
 import "@/actions/edit-bar";
 import "@/actions/edit-beat";
@@ -70,7 +178,7 @@ function mockTabBeat(_beatSel: ReturnType<typeof sel>) {
     isRest: false,
     voice: { bar: { clef: 4 } },
   };
-  vi.mocked(resolveBeat).mockReturnValue(mockBeat as never);
+  (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue(mockBeat as never);
   return mockBeat;
 }
 
@@ -116,7 +224,7 @@ describe("compose Happy Birthday", () => {
     destroyDoc();
     initDoc();
     seedOneTrackScore(getScoreMap()!, 1, [3, 4]);
-    vi.mocked(isBarEmptyAllTracks).mockReturnValue(true);
+    (isBarEmptyAllTracks as ReturnType<typeof vi.fn>).mockReturnValue(true);
 
     setMockApiScore(buildMockAlphaTabScore({
       tracks: [{
@@ -176,7 +284,7 @@ describe("compose Happy Birthday", () => {
     }
 
     for (let i = 0; i < notes.length; i++) {
-      const yBeat = resolveYBeat(0, 0, 0, 0, i)!;
+      const yBeat = resolveYBeatHelper(0, 0, 0, 0, i)!;
       const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
       expect(yNotes.length).toBe(1);
       expect(yNotes.get(0).get("fret")).toBe(notes[i].fret);
@@ -191,7 +299,7 @@ describe("compose Happy Birthday", () => {
     selectBeat(sel({ barIndex: 0, beatIndex: 0 }));
     executeAction("edit.beat.setDuration", Duration.Eighth, ctx);
 
-    const yBeat = resolveYBeat(0, 0, 0, 0, 0)!;
+    const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     expect(yBeat.get("duration")).toBe(Duration.Eighth);
   });
 
@@ -229,11 +337,11 @@ describe("compose Happy Birthday", () => {
       const intStaff = staves.get(0);
       intStaff.set("showTablature", false);
       const bars = intStaff.get("bars") as Y.Array<Y.Map<unknown>>;
-      pushDefaultBar(bars);
+      EditorEngine.pushDefaultBar(bars);
     });
 
     expect(trackCount()).toBe(2);
-    expect(resolveYTrack(1)!.get("name")).toBe("Piano");
+    expect(resolveYTrackHelper(1)!.get("name")).toBe("Piano");
 
     const snap = snapshotDoc();
     expect(snap.tracks).toHaveLength(2);
@@ -253,7 +361,7 @@ describe("compose Happy Birthday", () => {
       staves.push([createStaff([])]);
       const intStaff = staves.get(0);
       const bars = intStaff.get("bars") as Y.Array<Y.Map<unknown>>;
-      pushDefaultBar(bars);
+      EditorEngine.pushDefaultBar(bars);
     });
 
     setMockApiScore(buildMockAlphaTabScore({
@@ -267,7 +375,7 @@ describe("compose Happy Birthday", () => {
     selectBeat(sel({ trackIndex: 0 }));
     executeAction("edit.track.delete", 0, ctx);
     expect(trackCount()).toBe(1);
-    expect(resolveYTrack(0)!.get("name")).toBe("Piano");
+    expect(resolveYTrackHelper(0)!.get("name")).toBe("Piano");
   });
 
   // ─── Phase 8: Note property modifications ─────────────────────────────────
@@ -283,7 +391,7 @@ describe("compose Happy Birthday", () => {
     executeAction("edit.note.setStaccato", true, ctx);
     executeAction("edit.note.setVibrato", 2, ctx);
 
-    const note = resolveYNote(0, 0, 0, 0, 0, 0)!;
+    const note = resolveYNoteHelper(0, 0, 0, 0, 0, 0)!;
     expect(note.get("isGhost")).toBe(true);
     expect(note.get("isStaccato")).toBe(true);
     expect(note.get("vibrato")).toBe(2);

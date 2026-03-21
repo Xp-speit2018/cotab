@@ -1,19 +1,71 @@
 import * as Y from "yjs";
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   resetMockState,
   testContext,
   seedOneTrackScore,
 } from "@/test/setup";
 import { createMasterBar } from "@/core/schema";
-import { pushDefaultBar } from "@/core/store";
 import {
   initDoc,
   destroyDoc,
   getScoreMap,
   transact,
   getUndoManager,
-} from "@/core/sync";
+  pushDefaultBarHelper,
+} from "@/test/setup";
+
+// Inline factory helpers to avoid module resolution issues in hoisted mock
+const _createYMap = () => new Y.Map<unknown>();
+const _createBar = (clef?: number) => {
+  const bar = _createYMap();
+  bar.set("clef", clef ?? 4);
+  bar.set("voices", new Y.Array<Y.Map<unknown>>());
+  bar.set("uuid", `bar-${Math.random().toString(36).slice(2)}`);
+  return bar;
+};
+const _createVoice = () => {
+  const voice = _createYMap();
+  voice.set("beats", new Y.Array<Y.Map<unknown>>());
+  return voice;
+};
+const _createBeat = (duration?: number) => {
+  const beat = _createYMap();
+  beat.set("duration", duration ?? 4);
+  beat.set("isEmpty", true);
+  beat.set("isRest", false);
+  beat.set("notes", new Y.Array<Y.Map<unknown>>());
+  return beat;
+};
+
+vi.mock("@/core/engine", () => {
+  const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;
+  return {
+    engine: {
+      getScoreMap: vi.fn(() => refs()?.scoreMap ?? null),
+      getUndoManager: vi.fn(() => refs()?.undoManager ?? null),
+      localEditYDoc: vi.fn((fn: () => void) => {
+        const d = refs()?.doc; if (d) d.transact(fn, d.clientID);
+      }),
+    },
+    EditorEngine: {
+      pushDefaultBar: vi.fn((yBars: Y.Array<Y.Map<unknown>>, index?: number, clef?: number) => {
+        const bar = _createBar(clef);
+        if (index !== undefined) yBars.insert(index, [bar]); else yBars.push([bar]);
+        const intBar = yBars.get(index ?? yBars.length - 1);
+        const voices = intBar.get("voices") as Y.Array<Y.Map<unknown>>;
+        voices.push([_createVoice()]);
+        const intVoice = voices.get(0);
+        (intVoice.get("beats") as Y.Array<Y.Map<unknown>>).push([_createBeat()]);
+        return intBar;
+      }),
+    },
+    importTrack: vi.fn(),
+    FILE_IMPORT_ORIGIN: "file-import",
+  };
+});
+
+import { EditorEngine } from "@/core/engine";
 import { executeAction } from "@/actions/registry";
 import "@/actions/edit-history";
 
@@ -147,7 +199,7 @@ describe("array mutations", () => {
     // Add a bar in a tracked transaction
     transact(() => {
       yMasterBars.push([createMasterBar(4, 4)]);
-      pushDefaultBar(yBars);
+      EditorEngine.pushDefaultBar(yBars);
     });
 
     expect(yBars.length).toBe(2);

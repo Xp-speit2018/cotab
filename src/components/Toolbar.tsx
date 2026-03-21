@@ -28,11 +28,13 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { executeAction } from "@/actions";
-import { usePlayerStore } from "@/stores/player-store";
+import { usePlayerStore } from "@/stores/render-store";
+import { getApi } from "@/stores/render-api";
 import { useShortcutStore } from "@/shortcuts";
-import { useTabStore } from "@/core/store";
-import { useUndoStore } from "@/stores/undo-store";
+import { useEditorStore } from "@/stores/editor-store";
 import { cn } from "@/lib/utils";
+
+const EDITOR_MODE_STORAGE_KEY = "cotab:editorMode";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -61,16 +63,19 @@ export function Toolbar() {
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
   const loadFile = usePlayerStore((s) => s.loadFile);
   const editorMode = usePlayerStore((s) => s.editorMode);
-  const tabConnected = useTabStore((s) => s.connected);
-  const tabRoomCode = useTabStore((s) => s.roomCode);
-  const canUndo = useUndoStore((s) => s.canUndo);
-  const canRedo = useUndoStore((s) => s.canRedo);
+  const tabConnected = useEditorStore((s) => s.connected);
+  const tabRoomCode = useEditorStore((s) => s.roomCode);
+  const canUndo = useEditorStore((s) => s.canUndo);
+  const canRedo = useEditorStore((s) => s.canRedo);
 
   const isPlaying = playerState === "playing";
 
   const cycleEditorMode = () => {
     const nextMode = editorMode === "essentials" ? "advanced" : "essentials";
-    executeAction("view.setEditorMode", nextMode, { t });
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(EDITOR_MODE_STORAGE_KEY, nextMode);
+    }
+    usePlayerStore.setState({ editorMode: nextMode });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,7 +180,11 @@ export function Toolbar() {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => executeAction("playback.stop", undefined, { t })}
+              onClick={() => {
+                const api = getApi();
+                if (api) api.stop();
+                usePlayerStore.setState({ playerState: "stopped", currentTime: 0 });
+              }}
               disabled={!isPlayerReady}
             >
               <Square className="h-4 w-4" />
@@ -190,7 +199,11 @@ export function Toolbar() {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => executeAction("playback.setPlaying", !isPlaying, { t })}
+              onClick={() => {
+                const api = getApi();
+                if (!api) return;
+                if (isPlaying) api.pause(); else api.play();
+              }}
               disabled={!isPlayerReady}
             >
               {isPlaying ? (
@@ -245,7 +258,7 @@ export function Toolbar() {
         {/* Zoom */}
         <select
           value={zoom}
-          onChange={(e) => executeAction("view.setZoom", Number(e.target.value), { t })}
+          onChange={(e) => usePlayerStore.getState().setZoom(Number(e.target.value))}
           className="h-8 rounded-md border bg-transparent px-2 text-xs"
           title={t("toolbar.zoom")}
         >
@@ -263,7 +276,7 @@ export function Toolbar() {
               variant="ghost"
               size="sm"
               className="relative h-8 gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground"
-              onClick={() => useTabStore.setState({ roomDialogOpen: true })}
+              onClick={() => usePlayerStore.setState({ roomDialogOpen: true })}
             >
               <Users className="h-3.5 w-3.5" />
               {tabConnected && (

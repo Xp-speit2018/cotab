@@ -1,8 +1,8 @@
 import type { ActionExecutionContext } from "@/actions/types";
 import { executeAction } from "@/actions";
-import { usePlayerStore } from "@/stores/player-store";
+import { usePlayerStore } from "@/stores/render-store";
 import { useShortcutStore } from "./shortcut-store";
-import { debugLog } from "@/stores/debug-log-store";
+import { debugLog } from "@/core/editor/action-log";
 
 const DIGIT_TIMEOUT_MS = 500;
 

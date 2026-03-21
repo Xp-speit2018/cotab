@@ -9,6 +9,7 @@
 import * as alphaTab from "@coderline/alphatab";
 import { create } from "zustand";
 
+import { useEditorStore } from "@/stores/editor-store";
 import type {
   AccentuationType,
   BendType,
@@ -50,8 +51,8 @@ import {
   setDragMoveHandler,
   getDragEndHandler,
   setDragEndHandler,
-} from "./player-api";
-import type { PlayerState, SelectionRange, SelectedBeatInfo, SelectedNoteInfo, TrackBounds, TrackInfo } from "./player-types";
+} from "./render-api";
+import type { PlayerState, SelectionRange, SelectedBeatInfo, SelectedNoteInfo, TrackBounds, TrackInfo } from "./render-types";
 import { GP7_DEF_BY_ID } from "./percussion-data";
 import { resolveGp7Id } from "./percussion-data";
 import {
@@ -62,7 +63,7 @@ import {
   extractBarInfo,
   extractVoiceInfo,
   applyBarWarningStyles,
-} from "./player-helpers";
+} from "./render-helpers";
 import {
   getSnapGrids,
   buildSnapGrids,
@@ -72,14 +73,23 @@ import {
   destroySnapGridOverlay,
 } from "./snap-grid";
 import {
-  initDoc,
-  destroyDoc,
+  engine,
   importFromAlphaTab,
+  type SignalingConfig,
+} from "@/core/engine";
+import { IndexeddbPersistence } from "y-indexeddb";
+import {
   isRebuildingFromYDoc,
-} from "@/core/sync";
+  installRendererObserver,
+  uninstallRendererObserver,
+} from "./renderer-bridge";
+
+// Unsubscribe function for engine hooks
+let _unsubscribeHooks: (() => void) | null = null;
+let _processingHook = false; // Guard against circular calls
 
 // Re-export for consumers that still import from player-store
-export type { PendingSelection } from "./player-api";
+export type { PendingSelection } from "./render-api";
 export type {
   SnapGrid,
   PercSnapGroup,
@@ -99,9 +109,9 @@ export type {
   PlayerState,
   PercArticulationDef,
   DrumCategoryId,
-} from "./player-types";
-export { TRACK_PRESETS, SCORE_FIELD_TO_STATE } from "./player-types";
-export { getApi, setPendingSelection } from "./player-api";
+} from "./render-types";
+export { TRACK_PRESETS, SCORE_FIELD_TO_STATE } from "./render-types";
+export { getApi, setPendingSelection } from "./render-api";
 export { getSnapGrids } from "./snap-grid";
 
 // ─── Selection helpers (use getApi / getCursorElement / getSnapGrids) ────────
@@ -540,8 +550,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedNoteIndex: -1,
   selectedString: null,
   zoom: 1,
-  sidebarVisible: true,
   editorMode: getInitialEditorMode(),
+  sidebarVisible: true,
+  roomDialogOpen: false,
   drumIconStyle: getInitialDrumIconStyle(),
   showSnapGrid: false,
   addTrackDialogOpen: false,
@@ -559,7 +570,29 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // Tear down any previous instance
     get().destroy();
 
-    initDoc();
+    engine.initDoc();
+
+    // Configure signaling with browser-specific persistence
+    const signalingConfig: SignalingConfig = {
+      signalingUrl: import.meta.env.VITE_SIGNALING_URL,
+      persistence: IndexeddbPersistence,
+    };
+    engine.setSignalingConfig(signalingConfig);
+
+    installRendererObserver();
+    _unsubscribeHooks = engine.registerHooks({
+      onLocalSelectionSet: (sel) => {
+        _processingHook = true;
+        try {
+          get().setSelection(sel);
+        } finally {
+          _processingHook = false;
+        }
+      },
+      onPeerSelectionSet: (_sel) => {
+        // Future: show peer cursor
+      },
+    });
     set({ isLoading: true });
 
     setMainElement(mainEl);
@@ -626,6 +659,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         startBarIndex,
         endBarIndex,
       };
+      useEditorStore.setState({ selectionRange: range });
       set({ selectionRange: range });
       updateBarSelectionOverlay(range);
     };
@@ -643,6 +677,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (ds) {
         // If single bar (click, no real drag), clear range
         if (ds.anchorBarIndex === ds.currentBarIndex) {
+          useEditorStore.setState({ selectionRange: null });
           set({ selectionRange: null });
           hideBarSelectionOverlay();
         }
@@ -678,6 +713,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
 
       // Clear any existing selection range
+      useEditorStore.setState({ selectionRange: null });
       set({ selectionRange: null });
       hideBarSelectionOverlay();
 
@@ -867,7 +903,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   destroy: () => {
-    destroyDoc();
+    uninstallRendererObserver();
+    _unsubscribeHooks?.();
+    _unsubscribeHooks = null;
+    engine.destroyDoc();
 
     const cursor = getCursorElement();
     if (cursor) {
@@ -896,6 +935,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     setMainElement(null);
     setViewportElement(null);
+    useEditorStore.setState({
+      selectedBeat: null,
+      selectedNoteIndex: -1,
+      selectionRange: null,
+    });
     set({
       isLoading: false,
       isPlayerReady: false,
@@ -1181,16 +1225,30 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         : {};
       if (!getDragState()) hideBarSelectionOverlay();
 
+      const newBeat = {
+        trackIndex,
+        staffIndex,
+        voiceIndex,
+        barIndex,
+        beatIndex,
+        string: selectedStr,
+      };
+
+      // Write base selection to headless editor-store
+      useEditorStore.setState({
+        selectedBeat: newBeat,
+        selectedNoteIndex: resolvedNoteIndex,
+        ...(getDragState() === null ? { selectionRange: null } : {}),
+      });
+
+      // Only update engine if not processing a hook (prevents circular calls)
+      if (!_processingHook) {
+        engine.localSetSelection(newBeat);
+      }
+
       set({
         ...rangeUpdate,
-        selectedBeat: {
-          trackIndex,
-          staffIndex,
-          voiceIndex,
-          barIndex,
-          beatIndex,
-          string: selectedStr,
-        },
+        selectedBeat: newBeat,
         selectedTrackInfo: extractTrackInfo(track),
         selectedStaffInfo: extractStaffInfo(beat.voice.bar.staff),
         selectedBarInfo: extractBarInfo(beat.voice.bar),
@@ -1213,6 +1271,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   clearSelection: () => {
     updateCursorRect(null, null, null);
     hideBarSelectionOverlay();
+    useEditorStore.setState({
+      selectedBeat: null,
+      selectedNoteIndex: -1,
+      selectionRange: null,
+    });
     set({
       selectedBeat: null,
       selectionRange: null,
@@ -1231,6 +1294,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   clearSelectionRange: () => {
     hideBarSelectionOverlay();
+    useEditorStore.setState({ selectionRange: null });
     set({ selectionRange: null });
   },
 }));

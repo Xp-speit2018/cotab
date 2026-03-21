@@ -7,14 +7,14 @@ import {
 } from "@/components/ui/collapsible";
 import { executeAction } from "@/actions";
 import { cn } from "@/lib/utils";
-import { usePlayerStore } from "@/stores/player-store";
+import { usePlayerStore } from "@/stores/render-store";
 import {
   ESSENTIAL_ARTICULATION_GROUPS,
   GP7_DEF_BY_ID,
   PERC_SNAP_GROUPS,
-} from "@/stores/player-internals";
+} from "@/stores/render-internals";
 import { getCategoryLabelKey } from "@/components/DrumIcons";
-import type { PercArticulationDef, PercSnapGroup } from "@/stores/player-types";
+import type { PercArticulationDef, PercSnapGroup } from "@/stores/render-types";
 import { SectionHeader } from "./primitives";
 
 export function ArticulationSection({

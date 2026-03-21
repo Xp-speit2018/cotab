@@ -3,9 +3,9 @@
  * Depends on player-api (getApi, getMainElement, getViewportElement), player-types (SnapGrid, SnapPosition), percussion-data (GP7_ARTICULATION_MAP).
  */
 
-import { getApi, getMainElement, getViewportElement } from "./player-api";
+import { getApi, getMainElement, getViewportElement } from "./render-api";
 import { GP7_ARTICULATION_MAP } from "./percussion-data";
-import type { SnapGrid, SnapPosition } from "./player-types";
+import type { SnapGrid, SnapPosition } from "./render-types";
 
 const snapGrids = new Map<string, SnapGrid>();
 

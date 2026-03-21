@@ -1,7 +1,10 @@
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import type { ScoreMetadataField } from "@/stores/player-types";
-import { transact, getScoreMap } from "@/core/sync";
+import type { ScoreMetadataField } from "@/stores/render-types";
+import { engine } from "@/core/engine";
+
+const transact = (fn: () => void) => engine.localEditYDoc(fn);
+const getScoreMap = () => engine.getScoreMap();
 
 function setScoreField(field: ScoreMetadataField, value: string): void {
   const yScore = getScoreMap();

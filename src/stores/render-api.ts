@@ -4,7 +4,7 @@
  */
 
 import type * as alphaTab from "@coderline/alphatab";
-import type { PendingSelection } from "./player-types";
+import type { PendingSelection } from "./render-types";
 
 export type { PendingSelection };
 

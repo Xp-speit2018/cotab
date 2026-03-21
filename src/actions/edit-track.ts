@@ -2,20 +2,19 @@ import * as Y from "yjs";
 import * as alphaTab from "@coderline/alphatab";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { usePlayerStore } from "@/stores/player-store";
-import { debugLog } from "@/stores/debug-log-store";
+import { usePlayerStore } from "@/stores/render-store";
+import { engine, importTrack } from "@/core/engine";
+import { useEditorStore } from "@/stores/editor-store";
+import { debugLog } from "@/core/editor/action-log";
 import {
   createTrackFromPreset,
   getApi,
   setPendingSelection,
   TRACK_PRESETS,
-} from "@/stores/player-internals";
-import { importTrack } from "@/core/converters";
-import {
-  transact,
-  getScoreMap,
-  resolveYTrack,
-} from "@/core/sync";
+} from "@/stores/render-internals";
+
+const transact = (fn: () => void) => engine.localEditYDoc(fn);
+const getScoreMap = () => engine.getScoreMap();
 
 const addTrackAction: ActionDefinition<string | void> = {
   id: "edit.track.add",
@@ -82,10 +81,16 @@ const deleteTrackAction: ActionDefinition<number> = {
     const yScore = getScoreMap();
     if (!yScore) return false;
 
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     if (sel && sel.trackIndex === trackIndex) {
+      useEditorStore.setState({
+        selectedBeat: null,
+        selectedNoteIndex: -1,
+        selectionRange: null,
+      });
       usePlayerStore.setState({
         selectedBeat: null,
+        selectionRange: null,
         selectedTrackInfo: null,
         selectedStaffInfo: null,
         selectedBarInfo: null,
@@ -126,7 +131,7 @@ const setTrackNameAction: ActionDefinition<{ trackIndex: number; name: string }>
     { name: "name", type: "string", i18nKey: "actions.edit.track.setName.params.name" },
   ],
   execute: ({ trackIndex, name }, _context) => {
-    const yTrack = resolveYTrack(trackIndex);
+    const yTrack = engine.resolveYTrack(trackIndex);
     if (!yTrack) return;
     transact(() => {
       yTrack.set("name", name);
@@ -143,7 +148,7 @@ const setTrackShortNameAction: ActionDefinition<{ trackIndex: number; shortName:
     { name: "shortName", type: "string", i18nKey: "actions.edit.track.setShortName.params.shortName" },
   ],
   execute: ({ trackIndex, shortName }, _context) => {
-    const yTrack = resolveYTrack(trackIndex);
+    const yTrack = engine.resolveYTrack(trackIndex);
     if (!yTrack) return;
     transact(() => {
       yTrack.set("shortName", shortName);
@@ -172,7 +177,7 @@ const setTrackVisibleAction: ActionDefinition<{ trackIndex: number; visible: boo
 
     if (current.size === 0) return;
 
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     if (!visible && sel && sel.trackIndex === trackIndex) {
       const sorted = [...current].sort((a, b) => a - b);
       const fallback = sorted.find((i) => i > trackIndex) ?? sorted[sorted.length - 1];
@@ -210,7 +215,7 @@ const setTrackProgramAction: ActionDefinition<{ trackIndex: number; program: num
     { name: "program", type: "number", i18nKey: "actions.edit.track.setProgram.params.program" },
   ],
   execute: ({ trackIndex, program }, _context) => {
-    const yTrack = resolveYTrack(trackIndex);
+    const yTrack = engine.resolveYTrack(trackIndex);
     if (!yTrack) return;
     transact(() => {
       yTrack.set("playbackProgram", program);

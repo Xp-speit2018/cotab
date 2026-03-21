@@ -8,16 +8,16 @@ import { Toggle } from "@/components/ui/toggle";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useDebugLogStore, type LogLevel } from "@/stores/debug-log-store";
+import { useActionLogStore, type LogLevel } from "@/stores/action-log-store";
 import { SectionHeader } from "./primitives";
 
 export function LogSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
-  const logs = useDebugLogStore((s) => s.logs);
-  const minLevel = useDebugLogStore((s) => s.minLevel);
-  const clear = useDebugLogStore((s) => s.clear);
-  const setMinLevel = useDebugLogStore((s) => s.setMinLevel);
+  const logs = useActionLogStore((s) => s.logs);
+  const minLevel = useActionLogStore((s) => s.minLevel);
+  const clear = useActionLogStore((s) => s.clear);
+  const setMinLevel = useActionLogStore((s) => s.setMinLevel);
   const logContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

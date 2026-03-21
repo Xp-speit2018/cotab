@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import * as Y from "yjs";
 import {
   resetMockState,
   testContext,
@@ -7,7 +8,23 @@ import {
   initDoc,
   destroyDoc,
   getScoreMap as syncGetScoreMap,
-} from "@/core/sync";
+} from "@/test/setup";
+
+vi.mock("@/core/engine", () => {
+  const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;
+  return {
+    engine: {
+      getScoreMap: vi.fn(() => refs()?.scoreMap ?? null),
+      getUndoManager: vi.fn(() => refs()?.undoManager ?? null),
+      localEditYDoc: vi.fn((fn: () => void) => {
+        const d = refs()?.doc; if (d) d.transact(fn, d.clientID);
+      }),
+    },
+    importTrack: vi.fn(),
+    FILE_IMPORT_ORIGIN: "file-import",
+  };
+});
+
 import { executeAction } from "@/actions/registry";
 import "@/actions/edit-score";
 

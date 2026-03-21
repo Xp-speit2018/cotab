@@ -1,6 +1,8 @@
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { getUndoManager } from "@/core/sync";
+import { engine } from "@/core/engine";
+
+const getUndoManager = () => engine.getUndoManager();
 
 const undoAction: ActionDefinition<void> = {
   id: "edit.undo",

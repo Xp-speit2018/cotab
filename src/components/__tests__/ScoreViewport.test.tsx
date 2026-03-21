@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import { ScoreViewport } from "../ScoreViewport";
 
-vi.mock("@/stores/player-store", () => ({
+vi.mock("@/stores/render-store", () => ({
   usePlayerStore: vi.fn((selector: (s: unknown) => unknown) => {
     const mockState = {
       initialize: vi.fn(),

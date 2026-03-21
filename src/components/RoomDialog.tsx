@@ -9,17 +9,19 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useTabStore } from "@/core/store";
+import { engine } from "@/core/engine";
+import { useEditorStore } from "@/stores/editor-store";
+import { usePlayerStore } from "@/stores/render-store";
 
 export function RoomDialog() {
   const { t } = useTranslation();
-  const open = useTabStore((s) => s.roomDialogOpen);
-  const connected = useTabStore((s) => s.connected);
-  const roomCode = useTabStore((s) => s.roomCode);
-  const peers = useTabStore((s) => s.peers);
-  const connectionStatus = useTabStore((s) => s.connectionStatus);
-  const connectionError = useTabStore((s) => s.connectionError);
-  const storedUserName = useTabStore((s) => s.userName);
+  const open = usePlayerStore((s) => s.roomDialogOpen);
+  const connected = useEditorStore((s) => s.connected);
+  const roomCode = useEditorStore((s) => s.roomCode);
+  const peers = useEditorStore((s) => s.peers);
+  const connectionStatus = useEditorStore((s) => s.connectionStatus);
+  const connectionError = useEditorStore((s) => s.connectionError);
+  const storedUserName = useEditorStore((s) => s.userName);
 
   const [tab, setTab] = useState<"create" | "join">("create");
   const [joinCode, setJoinCode] = useState("");
@@ -29,23 +31,23 @@ export function RoomDialog() {
   const isConnecting = connectionStatus === "connecting";
 
   const handleOpenChange = (value: boolean) => {
-    useTabStore.setState({ roomDialogOpen: value });
+    usePlayerStore.setState({ roomDialogOpen: value });
   };
 
   const handleCreate = async () => {
     const name = userName.trim() || "Anonymous";
-    await useTabStore.getState().createRoom(name);
+    await engine.createRoom(name);
   };
 
   const handleJoin = async () => {
     const code = joinCode.trim();
     if (!code) return;
     const name = userName.trim() || "Anonymous";
-    await useTabStore.getState().connect(code, name);
+    await engine.connect(code, name);
   };
 
   const handleDisconnect = () => {
-    useTabStore.getState().disconnect();
+    engine.disconnect();
   };
 
   const handleCopyCode = async () => {

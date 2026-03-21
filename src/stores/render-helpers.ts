@@ -9,16 +9,16 @@ import type {
   KeySignatureType,
   TripletFeel,
 } from "@/core/schema";
-import { debugLog } from "./debug-log-store";
-import { getApi } from "./player-api";
-import type { TrackPreset } from "./player-types";
+import { debugLog } from "@/core/editor/action-log";
+import { getApi } from "./render-api";
+import type { TrackPreset } from "./render-types";
 import type {
   SelectedBarInfo,
   SelectedStaffInfo,
   SelectedTrackInfo,
   SelectedVoiceInfo,
-} from "./player-types";
-import { QUARTER_TICKS } from "./player-types";
+} from "./render-types";
+import { QUARTER_TICKS } from "./render-types";
 
 // ─── API / beat resolution ───────────────────────────────────────────────────
 

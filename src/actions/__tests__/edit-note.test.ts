@@ -12,17 +12,47 @@ import {
   placePercussionNoteDirectly,
   expectPercussionNote,
   testContext,
-} from "@/test/setup";
-import {
   initDoc,
   destroyDoc,
   getScoreMap,
-  resolveYNote,
-  resolveYBeat,
-} from "@/core/sync";
+  resolveYNoteHelper,
+  resolveYBeatHelper,
+} from "@/test/setup";
+
+vi.mock("@/core/engine", () => {
+  const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;
+  const resolve = (path: number[]) => {
+    const sm = refs()?.scoreMap; if (!sm) return null;
+    let node: Y.Map<unknown> | null = null;
+    const keys = ["tracks", "staves", "bars", "voices", "beats", "notes"];
+    for (let i = 0; i < path.length; i++) {
+      const arr = (i === 0 ? sm : node!).get(keys[i]) as Y.Array<Y.Map<unknown>> | undefined;
+      if (!arr || path[i] < 0 || path[i] >= arr.length) return null;
+      node = arr.get(path[i]);
+    }
+    return node;
+  };
+  return {
+    engine: {
+      resolveYTrack: vi.fn((t: number) => resolve([t])),
+      resolveYStaff: vi.fn((t: number, s: number) => resolve([t, s])),
+      resolveYBar: vi.fn((t: number, s: number, b: number) => resolve([t, s, b])),
+      resolveYVoice: vi.fn((t: number, s: number, b: number, v: number) => resolve([t, s, b, v])),
+      resolveYBeat: vi.fn((t: number, s: number, b: number, v: number, bt: number) => resolve([t, s, b, v, bt])),
+      resolveYNote: vi.fn((t: number, s: number, b: number, v: number, bt: number, n: number) => resolve([t, s, b, v, bt, n])),
+      getScoreMap: vi.fn(() => refs()?.scoreMap ?? null),
+      getUndoManager: vi.fn(() => refs()?.undoManager ?? null),
+      localEditYDoc: vi.fn((fn: () => void) => {
+        const d = refs()?.doc; if (d) d.transact(fn, d.clientID);
+      }),
+    },
+    importTrack: vi.fn(),
+    FILE_IMPORT_ORIGIN: "file-import",
+  };
+});
+
 import { createNote } from "@/core/schema";
-import { resolveBeat } from "@/stores/player-helpers";
-import { resolveGp7Id } from "@/stores/percussion-data";
+import { resolveBeat, resolveGp7Id } from "@/stores/render-internals";
 import {
   AccentuationType,
   VibratoType,
@@ -57,7 +87,7 @@ beforeEach(() => {
 });
 
 function getNote() {
-  return resolveYNote(0, 0, 0, 0, 0, 0)!;
+  return resolveYNoteHelper(0, 0, 0, 0, 0, 0)!;
 }
 
 describe("edit.note.setTie", () => {
@@ -283,18 +313,18 @@ describe("edit.beat.togglePercussionArticulation", () => {
 
   it("adds percussion note when gp7Id not present in beat", () => {
     setupDrumTrack();
-    vi.mocked(resolveBeat).mockReturnValue({
+    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
       notes: [],
       duration: 4,
       isEmpty: true,
       isRest: false,
       voice: { bar: { clef: 0 } },
     } as never);
-    vi.mocked(resolveGp7Id).mockReturnValue(-1);
+    (resolveGp7Id as ReturnType<typeof vi.fn>).mockReturnValue(-1);
 
     executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
 
-    const yNotes = resolveYBeat(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
+    const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
     expectPercussionNote(yNotes.get(0), 38);
   });
@@ -303,21 +333,21 @@ describe("edit.beat.togglePercussionArticulation", () => {
     setupDrumTrack();
     placePercussionNoteDirectly(getScoreMap()!, 0, 0, 0, 42);
 
-    vi.mocked(resolveBeat).mockReturnValue({
+    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
       notes: [{ percussionArticulation: 42 }],
       duration: 4,
       isEmpty: false,
       isRest: false,
       voice: { bar: { clef: 0 } },
     } as never);
-    vi.mocked(resolveGp7Id).mockImplementation((note: unknown) => {
+    (resolveGp7Id as ReturnType<typeof vi.fn>).mockImplementation((note: unknown) => {
       const n = note as { percussionArticulation: number };
       return n.percussionArticulation === 42 ? 42 : -1;
     });
 
     executeAction("edit.beat.togglePercussionArticulation", 42, ctx);
 
-    const yNotes = resolveYBeat(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
+    const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
   });
 
@@ -337,7 +367,7 @@ describe("edit.beat.togglePercussionArticulation", () => {
         }],
       }],
     }));
-    vi.mocked(resolveBeat).mockReturnValue({
+    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
       notes: [],
       duration: 4,
       isEmpty: true,
@@ -347,7 +377,7 @@ describe("edit.beat.togglePercussionArticulation", () => {
 
     executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
 
-    const yNotes = resolveYBeat(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
+    const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
   });
 
@@ -357,7 +387,61 @@ describe("edit.beat.togglePercussionArticulation", () => {
 
     executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
 
-    const yNotes = resolveYBeat(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
+    const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
+    expect(yNotes.length).toBe(0);
+  });
+});
+
+// ─── Edge Cases ───────────────────────────────────────────────────────────────
+
+describe("edit.note edge cases", () => {
+  it("applyNoteUpdates does nothing when Y.Note cannot be resolved", () => {
+    // Set selection with invalid note index
+    setSelectedNoteIndex(999);
+
+    const result = executeAction("edit.note.setTie", true, ctx);
+
+    // Should not throw, should just return without doing anything
+    expect(result).toBeUndefined();
+    // Note should be unchanged
+    expect(getNote().get("isTieDestination")).toBe(false);
+  });
+
+  it("togglePercussionArticulation does nothing when api.score is null", () => {
+    resetMockState();
+    destroyDoc();
+    initDoc();
+    seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
+    selectBeat({ ...defaultSel, string: 2 as number | null });
+    // Don't set mockApiScore - api.score will be null
+
+    executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
+
+    const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
+    expect(yNotes.length).toBe(0);
+  });
+
+  it("togglePercussionArticulation does nothing when beat cannot be resolved", () => {
+    resetMockState();
+    destroyDoc();
+    initDoc();
+    seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
+    selectBeat({ ...defaultSel, string: 2 as number | null });
+    setMockApiScore(buildMockAlphaTabScore({
+      tracks: [{
+        isPercussion: true,
+        staves: [{
+          showTablature: false,
+          tuning: [],
+          bars: [{ clef: 0, voices: [{ beats: [] }] }], // No beats
+        }],
+      }],
+    }));
+    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue(null);
+
+    executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
+
+    const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
   });
 });

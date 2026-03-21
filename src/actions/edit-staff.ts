@@ -1,7 +1,9 @@
 import * as Y from "yjs";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { transact, resolveYStaff } from "@/core/sync";
+import { engine } from "@/core/engine";
+
+const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
 const setStaffCapoAction: ActionDefinition<{
   trackIndex: number;
@@ -17,7 +19,7 @@ const setStaffCapoAction: ActionDefinition<{
     { name: "capo", type: "number", i18nKey: "actions.edit.staff.setCapo.params.capo" },
   ],
   execute: ({ trackIndex, staffIndex, capo }, _context) => {
-    const yStaff = resolveYStaff(trackIndex, staffIndex);
+    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
       yStaff.set("capo", capo);
@@ -39,7 +41,7 @@ const setStaffTranspositionAction: ActionDefinition<{
     { name: "semitones", type: "number", i18nKey: "actions.edit.staff.setTransposition.params.semitones" },
   ],
   execute: ({ trackIndex, staffIndex, semitones }, _context) => {
-    const yStaff = resolveYStaff(trackIndex, staffIndex);
+    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
       yStaff.set("transpositionPitch", semitones);
@@ -61,7 +63,7 @@ const setStaffTuningAction: ActionDefinition<{
     { name: "tuningValues", type: "string", i18nKey: "actions.edit.staff.setTuning.params.tuningValues" },
   ],
   execute: ({ trackIndex, staffIndex, tuningValues }, _context) => {
-    const yStaff = resolveYStaff(trackIndex, staffIndex);
+    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
       const yTuning = new Y.Array<number>();

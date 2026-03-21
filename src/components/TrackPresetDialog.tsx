@@ -8,8 +8,8 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { executeAction } from "@/actions";
-import { usePlayerStore } from "@/stores/player-store";
-import { TRACK_PRESETS } from "@/stores/player-types";
+import { usePlayerStore } from "@/stores/render-store";
+import { TRACK_PRESETS } from "@/stores/render-types";
 import { cn } from "@/lib/utils";
 
 const PRESET_ICONS: Record<string, React.ReactNode> = {

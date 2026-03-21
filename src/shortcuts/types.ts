@@ -16,7 +16,11 @@ export type ShortcutBehavior =
       direction: "forward" | "backward";
       getCurrentValue: () => number;
     }
-  | { type: "digitAccumulator" };
+  | { type: "digitAccumulator" }
+  | {
+      type: "navigate";
+      direction: "nextBeat" | "prevBeat" | "moveUp" | "moveDown" | "nextBar" | "prevBar" | "nextStaff" | "prevStaff";
+    };
 
 export interface ShortcutBinding {
   /** Unique ID matching the shortcut — typically mirrors the action ID, with a suffix for variants. */

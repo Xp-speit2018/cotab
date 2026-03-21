@@ -1,22 +1,19 @@
 import * as Y from "yjs";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { usePlayerStore } from "@/stores/player-store";
-import { setPendingSelection } from "@/stores/player-internals";
-import { debugLog } from "@/stores/debug-log-store";
+import { engine } from "@/core/engine";
+import { useEditorStore } from "@/stores/editor-store";
+import { setPendingSelection } from "@/stores/render-internals";
+import { debugLog } from "@/core/editor/action-log";
 import {
   createBeat,
   createNote,
   snapshotBeat,
   type BeatSchema,
 } from "@/core/schema";
-import {
-  transact,
-  resolveYVoice,
-  resolveYTrack,
-  resolveYStaff,
-  getScoreMap,
-} from "@/core/sync";
+
+const transact = (fn: () => void) => engine.localEditYDoc(fn);
+const getScoreMap = () => engine.getScoreMap();
 
 // ─── Internal clipboard buffer ───────────────────────────────────────────────
 
@@ -152,15 +149,15 @@ function summariseBar(beats: BeatSchema[]): { beats: number; notes: number } {
  * Returns true if successful.
  */
 function copyToBuffer(): boolean {
-  const state = usePlayerStore.getState();
+  const state = useEditorStore.getState();
   const sel = state.selectedBeat;
   if (!sel) {
     debugLog("debug", "edit.clipboard", "copy: no selection");
     return false;
   }
 
-  const yTrack = resolveYTrack(sel.trackIndex);
-  const yStaff = resolveYStaff(sel.trackIndex, sel.staffIndex);
+  const yTrack = engine.resolveYTrack(sel.trackIndex);
+  const yStaff = engine.resolveYStaff(sel.trackIndex, sel.staffIndex);
   if (!yTrack || !yStaff) {
     debugLog("debug", "edit.clipboard", "copy: no Y.Track/Staff resolved");
     return false;
@@ -172,7 +169,7 @@ function copyToBuffer(): boolean {
 
   const bars: BeatSchema[][] = [];
   for (let barIdx = startBar; barIdx <= endBar; barIdx++) {
-    const yVoice = resolveYVoice(
+    const yVoice = engine.resolveYVoice(
       sel.trackIndex,
       sel.staffIndex,
       barIdx,
@@ -228,7 +225,7 @@ const cutAction: ActionDefinition<void> = {
   i18nKey: "shortcuts.clipboard.cut",
   category: "edit.clipboard",
   execute: () => {
-    const state = usePlayerStore.getState();
+    const state = useEditorStore.getState();
     const sel = state.selectedBeat;
     if (!sel) {
       debugLog("debug", "edit.clipboard", "cut: no selection");
@@ -252,7 +249,7 @@ const cutAction: ActionDefinition<void> = {
 
     transact(() => {
       for (let barIdx = startBar; barIdx <= endBar; barIdx++) {
-        const yVoice = resolveYVoice(
+        const yVoice = engine.resolveYVoice(
           sel.trackIndex,
           sel.staffIndex,
           barIdx,
@@ -286,15 +283,15 @@ const pasteAction: ActionDefinition<void> = {
       return;
     }
 
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     if (!sel) {
       debugLog("debug", "edit.clipboard", "paste: no selection");
       return;
     }
 
     // Same-staff guard by UUID
-    const yTrack = resolveYTrack(sel.trackIndex);
-    const yStaff = resolveYStaff(sel.trackIndex, sel.staffIndex);
+    const yTrack = engine.resolveYTrack(sel.trackIndex);
+    const yStaff = engine.resolveYStaff(sel.trackIndex, sel.staffIndex);
     if (!yTrack || !yStaff) {
       debugLog("debug", "edit.clipboard", "paste: no Y.Track/Staff resolved");
       return;
@@ -339,7 +336,7 @@ const pasteAction: ActionDefinition<void> = {
       for (let i = 0; i < barsWritten; i++) {
         const targetBarIndex = sel.barIndex + i;
 
-        const yVoice = resolveYVoice(
+        const yVoice = engine.resolveYVoice(
           sel.trackIndex,
           sel.staffIndex,
           targetBarIndex,

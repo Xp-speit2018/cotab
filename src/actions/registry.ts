@@ -5,7 +5,7 @@ import type {
   ActionId,
   ActionResult,
 } from "./types";
-import { debugLog } from "@/stores/debug-log-store";
+import { debugLog } from "@/core/editor/action-log";
 
 class ActionRegistry {
   private readonly actions = new Map<string, ActionDefinition<unknown, unknown>>();

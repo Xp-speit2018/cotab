@@ -20,8 +20,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { executeAction } from "@/actions";
 import { cn } from "@/lib/utils";
-import { usePlayerStore } from "@/stores/player-store";
-import type { TuningPresetInfo } from "@/stores/player-types";
+import { usePlayerStore } from "@/stores/render-store";
+import type { TuningPresetInfo } from "@/stores/render-types";
 import { SectionHeader, EditablePropRow, EditableNumberPropRow } from "./primitives";
 
 function TrackMetaRow({ trackIndex }: { trackIndex: number }) {

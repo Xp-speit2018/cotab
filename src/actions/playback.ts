@@ -1,7 +1,7 @@
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { getApi } from "@/stores/player-internals";
-import { usePlayerStore } from "@/stores/player-store";
+import { getApi } from "@/stores/render-internals";
+import { usePlayerStore } from "@/stores/render-store";
 
 const setPlayingAction: ActionDefinition<boolean | void> = {
   id: "playback.setPlaying",

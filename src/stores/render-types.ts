@@ -31,6 +31,9 @@ import type {
   BendPointSchema,
 } from "@/core/schema";
 
+export type { SelectedBeat, SelectionRange } from "@/core/engine";
+import type { SelectedBeat, SelectionRange } from "@/core/engine";
+
 // ─── Pending selection ───────────────────────────────────────────────────────
 
 export interface PendingSelection {
@@ -100,15 +103,6 @@ export const TRACK_PRESETS: readonly TrackPreset[] = [
   { id: "acousticPiano", nameKey: "sidebar.selector.presets.acousticPiano", defaultName: "Acoustic Piano", program: 0, channel: 0, clef: 4, isPercussion: false, stringCount: 0 },
   { id: "drumkit", nameKey: "sidebar.selector.presets.drumkit", defaultName: "Drums", program: 0, channel: 9, clef: 0, isPercussion: true, stringCount: 0 },
 ] as const;
-
-export interface SelectedBeat {
-  trackIndex: number;
-  staffIndex: number;
-  voiceIndex: number;
-  barIndex: number;
-  beatIndex: number;
-  string: number | null;
-}
 
 export interface TrackBounds {
   y: number;
@@ -254,16 +248,6 @@ export type ScoreMetadataField =
 
 export type DrumCategoryId = "cymbals" | "snare" | "toms" | "kick";
 
-// ─── Selection range (multi-bar drag selection) ─────────────────────────────
-
-export interface SelectionRange {
-  trackIndex: number;
-  staffIndex: number;
-  voiceIndex: number;
-  startBarIndex: number; // inclusive
-  endBarIndex: number;   // inclusive, >= startBarIndex
-}
-
 // ─── Player state ───────────────────────────────────────────────────────────
 
 export interface PlayerState {
@@ -301,8 +285,9 @@ export interface PlayerState {
   selectedNoteIndex: number;
   selectedString: number | null;
   zoom: number;
-  sidebarVisible: boolean;
   editorMode: "essentials" | "advanced";
+  sidebarVisible: boolean;
+  roomDialogOpen: boolean;
   drumIconStyle: "notation" | "instrument";
   showSnapGrid: boolean;
   addTrackDialogOpen: boolean;

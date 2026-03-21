@@ -5,16 +5,88 @@ import {
   selectBeat,
   seedOneTrackScore,
   testContext,
-} from "@/test/setup";
-import {
   initDoc,
   destroyDoc,
   getScoreMap,
-  resolveYBar,
-} from "@/core/sync";
+  resolveYBarHelper,
+  pushDefaultBarHelper,
+} from "@/test/setup";
+
+// Inline factory helpers to avoid module resolution issues in hoisted mock
+const _createYMap = () => new Y.Map<unknown>();
+const _createBar = (clef?: number) => {
+  const bar = _createYMap();
+  bar.set("clef", clef ?? 4);
+  bar.set("voices", new Y.Array<Y.Map<unknown>>());
+  bar.set("uuid", `bar-${Math.random().toString(36).slice(2)}`);
+  return bar;
+};
+const _createVoice = () => {
+  const voice = _createYMap();
+  voice.set("beats", new Y.Array<Y.Map<unknown>>());
+  return voice;
+};
+const _createBeat = (duration?: number) => {
+  const beat = _createYMap();
+  beat.set("duration", duration ?? 4);
+  beat.set("isEmpty", true);
+  beat.set("isRest", false);
+  beat.set("notes", new Y.Array<Y.Map<unknown>>());
+  return beat;
+};
+
+vi.mock("@/core/engine", () => {
+  const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;
+  const resolve = (path: number[]) => {
+    const sm = refs()?.scoreMap; if (!sm) return null;
+    let node: Y.Map<unknown> | null = null;
+    const keys = ["tracks", "staves", "bars", "voices", "beats", "notes"];
+    for (let i = 0; i < path.length; i++) {
+      const arr = (i === 0 ? sm : node!).get(keys[i]) as Y.Array<Y.Map<unknown>> | undefined;
+      if (!arr || path[i] < 0 || path[i] >= arr.length) return null;
+      node = arr.get(path[i]);
+    }
+    return node;
+  };
+  return {
+    engine: {
+      resolveYTrack: vi.fn((t: number) => resolve([t])),
+      resolveYStaff: vi.fn((t: number, s: number) => resolve([t, s])),
+      resolveYBar: vi.fn((t: number, s: number, b: number) => resolve([t, s, b])),
+      resolveYVoice: vi.fn((t: number, s: number, b: number, v: number) => resolve([t, s, b, v])),
+      resolveYBeat: vi.fn((t: number, s: number, b: number, v: number, bt: number) => resolve([t, s, b, v, bt])),
+      resolveYNote: vi.fn((t: number, s: number, b: number, v: number, bt: number, n: number) => resolve([t, s, b, v, bt, n])),
+      resolveYMasterBar: vi.fn((idx: number) => {
+        const sm = refs()?.scoreMap; if (!sm) return null;
+        const mbs = sm.get("masterBars") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!mbs || idx < 0 || idx >= mbs.length) return null;
+        return mbs.get(idx);
+      }),
+      getScoreMap: vi.fn(() => refs()?.scoreMap ?? null),
+      getUndoManager: vi.fn(() => refs()?.undoManager ?? null),
+      localEditYDoc: vi.fn((fn: () => void) => {
+        const d = refs()?.doc; if (d) d.transact(fn, d.clientID);
+      }),
+    },
+    EditorEngine: {
+      pushDefaultBar: vi.fn((yBars: Y.Array<Y.Map<unknown>>, index?: number, clef?: number) => {
+        const bar = _createBar(clef);
+        if (index !== undefined) yBars.insert(index, [bar]); else yBars.push([bar]);
+        const intBar = yBars.get(index ?? yBars.length - 1);
+        const voices = intBar.get("voices") as Y.Array<Y.Map<unknown>>;
+        voices.push([_createVoice()]);
+        const intVoice = voices.get(0);
+        (intVoice.get("beats") as Y.Array<Y.Map<unknown>>).push([_createBeat()]);
+        return intBar;
+      }),
+    },
+    importTrack: vi.fn(),
+    FILE_IMPORT_ORIGIN: "file-import",
+  };
+});
+
 import { executeAction } from "@/actions/registry";
-import { setPendingSelection } from "@/stores/player-api";
-import { isBarEmptyAllTracks } from "@/stores/player-helpers";
+import { setPendingSelection, isBarEmptyAllTracks } from "@/stores/render-internals";
 import "@/actions/edit-bar";
 
 const defaultSel = {
@@ -33,7 +105,7 @@ beforeEach(() => {
   initDoc();
   seedOneTrackScore(getScoreMap()!, 2);
   selectBeat(defaultSel);
-  vi.mocked(isBarEmptyAllTracks).mockReturnValue(true);
+  (isBarEmptyAllTracks as ReturnType<typeof vi.fn>).mockReturnValue(true);
 });
 
 function masterBarCount(): number {
@@ -59,15 +131,15 @@ describe("edit.bar.insertAfter", () => {
   });
 
   it("inserts at the correct index (after current bar)", () => {
-    const barBefore = resolveYBar(0, 0, 1)!;
+    const barBefore = resolveYBarHelper(0, 0, 1)!;
     const uuidBefore = barBefore.get("uuid");
 
     executeAction("edit.bar.insertAfter", undefined, ctx);
 
-    const barAtIdx1 = resolveYBar(0, 0, 1)!;
+    const barAtIdx1 = resolveYBarHelper(0, 0, 1)!;
     expect(barAtIdx1.get("uuid")).not.toBe(uuidBefore);
 
-    const barAtIdx2 = resolveYBar(0, 0, 2)!;
+    const barAtIdx2 = resolveYBarHelper(0, 0, 2)!;
     expect(barAtIdx2.get("uuid")).toBe(uuidBefore);
   });
 
@@ -100,14 +172,14 @@ describe("edit.bar.insertAfter", () => {
 
 describe("edit.bar.insertBefore", () => {
   it("inserts a bar before the current bar", () => {
-    const bar0uuid = resolveYBar(0, 0, 0)!.get("uuid");
+    const bar0uuid = resolveYBarHelper(0, 0, 0)!.get("uuid");
 
     executeAction("edit.bar.insertBefore", undefined, ctx);
 
     expect(masterBarCount()).toBe(3);
     expect(staffBarCount()).toBe(3);
 
-    const shiftedBar = resolveYBar(0, 0, 1)!;
+    const shiftedBar = resolveYBarHelper(0, 0, 1)!;
     expect(shiftedBar.get("uuid")).toBe(bar0uuid);
   });
 
@@ -138,7 +210,7 @@ describe("edit.bar.delete", () => {
   });
 
   it("is blocked when bar is not empty", () => {
-    vi.mocked(isBarEmptyAllTracks).mockReturnValue(false);
+    (isBarEmptyAllTracks as ReturnType<typeof vi.fn>).mockReturnValue(false);
     const result = executeAction("edit.bar.delete", undefined, ctx);
     expect(result).toBe(false);
     expect(masterBarCount()).toBe(2);

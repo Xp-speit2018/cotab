@@ -1,7 +1,7 @@
 import * as alphaTab from "@coderline/alphatab";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { getApi } from "@/stores/player-api";
+import { getApi } from "@/stores/render-api";
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim() || "untitled";

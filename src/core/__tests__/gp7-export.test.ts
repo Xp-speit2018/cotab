@@ -6,16 +6,12 @@
  * Both AlphaTab and converters are unmocked for real serialization.
  */
 
-vi.unmock("@/core/converters");
-vi.unmock("@coderline/alphatab");
-
 import { describe, it, expect, beforeEach } from "vitest";
 import * as alphaTab from "@coderline/alphatab";
 import {
   destroyDoc,
   getScoreMap,
-} from "@/core/sync";
-import {
+  transact,
   seedOneTrackScore,
   seedTrackWithConfig,
   placeNoteDirectly,
@@ -23,8 +19,8 @@ import {
   addBeatsDirectly,
   createTestDoc,
 } from "@/test/setup";
-import { transact } from "@/core/sync";
-import { buildAlphaTabScore } from "@/core/converters";
+// Import directly from relative path to bypass the mock in setup.ts
+import { buildAlphaTabScore } from "../converters";
 
 beforeEach(() => {
   destroyDoc();

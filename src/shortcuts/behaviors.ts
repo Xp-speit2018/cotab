@@ -1,4 +1,4 @@
-import { usePlayerStore } from "@/stores/player-store";
+import { usePlayerStore } from "@/stores/render-store";
 import type { ShortcutBinding } from "./types";
 
 /**

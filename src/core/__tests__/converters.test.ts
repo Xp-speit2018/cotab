@@ -3,17 +3,13 @@
  * with real implementations (converters and AlphaTab are unmocked).
  */
 
-vi.unmock("@/core/converters");
-vi.unmock("@coderline/alphatab");
-
 import { describe, it, expect, beforeEach } from "vitest";
 import * as Y from "yjs";
 import * as alphaTab from "@coderline/alphatab";
 import {
   destroyDoc,
   getScoreMap,
-} from "@/core/sync";
-import {
+  transact,
   seedOneTrackScore,
   seedTrackWithConfig,
   placeNoteDirectly,
@@ -23,11 +19,11 @@ import {
   createTestDoc,
 } from "@/test/setup";
 import { Duration } from "@/core/schema";
+// Import directly from relative path to bypass the mock in setup.ts
 import {
   buildAlphaTabScore,
   importScoreToYDoc,
-} from "@/core/converters";
-import { transact } from "@/core/sync";
+} from "../converters";
 
 beforeEach(() => {
   destroyDoc();

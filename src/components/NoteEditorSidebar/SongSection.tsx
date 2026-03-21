@@ -18,8 +18,8 @@ import {
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { executeAction } from "@/actions";
-import { usePlayerStore } from "@/stores/player-store";
-import type { ScoreMetadataField } from "@/stores/player-types";
+import { usePlayerStore } from "@/stores/render-store";
+import type { ScoreMetadataField } from "@/stores/render-types";
 import { SectionHeader, EditablePropRow, EditableNumberPropRow } from "./primitives";
 
 export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {

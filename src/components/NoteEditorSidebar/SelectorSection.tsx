@@ -29,8 +29,18 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { executeAction } from "@/actions";
 import { cn } from "@/lib/utils";
-import { usePlayerStore } from "@/stores/player-store";
-import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/player-types";
+import { usePlayerStore } from "@/stores/render-store";
+import {
+  computeNextBeat,
+  computePrevBeat,
+  computeMoveUp,
+  computeMoveDown,
+  computeNextBar,
+  computePrevBar,
+  computeNextStaff,
+  computePrevStaff,
+} from "@/components/navigation/navigation-helpers";
+import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/render-types";
 import { SectionHeader } from "./primitives";
 import {
   durationLabel,
@@ -308,7 +318,7 @@ export function SelectorSection({
                 ? "bg-primary/15 text-primary"
                 : "text-muted-foreground hover:bg-accent/50",
             )}
-            onClick={() => executeAction("view.setShowSnapGrid", !showSnapGrid, { t })}
+            onClick={() => usePlayerStore.getState().setShowSnapGrid(!showSnapGrid)}
           >
             <Grid3X3 className="h-3 w-3" />
             {t("sidebar.selector.showSnapGrid")}
@@ -320,7 +330,10 @@ export function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => executeAction("nav.prevBar", undefined, { t })}
+            onClick={() => {
+              const target = selectedBeat && computePrevBar(selectedBeat);
+              if (target) executeAction("nav.setSelection", target, { t });
+            }}
           >
             <ChevronsLeft className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navPrevBar")}
@@ -330,7 +343,10 @@ export function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => executeAction("nav.prevBeat", undefined, { t })}
+            onClick={() => {
+              const target = selectedBeat && computePrevBeat(selectedBeat);
+              if (target) executeAction("nav.setSelection", target, { t });
+            }}
           >
             <ChevronLeft className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navPrevBeat")}
@@ -340,7 +356,10 @@ export function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => executeAction("nav.moveUp", undefined, { t })}
+            onClick={() => {
+              const target = selectedBeat && computeMoveUp(selectedBeat);
+              if (target) executeAction("nav.setSelection", target, { t });
+            }}
           >
             <ArrowUp className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navMoveUp")}
@@ -350,7 +369,10 @@ export function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => executeAction("nav.moveDown", undefined, { t })}
+            onClick={() => {
+              const target = selectedBeat && computeMoveDown(selectedBeat);
+              if (target) executeAction("nav.setSelection", target, { t });
+            }}
           >
             <ArrowDown className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navMoveDown")}
@@ -360,7 +382,10 @@ export function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => executeAction("nav.nextBeat", undefined, { t })}
+            onClick={() => {
+              const target = selectedBeat && computeNextBeat(selectedBeat);
+              if (target) executeAction("nav.setSelection", target, { t });
+            }}
           >
             {t("sidebar.selector.navNextBeat")}
             <ChevronRight className="h-3 w-3 ml-0.5" />
@@ -370,7 +395,10 @@ export function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => executeAction("nav.nextBar", undefined, { t })}
+            onClick={() => {
+              const target = selectedBeat && computeNextBar(selectedBeat);
+              if (target) executeAction("nav.setSelection", target, { t });
+            }}
           >
             {t("sidebar.selector.navNextBar")}
             <ChevronsRight className="h-3 w-3 ml-0.5" />
@@ -380,7 +408,10 @@ export function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => executeAction("nav.prevStaff", undefined, { t })}
+            onClick={() => {
+              const target = selectedBeat && computePrevStaff(selectedBeat);
+              if (target) executeAction("nav.setSelection", target, { t });
+            }}
           >
             <ChevronUp className="h-3 w-3 mr-0.5" />
             {t("sidebar.selector.navPrevStaff")}
@@ -390,7 +421,10 @@ export function SelectorSection({
             size="sm"
             className="h-6 px-1.5 text-[10px]"
             disabled={!selectedBeat}
-            onClick={() => executeAction("nav.nextStaff", undefined, { t })}
+            onClick={() => {
+              const target = selectedBeat && computeNextStaff(selectedBeat);
+              if (target) executeAction("nav.setSelection", target, { t });
+            }}
           >
             {t("sidebar.selector.navNextStaff")}
             <ChevronDown className="h-3 w-3 ml-0.5" />

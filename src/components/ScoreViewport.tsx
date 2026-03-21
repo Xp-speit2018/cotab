@@ -9,8 +9,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { VolumeKnob } from "@/components/ui/volume-knob";
 import { ResizeHandle } from "@/components/ui/resize-handle";
-import { usePlayerStore } from "@/stores/player-store";
-import type { TrackInfo, TrackBounds } from "@/stores/player-types";
+import { usePlayerStore } from "@/stores/render-store";
+import type { TrackInfo, TrackBounds } from "@/stores/render-types";
 import { cn } from "@/lib/utils";
 
 // ─── Compact Mixer (positioned per-track, aligned to rendered staff) ─────────

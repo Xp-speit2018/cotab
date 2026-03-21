@@ -1,7 +1,7 @@
 import type * as alphaTab from "@coderline/alphatab";
 
-import { getApi, setPendingSelection } from "./player-api";
-import type { PendingSelection, PercSnapGroup, SnapGrid } from "./player-types";
+import { getApi, setPendingSelection } from "./render-api";
+import type { PendingSelection, PercSnapGroup, SnapGrid } from "./render-types";
 import {
   applyBarWarningStyles,
   createTrackFromPreset,
@@ -14,7 +14,7 @@ import {
   insertBarAtIndex,
   isBarEmptyAllTracks,
   resolveBeat,
-} from "./player-helpers";
+} from "./render-helpers";
 import {
   ALPHATAB_PERCUSSION_DEFS,
   DRUM_STAFFLINE_DEFAULTS,
@@ -31,8 +31,8 @@ import {
   getSnapGrids,
   updateSnapGridOverlay,
 } from "./snap-grid";
-import { QUARTER_TICKS, SCORE_FIELD_TO_STATE, TRACK_PRESETS } from "./player-types";
-import { snapPositionToPitch } from "./player-helpers";
+import { QUARTER_TICKS, SCORE_FIELD_TO_STATE, TRACK_PRESETS } from "./render-types";
+import { snapPositionToPitch } from "./render-helpers";
 
 export type { alphaTab };
 

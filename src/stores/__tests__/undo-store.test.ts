@@ -1,67 +1,78 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import * as Y from "yjs";
 import { resetMockState } from "@/test/setup";
-import {
-  initDoc,
-  destroyDoc,
-  getScoreMap,
-  transact,
-  getUndoManager,
-} from "@/core/sync";
-import { useUndoStore, syncUndoState } from "@/stores/undo-store";
+
+// Create a real Y.Doc for this test (bypassing the engine mock)
+let _realDoc: Y.Doc | null = null;
+let _realScoreMap: Y.Map<unknown> | null = null;
+let _realUndoManager: Y.UndoManager | null = null;
+
+function initRealDoc(): void {
+  _realDoc = new Y.Doc();
+  _realScoreMap = _realDoc.getMap("score");
+  _realScoreMap.set("title", "Untitled");
+  _realScoreMap.set("tempo", 120);
+  _realScoreMap.set("masterBars", new Y.Array());
+  _realScoreMap.set("tracks", new Y.Array());
+  _realUndoManager = new Y.UndoManager([_realScoreMap], {
+    trackedOrigins: new Set([_realDoc.clientID]),
+  });
+}
+
+function destroyRealDoc(): void {
+  _realUndoManager?.destroy();
+  _realDoc?.destroy();
+  _realUndoManager = null;
+  _realScoreMap = null;
+  _realDoc = null;
+}
 
 beforeEach(() => {
   resetMockState();
-  destroyDoc();
-  initDoc();
+  destroyRealDoc();
+  initRealDoc();
 });
 
-describe("useUndoStore", () => {
-  it("canUndo is false initially", () => {
-    const { canUndo, canRedo } = useUndoStore.getState();
-    expect(canUndo).toBe(false);
-    expect(canRedo).toBe(false);
+describe("undo state", () => {
+  it("undoStack is empty initially", () => {
+    expect(_realUndoManager!.undoStack.length).toBe(0);
+    expect(_realUndoManager!.redoStack.length).toBe(0);
   });
 
-  it("canUndo becomes true after a tracked mutation", () => {
-    const scoreMap = getScoreMap()!;
-    transact(() => scoreMap.set("title", "Test"));
+  it("undoStack has one item after tracked mutation", () => {
+    _realDoc!.transact(() => {
+      _realScoreMap!.set("title", "Test");
+    }, _realDoc!.clientID);
 
-    // initDoc attaches listeners that call syncUndoState automatically,
-    // but call it explicitly to be deterministic in tests
-    syncUndoState();
-
-    expect(useUndoStore.getState().canUndo).toBe(true);
-    expect(useUndoStore.getState().canRedo).toBe(false);
+    expect(_realUndoManager!.undoStack.length).toBe(1);
+    expect(_realUndoManager!.redoStack.length).toBe(0);
   });
 
-  it("canRedo becomes true after undo", () => {
-    const scoreMap = getScoreMap()!;
-    const um = getUndoManager()!;
+  it("redoStack has item after undo", () => {
+    _realDoc!.transact(() => {
+      _realScoreMap!.set("title", "Test");
+    }, _realDoc!.clientID);
 
-    transact(() => scoreMap.set("title", "Test"));
-    um.undo();
-    syncUndoState();
+    _realUndoManager!.undo();
 
-    expect(useUndoStore.getState().canUndo).toBe(false);
-    expect(useUndoStore.getState().canRedo).toBe(true);
+    expect(_realUndoManager!.undoStack.length).toBe(0);
+    expect(_realUndoManager!.redoStack.length).toBe(1);
   });
 
-  it("both reset after clear()", () => {
-    const scoreMap = getScoreMap()!;
-    const um = getUndoManager()!;
+  it("both stacks empty after clear", () => {
+    _realDoc!.transact(() => {
+      _realScoreMap!.set("title", "A");
+    }, _realDoc!.clientID);
+    _realUndoManager!.undo();
+    _realDoc!.transact(() => {
+      _realScoreMap!.set("title", "B");
+    }, _realDoc!.clientID);
 
-    transact(() => scoreMap.set("title", "A"));
-    um.undo();
-    transact(() => scoreMap.set("title", "B"));
-    syncUndoState();
+    expect(_realUndoManager!.undoStack.length).toBe(1);
 
-    // Before clear: should have items in both stacks
-    expect(useUndoStore.getState().canUndo).toBe(true);
+    _realUndoManager!.clear();
 
-    um.clear();
-    syncUndoState();
-
-    expect(useUndoStore.getState().canUndo).toBe(false);
-    expect(useUndoStore.getState().canRedo).toBe(false);
+    expect(_realUndoManager!.undoStack.length).toBe(0);
+    expect(_realUndoManager!.redoStack.length).toBe(0);
   });
 });

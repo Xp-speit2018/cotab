@@ -23,8 +23,8 @@ import {
 } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeHandle } from "@/components/ui/resize-handle";
-import { usePlayerStore } from "@/stores/player-store";
-import type { SelectedNoteInfo } from "@/stores/player-types";
+import { usePlayerStore } from "@/stores/render-store";
+import type { SelectedNoteInfo } from "@/stores/render-types";
 import { cn } from "@/lib/utils";
 import { FpsSection } from "@/components/FpsMonitor";
 import {

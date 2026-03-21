@@ -1,7 +1,7 @@
 import * as Y from "yjs";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { debugLog } from "@/stores/debug-log-store";
+import { debugLog } from "@/core/editor/action-log";
 import {
   getApi,
   getSnapGrids,
@@ -12,22 +12,20 @@ import {
   gp7IdToPercussionArticulation,
   DRUM_STAFFLINE_DEFAULTS,
   GP7_STAFF_LINE_MAP,
-} from "@/stores/player-internals";
-import { usePlayerStore } from "@/stores/player-store";
+} from "@/stores/render-internals";
+import { engine } from "@/core/engine";
+import { useEditorStore } from "@/stores/editor-store";
 import { createBeat, createNote } from "@/core/schema";
-import {
-  transact,
-  resolveYBeat,
-  resolveYVoice,
-} from "@/core/sync";
+
+const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
 function applyBeatUpdates(updates: Record<string, unknown>): void {
-  const sel = usePlayerStore.getState().selectedBeat;
+  const sel = useEditorStore.getState().selectedBeat;
   if (!sel) {
     debugLog("debug", "edit.beat.applyBeatUpdates", "no selection", { updates });
     return;
   }
-  const yBeat = resolveYBeat(
+  const yBeat = engine.resolveYBeat(
     sel.trackIndex,
     sel.staffIndex,
     sel.barIndex,
@@ -59,7 +57,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
   category: "edit.beat",
   params: [{ name: "targetValue", type: "number", i18nKey: "actions.edit.beat.placeNote.params.targetValue" }],
   execute: (targetValue, _context) => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     const api = getApi();
     if (!sel || !api || sel.string === null) return;
 
@@ -80,7 +78,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
     const staff = track.staves[sel.staffIndex];
     if (!staff) return;
 
-    const yBeat = resolveYBeat(
+    const yBeat = engine.resolveYBeat(
       sel.trackIndex,
       sel.staffIndex,
       sel.barIndex,
@@ -177,7 +175,7 @@ const deleteNoteAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.beat.deleteNote",
   category: "edit.beat",
   execute: (_args, _context): boolean => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     const api = getApi();
     if (!sel || !api) return false;
 
@@ -190,13 +188,13 @@ const deleteNoteAction: ActionDefinition<void> = {
     );
     if (!beat) return false;
 
-    const yVoice = resolveYVoice(
+    const yVoice = engine.resolveYVoice(
       sel.trackIndex,
       sel.staffIndex,
       sel.barIndex,
       sel.voiceIndex,
     );
-    const yBeat = resolveYBeat(
+    const yBeat = engine.resolveYBeat(
       sel.trackIndex,
       sel.staffIndex,
       sel.barIndex,
@@ -207,7 +205,7 @@ const deleteNoteAction: ActionDefinition<void> = {
 
     const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
-    const noteIdx = usePlayerStore.getState().selectedNoteIndex;
+    const noteIdx = useEditorStore.getState().selectedNoteIndex;
 
     if (beat.notes.length === 0 || beat.isRest) {
       if (yBeats.length <= 1) return false;
@@ -271,7 +269,7 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
   category: "edit.beat",
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestBefore.params.duration" }],
   execute: (duration, _context) => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     if (!sel) return;
 
     const beat = resolveBeat(
@@ -283,7 +281,7 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
     );
     if (!beat) return;
 
-    const yVoice = resolveYVoice(
+    const yVoice = engine.resolveYVoice(
       sel.trackIndex,
       sel.staffIndex,
       sel.barIndex,
@@ -317,7 +315,7 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
   category: "edit.beat",
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestAfter.params.duration" }],
   execute: (duration, _context) => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     if (!sel) return;
 
     const beat = resolveBeat(
@@ -329,7 +327,7 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
     );
     if (!beat) return;
 
-    const yVoice = resolveYVoice(
+    const yVoice = engine.resolveYVoice(
       sel.trackIndex,
       sel.staffIndex,
       sel.barIndex,
@@ -365,11 +363,11 @@ const setRestAction: ActionDefinition<boolean> = {
   category: "edit.beat",
   params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setRest.params.value" }],
   execute: (value, _context) => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     const api = getApi();
     if (!sel || !api) return;
 
-    const yBeat = resolveYBeat(
+    const yBeat = engine.resolveYBeat(
       sel.trackIndex,
       sel.staffIndex,
       sel.barIndex,
@@ -586,10 +584,10 @@ const toggleBeatIsEmptyAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.beat.toggleEmpty",
   category: "edit.beat",
   execute: (_args, _context) => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     if (!sel) return;
 
-    const yBeat = resolveYBeat(
+    const yBeat = engine.resolveYBeat(
       sel.trackIndex,
       sel.staffIndex,
       sel.barIndex,

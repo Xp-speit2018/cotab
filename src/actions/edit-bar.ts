@@ -1,22 +1,24 @@
 import * as Y from "yjs";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { debugLog } from "@/stores/debug-log-store";
+import { debugLog } from "@/core/editor/action-log";
 import {
   isBarEmptyAllTracks,
   setPendingSelection,
-} from "@/stores/player-internals";
-import { usePlayerStore } from "@/stores/player-store";
+} from "@/stores/render-internals";
+import { engine, EditorEngine } from "@/core/engine";
+import { useEditorStore } from "@/stores/editor-store";
 import { createMasterBar } from "@/core/schema";
-import { pushDefaultBar } from "@/core/store";
-import { transact, getScoreMap } from "@/core/sync";
+
+const transact = (fn: () => void) => engine.localEditYDoc(fn);
+const getScoreMap = () => engine.getScoreMap();
 
 const insertBarBeforeAction: ActionDefinition<void> = {
   id: "edit.bar.insertBefore",
   i18nKey: "actions.edit.bar.insertBefore",
   category: "edit.bar",
   execute: (_args, _context) => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     if (!sel) {
       debugLog("warn", "edit.bar.insertBefore", "no selection");
       return;
@@ -49,7 +51,7 @@ const insertBarBeforeAction: ActionDefinition<void> = {
           const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
           const refBarIdx = Math.min(sel.barIndex, yBars.length - 1);
           const clef = (yBars.get(refBarIdx).get("clef") as number) ?? 4;
-          pushDefaultBar(yBars, sel.barIndex, clef);
+          EditorEngine.pushDefaultBar(yBars, sel.barIndex, clef);
         }
       }
     });
@@ -63,7 +65,7 @@ const insertBarAfterAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.bar.insertAfter",
   category: "edit.bar",
   execute: (_args, _context) => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     if (!sel) {
       debugLog("warn", "edit.bar.insertAfter", "no selection");
       return;
@@ -95,7 +97,7 @@ const insertBarAfterAction: ActionDefinition<void> = {
         for (let si = 0; si < yStaves.length; si++) {
           const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
           const clef = (yBars.get(sel.barIndex).get("clef") as number) ?? 4;
-          pushDefaultBar(yBars, insertIdx, clef);
+          EditorEngine.pushDefaultBar(yBars, insertIdx, clef);
         }
       }
     });
@@ -109,7 +111,7 @@ const deleteBarAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.bar.delete",
   category: "edit.bar",
   execute: (_args, _context): boolean => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     if (!sel) {
       debugLog("warn", "edit.bar.delete", "no selection");
       return false;

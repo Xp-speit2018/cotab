@@ -7,19 +7,17 @@ import {
   setPendingSelection,
   gp7IdToPercussionArticulation,
   resolveGp7Id,
-} from "@/stores/player-internals";
-import { usePlayerStore } from "@/stores/player-store";
-import { debugLog } from "@/stores/debug-log-store";
+} from "@/stores/render-internals";
+import { engine } from "@/core/engine";
+import { useEditorStore } from "@/stores/editor-store";
+import { debugLog } from "@/core/editor/action-log";
 import { createNote } from "@/core/schema";
-import {
-  transact,
-  resolveYBeat,
-  resolveYNote,
-} from "@/core/sync";
+
+const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
 function applyNoteUpdates(updates: Record<string, unknown>): void {
-  const sel = usePlayerStore.getState().selectedBeat;
-  const noteIndex = usePlayerStore.getState().selectedNoteIndex;
+  const sel = useEditorStore.getState().selectedBeat;
+  const noteIndex = useEditorStore.getState().selectedNoteIndex;
   if (!sel || noteIndex < 0) {
     debugLog("debug", "edit.note.applyNoteUpdates", "no selection or note index", {
       updates,
@@ -28,7 +26,7 @@ function applyNoteUpdates(updates: Record<string, unknown>): void {
     });
     return;
   }
-  const yNote = resolveYNote(
+  const yNote = engine.resolveYNote(
     sel.trackIndex,
     sel.staffIndex,
     sel.barIndex,
@@ -228,7 +226,7 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
   category: "edit.beat",
   params: [{ name: "gp7Id", type: "number", i18nKey: "actions.edit.beat.togglePercussionArticulation.params.gp7Id" }],
   execute: (gp7Id, _context) => {
-    const sel = usePlayerStore.getState().selectedBeat;
+    const sel = useEditorStore.getState().selectedBeat;
     const api = getApi();
     if (!sel || !api) return;
 
@@ -247,7 +245,7 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
     const track = score.tracks[sel.trackIndex];
     if (!track?.isPercussion) return;
 
-    const yBeat = resolveYBeat(
+    const yBeat = engine.resolveYBeat(
       sel.trackIndex,
       sel.staffIndex,
       sel.barIndex,

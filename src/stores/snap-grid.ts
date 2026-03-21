@@ -18,6 +18,25 @@ export function getSnapGrids(): Map<string, SnapGrid> {
   return snapGrids;
 }
 
+/**
+ * Extract the deduplicated, ordered string values from a snap grid.
+ * Positions are already Y-sorted, so the result preserves visual order (top to bottom).
+ */
+export function getNavigablePositions(trackIndex: number, staffIndex: number): number[] | null {
+  const grid = snapGrids.get(`${trackIndex}:${staffIndex}`);
+  if (!grid || grid.positions.length === 0) return null;
+  // Deduplicate: snap grid may have positions with the same string value at different Y
+  const seen = new Set<number>();
+  const result: number[] = [];
+  for (const p of grid.positions) {
+    if (!seen.has(p.string)) {
+      seen.add(p.string);
+      result.push(p.string);
+    }
+  }
+  return result;
+}
+
 export function findNearestSnap(grid: SnapGrid, y: number): SnapPosition | null {
   if (grid.positions.length === 0) return null;
   let best: SnapPosition = grid.positions[0];
@@ -262,7 +281,8 @@ export function buildSnapGrids(): void {
           break;
         }
       }
-      for (let i = -10; i <= 10; i++) {
+      // Cover common percussion range (-15 to 20 covers most standard kit)
+      for (let i = -15; i <= 20; i++) {
         positions.push({ string: anchorStaffLine + i, y: anchorY + i * halfSpace });
       }
     } else {

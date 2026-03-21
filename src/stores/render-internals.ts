@@ -28,6 +28,7 @@ import {
   resolveGp7Id,
 } from "./percussion-data";
 import {
+  getNavigablePositions,
   getSnapGrids,
   updateSnapGridOverlay,
 } from "./snap-grid";
@@ -46,6 +47,7 @@ export {
   resolveBeat,
   getSnapGrids,
   updateSnapGridOverlay,
+  getNavigablePositions,
   // types / constants
   QUARTER_TICKS,
   TRACK_PRESETS,

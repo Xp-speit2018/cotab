@@ -4,7 +4,6 @@ import type { ActionDefinition } from "./types";
 import {
   getApi,
   resolveBeat,
-  setPendingSelection,
   gp7IdToPercussionArticulation,
   resolveGp7Id,
 } from "@/stores/render-internals";
@@ -42,14 +41,6 @@ function applyNoteUpdates(updates: Record<string, unknown>): void {
     });
     return;
   }
-  setPendingSelection({
-    trackIndex: sel.trackIndex,
-    barIndex: sel.barIndex,
-    beatIndex: sel.beatIndex,
-    staffIndex: sel.staffIndex,
-    voiceIndex: sel.voiceIndex,
-    string: sel.string,
-  });
   transact(() => {
     for (const [key, value] of Object.entries(updates)) {
       yNote.set(key, value);
@@ -262,15 +253,6 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
         break;
       }
     }
-
-    setPendingSelection({
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    });
 
     transact(() => {
       if (existingIdx >= 0) {

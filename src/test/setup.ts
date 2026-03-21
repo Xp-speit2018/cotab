@@ -258,6 +258,7 @@ vi.mock("@/stores/percussion-data", () => ({
 vi.mock("@/stores/snap-grid", () => ({
   getSnapGrids: vi.fn(() => new Map()),
   updateSnapGridOverlay: vi.fn(),
+  getNavigablePositions: vi.fn(() => null),
 }));
 
 // ─── Mutable refs for engine mock (avoids hoisting issues) ──────────────────
@@ -401,6 +402,7 @@ vi.mock("@/stores/render-internals", () => {
     // re-exports from snap-grid
     getSnapGrids: vi.fn(() => new Map()),
     updateSnapGridOverlay: vi.fn(),
+    getNavigablePositions: vi.fn(() => null),
     // re-exports from percussion-data
     ALPHATAB_PERCUSSION_DEFS: [],
     DRUM_STAFFLINE_DEFAULTS: {} as Record<number, number>,

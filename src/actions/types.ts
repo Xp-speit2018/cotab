@@ -1,8 +1,6 @@
 import type { TFunction } from "i18next";
 
 export type ActionCategory =
-  | "file"
-  | "playback"
   | "navigation"
   | "edit.score"
   | "edit.track"

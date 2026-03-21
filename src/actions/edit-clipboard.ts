@@ -3,7 +3,6 @@ import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
 import { engine } from "@/core/engine";
 import { useEditorStore } from "@/stores/editor-store";
-import { setPendingSelection } from "@/stores/render-internals";
 import { debugLog } from "@/core/editor/action-log";
 import {
   createBeat,
@@ -15,22 +14,11 @@ import {
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
 
-// ─── Internal clipboard buffer ───────────────────────────────────────────────
-
-let clipboardBuffer: {
+/** Clipboard data structure (JSON-serializable). */
+interface ClipboardData {
   bars: BeatSchema[][]; // each element = one bar's beats
   trackUuid: string;
   staffUuid: string;
-} | null = null;
-
-/** Exposed for testing. */
-export function getClipboardBuffer() {
-  return clipboardBuffer;
-}
-
-/** Exposed for testing. */
-export function clearClipboardBuffer() {
-  clipboardBuffer = null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -183,11 +171,14 @@ function copyToBuffer(): boolean {
     bars.push(yBeats.map((b) => snapshotBeat(b)));
   }
 
-  clipboardBuffer = {
+  const clipboardData: ClipboardData = {
     bars,
     trackUuid: yTrack.get("uuid") as string,
     staffUuid: yStaff.get("uuid") as string,
   };
+
+  // Store in engine (triggers hook for system clipboard sync)
+  engine.setClipboard(JSON.stringify(clipboardData));
 
   debugLog("info", "edit.clipboard", `copied bars ${startBar}–${endBar} (${bars.length} bar${bars.length > 1 ? "s" : ""})`, {
     trackIndex: sel.trackIndex,
@@ -199,14 +190,18 @@ function copyToBuffer(): boolean {
     barSummaries: bars.map((b, i) => ({ barIndex: startBar + i, ...summariseBar(b) })),
   });
 
-  // Fire-and-forget system clipboard write
-  try {
-    navigator?.clipboard?.writeText(JSON.stringify(clipboardBuffer)).catch(() => {});
-  } catch {
-    // System clipboard not available (e.g. in tests)
-  }
-
   return true;
+}
+
+/** Parse clipboard data from engine. Returns null if invalid or missing. */
+function getClipboardData(): ClipboardData | null {
+  const text = engine.getClipboard();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as ClipboardData;
+  } catch {
+    return null;
+  }
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -237,15 +232,6 @@ const cutAction: ActionDefinition<void> = {
     const range = state.selectionRange;
     const startBar = range ? range.startBarIndex : sel.barIndex;
     const endBar = range ? range.endBarIndex : sel.barIndex;
-
-    setPendingSelection({
-      trackIndex: sel.trackIndex,
-      barIndex: startBar,
-      beatIndex: 0,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    });
 
     transact(() => {
       for (let barIdx = startBar; barIdx <= endBar; barIdx++) {
@@ -278,7 +264,8 @@ const pasteAction: ActionDefinition<void> = {
   i18nKey: "shortcuts.clipboard.paste",
   category: "edit.clipboard",
   execute: () => {
-    if (!clipboardBuffer) {
+    const clipboardData = getClipboardData();
+    if (!clipboardData) {
       debugLog("debug", "edit.clipboard", "paste: no buffer");
       return;
     }
@@ -298,12 +285,12 @@ const pasteAction: ActionDefinition<void> = {
     }
 
     if (
-      (yTrack.get("uuid") as string) !== clipboardBuffer.trackUuid ||
-      (yStaff.get("uuid") as string) !== clipboardBuffer.staffUuid
+      (yTrack.get("uuid") as string) !== clipboardData.trackUuid ||
+      (yStaff.get("uuid") as string) !== clipboardData.staffUuid
     ) {
       debugLog("warn", "edit.clipboard", "paste: track/staff UUID mismatch — buffer from a different track", {
-        bufferTrackUuid: clipboardBuffer.trackUuid,
-        bufferStaffUuid: clipboardBuffer.staffUuid,
+        bufferTrackUuid: clipboardData.trackUuid,
+        bufferStaffUuid: clipboardData.staffUuid,
         targetTrackUuid: yTrack.get("uuid"),
         targetStaffUuid: yStaff.get("uuid"),
       });
@@ -311,7 +298,7 @@ const pasteAction: ActionDefinition<void> = {
     }
 
     const totalBars = getBarCount();
-    const barsInBuffer = clipboardBuffer.bars.length;
+    const barsInBuffer = clipboardData.bars.length;
     const barsWritten = Math.min(barsInBuffer, totalBars - sel.barIndex);
 
     if (barsWritten < barsInBuffer) {
@@ -322,15 +309,6 @@ const pasteAction: ActionDefinition<void> = {
         targetBarIndex: sel.barIndex,
       });
     }
-
-    setPendingSelection({
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: 0,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    });
 
     transact(() => {
       for (let i = 0; i < barsWritten; i++) {
@@ -346,7 +324,7 @@ const pasteAction: ActionDefinition<void> = {
 
         const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
         yBeats.delete(0, yBeats.length);
-        for (const beatSchema of clipboardBuffer!.bars[i]) {
+        for (const beatSchema of clipboardData.bars[i]) {
           yBeats.push([createBeat(beatSchema.duration)]);
           const intBeat = yBeats.get(yBeats.length - 1);
           populateBeatFromSnapshot(intBeat, beatSchema);
@@ -362,7 +340,7 @@ const pasteAction: ActionDefinition<void> = {
       targetStartBar: sel.barIndex,
       targetEndBar: lastTargetBar,
       barsWritten,
-      barSummaries: clipboardBuffer.bars.slice(0, barsWritten).map((b, i) => ({
+      barSummaries: clipboardData.bars.slice(0, barsWritten).map((b, i) => ({
         targetBarIndex: sel.barIndex + i,
         ...summariseBar(b),
       })),

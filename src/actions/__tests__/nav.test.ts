@@ -91,6 +91,12 @@ vi.mock("@/stores/render-store", () => ({
   },
 }));
 
+// Mock the snap-grid for getNavigablePositions
+const mockGetNavigablePositions = vi.fn((_trackIndex: number, _staffIndex: number) => null as number[] | null);
+vi.mock("@/stores/snap-grid", () => ({
+  getNavigablePositions: (...args: [number, number]) => mockGetNavigablePositions(...args),
+}));
+
 import { executeAction } from "@/actions/registry";
 import {
   computeNextBeat,
@@ -120,6 +126,8 @@ beforeEach(() => {
   destroyDoc();
   initDoc();
   lastSelection = null;
+  mockGetNavigablePositions.mockReset();
+  mockGetNavigablePositions.mockReturnValue(null);
 });
 
 // ─── nav.setSelection ─────────────────────────────────────────────────────────
@@ -533,5 +541,181 @@ describe("computePrevStaff", () => {
   it("returns null when at first staff of first visible track", () => {
     const target = computePrevStaff(defaultSel);
     expect(target).toBeNull();
+  });
+});
+
+// ─── Notation staff (piano) navigation ───────────────────────────────────────
+
+describe("computeMoveUp/Down for notation staff (piano)", () => {
+  beforeEach(() => {
+    // Piano track: no tuning, no tablature, not percussion
+    seedTrackWithConfig(getScoreMap()!, 1, {
+      name: "Piano",
+      tuning: [],
+      showTablature: false,
+    });
+  });
+
+  it("moves up from position 11 to 10", () => {
+    const sel = { ...defaultSel, string: 11 };
+    const target = computeMoveUp(sel);
+    expect(target).toMatchObject({ string: 10 });
+  });
+
+  it("moves down from position 11 to 12", () => {
+    const sel = { ...defaultSel, string: 11 };
+    const target = computeMoveDown(sel);
+    expect(target).toMatchObject({ string: 12 });
+  });
+
+  it("returns null when moving up from position 1 (top of staff)", () => {
+    const sel = { ...defaultSel, string: 1 };
+    const target = computeMoveUp(sel);
+    expect(target).toBeNull();
+  });
+
+  it("returns null when moving down from position 21 (bottom of staff)", () => {
+    const sel = { ...defaultSel, string: 21 };
+    const target = computeMoveDown(sel);
+    expect(target).toBeNull();
+  });
+
+  it("places on middle position when string is null", () => {
+    const sel = { ...defaultSel, string: null };
+
+    // For 21 positions:
+    // moveUp: floor(21/2) - 1 = 10 - 1 = 9, position at index 9 = 10
+    const upTarget = computeMoveUp(sel);
+    expect(upTarget?.string).toBe(10);
+
+    // moveDown: floor(21/2) + 1 = 10 + 1 = 11, position at index 11 = 12
+    const downTarget = computeMoveDown(sel);
+    expect(downTarget?.string).toBe(12);
+  });
+});
+
+// ─── Percussion staff navigation ──────────────────────────────────────────────
+
+describe("computeMoveUp/Down for percussion staff", () => {
+  beforeEach(() => {
+    seedTrackWithConfig(getScoreMap()!, 1, {
+      name: "Drums",
+      tuning: [],
+      isPercussion: true,
+    });
+    // Mock snap grid to simulate percussion staff lines (negative to positive, top to bottom)
+    mockGetNavigablePositions.mockReturnValue([-4, -2, 0, 2, 4, 6, 8]);
+  });
+
+  it("navigates through snap grid positions in correct order", () => {
+    const positions = [-4, -2, 0, 2, 4, 6, 8];
+
+    // Test moving up: should go to lower index (visually higher = more negative)
+    const midIndex = Math.floor(positions.length / 2);
+    const midLine = positions[midIndex];
+    const aboveLine = positions[midIndex - 1];
+
+    if (midIndex > 0) {
+      const sel = { ...defaultSel, string: midLine };
+      const target = computeMoveUp(sel);
+      expect(target).toMatchObject({ string: aboveLine });
+    }
+
+    // Test moving down: should go to higher index (visually lower = more positive)
+    const belowLine = positions[midIndex + 1];
+    if (midIndex < positions.length - 1) {
+      const sel = { ...defaultSel, string: midLine };
+      const target = computeMoveDown(sel);
+      expect(target).toMatchObject({ string: belowLine });
+    }
+  });
+
+  it("returns null at top of percussion staff (first position)", () => {
+    const sel = { ...defaultSel, string: -4 };
+    const target = computeMoveUp(sel);
+    expect(target).toBeNull();
+  });
+
+  it("returns null at bottom of percussion staff (last position)", () => {
+    const sel = { ...defaultSel, string: 8 };
+    const target = computeMoveDown(sel);
+    expect(target).toBeNull();
+  });
+
+  it("places on middle position when string is null", () => {
+    const sel = { ...defaultSel, string: null };
+
+    // moveUp: floor(7/2) - 1 = 2, position at index 2 = 0
+    const upTarget = computeMoveUp(sel);
+    expect(upTarget?.string).toBe(0);
+
+    // moveDown: floor(7/2) + 1 = 4, position at index 4 = 4
+    const downTarget = computeMoveDown(sel);
+    expect(downTarget?.string).toBe(4);
+  });
+});
+
+// ─── Snap-grid-backed navigation ──────────────────────────────────────────────
+
+describe("computeMoveUp/Down with snap grid backing", () => {
+  beforeEach(() => {
+    seedOneTrackScore(getScoreMap()!, 1);
+  });
+
+  it("follows custom snap grid order regardless of staff type", () => {
+    // Mock a custom snap grid with non-sequential positions
+    const customPositions = [10, 8, 6, 4, 2];
+    mockGetNavigablePositions.mockReturnValue(customPositions);
+
+    // Test moving up (lower index)
+    const sel = { ...defaultSel, string: 6 };
+    const upTarget = computeMoveUp(sel);
+    expect(upTarget).toMatchObject({ string: 8 });
+
+    // Test moving down (higher index)
+    const downTarget = computeMoveDown(sel);
+    expect(downTarget).toMatchObject({ string: 4 });
+  });
+
+  it("returns null at boundaries of snap grid", () => {
+    const customPositions = [1, 3, 5, 7, 9];
+    mockGetNavigablePositions.mockReturnValue(customPositions);
+
+    // At top boundary
+    const topSel = { ...defaultSel, string: 1 };
+    expect(computeMoveUp(topSel)).toBeNull();
+
+    // At bottom boundary
+    const bottomSel = { ...defaultSel, string: 9 };
+    expect(computeMoveDown(bottomSel)).toBeNull();
+  });
+
+  it("uses fallback when snap grid returns null", () => {
+    mockGetNavigablePositions.mockReturnValue(null);
+
+    // Should fall back to guitar tuning (6 strings: [6, 5, 4, 3, 2, 1])
+    const sel = { ...defaultSel, string: 3 };
+
+    const upTarget = computeMoveUp(sel);
+    expect(upTarget).toMatchObject({ string: 4 });
+
+    const downTarget = computeMoveDown(sel);
+    expect(downTarget).toMatchObject({ string: 2 });
+  });
+
+  it("handles snap grid with single position", () => {
+    mockGetNavigablePositions.mockReturnValue([5]);
+
+    const sel = { ...defaultSel, string: 5 };
+    expect(computeMoveUp(sel)).toBeNull();
+    expect(computeMoveDown(sel)).toBeNull();
+  });
+
+  it("handles empty snap grid by falling back", () => {
+    mockGetNavigablePositions.mockReturnValue([]);
+
+    // Should fall back to guitar tuning
+    const sel = { ...defaultSel, string: 3 };
+    expect(computeMoveUp(sel)).toMatchObject({ string: 4 });
   });
 });

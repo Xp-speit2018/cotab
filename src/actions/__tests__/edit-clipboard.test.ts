@@ -17,6 +17,11 @@ import {
   transact,
 } from "@/test/setup";
 
+// Shared clipboard state on globalThis (hoisting-safe)
+(globalThis as Record<string, unknown>).__testClipboard = null;
+const getClipboard = () => (globalThis as Record<string, unknown>).__testClipboard as string | null;
+const setClipboard = (text: string | null) => { (globalThis as Record<string, unknown>).__testClipboard = text; };
+
 // Mock engine in test file (vi.mock is hoisted)
 vi.mock("@/core/engine", () => ({
   engine: {
@@ -59,6 +64,11 @@ vi.mock("@/core/engine", () => ({
       const doc = (globalThis as Record<string, unknown>).__testEngineRefs?.doc as Y.Doc | undefined;
       if (doc) doc.transact(fn, doc.clientID);
     }),
+    // Clipboard methods - use globalThis for hoisting safety
+    setClipboard: vi.fn((text: string | null) => {
+      (globalThis as Record<string, unknown>).__testClipboard = text;
+    }),
+    getClipboard: vi.fn(() => (globalThis as Record<string, unknown>).__testClipboard as string | null),
   },
   importTrack: vi.fn(),
   FILE_IMPORT_ORIGIN: "file-import",
@@ -66,7 +76,7 @@ vi.mock("@/core/engine", () => ({
 
 import { createNote } from "@/core/schema";
 import { executeAction } from "@/actions/registry";
-import { getClipboardBuffer, clearClipboardBuffer } from "@/actions/edit-clipboard";
+import { engine } from "@/core/engine";
 import "@/actions/edit-clipboard";
 import "@/actions/edit-history";
 
@@ -103,6 +113,22 @@ function sel(overrides: Partial<{
     string: 1 as number | null,
     ...overrides,
   };
+}
+
+/** Get clipboard buffer as parsed object. */
+function getClipboardBuffer(): { bars: unknown[]; trackUuid: string; staffUuid: string } | null {
+  const text = getClipboard();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/** Clear clipboard buffer. */
+function clearClipboardBuffer(): void {
+  setClipboard(null);
 }
 
 beforeEach(() => {
@@ -266,6 +292,8 @@ describe("edit.paste", () => {
     // Modify buffer UUIDs to simulate different track
     const originalTrackUuid = buf.trackUuid;
     (buf as { trackUuid: string }).trackUuid = "different-track-uuid";
+    // Update engine clipboard with modified data
+    engine.setClipboard(JSON.stringify(buf));
 
     selectBeat(sel());
     const um = getUndoManager()!;
@@ -278,6 +306,7 @@ describe("edit.paste", () => {
 
     // Restore
     (buf as { trackUuid: string }).trackUuid = originalTrackUuid;
+    engine.setClipboard(JSON.stringify(buf));
   });
 
   it("creates a single undo step", () => {

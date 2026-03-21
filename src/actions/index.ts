@@ -11,7 +11,6 @@ import "./edit-beat";
 import "./edit-note";
 import "./edit-history";
 import "./edit-clipboard";
-import "./view";
 
 export { actionRegistry, getAllActions } from "./registry";
 export type {

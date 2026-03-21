@@ -25,13 +25,6 @@ export function patchBehaviorReaders(bindings: ShortcutBinding[]): void {
         }
         break;
 
-      case "view.toggleSidebar":
-        if (b.behavior.type === "toggle") {
-          (b.behavior as { getCurrentValue: () => boolean }).getCurrentValue = () =>
-            usePlayerStore.getState().sidebarVisible;
-        }
-        break;
-
       case "edit.beat.cycleDurationUp":
       case "edit.beat.cycleDurationDown":
         if (b.behavior.type === "cycle") {

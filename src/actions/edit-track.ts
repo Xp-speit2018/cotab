@@ -1,22 +1,18 @@
 import * as Y from "yjs";
-import * as alphaTab from "@coderline/alphatab";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import { usePlayerStore } from "@/stores/render-store";
 import { engine, importTrack } from "@/core/engine";
-import { useEditorStore } from "@/stores/editor-store";
 import { debugLog } from "@/core/editor/action-log";
 import {
   createTrackFromPreset,
   getApi,
-  setPendingSelection,
   TRACK_PRESETS,
 } from "@/stores/render-internals";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
 
-const addTrackAction: ActionDefinition<string | void> = {
+const addTrackAction: ActionDefinition<string> = {
   id: "edit.track.add",
   i18nKey: "actions.edit.track.add",
   category: "edit.track",
@@ -25,7 +21,7 @@ const addTrackAction: ActionDefinition<string | void> = {
   ],
   execute: (presetId, _context) => {
     if (!presetId) {
-      usePlayerStore.setState({ addTrackDialogOpen: true });
+      debugLog("warn", "edit.track.add", "presetId required");
       return;
     }
     const api = getApi();
@@ -68,52 +64,22 @@ const deleteTrackAction: ActionDefinition<number> = {
     { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.delete.params.trackIndex" },
   ],
   execute: (trackIndex, _context): boolean => {
-    const api = getApi();
-    if (!api?.score) {
-      debugLog("warn", "edit.track.delete", "no API or score");
-      return false;
-    }
-    const score = api.score;
-    if (score.tracks.length <= 1) {
-      debugLog("warn", "edit.track.delete", "blocked — last track");
-      return false;
-    }
     const yScore = getScoreMap();
     if (!yScore) return false;
 
-    const sel = useEditorStore.getState().selectedBeat;
-    if (sel && sel.trackIndex === trackIndex) {
-      useEditorStore.setState({
-        selectedBeat: null,
-        selectedNoteIndex: -1,
-        selectionRange: null,
-      });
-      usePlayerStore.setState({
-        selectedBeat: null,
-        selectionRange: null,
-        selectedTrackInfo: null,
-        selectedStaffInfo: null,
-        selectedBarInfo: null,
-        selectedVoiceInfo: null,
-        selectedBeatInfo: null,
-        selectedNoteIndex: -1,
-        selectedString: null,
-      });
-    } else if (sel && sel.trackIndex > trackIndex) {
-      setPendingSelection({
-        trackIndex: sel.trackIndex - 1,
-        barIndex: sel.barIndex,
-        beatIndex: sel.beatIndex,
-        staffIndex: sel.staffIndex,
-        voiceIndex: sel.voiceIndex,
-        string: sel.string,
-      });
+    const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
+    if (!yTracks || yTracks.length <= 1) {
+      debugLog("warn", "edit.track.delete", "blocked — last track");
+      return false;
+    }
+    if (trackIndex < 0 || trackIndex >= yTracks.length) {
+      debugLog("warn", "edit.track.delete", "invalid track index", { trackIndex });
+      return false;
     }
 
     debugLog("info", "edit.track.delete", "start", { trackIndex });
 
     transact(() => {
-      const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
       yTracks.delete(trackIndex, 1);
     });
 
@@ -165,44 +131,33 @@ const setTrackVisibleAction: ActionDefinition<{ trackIndex: number; visible: boo
     { name: "visible", type: "boolean", i18nKey: "actions.edit.track.setVisible.params.visible" },
   ],
   execute: ({ trackIndex, visible }, _context) => {
-    const api = getApi();
-    if (!api?.score) return;
+    const yScore = getScoreMap();
+    if (!yScore) return;
 
-    const current = new Set(usePlayerStore.getState().visibleTrackIndices);
-    if (visible) {
-      current.add(trackIndex);
-    } else {
-      current.delete(trackIndex);
-    }
-
-    if (current.size === 0) return;
-
-    const sel = useEditorStore.getState().selectedBeat;
-    if (!visible && sel && sel.trackIndex === trackIndex) {
-      const sorted = [...current].sort((a, b) => a - b);
-      const fallback = sorted.find((i) => i > trackIndex) ?? sorted[sorted.length - 1];
-      if (fallback !== undefined) {
-        const barIndex = Math.min(
-          sel.barIndex,
-          (api.score.tracks[fallback]?.staves[0]?.bars.length ?? 1) - 1,
-        );
-        setPendingSelection({
-          trackIndex: fallback,
-          staffIndex: 0,
-          voiceIndex: 0,
-          barIndex,
-          beatIndex: 0,
-          string: null,
-        });
+    // Store visible track indices in Y.Doc so renderer can react to changes
+    transact(() => {
+      let visibleIndices = yScore.get("visibleTrackIndices") as Y.Array<number> | undefined;
+      if (!visibleIndices) {
+        visibleIndices = new Y.Array<number>();
+        yScore.set("visibleTrackIndices", visibleIndices);
       }
-    }
 
-    const tracksToRender = [...current]
-      .sort((a, b) => a - b)
-      .map((i) => api!.score!.tracks[i])
-      .filter(Boolean);
+      const current = visibleIndices.toArray();
+      const set = new Set(current);
 
-    api.renderTracks(tracksToRender as alphaTab.model.Track[]);
+      if (visible) {
+        set.add(trackIndex);
+      } else {
+        set.delete(trackIndex);
+      }
+
+      // Prevent hiding all tracks
+      if (set.size === 0) return;
+
+      const sorted = [...set].sort((a, b) => a - b);
+      visibleIndices.delete(0, visibleIndices.length);
+      visibleIndices.push(sorted);
+    });
   },
 };
 
@@ -232,7 +187,7 @@ actionRegistry.register(setTrackProgramAction);
 
 declare global {
   interface ActionMap {
-    "edit.track.add": { args: string | void; result: void };
+    "edit.track.add": { args: string; result: void };
     "edit.track.delete": { args: number; result: boolean };
     "edit.track.setName": { args: { trackIndex: number; name: string }; result: void };
     "edit.track.setShortName": {

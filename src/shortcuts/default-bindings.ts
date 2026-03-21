@@ -215,15 +215,6 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
 
   // ── Editing: Track ────────────────────────────────────────────────────────
   {
-    id: "edit.track.add",
-    actionId: "edit.track.add",
-    i18nKey: "shortcuts.edit.track.add",
-    category: "editing.track",
-    defaultKeys: "mod+alt+t",
-    keys: "mod+alt+t",
-    behavior: direct,
-  },
-  {
     id: "edit.track.delete",
     actionId: "edit.track.delete",
     i18nKey: "shortcuts.edit.track.delete",
@@ -282,16 +273,6 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
 
-  // ── View ──────────────────────────────────────────────────────────────────
-  {
-    id: "view.toggleSidebar",
-    actionId: "view.setSidebarVisible",
-    i18nKey: "shortcuts.view.toggleSidebar",
-    category: "view",
-    defaultKeys: "mod+b",
-    keys: "mod+b",
-    behavior: { type: "toggle", getCurrentValue: () => true },
-  },
 ];
 
 /**

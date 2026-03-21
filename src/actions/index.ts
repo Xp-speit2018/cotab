@@ -1,7 +1,5 @@
 import { executeAction as executeActionInternal } from "./registry";
 import type { ActionExecutionContext, ActionId, ActionArgs, ActionResult } from "./types";
-import "./file";
-import "./playback";
 import "./navigation";
 import "./edit-score";
 import "./edit-track";

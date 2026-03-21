@@ -8,28 +8,6 @@ const digitAccum: ShortcutBehavior = { type: "digitAccumulator" };
  * Digit keys (0-9) for placeNote are registered separately via getDigitBindings().
  */
 export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
-  // ── File ────────────────────────────────────────────────────────────────
-  {
-    id: "file.exportGp",
-    actionId: "file.exportGp",
-    i18nKey: "shortcuts.file.exportGp",
-    category: "file",
-    defaultKeys: "",
-    keys: "",
-    behavior: direct,
-  },
-
-  // ── Playback ──────────────────────────────────────────────────────────────
-  {
-    id: "playback.togglePlaying",
-    actionId: "playback.setPlaying",
-    i18nKey: "shortcuts.playback.togglePlaying",
-    category: "playback",
-    defaultKeys: "space",
-    keys: "space",
-    behavior: { type: "toggle", getCurrentValue: () => false },
-  },
-
   // ── Navigation ────────────────────────────────────────────────────────────
   {
     id: "nav.nextBeat",

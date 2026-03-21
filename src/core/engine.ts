@@ -49,6 +49,7 @@ export interface SelectedBeat {
   barIndex: number;
   beatIndex: number;
   string: number | null;
+  beatUuid?: string; // UUID for stable lookup across re-renders
 }
 
 /** Deep equality check for SelectedBeat to prevent circular notifications. */
@@ -149,6 +150,7 @@ export class EditorEngine {
   // ── Possibly reactive state (public) ───────────────────────────────────────────────
 
   selectedBeat: SelectedBeat | null = null;
+  selectedBeatUuid: string | null = null; // Stable UUID for selection persistence
   selectedNoteIndex: number = -1;
   selectionRange: SelectionRange | null = null;
   connected: boolean = false;
@@ -166,6 +168,9 @@ export class EditorEngine {
   private _signalingConfig: SignalingConfig | null = null;
   private _hookRegistry = new HookRegistry();
 
+  // Clipboard buffer (text-based for cross-platform compatibility)
+  private _clipboardText: string | null = null;
+
   // Provider state
   private provider: WebrtcProvider | null = null;
   private persistence: { on: (event: string, cb: () => void) => void; destroy: () => void } | null = null;
@@ -182,8 +187,26 @@ export class EditorEngine {
       return;
     }
     this.selectedBeat = sel;
+    // Store UUID for stable lookup across re-renders
+    const yBeat = this.resolveYBeat(sel.trackIndex, sel.staffIndex, sel.barIndex, sel.voiceIndex, sel.beatIndex);
+    this.selectedBeatUuid = yBeat?.get("uuid") as string ?? null;
     this.selectedNoteIndex = -1;
     this._hookRegistry.emitSelection('onLocalSelectionSet', sel);
+  }
+
+  // ── Clipboard ────────────────────────────────────────────────────────────
+
+  setClipboard(text: string | null): void {
+    this._clipboardText = text;
+    this._hookRegistry.emitClipboard('onClipboardChange', text);
+  }
+
+  getClipboard(): string | null {
+    return this._clipboardText;
+  }
+
+  registerClipboardHook(callback: (text: string | null) => void): () => void {
+    return this._hookRegistry.on({ onClipboardChange: callback });
   }
 
   // ── Y.Doc lifecycle ─────────────────────────────────────────────────────
@@ -327,6 +350,58 @@ export class EditorEngine {
     const masterBars = this.scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>> | undefined;
     if (!masterBars || barIndex < 0 || barIndex >= masterBars.length) return null;
     return masterBars.get(barIndex);
+  }
+
+  /**
+   * Find a beat by its UUID and return its current indices.
+   * Used to restore selection after Y.Doc changes cause re-render.
+   */
+  resolveSelectionByUuid(beatUuid: string): SelectedBeat | null {
+    if (!this.scoreMap) return null;
+    const yTracks = this.scoreMap.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
+    if (!yTracks) return null;
+
+    for (let trackIndex = 0; trackIndex < yTracks.length; trackIndex++) {
+      const yTrack = yTracks.get(trackIndex);
+      const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>> | undefined;
+      if (!yStaves) continue;
+
+      for (let staffIndex = 0; staffIndex < yStaves.length; staffIndex++) {
+        const yStaff = yStaves.get(staffIndex);
+        const yBars = yStaff.get("bars") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!yBars) continue;
+
+        for (let barIndex = 0; barIndex < yBars.length; barIndex++) {
+          const yBar = yBars.get(barIndex);
+          const yVoices = yBar.get("voices") as Y.Array<Y.Map<unknown>> | undefined;
+          if (!yVoices) continue;
+
+          for (let voiceIndex = 0; voiceIndex < yVoices.length; voiceIndex++) {
+            const yVoice = yVoices.get(voiceIndex);
+            const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>> | undefined;
+            if (!yBeats) continue;
+
+            for (let beatIndex = 0; beatIndex < yBeats.length; beatIndex++) {
+              const yBeat = yBeats.get(beatIndex);
+              if ((yBeat.get("uuid") as string) === beatUuid) {
+                // Preserve string from current selection if available
+                const currentString = this.selectedBeat?.string ?? null;
+                return {
+                  trackIndex,
+                  staffIndex,
+                  barIndex,
+                  voiceIndex,
+                  beatIndex,
+                  string: currentString,
+                  beatUuid,
+                };
+              }
+            }
+          }
+        }
+      }
+    }
+    return null;
   }
 
   // ── Collaboration ─────────────────────────────────────────────────────────

@@ -27,9 +27,12 @@ export interface EngineHooks {
   onPeerSelectionSet?: (sel: SelectedBeat) => void;
   /** Notification: Connection metadata changed (connected, roomCode, peers, connectionStatus, connectionError, userName) */
   onConnectionMetaChange?: () => void;
+  /** Notification: Clipboard content changed (via setClipboard) */
+  onClipboardChange?: (text: string | null) => void;
 }
 
 type HookKey = keyof EngineHooks;
+
 
 /**
  * Manages arrays of listeners per hook. Each consumer can register hooks and
@@ -42,6 +45,7 @@ export class HookRegistry {
     onLocalSelectionSet: new Set(),
     onPeerSelectionSet: new Set(),
     onConnectionMetaChange: new Set(),
+    onClipboardChange: new Set(),
   };
 
   /**
@@ -91,6 +95,19 @@ export class HookRegistry {
     const listeners = this._listeners[key] as Set<(sel: SelectedBeat) => void>;
     for (const fn of listeners) {
       fn(sel);
+    }
+  }
+
+  /**
+   * Dispatch a clipboard change hook to all listeners.
+   */
+  emitClipboard(
+    key: "onClipboardChange",
+    text: string | null,
+  ): void {
+    const listeners = this._listeners[key] as Set<(text: string | null) => void>;
+    for (const fn of listeners) {
+      fn(text);
     }
   }
 }

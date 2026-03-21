@@ -1,5 +1,6 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
+import * as alphaTab from "@coderline/alphatab";
 import {
   FolderOpen,
   Download,
@@ -35,6 +36,10 @@ import { useEditorStore } from "@/stores/editor-store";
 import { cn } from "@/lib/utils";
 
 const EDITOR_MODE_STORAGE_KEY = "cotab:editorMode";
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim() || "untitled";
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -110,7 +115,21 @@ export function Toolbar() {
             size="icon"
             className="h-8 w-8"
             disabled={!isPlayerReady}
-            onClick={() => executeAction("file.exportGp", undefined, { t })}
+            onClick={() => {
+              const api = getApi();
+              const score = api?.score;
+              if (!score) return;
+              const exporter = new alphaTab.exporter.Gp7Exporter();
+              const data = exporter.export(score, null);
+              const filename = `${sanitizeFilename(score.title || "untitled")}.gp`;
+              const blob = new Blob([data], { type: "application/octet-stream" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = filename;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
           >
             <Download className="h-4 w-4" />
           </Button>

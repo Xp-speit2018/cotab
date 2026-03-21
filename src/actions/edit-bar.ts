@@ -2,10 +2,7 @@ import * as Y from "yjs";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
 import { debugLog } from "@/core/editor/action-log";
-import {
-  isBarEmptyAllTracks,
-  setPendingSelection,
-} from "@/stores/render-internals";
+import { isBarEmptyAllTracks } from "@/stores/render-internals";
 import { engine, EditorEngine } from "@/core/engine";
 import { useEditorStore } from "@/stores/editor-store";
 import { createMasterBar } from "@/core/schema";
@@ -31,15 +28,6 @@ const insertBarBeforeAction: ActionDefinition<void> = {
     const refMb = yMasterBars.get(refIndex);
     const num = (refMb.get("timeSignatureNumerator") as number) ?? 4;
     const den = (refMb.get("timeSignatureDenominator") as number) ?? 4;
-
-    setPendingSelection({
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex + 1,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    });
 
     transact(() => {
       yMasterBars.insert(sel.barIndex, [createMasterBar(num, den)]);
@@ -78,15 +66,6 @@ const insertBarAfterAction: ActionDefinition<void> = {
     const num = (refMb.get("timeSignatureNumerator") as number) ?? 4;
     const den = (refMb.get("timeSignatureDenominator") as number) ?? 4;
     const insertIdx = sel.barIndex + 1;
-
-    setPendingSelection({
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    });
 
     transact(() => {
       yMasterBars.insert(insertIdx, [createMasterBar(num, den)]);
@@ -129,16 +108,6 @@ const deleteBarAction: ActionDefinition<void> = {
       debugLog("warn", "edit.bar.delete", "blocked — bar not empty");
       return false;
     }
-
-    const newBarIndex = Math.min(sel.barIndex, yMasterBars.length - 2);
-    setPendingSelection({
-      trackIndex: sel.trackIndex,
-      barIndex: newBarIndex,
-      beatIndex: 0,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    });
 
     transact(() => {
       yMasterBars.delete(sel.barIndex, 1);

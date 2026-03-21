@@ -65,7 +65,14 @@ vi.mock("@/core/engine", () => {
       getScoreMap: vi.fn(() => refs()?.scoreMap ?? null),
       getUndoManager: vi.fn(() => refs()?.undoManager ?? null),
       localEditYDoc: vi.fn((fn: () => void) => {
-        const d = refs()?.doc; if (d) d.transact(fn, d.clientID);
+        const r = refs();
+        const d = r?.doc;
+        if (d) {
+          d.transact(fn, d.clientID);
+        } else {
+          // Fallback: execute without transaction for tests that don't init doc
+          fn();
+        }
       }),
     },
     EditorEngine: {
@@ -86,7 +93,7 @@ vi.mock("@/core/engine", () => {
 });
 
 import { executeAction } from "@/actions/registry";
-import { setPendingSelection, isBarEmptyAllTracks } from "@/stores/render-internals";
+import { isBarEmptyAllTracks } from "@/stores/render-internals";
 import "@/actions/edit-bar";
 
 const defaultSel = {
@@ -158,11 +165,6 @@ describe("edit.bar.insertAfter", () => {
     expect(newMb.get("timeSignatureDenominator")).toBe(8);
   });
 
-  it("calls setPendingSelection", () => {
-    executeAction("edit.bar.insertAfter", undefined, ctx);
-    expect(setPendingSelection).toHaveBeenCalled();
-  });
-
   it("does nothing without selection", () => {
     selectBeat(null);
     executeAction("edit.bar.insertAfter", undefined, ctx);
@@ -183,12 +185,6 @@ describe("edit.bar.insertBefore", () => {
     expect(shiftedBar.get("uuid")).toBe(bar0uuid);
   });
 
-  it("adjusts pending selection to shifted index", () => {
-    executeAction("edit.bar.insertBefore", undefined, ctx);
-    expect(setPendingSelection).toHaveBeenCalledWith(
-      expect.objectContaining({ barIndex: 1 }),
-    );
-  });
 });
 
 describe("edit.bar.delete", () => {
@@ -214,13 +210,5 @@ describe("edit.bar.delete", () => {
     const result = executeAction("edit.bar.delete", undefined, ctx);
     expect(result).toBe(false);
     expect(masterBarCount()).toBe(2);
-  });
-
-  it("calls setPendingSelection with clamped index", () => {
-    selectBeat({ ...defaultSel, barIndex: 1 });
-    executeAction("edit.bar.delete", undefined, ctx);
-    expect(setPendingSelection).toHaveBeenCalledWith(
-      expect.objectContaining({ barIndex: 0 }),
-    );
   });
 });

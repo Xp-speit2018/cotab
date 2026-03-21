@@ -9,6 +9,8 @@ import type { SelectedBeat } from "@/core/engine";
 import { engine } from "@/core/engine";
 import * as Y from "yjs";
 import { usePlayerStore } from "@/stores/render-store";
+import { PERC_SNAP_GROUPS } from "@/stores/percussion-data";
+import { getNavigablePositions } from "@/stores/snap-grid";
 
 /** Count beats in a voice via Y.Doc. */
 export function getBeatsLength(
@@ -45,6 +47,28 @@ export function getStringCount(trackIndex: number, staffIndex: number): number {
   if (!yStaff) return 0;
   const tuning = yStaff.get("tuning") as Y.Array<number> | undefined;
   return tuning ? tuning.length : 0;
+}
+
+/** Check if a staff is percussion. */
+export function isPercussionStaff(trackIndex: number, staffIndex: number): boolean {
+  const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
+  if (!yStaff) return false;
+  return yStaff.get("isPercussion") as boolean | undefined ?? false;
+}
+
+/** Fallback positions when snap grid is not yet built (before first render). */
+function getFallbackPositions(trackIndex: number, staffIndex: number): number[] | null {
+  if (isPercussionStaff(trackIndex, staffIndex)) {
+    // PERC_SNAP_GROUPS is sorted low-to-high, matching visual top-to-bottom
+    return PERC_SNAP_GROUPS.map((g: { staffLine: number }) => g.staffLine);
+  }
+  const stringCount = getStringCount(trackIndex, staffIndex);
+  if (stringCount > 0) {
+    // Tab: string N at top (lowest pitch), string 1 at bottom (highest pitch)
+    return Array.from({ length: stringCount }, (_, i) => stringCount - i);
+  }
+  // Notation (piano, etc.): positions 1-21, already top-to-bottom
+  return Array.from({ length: 21 }, (_, i) => i + 1);
 }
 
 /** Compute next beat target (moves to next bar if at end). */
@@ -87,72 +111,58 @@ export function computePrevBeat(current: SelectedBeat): SelectedBeat | null {
 
 /**
  * Compute move up target.
- * String 1 = highest pitch (physically at bottom of tab), string N = lowest pitch (physically at top)
- * MoveUp = physically upward = toward higher string numbers (lower pitch)
+ * The snap grid's positions array is sorted by Y (ascending = top to bottom visually).
+ * For every staff type, "move up" = lower index.
  */
 export function computeMoveUp(current: SelectedBeat): SelectedBeat | null {
-  const stringCount = getStringCount(current.trackIndex, current.staffIndex);
-  if (stringCount === 0) return null;
+  const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: cur } = current;
+  const snapPositions = getNavigablePositions(trackIndex, staffIndex);
+  const positions = snapPositions && snapPositions.length > 0
+    ? snapPositions
+    : getFallbackPositions(trackIndex, staffIndex);
+  if (!positions || positions.length === 0) return null;
 
-  const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: currentString } = current;
-
-  if (currentString === null) {
-    const mid = Math.ceil(stringCount / 2);
-    return {
-      trackIndex,
-      staffIndex,
-      barIndex,
-      voiceIndex,
-      beatIndex,
-      string: Math.min(stringCount, mid + 1),
-    };
+  if (cur === null) {
+    // No string selected — start from middle, biased upward (lower index = visually higher)
+    // Using floor(n/2) - 1 to match original behavior:
+    // - 6 strings: floor(6/2) - 1 = 2, position[2] = 4
+    // - 4 strings: floor(4/2) - 1 = 1, position[1] = 3
+    const idx = Math.max(0, Math.floor(positions.length / 2) - 1);
+    return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: positions[idx] };
   }
 
-  if (currentString < stringCount) {
-    return {
-      trackIndex,
-      staffIndex,
-      barIndex,
-      voiceIndex,
-      beatIndex,
-      string: currentString + 1,
-    };
+  const idx = positions.indexOf(cur);
+  if (idx > 0) {
+    return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: positions[idx - 1] };
   }
   return null;
 }
 
 /**
  * Compute move down target.
- * String 1 = highest pitch (physically at bottom of tab), string N = lowest pitch (physically at top)
- * MoveDown = physically downward = toward lower string numbers (higher pitch)
+ * The snap grid's positions array is sorted by Y (ascending = top to bottom visually).
+ * For every staff type, "move down" = higher index.
  */
 export function computeMoveDown(current: SelectedBeat): SelectedBeat | null {
-  const stringCount = getStringCount(current.trackIndex, current.staffIndex);
-  if (stringCount === 0) return null;
+  const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: cur } = current;
+  const snapPositions = getNavigablePositions(trackIndex, staffIndex);
+  const positions = snapPositions && snapPositions.length > 0
+    ? snapPositions
+    : getFallbackPositions(trackIndex, staffIndex);
+  if (!positions || positions.length === 0) return null;
 
-  const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: currentString } = current;
-
-  if (currentString === null) {
-    const mid = Math.ceil(stringCount / 2);
-    return {
-      trackIndex,
-      staffIndex,
-      barIndex,
-      voiceIndex,
-      beatIndex,
-      string: Math.max(1, mid - 1),
-    };
+  if (cur === null) {
+    // No string selected — start from middle, biased downward (higher index = visually lower)
+    // Using floor(n/2) + 1 to match original behavior:
+    // - 6 strings: floor(6/2) + 1 = 4, position[4] = 2
+    // - 4 strings: floor(4/2) + 1 = 3, position[3] = 1
+    const idx = Math.min(positions.length - 1, Math.floor(positions.length / 2) + 1);
+    return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: positions[idx] };
   }
 
-  if (currentString > 1) {
-    return {
-      trackIndex,
-      staffIndex,
-      barIndex,
-      voiceIndex,
-      beatIndex,
-      string: currentString - 1,
-    };
+  const idx = positions.indexOf(cur);
+  if (idx >= 0 && idx < positions.length - 1) {
+    return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: positions[idx + 1] };
   }
   return null;
 }

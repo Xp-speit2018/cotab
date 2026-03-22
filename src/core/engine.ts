@@ -6,15 +6,8 @@
  */
 
 import * as Y from "yjs";
-import { WebrtcProvider } from "y-webrtc";
 import { initializeScore } from "./schema";
-import {
-  createProvider,
-  destroyProvider,
-  createPersistence,
-  type SignalingConfig,
-  type PeerInfo,
-} from "./editor/signaling";
+import type { SignalingConfig, PeerInfo } from "./editor/signaling";
 import {
   createTrack,
   createStaff,
@@ -31,7 +24,8 @@ import type { PendingSelection } from "@/stores/render-types";
 
 export const FILE_IMPORT_ORIGIN = "file-import";
 
-export { type SignalingConfig, type PersistenceAdapter } from "./editor/signaling";
+// Re-export signaling types only (values are lazy-loaded via dynamic import)
+export type { SignalingConfig, PersistenceAdapter } from "./editor/signaling";
 
 // Pure converters (headless-safe)
 export {
@@ -173,8 +167,8 @@ export class EditorEngine {
   // Clipboard buffer (text-based for cross-platform compatibility)
   private _clipboardText: string | null = null;
 
-  // Provider state
-  private provider: WebrtcProvider | null = null;
+  // Provider state (lazy-loaded for Node.js compatibility)
+  private provider: unknown = null;
   private persistence: { on: (event: string, cb: () => void) => void; destroy: () => void } | null = null;
 
   // ── State mutation ──────────────────────────────────────────────────────
@@ -419,7 +413,7 @@ export class EditorEngine {
     }
 
     // Disconnect existing connection
-    this.disconnectInternal();
+    await this.disconnectInternal();
 
     this.connectionStatus = "connecting";
     this.connectionError = null;
@@ -440,6 +434,9 @@ export class EditorEngine {
     }
 
     try {
+      // Lazy load signaling module (y-webrtc is browser-only)
+      const { createProvider, createPersistence } = await import("./editor/signaling");
+
       // Create new doc
       this.destroyDoc();
       const newDoc = new Y.Doc();
@@ -461,7 +458,7 @@ export class EditorEngine {
         this._signalingConfig,
         (msg) => this.handlePresenceMessage(msg),
       );
-      this.provider.on("synced", () => {
+      (this.provider as { on: (event: string, cb: () => void) => void }).on("synced", () => {
         this._hookRegistry.emit('onPeerYDocEdit');
       });
 
@@ -479,8 +476,8 @@ export class EditorEngine {
     }
   }
 
-  disconnect(): void {
-    this.disconnectInternal();
+  async disconnect(): Promise<void> {
+    await this.disconnectInternal();
     this.connected = false;
     this.roomCode = null;
     this.peers = [];
@@ -489,9 +486,14 @@ export class EditorEngine {
     this._hookRegistry.emit('onConnectionMetaChange');
   }
 
-  private disconnectInternal(): void {
-    destroyProvider(this.provider);
-    this.provider = null;
+  private async disconnectInternal(): Promise<void> {
+    if (this.provider) {
+      // Lazy load signaling module to destroy provider
+      const { destroyProvider } = await import("./editor/signaling");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      destroyProvider(this.provider as any);
+      this.provider = null;
+    }
     if (this.persistence) {
       this.persistence.destroy();
       this.persistence = null;

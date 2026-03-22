@@ -46,8 +46,8 @@ export function RoomDialog() {
     await engine.connect(code, name);
   };
 
-  const handleDisconnect = () => {
-    engine.disconnect();
+  const handleDisconnect = async () => {
+    await engine.disconnect();
   };
 
   const handleCopyCode = async () => {

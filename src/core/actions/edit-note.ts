@@ -1,6 +1,6 @@
 import * as Y from "yjs";
-import { actionRegistry } from "./registry";
-import type { ActionDefinition } from "./types";
+import { actionRegistry } from "@/core/actions/registry";
+import type { ActionDefinition } from "@/core/actions/types";
 import {
   getApi,
   resolveBeat,
@@ -8,15 +8,14 @@ import {
   resolveGp7Id,
 } from "@/stores/render-internals";
 import { engine } from "@/core/engine";
-import { useEditorStore } from "@/stores/editor-store";
 import { debugLog } from "@/core/editor/action-log";
 import { createNote } from "@/core/schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
 function applyNoteUpdates(updates: Record<string, unknown>): void {
-  const sel = useEditorStore.getState().selectedBeat;
-  const noteIndex = useEditorStore.getState().selectedNoteIndex;
+  const sel = engine.selectedBeat;
+  const noteIndex = engine.selectedNoteIndex;
   if (!sel || noteIndex < 0) {
     debugLog("debug", "edit.note.applyNoteUpdates", "no selection or note index", {
       updates,
@@ -217,7 +216,7 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
   category: "edit.beat",
   params: [{ name: "gp7Id", type: "number", i18nKey: "actions.edit.beat.togglePercussionArticulation.params.gp7Id" }],
   execute: (gp7Id, _context) => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     const api = getApi();
     if (!sel || !api) return;
 

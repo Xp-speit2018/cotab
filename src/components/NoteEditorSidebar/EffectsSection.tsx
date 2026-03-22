@@ -28,7 +28,7 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import { executeAction } from "@/actions";
+import { executeAction } from "@/core/actions";
 import { usePlayerStore } from "@/stores/render-store";
 import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/render-types";
 import {

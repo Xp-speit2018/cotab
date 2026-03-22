@@ -66,8 +66,8 @@ vi.mock("@/core/engine", () => {
 });
 
 import { EditorEngine } from "@/core/engine";
-import { executeAction } from "@/actions/registry";
-import "@/actions/edit-history";
+import { executeAction } from "@/core/actions/registry";
+import "@/core/actions/edit-history";
 
 beforeEach(() => {
   resetMockState();

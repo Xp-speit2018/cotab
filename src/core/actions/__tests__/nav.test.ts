@@ -97,7 +97,7 @@ vi.mock("@/stores/snap-grid", () => ({
   getNavigablePositions: (...args: [number, number]) => mockGetNavigablePositions(...args),
 }));
 
-import { executeAction } from "@/actions/registry";
+import { executeAction } from "@/core/actions/registry";
 import {
   computeNextBeat,
   computePrevBeat,
@@ -108,7 +108,7 @@ import {
   computeNextStaff,
   computePrevStaff,
 } from "@/components/navigation/navigation-helpers";
-import "@/actions/navigation";
+import "@/core/actions/navigation";
 
 const defaultSel = {
   trackIndex: 0,

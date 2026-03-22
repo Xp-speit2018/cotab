@@ -1,6 +1,6 @@
 import * as Y from "yjs";
-import { actionRegistry } from "./registry";
-import type { ActionDefinition } from "./types";
+import { actionRegistry } from "@/core/actions/registry";
+import type { ActionDefinition } from "@/core/actions/types";
 import { engine, importTrack } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
 import {

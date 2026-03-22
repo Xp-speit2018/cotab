@@ -58,6 +58,8 @@ export interface SnapGrid {
   noteWidth: number;
   noteHeight: number;
   percussionMap?: Map<number, number>;
+  /** Pre-computed unique string values in Y-sorted order (top to bottom) for navigation. */
+  navigableStrings: number[];
 }
 
 export interface PercArticulationDef {

@@ -1,5 +1,5 @@
-import type { ActionExecutionContext } from "@/actions/types";
-import { executeAction } from "@/actions";
+import type { ActionExecutionContext } from "@/core/actions/types";
+import { executeAction } from "@/core/actions";
 import { usePlayerStore } from "@/stores/render-store";
 import { useShortcutStore } from "./shortcut-store";
 import { debugLog } from "@/core/editor/action-log";

@@ -89,6 +89,7 @@ const _createBeat = (duration?: number) => {
 
 vi.mock("@/core/engine", () => {
   const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;
+  const ms = () => (globalThis as Record<string, unknown>).__testMockState as Record<string, unknown> | undefined;
   const resolve = (path: number[]) => {
     const sm = refs()?.scoreMap; if (!sm) return null;
     let node: Y.Map<unknown> | null = null;
@@ -102,6 +103,10 @@ vi.mock("@/core/engine", () => {
   };
   return {
     engine: {
+      get selectedBeat() { return ms()?.selectedBeat ?? null; },
+      get selectedNoteIndex() { return (ms()?.selectedNoteIndex as number) ?? -1; },
+      get selectionRange() { return ms()?.selectionRange ?? null; },
+      pendingSelection: null as unknown,
       resolveYTrack: vi.fn((t: number) => resolve([t])),
       resolveYStaff: vi.fn((t: number, s: number) => resolve([t, s])),
       resolveYBar: vi.fn((t: number, s: number, b: number) => resolve([t, s, b])),
@@ -116,7 +121,7 @@ vi.mock("@/core/engine", () => {
       }),
       getScoreMap: vi.fn(() => refs()?.scoreMap ?? null),
       getUndoManager: vi.fn(() => refs()?.undoManager ?? null),
-      localEditYDoc: vi.fn((fn: () => void) => {
+      localEditYDoc: vi.fn((fn: () => void, _nextSelection?: unknown) => {
         const d = refs()?.doc; if (d) d.transact(fn, d.clientID);
       }),
     },
@@ -139,15 +144,15 @@ vi.mock("@/core/engine", () => {
 
 import { EditorEngine } from "@/core/engine";
 import { createTrack, createStaff, Duration } from "@/core/schema";
-import { executeAction } from "@/actions/registry";
+import { executeAction } from "@/core/actions/registry";
 import { resolveBeat, isBarEmptyAllTracks } from "@/stores/render-internals";
-import "@/actions/edit-score";
-import "@/actions/edit-bar";
-import "@/actions/edit-beat";
-import "@/actions/edit-note";
-import "@/actions/edit-track";
-import "@/actions/edit-history";
-import "@/actions/edit-staff";
+import "@/core/actions/edit-score";
+import "@/core/actions/edit-bar";
+import "@/core/actions/edit-beat";
+import "@/core/actions/edit-note";
+import "@/core/actions/edit-track";
+import "@/core/actions/edit-history";
+import "@/core/actions/edit-staff";
 
 const ctx = testContext();
 

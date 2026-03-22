@@ -1,8 +1,7 @@
 /**
- * navigation.ts — Headless navigation actions using Y.Doc.
+ * navigation.ts — Headless navigation action.
  *
- * Single nav.setSelection action following the toggle/cycle pattern.
- * Target computation is done by callers using helpers from navigation-helpers.ts.
+ * Target computation is done by callers (UI layer) before invoking this action.
  */
 
 import { actionRegistry } from "./registry";
@@ -26,21 +25,5 @@ declare global {
     "nav.setSelection": { args: SelectedBeat; result: void };
   }
 }
-
-// Re-export Y.Doc navigators and target computation helpers for callers
-export {
-  getBeatsLength,
-  getBarsLength,
-  getStavesLength,
-  getStringCount,
-  computeNextBeat,
-  computePrevBeat,
-  computeMoveUp,
-  computeMoveDown,
-  computeNextBar,
-  computePrevBar,
-  computeNextStaff,
-  computePrevStaff,
-} from "@/components/navigation/navigation-helpers";
 
 export {};

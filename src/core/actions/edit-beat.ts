@@ -1,12 +1,11 @@
 import * as Y from "yjs";
-import { actionRegistry } from "./registry";
-import type { ActionDefinition } from "./types";
+import { actionRegistry } from "@/core/actions/registry";
+import type { ActionDefinition } from "@/core/actions/types";
 import { debugLog } from "@/core/editor/action-log";
 import {
   getApi,
   getSnapGrids,
   resolveBeat,
-  setPendingSelection,
   formatPitch,
   snapPositionToPitch,
   gp7IdToPercussionArticulation,
@@ -14,13 +13,13 @@ import {
   GP7_STAFF_LINE_MAP,
 } from "@/stores/render-internals";
 import { engine } from "@/core/engine";
-import { useEditorStore } from "@/stores/editor-store";
 import { createBeat, createNote } from "@/core/schema";
+import type { PendingSelection } from "@/stores/render-types";
 
-const transact = (fn: () => void) => engine.localEditYDoc(fn);
+const transact = (fn: () => void, nextSelection?: PendingSelection | null) => engine.localEditYDoc(fn, nextSelection);
 
 function applyBeatUpdates(updates: Record<string, unknown>): void {
-  const sel = useEditorStore.getState().selectedBeat;
+  const sel = engine.selectedBeat;
   if (!sel) {
     debugLog("debug", "edit.beat.applyBeatUpdates", "no selection", { updates });
     return;
@@ -36,19 +35,11 @@ function applyBeatUpdates(updates: Record<string, unknown>): void {
     debugLog("debug", "edit.beat.applyBeatUpdates", "no Y.Beat resolved", { updates, sel });
     return;
   }
-  setPendingSelection({
-    trackIndex: sel.trackIndex,
-    barIndex: sel.barIndex,
-    beatIndex: sel.beatIndex,
-    staffIndex: sel.staffIndex,
-    voiceIndex: sel.voiceIndex,
-    string: sel.string,
-  });
   transact(() => {
     for (const [key, value] of Object.entries(updates)) {
       yBeat.set(key, value);
     }
-  });
+  }, sel);
 }
 
 const placeNoteAction: ActionDefinition<number | void> = {
@@ -57,7 +48,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
   category: "edit.beat",
   params: [{ name: "targetValue", type: "number", i18nKey: "actions.edit.beat.placeNote.params.targetValue" }],
   execute: (targetValue, _context) => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     const api = getApi();
     if (!sel || !api || sel.string === null) return;
 
@@ -88,14 +79,14 @@ const placeNoteAction: ActionDefinition<number | void> = {
     if (!yBeat) return;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
 
-    setPendingSelection({
+    const pendingSel = {
       trackIndex: sel.trackIndex,
       barIndex: sel.barIndex,
       beatIndex: sel.beatIndex,
       staffIndex: sel.staffIndex,
       voiceIndex: sel.voiceIndex,
       string: sel.string,
-    });
+    };
 
     if (track.isPercussion) {
       const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
@@ -122,7 +113,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
       transact(() => {
         yNotes.push([yNote]);
         yBeat.set("isEmpty", false);
-      });
+      }, pendingSel);
     } else if (staff.showTablature && staff.tuning.length > 0) {
       const fret = typeof targetValue === "number" ? targetValue : 1;
       let existingIdx = -1;
@@ -141,7 +132,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
           yNotes.push([yNote]);
         }
         yBeat.set("isEmpty", false);
-      });
+      }, pendingSel);
     } else {
       const position = typeof targetValue === "number" ? targetValue : sel.string;
       const pitch = snapPositionToPitch(beat.voice.bar.clef, position);
@@ -165,7 +156,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
       transact(() => {
         yNotes.push([yNote]);
         yBeat.set("isEmpty", false);
-      });
+      }, pendingSel);
     }
   },
 };
@@ -175,7 +166,7 @@ const deleteNoteAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.beat.deleteNote",
   category: "edit.beat",
   execute: (_args, _context): boolean => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     const api = getApi();
     if (!sel || !api) return false;
 
@@ -205,23 +196,21 @@ const deleteNoteAction: ActionDefinition<void> = {
 
     const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
-    const noteIdx = useEditorStore.getState().selectedNoteIndex;
+    const noteIdx = engine.selectedNoteIndex;
 
     if (beat.notes.length === 0 || beat.isRest) {
       if (yBeats.length <= 1) return false;
 
       const newBeatIdx = Math.min(sel.beatIndex, yBeats.length - 2);
-      setPendingSelection({
+      transact(() => {
+        yBeats.delete(sel.beatIndex, 1);
+      }, {
         trackIndex: sel.trackIndex,
         barIndex: sel.barIndex,
         beatIndex: newBeatIdx,
         staffIndex: sel.staffIndex,
         voiceIndex: sel.voiceIndex,
         string: sel.string,
-      });
-
-      transact(() => {
-        yBeats.delete(sel.beatIndex, 1);
       });
       return true;
     }
@@ -232,7 +221,9 @@ const deleteNoteAction: ActionDefinition<void> = {
       const newNoteIdx = Math.min(noteIdx, beat.notes.length - 2);
       const nextNote = beat.notes[newNoteIdx >= noteIdx ? newNoteIdx + 1 : newNoteIdx];
 
-      setPendingSelection({
+      transact(() => {
+        yNotes.delete(noteIdx, 1);
+      }, {
         trackIndex: sel.trackIndex,
         barIndex: sel.barIndex,
         beatIndex: sel.beatIndex,
@@ -240,22 +231,16 @@ const deleteNoteAction: ActionDefinition<void> = {
         voiceIndex: sel.voiceIndex,
         string: nextNote?.string ?? sel.string,
       });
-
-      transact(() => {
-        yNotes.delete(noteIdx, 1);
-      });
     } else {
-      setPendingSelection({
+      transact(() => {
+        yNotes.delete(0, yNotes.length);
+      }, {
         trackIndex: sel.trackIndex,
         barIndex: sel.barIndex,
         beatIndex: sel.beatIndex,
         staffIndex: sel.staffIndex,
         voiceIndex: sel.voiceIndex,
         string: sel.string,
-      });
-
-      transact(() => {
-        yNotes.delete(0, yNotes.length);
       });
     }
 
@@ -269,7 +254,7 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
   category: "edit.beat",
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestBefore.params.duration" }],
   execute: (duration, _context) => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     if (!sel) return;
 
     const beat = resolveBeat(
@@ -293,19 +278,10 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
     const restBeat = createBeat(dur);
     restBeat.set("isEmpty", false);
 
-    setPendingSelection({
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    });
-
     transact(() => {
       const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
       yBeats.insert(sel.beatIndex, [restBeat]);
-    });
+    }, sel);
   },
 };
 
@@ -315,7 +291,7 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
   category: "edit.beat",
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestAfter.params.duration" }],
   execute: (duration, _context) => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     if (!sel) return;
 
     const beat = resolveBeat(
@@ -342,17 +318,15 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
     const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
     const insertIdx = sel.beatIndex + 1;
 
-    setPendingSelection({
+    transact(() => {
+      yBeats.insert(insertIdx, [restBeat]);
+    }, {
       trackIndex: sel.trackIndex,
       barIndex: sel.barIndex,
       beatIndex: insertIdx,
       staffIndex: sel.staffIndex,
       voiceIndex: sel.voiceIndex,
       string: sel.string,
-    });
-
-    transact(() => {
-      yBeats.insert(insertIdx, [restBeat]);
     });
   },
 };
@@ -363,7 +337,7 @@ const setRestAction: ActionDefinition<boolean> = {
   category: "edit.beat",
   params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setRest.params.value" }],
   execute: (value, _context) => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     const api = getApi();
     if (!sel || !api) return;
 
@@ -376,14 +350,14 @@ const setRestAction: ActionDefinition<boolean> = {
     );
     if (!yBeat) return;
 
-    setPendingSelection({
+    const pendingSel = {
       trackIndex: sel.trackIndex,
       barIndex: sel.barIndex,
       beatIndex: sel.beatIndex,
       staffIndex: sel.staffIndex,
       voiceIndex: sel.voiceIndex,
       string: sel.string,
-    });
+    };
 
     if (value) {
       transact(() => {
@@ -392,7 +366,7 @@ const setRestAction: ActionDefinition<boolean> = {
           yNotes.delete(0, yNotes.length);
         }
         yBeat.set("isEmpty", false);
-      });
+      }, pendingSel);
     } else {
       const track = api.score?.tracks[sel.trackIndex];
       const staff = track?.staves[sel.staffIndex];
@@ -404,7 +378,7 @@ const setRestAction: ActionDefinition<boolean> = {
           yNotes.push([yNote]);
         }
         yBeat.set("isEmpty", false);
-      });
+      }, pendingSel);
     }
   },
 };
@@ -584,7 +558,7 @@ const toggleBeatIsEmptyAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.beat.toggleEmpty",
   category: "edit.beat",
   execute: (_args, _context) => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     if (!sel) return;
 
     const yBeat = engine.resolveYBeat(
@@ -598,18 +572,9 @@ const toggleBeatIsEmptyAction: ActionDefinition<void> = {
 
     const current = (yBeat.get("isEmpty") as boolean) ?? true;
 
-    setPendingSelection({
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    });
-
     transact(() => {
       yBeat.set("isEmpty", !current);
-    });
+    }, sel);
   },
 };
 

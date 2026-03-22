@@ -1,10 +1,9 @@
 import * as Y from "yjs";
-import { actionRegistry } from "./registry";
-import type { ActionDefinition } from "./types";
+import { actionRegistry } from "@/core/actions/registry";
+import type { ActionDefinition } from "@/core/actions/types";
 import { debugLog } from "@/core/editor/action-log";
 import { isBarEmptyAllTracks } from "@/stores/render-internals";
 import { engine, EditorEngine } from "@/core/engine";
-import { useEditorStore } from "@/stores/editor-store";
 import { createMasterBar } from "@/core/schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
@@ -15,7 +14,7 @@ const insertBarBeforeAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.bar.insertBefore",
   category: "edit.bar",
   execute: (_args, _context) => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     if (!sel) {
       debugLog("warn", "edit.bar.insertBefore", "no selection");
       return;
@@ -53,7 +52,7 @@ const insertBarAfterAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.bar.insertAfter",
   category: "edit.bar",
   execute: (_args, _context) => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     if (!sel) {
       debugLog("warn", "edit.bar.insertAfter", "no selection");
       return;
@@ -90,7 +89,7 @@ const deleteBarAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.bar.delete",
   category: "edit.bar",
   execute: (_args, _context): boolean => {
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     if (!sel) {
       debugLog("warn", "edit.bar.delete", "no selection");
       return false;

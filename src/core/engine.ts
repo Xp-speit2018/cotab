@@ -25,6 +25,7 @@ import {
 } from "./schema";
 import { HookRegistry, EngineHooks } from "./editor/hook";
 import { _setEngineRef } from "./converters";
+import type { PendingSelection } from "@/stores/render-types";
 
 // ─── Re-exports for convenience ─────────────────────────────────────────────
 
@@ -153,6 +154,7 @@ export class EditorEngine {
   selectedBeatUuid: string | null = null; // Stable UUID for selection persistence
   selectedNoteIndex: number = -1;
   selectionRange: SelectionRange | null = null;
+  pendingSelection: PendingSelection | null = null; // Post-mutation selection hint
   connected: boolean = false;
   roomCode: string | null = null;
   peers: PeerInfo[] = [];
@@ -266,8 +268,9 @@ export class EditorEngine {
     this._hookRegistry.emit('onLocalYDocEdit');
   }
 
-  localEditYDoc(fn: () => void): void {
+  localEditYDoc(fn: () => void, nextSelection?: PendingSelection | null): void {
     if (!this.doc) return;
+    this.pendingSelection = nextSelection ?? null;
     this.doc.transact(fn, this.doc.clientID);
     this._hookRegistry.emit('onLocalYDocEdit');
   }

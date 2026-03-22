@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { executeAction } from "@/actions";
+import { executeAction } from "@/core/actions";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/render-store";
 import {

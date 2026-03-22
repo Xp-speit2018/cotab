@@ -19,22 +19,12 @@ export function getSnapGrids(): Map<string, SnapGrid> {
 }
 
 /**
- * Extract the deduplicated, ordered string values from a snap grid.
- * Positions are already Y-sorted, so the result preserves visual order (top to bottom).
+ * Get the pre-computed navigable string values for a staff.
+ * Returns unique string values in Y-sorted order (top to bottom), or null if grid not built.
  */
 export function getNavigablePositions(trackIndex: number, staffIndex: number): number[] | null {
   const grid = snapGrids.get(`${trackIndex}:${staffIndex}`);
-  if (!grid || grid.positions.length === 0) return null;
-  // Deduplicate: snap grid may have positions with the same string value at different Y
-  const seen = new Set<number>();
-  const result: number[] = [];
-  for (const p of grid.positions) {
-    if (!seen.has(p.string)) {
-      seen.add(p.string);
-      result.push(p.string);
-    }
-  }
-  return result;
+  return grid?.navigableStrings ?? null;
 }
 
 export function findNearestSnap(grid: SnapGrid, y: number): SnapPosition | null {
@@ -185,10 +175,20 @@ export function buildSnapGrids(): void {
           });
         }
         positions.sort((a, b) => a.y - b.y);
+        // Extract navigable strings from sorted positions
+        const seenTab = new Set<number>();
+        const navigableStringsTab: number[] = [];
+        for (const p of positions) {
+          if (!seenTab.has(p.string)) {
+            seenTab.add(p.string);
+            navigableStringsTab.push(p.string);
+          }
+        }
         snapGrids.set(key, {
           positions,
           noteWidth: medianW > 0 ? medianW : tabLineSpacing,
           noteHeight: medianH > 0 ? medianH : tabLineSpacing,
+          navigableStrings: navigableStringsTab,
         });
       } else {
         const halfSpace = oneStaffSpace / 2;
@@ -203,10 +203,20 @@ export function buildSnapGrids(): void {
           }
         }
         positions.sort((a, b) => a.y - b.y);
+        // Extract navigable strings from sorted positions
+        const seenOther = new Set<number>();
+        const navigableStringsOther: number[] = [];
+        for (const p of positions) {
+          if (!seenOther.has(p.string)) {
+            seenOther.add(p.string);
+            navigableStringsOther.push(p.string);
+          }
+        }
         snapGrids.set(key, {
           positions,
           noteWidth: medianW > 0 ? medianW : oneStaffSpace,
           noteHeight: medianH > 0 ? medianH : oneStaffSpace,
+          navigableStrings: navigableStringsOther,
         });
       }
       continue;
@@ -298,6 +308,16 @@ export function buildSnapGrids(): void {
 
     positions.sort((a, b) => a.y - b.y);
 
+    // Pre-compute unique string values in Y-sorted order for navigation
+    const seen = new Set<number>();
+    const navigableStrings: number[] = [];
+    for (const p of positions) {
+      if (!seen.has(p.string)) {
+        seen.add(p.string);
+        navigableStrings.push(p.string);
+      }
+    }
+
     let percussionMap: Map<number, number> | undefined;
     if (track.isPercussion && entry.percYArticulations.length > 0) {
       percussionMap = new Map();
@@ -319,6 +339,7 @@ export function buildSnapGrids(): void {
       noteWidth: medianW,
       noteHeight: medianH,
       percussionMap,
+      navigableStrings,
     });
   }
 }

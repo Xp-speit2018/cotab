@@ -21,6 +21,7 @@ import {
 
 vi.mock("@/core/engine", () => {
   const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;
+  const ms = () => (globalThis as Record<string, unknown>).__testMockState as Record<string, unknown> | undefined;
   const resolve = (path: number[]) => {
     const sm = refs()?.scoreMap; if (!sm) return null;
     let node: Y.Map<unknown> | null = null;
@@ -34,6 +35,9 @@ vi.mock("@/core/engine", () => {
   };
   return {
     engine: {
+      get selectedBeat() { return ms()?.selectedBeat ?? null; },
+      get selectedNoteIndex() { return (ms()?.selectedNoteIndex as number) ?? -1; },
+      get selectionRange() { return ms()?.selectionRange ?? null; },
       resolveYTrack: vi.fn((t: number) => resolve([t])),
       resolveYStaff: vi.fn((t: number, s: number) => resolve([t, s])),
       resolveYBar: vi.fn((t: number, s: number, b: number) => resolve([t, s, b])),
@@ -42,7 +46,7 @@ vi.mock("@/core/engine", () => {
       resolveYNote: vi.fn((t: number, s: number, b: number, v: number, bt: number, n: number) => resolve([t, s, b, v, bt, n])),
       getScoreMap: vi.fn(() => refs()?.scoreMap ?? null),
       getUndoManager: vi.fn(() => refs()?.undoManager ?? null),
-      localEditYDoc: vi.fn((fn: () => void) => {
+      localEditYDoc: vi.fn((fn: () => void, _nextSel?: unknown) => {
         const d = refs()?.doc; if (d) d.transact(fn, d.clientID);
       }),
     },
@@ -63,8 +67,8 @@ import {
   Duration,
   NoteOrnament,
 } from "@/core/schema";
-import { executeAction } from "@/actions/registry";
-import "@/actions/edit-note";
+import { executeAction } from "@/core/actions/registry";
+import "@/core/actions/edit-note";
 
 const defaultSel = {
   trackIndex: 0,

@@ -1,4 +1,4 @@
-import type { ActionCategory } from "@/actions/types";
+import type { ActionCategory } from "@/core/actions/types";
 
 /**
  * Platform-agnostic key combo stored as a normalized string.

@@ -47,8 +47,12 @@ const _createTrack = (name?: string) => {
 
 vi.mock("@/core/engine", () => {
   const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;
+  const ms = () => (globalThis as Record<string, unknown>).__testMockState as Record<string, unknown> | undefined;
   return {
     engine: {
+      get selectedBeat() { return ms()?.selectedBeat ?? null; },
+      get selectedNoteIndex() { return (ms()?.selectedNoteIndex as number) ?? -1; },
+      get selectionRange() { return ms()?.selectionRange ?? null; },
       resolveYTrack: vi.fn((idx: number) => {
         const sm = refs()?.scoreMap; if (!sm) return null;
         const tracks = sm.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
@@ -56,7 +60,7 @@ vi.mock("@/core/engine", () => {
         return tracks.get(idx);
       }),
       getScoreMap: vi.fn(() => refs()?.scoreMap ?? null),
-      localEditYDoc: vi.fn((fn: () => void) => {
+      localEditYDoc: vi.fn((fn: () => void, _nextSel?: unknown) => {
         const d = refs()?.doc; if (d) d.transact(fn, d.clientID);
       }),
     },
@@ -143,9 +147,9 @@ vi.mock("@/stores/render-internals", () => ({
 
 import { EditorEngine } from "@/core/engine";
 import { createTrack, createStaff } from "@/core/schema";
-import { executeAction } from "@/actions/registry";
-import "@/actions/edit-bar";
-import "@/actions/edit-track";
+import { executeAction } from "@/core/actions/registry";
+import "@/core/actions/edit-bar";
+import "@/core/actions/edit-track";
 
 const defaultSel = {
   trackIndex: 0,

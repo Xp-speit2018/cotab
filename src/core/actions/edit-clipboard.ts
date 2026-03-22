@@ -1,8 +1,7 @@
 import * as Y from "yjs";
-import { actionRegistry } from "./registry";
-import type { ActionDefinition } from "./types";
+import { actionRegistry } from "@/core/actions/registry";
+import type { ActionDefinition } from "@/core/actions/types";
 import { engine } from "@/core/engine";
-import { useEditorStore } from "@/stores/editor-store";
 import { debugLog } from "@/core/editor/action-log";
 import {
   createBeat,
@@ -137,8 +136,7 @@ function summariseBar(beats: BeatSchema[]): { beats: number; notes: number } {
  * Returns true if successful.
  */
 function copyToBuffer(): boolean {
-  const state = useEditorStore.getState();
-  const sel = state.selectedBeat;
+  const sel = engine.selectedBeat;
   if (!sel) {
     debugLog("debug", "edit.clipboard", "copy: no selection");
     return false;
@@ -151,7 +149,7 @@ function copyToBuffer(): boolean {
     return false;
   }
 
-  const range = state.selectionRange;
+  const range = engine.selectionRange;
   const startBar = range ? range.startBarIndex : sel.barIndex;
   const endBar = range ? range.endBarIndex : sel.barIndex;
 
@@ -220,8 +218,7 @@ const cutAction: ActionDefinition<void> = {
   i18nKey: "shortcuts.clipboard.cut",
   category: "edit.clipboard",
   execute: () => {
-    const state = useEditorStore.getState();
-    const sel = state.selectedBeat;
+    const sel = engine.selectedBeat;
     if (!sel) {
       debugLog("debug", "edit.clipboard", "cut: no selection");
       return;
@@ -229,7 +226,7 @@ const cutAction: ActionDefinition<void> = {
 
     if (!copyToBuffer()) return;
 
-    const range = state.selectionRange;
+    const range = engine.selectionRange;
     const startBar = range ? range.startBarIndex : sel.barIndex;
     const endBar = range ? range.endBarIndex : sel.barIndex;
 
@@ -270,7 +267,7 @@ const pasteAction: ActionDefinition<void> = {
       return;
     }
 
-    const sel = useEditorStore.getState().selectedBeat;
+    const sel = engine.selectedBeat;
     if (!sel) {
       debugLog("debug", "edit.clipboard", "paste: no selection");
       return;

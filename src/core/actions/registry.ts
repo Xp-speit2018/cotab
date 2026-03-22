@@ -119,4 +119,3 @@ export function executeActionUnsafe<TArgs = void, TResult = void | boolean>(
 export function getAllActions(): readonly ActionDefinition<unknown, unknown>[] {
   return actionRegistry.getAll();
 }
-

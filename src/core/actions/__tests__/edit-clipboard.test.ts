@@ -23,62 +23,69 @@ const getClipboard = () => (globalThis as Record<string, unknown>).__testClipboa
 const setClipboard = (text: string | null) => { (globalThis as Record<string, unknown>).__testClipboard = text; };
 
 // Mock engine in test file (vi.mock is hoisted)
-vi.mock("@/core/engine", () => ({
-  engine: {
-    resolveYTrack: vi.fn((idx: number) => {
-      const sm = (globalThis as Record<string, unknown>).__testEngineRefs?.scoreMap as Y.Map<unknown> | undefined;
-      if (!sm) return null;
-      const tracks = sm.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
-      if (!tracks || idx < 0 || idx >= tracks.length) return null;
-      return tracks.get(idx);
-    }),
-    resolveYStaff: vi.fn((trackIdx: number, staffIdx: number) => {
-      const sm = (globalThis as Record<string, unknown>).__testEngineRefs?.scoreMap as Y.Map<unknown> | undefined;
-      if (!sm) return null;
-      const tracks = sm.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
-      if (!tracks || trackIdx < 0 || trackIdx >= tracks.length) return null;
-      const track = tracks.get(trackIdx);
-      const staves = track.get("staves") as Y.Array<Y.Map<unknown>> | undefined;
-      if (!staves || staffIdx < 0 || staffIdx >= staves.length) return null;
-      return staves.get(staffIdx);
-    }),
-    resolveYVoice: vi.fn((trackIdx: number, staffIdx: number, barIdx: number, voiceIdx: number) => {
-      const sm = (globalThis as Record<string, unknown>).__testEngineRefs?.scoreMap as Y.Map<unknown> | undefined;
-      if (!sm) return null;
-      const tracks = sm.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
-      if (!tracks || trackIdx < 0 || trackIdx >= tracks.length) return null;
-      const track = tracks.get(trackIdx);
-      const staves = track.get("staves") as Y.Array<Y.Map<unknown>> | undefined;
-      if (!staves || staffIdx < 0 || staffIdx >= staves.length) return null;
-      const staff = staves.get(staffIdx);
-      const bars = staff.get("bars") as Y.Array<Y.Map<unknown>> | undefined;
-      if (!bars || barIdx < 0 || barIdx >= bars.length) return null;
-      const bar = bars.get(barIdx);
-      const voices = bar.get("voices") as Y.Array<Y.Map<unknown>> | undefined;
-      if (!voices || voiceIdx < 0 || voiceIdx >= voices.length) return null;
-      return voices.get(voiceIdx);
-    }),
-    getScoreMap: vi.fn(() => (globalThis as Record<string, unknown>).__testEngineRefs?.scoreMap ?? null),
-    getUndoManager: vi.fn(() => (globalThis as Record<string, unknown>).__testEngineRefs?.undoManager ?? null),
-    localEditYDoc: vi.fn((fn: () => void) => {
-      const doc = (globalThis as Record<string, unknown>).__testEngineRefs?.doc as Y.Doc | undefined;
-      if (doc) doc.transact(fn, doc.clientID);
-    }),
-    // Clipboard methods - use globalThis for hoisting safety
-    setClipboard: vi.fn((text: string | null) => {
-      (globalThis as Record<string, unknown>).__testClipboard = text;
-    }),
-    getClipboard: vi.fn(() => (globalThis as Record<string, unknown>).__testClipboard as string | null),
-  },
-  importTrack: vi.fn(),
-  FILE_IMPORT_ORIGIN: "file-import",
-}));
+vi.mock("@/core/engine", () => {
+  const ms = () => (globalThis as Record<string, unknown>).__testMockState as Record<string, unknown> | undefined;
+  return {
+    engine: {
+      get selectedBeat() { return ms()?.selectedBeat ?? null; },
+      get selectedNoteIndex() { return (ms()?.selectedNoteIndex as number) ?? -1; },
+      get selectionRange() { return ms()?.selectionRange ?? null; },
+      pendingSelection: null as unknown,
+      resolveYTrack: vi.fn((idx: number) => {
+        const sm = (globalThis as Record<string, unknown>).__testEngineRefs?.scoreMap as Y.Map<unknown> | undefined;
+        if (!sm) return null;
+        const tracks = sm.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!tracks || idx < 0 || idx >= tracks.length) return null;
+        return tracks.get(idx);
+      }),
+      resolveYStaff: vi.fn((trackIdx: number, staffIdx: number) => {
+        const sm = (globalThis as Record<string, unknown>).__testEngineRefs?.scoreMap as Y.Map<unknown> | undefined;
+        if (!sm) return null;
+        const tracks = sm.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!tracks || trackIdx < 0 || trackIdx >= tracks.length) return null;
+        const track = tracks.get(trackIdx);
+        const staves = track.get("staves") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!staves || staffIdx < 0 || staffIdx >= staves.length) return null;
+        return staves.get(staffIdx);
+      }),
+      resolveYVoice: vi.fn((trackIdx: number, staffIdx: number, barIdx: number, voiceIdx: number) => {
+        const sm = (globalThis as Record<string, unknown>).__testEngineRefs?.scoreMap as Y.Map<unknown> | undefined;
+        if (!sm) return null;
+        const tracks = sm.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!tracks || trackIdx < 0 || trackIdx >= tracks.length) return null;
+        const track = tracks.get(trackIdx);
+        const staves = track.get("staves") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!staves || staffIdx < 0 || staffIdx >= staves.length) return null;
+        const staff = staves.get(staffIdx);
+        const bars = staff.get("bars") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!bars || barIdx < 0 || barIdx >= bars.length) return null;
+        const bar = bars.get(barIdx);
+        const voices = bar.get("voices") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!voices || voiceIdx < 0 || voiceIdx >= voices.length) return null;
+        return voices.get(voiceIdx);
+      }),
+      getScoreMap: vi.fn(() => (globalThis as Record<string, unknown>).__testEngineRefs?.scoreMap ?? null),
+      getUndoManager: vi.fn(() => (globalThis as Record<string, unknown>).__testEngineRefs?.undoManager ?? null),
+      localEditYDoc: vi.fn((fn: () => void, _nextSelection?: unknown) => {
+        const doc = (globalThis as Record<string, unknown>).__testEngineRefs?.doc as Y.Doc | undefined;
+        if (doc) doc.transact(fn, doc.clientID);
+      }),
+      // Clipboard methods - use globalThis for hoisting safety
+      setClipboard: vi.fn((text: string | null) => {
+        (globalThis as Record<string, unknown>).__testClipboard = text;
+      }),
+      getClipboard: vi.fn(() => (globalThis as Record<string, unknown>).__testClipboard as string | null),
+    },
+    importTrack: vi.fn(),
+    FILE_IMPORT_ORIGIN: "file-import",
+  };
+});
 
 import { createNote } from "@/core/schema";
-import { executeAction } from "@/actions/registry";
+import { executeAction } from "@/core/actions/registry";
 import { engine } from "@/core/engine";
-import "@/actions/edit-clipboard";
-import "@/actions/edit-history";
+import "@/core/actions/edit-clipboard";
+import "@/core/actions/edit-history";
 
 const ctx = testContext();
 

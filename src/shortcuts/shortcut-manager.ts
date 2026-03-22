@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
-import type { ActionExecutionContext } from "@/actions/types";
-import { executeActionUnsafe } from "@/actions/registry";
+import type { ActionExecutionContext } from "@/core/actions/types";
+import { executeActionUnsafe } from "@/core/actions/registry";
 import { useShortcutStore } from "./shortcut-store";
 import { keyboardEventToCombo } from "./platform";
 import { handleDigitInput, cancelDigitInput } from "./fret-input";

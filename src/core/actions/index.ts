@@ -1,14 +1,23 @@
+/**
+ * Core actions — headless action system for the editor engine.
+ *
+ * These actions operate purely on Y.Doc and engine state, with no
+ * direct dependencies on React or the AlphaTab renderer.
+ */
+
 import { executeAction as executeActionInternal } from "./registry";
 import type { ActionExecutionContext, ActionId, ActionArgs, ActionResult } from "./types";
-import "./navigation";
+
+// Import pure actions to trigger registration
 import "./edit-score";
-import "./edit-track";
 import "./edit-staff";
+import "./edit-history";
+import "./edit-clipboard";
 import "./edit-bar";
 import "./edit-beat";
 import "./edit-note";
-import "./edit-history";
-import "./edit-clipboard";
+import "./edit-track";
+import "./navigation";
 
 export { actionRegistry, getAllActions } from "./registry";
 export type {
@@ -27,4 +36,3 @@ export function executeAction<Id extends ActionId>(
 ): ActionResult<Id> | undefined {
   return executeActionInternal(id, args, context);
 }
-

@@ -28,7 +28,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-import { executeAction } from "@/actions";
+import { executeAction } from "@/core/actions";
 import { usePlayerStore } from "@/stores/render-store";
 import { getApi } from "@/stores/render-api";
 import { useShortcutStore } from "@/shortcuts";

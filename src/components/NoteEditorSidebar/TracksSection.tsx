@@ -18,7 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { executeAction } from "@/actions";
+import { executeAction } from "@/core/actions";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/render-store";
 import type { TuningPresetInfo } from "@/stores/render-types";

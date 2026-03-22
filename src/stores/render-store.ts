@@ -43,8 +43,6 @@ import {
   setCursorElement,
   getMainElement,
   getCursorElement,
-  getPendingSelection,
-  setPendingSelection,
   getDragState,
   setDragState,
   getDragMoveHandler,
@@ -89,7 +87,7 @@ let _unsubscribeHooks: (() => void) | null = null;
 let _processingHook = false; // Guard against circular calls
 
 // Re-export for consumers that still import from player-store
-export type { PendingSelection } from "./render-api";
+export type { PendingSelection } from "./render-types";
 export type {
   SnapGrid,
   PercSnapGroup,
@@ -111,7 +109,7 @@ export type {
   DrumCategoryId,
 } from "./render-types";
 export { TRACK_PRESETS, SCORE_FIELD_TO_STATE } from "./render-types";
-export { getApi, setPendingSelection } from "./render-api";
+export { getApi } from "./render-api";
 export { getSnapGrids } from "./snap-grid";
 
 // ─── Selection helpers (use getApi / getCursorElement / getSnapGrids) ────────
@@ -801,9 +799,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       // 6. Apply pending selection (from rest insertion) with fresh bounds,
       //    or re-position the existing cursor if no pending change.
-      const pending = getPendingSelection();
+      const pending = engine.pendingSelection;
       if (pending) {
-        setPendingSelection(null);
+        engine.pendingSelection = null;
         get().setSelection(pending);
       } else {
         const sel = get().selectedBeat;
@@ -916,7 +914,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     destroySnapGridOverlay();
     destroyBarSelectionOverlay();
-    setPendingSelection(null);
+    engine.pendingSelection = null;
 
     // Clean up drag listeners
     const moveH = getDragMoveHandler();

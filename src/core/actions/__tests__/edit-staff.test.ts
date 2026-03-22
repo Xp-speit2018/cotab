@@ -40,8 +40,8 @@ vi.mock("@/core/engine", () => ({
   FILE_IMPORT_ORIGIN: "file-import",
 }));
 
-import { executeAction } from "@/actions/registry";
-import "@/actions/edit-staff";
+import { executeAction } from "@/core/actions/registry";
+import "@/core/actions/edit-staff";
 
 beforeEach(() => {
   resetMockState();

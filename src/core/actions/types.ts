@@ -62,4 +62,3 @@ export type ActionArgs<Id extends ActionId> = ActionMap[Id]["args"];
 export type ActionResult<Id extends ActionId> = ActionMap[Id]["result"];
 
 export {};
-

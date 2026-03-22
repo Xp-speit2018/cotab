@@ -14,7 +14,7 @@
 import { vi, expect } from "vitest";
 import * as Y from "yjs";
 import type { TFunction } from "i18next";
-import type { ActionExecutionContext } from "@/actions/types";
+import type { ActionExecutionContext } from "@/core/actions/types";
 import type { SelectedBeat, SelectionRange } from "@/core/engine";
 import {
   initializeScore,

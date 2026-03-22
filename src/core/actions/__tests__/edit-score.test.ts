@@ -25,8 +25,8 @@ vi.mock("@/core/engine", () => {
   };
 });
 
-import { executeAction } from "@/actions/registry";
-import "@/actions/edit-score";
+import { executeAction } from "@/core/actions/registry";
+import "@/core/actions/edit-score";
 
 beforeEach(() => {
   resetMockState();

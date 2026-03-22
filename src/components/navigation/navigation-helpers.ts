@@ -194,10 +194,9 @@ export function computePrevBar(current: SelectedBeat): SelectedBeat | null {
   return null;
 }
 
-/** Compute next staff target (across visible tracks). */
-export function computeNextStaff(current: SelectedBeat): SelectedBeat | null {
+/** Build a flat list of all visible staves across tracks. */
+function getVisibleStaves(): Array<{ trackIndex: number; staffIndex: number }> {
   const visible = usePlayerStore.getState().visibleTrackIndices;
-
   const allStaves: Array<{ trackIndex: number; staffIndex: number }> = [];
   for (const ti of visible) {
     const stavesLen = getStavesLength(ti);
@@ -205,55 +204,48 @@ export function computeNextStaff(current: SelectedBeat): SelectedBeat | null {
       allStaves.push({ trackIndex: ti, staffIndex: si });
     }
   }
+  return allStaves;
+}
 
+/** Build staff navigation result from a target staff entry. */
+function buildStaffSelection(
+  current: SelectedBeat,
+  target: { trackIndex: number; staffIndex: number },
+): SelectedBeat {
+  const barsLen = getBarsLength(target.trackIndex, target.staffIndex);
+  const barIndex = Math.min(current.barIndex, Math.max(0, barsLen - 1));
+  return {
+    trackIndex: target.trackIndex,
+    staffIndex: target.staffIndex,
+    voiceIndex: 0,
+    barIndex,
+    beatIndex: 0,
+    string: null,
+  };
+}
+
+/** Compute next staff target (across visible tracks). */
+export function computeNextStaff(current: SelectedBeat): SelectedBeat | null {
+  const allStaves = getVisibleStaves();
   const curPos = allStaves.findIndex(
     (s) => s.trackIndex === current.trackIndex && s.staffIndex === current.staffIndex,
   );
 
   if (curPos >= 0 && curPos < allStaves.length - 1) {
-    const next = allStaves[curPos + 1];
-    const barsLen = getBarsLength(next.trackIndex, next.staffIndex);
-    const barIndex = Math.min(current.barIndex, Math.max(0, barsLen - 1));
-    return {
-      trackIndex: next.trackIndex,
-      staffIndex: next.staffIndex,
-      voiceIndex: 0,
-      barIndex,
-      beatIndex: 0,
-      string: null,
-    };
+    return buildStaffSelection(current, allStaves[curPos + 1]);
   }
   return null;
 }
 
 /** Compute previous staff target (across visible tracks). */
 export function computePrevStaff(current: SelectedBeat): SelectedBeat | null {
-  const visible = usePlayerStore.getState().visibleTrackIndices;
-
-  const allStaves: Array<{ trackIndex: number; staffIndex: number }> = [];
-  for (const ti of visible) {
-    const stavesLen = getStavesLength(ti);
-    for (let si = 0; si < stavesLen; si++) {
-      allStaves.push({ trackIndex: ti, staffIndex: si });
-    }
-  }
-
+  const allStaves = getVisibleStaves();
   const curPos = allStaves.findIndex(
     (s) => s.trackIndex === current.trackIndex && s.staffIndex === current.staffIndex,
   );
 
   if (curPos > 0) {
-    const prev = allStaves[curPos - 1];
-    const barsLen = getBarsLength(prev.trackIndex, prev.staffIndex);
-    const barIndex = Math.min(current.barIndex, Math.max(0, barsLen - 1));
-    return {
-      trackIndex: prev.trackIndex,
-      staffIndex: prev.staffIndex,
-      voiceIndex: 0,
-      barIndex,
-      beatIndex: 0,
-      string: null,
-    };
+    return buildStaffSelection(current, allStaves[curPos - 1]);
   }
   return null;
 }

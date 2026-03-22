@@ -5,7 +5,7 @@ import {
   Collapsible,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
-import { executeAction } from "@/actions";
+import { executeAction } from "@/core/actions";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/render-store";
 import {

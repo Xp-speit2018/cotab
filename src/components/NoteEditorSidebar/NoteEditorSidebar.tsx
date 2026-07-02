@@ -43,7 +43,6 @@ import { SortableSection } from "./primitives";
 import { TabDroppable } from "./TabDroppable";
 import { SongSection } from "./SongSection";
 import { TracksSection } from "./TracksSection";
-import { SelectorSection } from "./SelectorSection";
 import { ArticulationSection } from "./ArticulationSection";
 import { BarSection } from "./BarSection";
 import { NoteSection } from "./NoteSection";
@@ -172,15 +171,6 @@ export function NoteEditorSidebar() {
           return <SongSection dragHandleProps={dragHandleProps} />;
         case "tracks":
           return <TracksSection dragHandleProps={dragHandleProps} />;
-        case "selector":
-          return (
-            <SelectorSection
-              beat={selectedBeatInfo}
-              note={activeNote}
-              noteIndex={selectedNoteIndex}
-              dragHandleProps={dragHandleProps}
-            />
-          );
         case "articulation":
           return <ArticulationSection dragHandleProps={dragHandleProps} />;
         case "log":

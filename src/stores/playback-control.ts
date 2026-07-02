@@ -1,4 +1,4 @@
-import type { SelectedBeat, SelectionRange } from "@/core/engine";
+import type { PlaybackState, RenderTransportState } from "./render-types";
 
 export interface PlaybackApi {
   tickPosition: number;
@@ -11,10 +11,9 @@ export interface PlaybackBeat {
   playbackStart?: number;
 }
 
-export interface PlaybackSelectionState {
-  playerState: "stopped" | "playing" | "paused";
-  selectedBeat: SelectedBeat | null;
-  selectionRange: SelectionRange | null;
+export interface PlaybackTransportState {
+  playerState: PlaybackState;
+  transport: Pick<RenderTransportState, "playhead">;
 }
 
 export type PlaybackBeatResolver = (
@@ -25,29 +24,18 @@ export type PlaybackBeatResolver = (
   voiceIndex?: number,
 ) => PlaybackBeat | null;
 
-export function resolvePlaybackStartBeat(
-  state: Pick<PlaybackSelectionState, "selectionRange" | "selectedBeat">,
+export function resolveTransportPlayheadBeat(
+  state: Pick<PlaybackTransportState, "transport">,
   resolveBeat: PlaybackBeatResolver,
 ): PlaybackBeat | null {
-  const range = state.selectionRange;
-  if (range) {
-    return resolveBeat(
-      range.trackIndex,
-      range.startBarIndex,
-      0,
-      range.staffIndex,
-      range.voiceIndex,
-    );
-  }
-
-  const sel = state.selectedBeat;
-  if (!sel) return null;
+  const playhead = state.transport.playhead;
+  if (!playhead) return null;
   return resolveBeat(
-    sel.trackIndex,
-    sel.barIndex,
-    sel.beatIndex,
-    sel.staffIndex,
-    sel.voiceIndex,
+    playhead.trackIndex,
+    playhead.barIndex,
+    playhead.beatIndex,
+    playhead.staffIndex,
+    playhead.voiceIndex,
   );
 }
 
@@ -58,12 +46,12 @@ function beatPlaybackStartTick(beat: PlaybackBeat): number | null {
     : null;
 }
 
-export function seekToPlaybackStart(
+export function seekToTransportPlayhead(
   api: PlaybackApi,
-  state: Pick<PlaybackSelectionState, "selectionRange" | "selectedBeat">,
+  state: Pick<PlaybackTransportState, "transport">,
   resolveBeat: PlaybackBeatResolver,
 ): boolean {
-  const beat = resolvePlaybackStartBeat(state, resolveBeat);
+  const beat = resolveTransportPlayheadBeat(state, resolveBeat);
   if (!beat) return false;
 
   const tick = beatPlaybackStartTick(beat);
@@ -74,7 +62,7 @@ export function seekToPlaybackStart(
 
 export function togglePlayback(
   api: PlaybackApi,
-  state: PlaybackSelectionState,
+  state: PlaybackTransportState,
   resolveBeat: PlaybackBeatResolver,
 ): void {
   if (state.playerState === "playing") {
@@ -83,7 +71,7 @@ export function togglePlayback(
   }
 
   if (state.playerState === "stopped") {
-    seekToPlaybackStart(api, state, resolveBeat);
+    seekToTransportPlayhead(api, state, resolveBeat);
   }
   api.play();
 }

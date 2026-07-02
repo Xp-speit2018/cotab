@@ -1,8 +1,9 @@
 /**
- * engine.ts — EditorEngine with flattened state properties.
+ * engine.ts - EditorEngine with local editor state and Y.Doc-backed score data.
  *
- * State properties are public on the class. No separate state type.
- * Stores layer registers callbacks to receive notifications.
+ * Selector and transport are local editor state. They are intentionally not
+ * stored in the shared Y.Doc; pointer positions can later be projected through
+ * presence/awareness without becoming document data.
  */
 
 import * as Y from "yjs";
@@ -76,6 +77,29 @@ export interface SelectionRange {
   endBarIndex: number;   // inclusive, >= startBarIndex
 }
 
+export interface SelectorState {
+  track: unknown | null;
+  staff: unknown | null;
+  bar: unknown | null;
+  voice: unknown | null;
+  beat: unknown | null;
+  note: unknown | null;
+  selectedBeat: SelectedBeat | null;
+  selectedBeatUuid: string | null;
+  selectedNoteIndex: number;
+  selectionRange: SelectionRange | null;
+}
+
+export type SelectorPointers = Pick<
+  SelectorState,
+  "track" | "staff" | "bar" | "voice" | "beat" | "note"
+>;
+
+export interface TransportState {
+  playhead: SelectedBeat | null;
+  playheadBeatUuid: string | null;
+}
+
 export interface PendingSelection {
   trackIndex: number;
   barIndex: number;
@@ -83,6 +107,39 @@ export interface PendingSelection {
   staffIndex: number;
   voiceIndex: number;
   string: number | null;
+}
+
+function createEmptySelectorState(): SelectorState {
+  return {
+    track: null,
+    staff: null,
+    bar: null,
+    voice: null,
+    beat: null,
+    note: null,
+    selectedBeat: null,
+    selectedBeatUuid: null,
+    selectedNoteIndex: -1,
+    selectionRange: null,
+  };
+}
+
+function createEmptySelectorPointers(): SelectorPointers {
+  return {
+    track: null,
+    staff: null,
+    bar: null,
+    voice: null,
+    beat: null,
+    note: null,
+  };
+}
+
+function createEmptyTransportState(): TransportState {
+  return {
+    playhead: null,
+    playheadBeatUuid: null,
+  };
 }
 
 // Re-export EngineHooks for consumers
@@ -160,7 +217,10 @@ export class EditorEngine {
     });
   }
 
-  // ── Possibly reactive state (public) ───────────────────────────────────────────────
+  // ── Local editor state (public) ───────────────────────────────────────────
+
+  selector: SelectorState = createEmptySelectorState();
+  transport: TransportState = createEmptyTransportState();
 
   selectedBeat: SelectedBeat | null = null;
   selectedBeatUuid: string | null = null; // Stable UUID for selection persistence
@@ -194,17 +254,90 @@ export class EditorEngine {
     return this._hookRegistry.on(hooks);
   }
 
-  localSetSelection(sel: SelectedBeat): void {
+  localSetSelection(
+    sel: SelectedBeat,
+    selectedNoteIndex: number = -1,
+    pointers: Partial<SelectorPointers> = {},
+  ): void {
+    const sameSelection = this.selectedBeat && selectionsEqual(this.selectedBeat, sel);
     // Skip if same value (prevent circular notifications)
-    if (this.selectedBeat && selectionsEqual(this.selectedBeat, sel)) {
+    if (
+      sameSelection &&
+      this.selectedNoteIndex === selectedNoteIndex &&
+      Object.keys(pointers).length === 0
+    ) {
       return;
     }
     this.selectedBeat = sel;
     // Store UUID for stable lookup across re-renders
     const yBeat = this.resolveYBeat(sel.trackIndex, sel.staffIndex, sel.barIndex, sel.voiceIndex, sel.beatIndex);
     this.selectedBeatUuid = yBeat?.get("uuid") as string ?? null;
+    this.selectedNoteIndex = selectedNoteIndex;
+    this.selectionRange = null;
+    this.selector = {
+      ...this.selector,
+      ...createEmptySelectorPointers(),
+      ...pointers,
+      selectedBeat: sel,
+      selectedBeatUuid: this.selectedBeatUuid,
+      selectedNoteIndex,
+      selectionRange: null,
+    };
+    this._hookRegistry.emitSelector("onLocalSelectorChange", this.selector);
+    if (!sameSelection) {
+      this._hookRegistry.emitSelection('onLocalSelectionSet', sel);
+    }
+  }
+
+  localSetSelectorPointers(pointers: Partial<SelectorPointers>): void {
+    this.selector = {
+      ...this.selector,
+      ...pointers,
+    };
+    this._hookRegistry.emitSelector("onLocalSelectorChange", this.selector);
+  }
+
+  localSetSelectionRange(range: SelectionRange | null): void {
+    this.selectionRange = range;
+    this.selector = {
+      ...this.selector,
+      selectionRange: range,
+    };
+    this._hookRegistry.emitSelector("onLocalSelectorChange", this.selector);
+  }
+
+  localClearSelection(): void {
+    this.selector = createEmptySelectorState();
+    this.selectedBeat = null;
+    this.selectedBeatUuid = null;
     this.selectedNoteIndex = -1;
-    this._hookRegistry.emitSelection('onLocalSelectionSet', sel);
+    this.selectionRange = null;
+    this._hookRegistry.emitSelector("onLocalSelectorChange", this.selector);
+  }
+
+  localSetTransportPlayhead(playhead: SelectedBeat | null): void {
+    const current = this.transport.playhead;
+    if (
+      (current === null && playhead === null) ||
+      (current !== null && playhead !== null && selectionsEqual(current, playhead))
+    ) {
+      return;
+    }
+
+    const yBeat = playhead
+      ? this.resolveYBeat(
+          playhead.trackIndex,
+          playhead.staffIndex,
+          playhead.barIndex,
+          playhead.voiceIndex,
+          playhead.beatIndex,
+        )
+      : null;
+    this.transport = {
+      playhead,
+      playheadBeatUuid: yBeat?.get("uuid") as string ?? null,
+    };
+    this._hookRegistry.emitTransport("onLocalTransportChange", this.transport);
   }
 
   // ── Clipboard ────────────────────────────────────────────────────────────
@@ -266,6 +399,8 @@ export class EditorEngine {
       this.doc = null;
     }
     this.scoreMap = null;
+    this.localClearSelection();
+    this.localSetTransportPlayhead(null);
   }
 
   replaceDoc(newDoc: Y.Doc, newScoreMap: Y.Map<unknown>): void {

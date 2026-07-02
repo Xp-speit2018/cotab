@@ -35,8 +35,19 @@ export { TRACK_PRESETS } from "@/core/presets";
 export type { TrackPreset } from "@/core/presets";
 export type { ScoreMetadataField } from "@/core/schema";
 
-export type { PendingSelection, SelectedBeat, SelectionRange } from "@/core/engine";
-import type { SelectedBeat, SelectionRange } from "@/core/engine";
+export type {
+  PendingSelection,
+  SelectedBeat,
+  SelectionRange,
+  SelectorState,
+  TransportState,
+} from "@/core/engine";
+import type {
+  SelectedBeat,
+  SelectionRange,
+  SelectorState,
+  TransportState,
+} from "@/core/engine";
 
 // ─── Snap grid ───────────────────────────────────────────────────────────────
 
@@ -211,11 +222,35 @@ export type DrumCategoryId = "cymbals" | "snare" | "toms" | "kick";
 
 // ─── Player state ───────────────────────────────────────────────────────────
 
+export type PlaybackState = "stopped" | "playing" | "paused";
+
+export interface BeatPositionArgs {
+  trackIndex: number;
+  barIndex: number;
+  beatIndex: number;
+  staffIndex?: number;
+  voiceIndex?: number;
+  string?: number | null;
+}
+
+export interface RenderSelectorState extends SelectorState {
+  selectedString: number | null;
+}
+
+export interface RenderTransportState extends TransportState {
+  playerState: PlaybackState;
+  currentTime: number;
+  endTime: number;
+  tickPosition: number;
+}
+
 export interface PlayerState {
   isLoading: boolean;
   isPlayerReady: boolean;
   soundFontProgress: number;
-  playerState: "stopped" | "playing" | "paused";
+  selector: RenderSelectorState;
+  transport: RenderTransportState;
+  playerState: PlaybackState;
   currentTime: number;
   endTime: number;
   playbackSpeed: number;
@@ -270,15 +305,9 @@ export interface PlayerState {
   formatTuningNote: (midiValue: number) => string;
   setZoom: (zoom: number) => void;
   setShowSnapGrid: (show: boolean) => void;
-  setSelection: (args: {
-    trackIndex: number;
-    barIndex: number;
-    beatIndex: number;
-    staffIndex?: number;
-    voiceIndex?: number;
-    noteIndex?: number;
-    string?: number | null;
-  }) => void;
+  setTransportPlayhead: (args: BeatPositionArgs | null) => void;
+  setTransportPlayheadToSelection: () => void;
+  setSelection: (args: BeatPositionArgs & { noteIndex?: number }) => void;
   clearSelection: () => void;
   clearSelectionRange: () => void;
 }

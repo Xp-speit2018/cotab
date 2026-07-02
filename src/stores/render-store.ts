@@ -50,7 +50,19 @@ import {
   getDragEndHandler,
   setDragEndHandler,
 } from "./render-api";
-import type { PlayerState, SelectionRange, SelectedBeatInfo, SelectedNoteInfo, TrackBounds, TrackInfo } from "./render-types";
+import type {
+  BeatPositionArgs,
+  PlaybackState,
+  PlayerState,
+  RenderSelectorState,
+  RenderTransportState,
+  SelectionRange,
+  SelectedBeat,
+  SelectedBeatInfo,
+  SelectedNoteInfo,
+  TrackBounds,
+  TrackInfo,
+} from "./render-types";
 import { GP7_DEF_BY_ID } from "./percussion-data";
 import { resolveGp7Id } from "./percussion-data";
 import {
@@ -222,6 +234,71 @@ function resolveBarAtPoint(
     }
   }
   return null;
+}
+
+function createRenderSelectorState(): RenderSelectorState {
+  return {
+    track: null,
+    staff: null,
+    bar: null,
+    voice: null,
+    beat: null,
+    note: null,
+    selectedBeat: null,
+    selectedBeatUuid: null,
+    selectedNoteIndex: -1,
+    selectionRange: null,
+    selectedString: null,
+  };
+}
+
+function createRenderTransportState(): RenderTransportState {
+  return {
+    playhead: null,
+    playheadBeatUuid: null,
+    playerState: "stopped",
+    currentTime: 0,
+    endTime: 0,
+    tickPosition: 0,
+  };
+}
+
+function normalizeBeatPosition(args: BeatPositionArgs): SelectedBeat {
+  return {
+    trackIndex: args.trackIndex,
+    staffIndex: args.staffIndex ?? 0,
+    voiceIndex: args.voiceIndex ?? 0,
+    barIndex: args.barIndex,
+    beatIndex: args.beatIndex,
+    string: args.string ?? null,
+  };
+}
+
+function beatPlaybackStartTick(beat: {
+  absolutePlaybackStart?: number;
+  playbackStart?: number;
+}): number | null {
+  const tick = beat.absolutePlaybackStart ?? beat.playbackStart;
+  return typeof tick === "number" && Number.isFinite(tick) && tick >= 0
+    ? tick
+    : null;
+}
+
+function seekApiToBeatPosition(position: SelectedBeat): number | null {
+  const api = getApi();
+  if (!api) return null;
+  const beat = resolveBeat(
+    position.trackIndex,
+    position.barIndex,
+    position.beatIndex,
+    position.staffIndex,
+    position.voiceIndex,
+  );
+  if (!beat) return null;
+  const tick = beatPlaybackStartTick(beat);
+  if (tick === null) return null;
+  api.tickPosition = tick;
+  return tick;
 }
 
 function updateCursorRect(
@@ -517,6 +594,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   isLoading: false,
   isPlayerReady: false,
   soundFontProgress: 0,
+  selector: createRenderSelectorState(),
+  transport: createRenderTransportState(),
   playerState: "stopped",
   currentTime: 0,
   endTime: 0,
@@ -587,6 +666,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       onPeerSelectionSet: (_sel) => {
         // Future: show peer cursor
       },
+      onLocalTransportChange: (transport) => {
+        set((state) => ({
+          transport: {
+            ...state.transport,
+            playhead: transport.playhead,
+            playheadBeatUuid: transport.playheadBeatUuid,
+          },
+        }));
+      },
     });
     set({ isLoading: true });
 
@@ -654,8 +742,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         startBarIndex,
         endBarIndex,
       };
-      useEditorStore.setState({ selectionRange: range });
-      set({ selectionRange: range });
+      engine.localSetSelectionRange(range);
+      useEditorStore.setState({
+        selector: engine.selector,
+        selectionRange: range,
+      });
+      set((state) => ({
+        selectionRange: range,
+        selector: {
+          ...state.selector,
+          selectionRange: range,
+        },
+      }));
       updateBarSelectionOverlay(range);
     };
 
@@ -672,8 +770,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       if (ds) {
         // If single bar (click, no real drag), clear range
         if (ds.anchorBarIndex === ds.currentBarIndex) {
-          useEditorStore.setState({ selectionRange: null });
-          set({ selectionRange: null });
+          engine.localSetSelectionRange(null);
+          useEditorStore.setState({
+            selector: engine.selector,
+            selectionRange: null,
+          });
+          set((state) => ({
+            selectionRange: null,
+            selector: {
+              ...state.selector,
+              selectionRange: null,
+            },
+          }));
           hideBarSelectionOverlay();
         }
       }
@@ -708,8 +816,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
 
       // Clear any existing selection range
-      useEditorStore.setState({ selectionRange: null });
-      set({ selectionRange: null });
+      engine.localSetSelectionRange(null);
+      useEditorStore.setState({
+        selector: engine.selector,
+        selectionRange: null,
+      });
+      set((state) => ({
+        selectionRange: null,
+        selector: {
+          ...state.selector,
+          selectionRange: null,
+        },
+      }));
       hideBarSelectionOverlay();
 
       get().setSelection({
@@ -873,28 +991,58 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     api.playerStateChanged.on(
       (e: alphaTab.synth.PlayerStateChangedEventArgs) => {
         if (e.state === alphaTab.synth.PlayerState.Playing) {
-          set({ playerState: "playing" });
+          set((state) => ({
+            playerState: "playing",
+            transport: {
+              ...state.transport,
+              playerState: "playing",
+              tickPosition: api.tickPosition,
+            },
+          }));
           return;
         }
 
         set((state) => ({
-          playerState:
-            state.playerState === "playing" ? "paused" : state.playerState,
+          playerState: (state.playerState === "playing"
+            ? "paused"
+            : state.playerState) as PlaybackState,
+          transport: {
+            ...state.transport,
+            playerState: state.playerState === "playing"
+              ? "paused"
+              : state.transport.playerState,
+            tickPosition: api.tickPosition,
+          },
         }));
       },
     );
 
     api.playerPositionChanged.on(
       (e: alphaTab.synth.PositionChangedEventArgs) => {
-        set({
+        set((state) => ({
           currentTime: e.currentTime,
           endTime: e.endTime,
-        });
+          transport: {
+            ...state.transport,
+            currentTime: e.currentTime,
+            endTime: e.endTime,
+            tickPosition: api.tickPosition,
+          },
+        }));
       },
     );
 
     api.playerFinished.on(() => {
-      set({ playerState: "stopped", currentTime: 0 });
+      set((state) => ({
+        playerState: "stopped",
+        currentTime: 0,
+        transport: {
+          ...state.transport,
+          playerState: "stopped",
+          currentTime: 0,
+          tickPosition: 0,
+        },
+      }));
     });
 
     // Load the demo file
@@ -935,6 +1083,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     setMainElement(null);
     setViewportElement(null);
     useEditorStore.setState({
+      selector: engine.selector,
+      transport: engine.transport,
       selectedBeat: null,
       selectedNoteIndex: -1,
       selectionRange: null,
@@ -943,6 +1093,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       isLoading: false,
       isPlayerReady: false,
       soundFontProgress: 0,
+      selector: createRenderSelectorState(),
+      transport: createRenderTransportState(),
       playerState: "stopped",
       currentTime: 0,
       endTime: 0,
@@ -1003,6 +1155,37 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const api = getApi();
     if (!api) return;
     toggleApiPlayback(api, get(), resolveBeat);
+  },
+
+  setTransportPlayhead: (args) => {
+    const playhead = args ? normalizeBeatPosition(args) : null;
+    if (playhead) {
+      const tick = seekApiToBeatPosition(playhead);
+      engine.localSetTransportPlayhead(playhead);
+      set((state) => ({
+        transport: {
+          ...state.transport,
+          playhead,
+          playheadBeatUuid: engine.transport.playheadBeatUuid,
+          tickPosition: tick ?? state.transport.tickPosition,
+        },
+      }));
+      return;
+    }
+
+    engine.localSetTransportPlayhead(null);
+    set((state) => ({
+      transport: {
+        ...state.transport,
+        playhead: null,
+        playheadBeatUuid: null,
+      },
+    }));
+  },
+
+  setTransportPlayheadToSelection: () => {
+    const selectorBeat = get().selector.selectedBeat ?? get().selectedBeat;
+    get().setTransportPlayhead(selectorBeat);
   },
 
   setPlaybackSpeed: (speed) => {
@@ -1223,6 +1406,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       fixAlphaTabCursors(trackIndex, staffIndex, barIndex, bb);
 
       const track = beat.voice.bar.staff.track;
+      const selectorPointers = {
+        track,
+        staff: beat.voice.bar.staff,
+        bar: beat.voice.bar,
+        voice: beat.voice,
+        beat,
+        note: resolvedNoteIndex >= 0 ? beat.notes[resolvedNoteIndex] ?? null : null,
+      };
 
       // Clear selection range when not actively dragging
       const rangeUpdate = getDragState() === null
@@ -1239,20 +1430,47 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         string: selectedStr,
       };
 
+      // Selector and transport are separate local states. Selection updates the
+      // edit cursor only; playback starts from transport.playhead.
+      if (!_processingHook) {
+        engine.localSetSelection(newBeat, resolvedNoteIndex, selectorPointers);
+      } else {
+        engine.localSetSelectorPointers(selectorPointers);
+      }
+      const nextSelectionRange = getDragState() === null
+        ? null
+        : get().selectionRange;
+      const nextSelector: RenderSelectorState = {
+        ...selectorPointers,
+        selectedBeat: newBeat,
+        selectedBeatUuid: engine.selectedBeatUuid,
+        selectedNoteIndex: resolvedNoteIndex,
+        selectionRange: nextSelectionRange,
+        selectedString: selectedStr,
+      };
+
       // Write base selection to headless editor-store
       useEditorStore.setState({
+        selector: {
+          track: nextSelector.track,
+          staff: nextSelector.staff,
+          bar: nextSelector.bar,
+          voice: nextSelector.voice,
+          beat: nextSelector.beat,
+          note: nextSelector.note,
+          selectedBeat: nextSelector.selectedBeat,
+          selectedBeatUuid: nextSelector.selectedBeatUuid,
+          selectedNoteIndex: nextSelector.selectedNoteIndex,
+          selectionRange: nextSelector.selectionRange,
+        },
         selectedBeat: newBeat,
         selectedNoteIndex: resolvedNoteIndex,
         ...(getDragState() === null ? { selectionRange: null } : {}),
       });
 
-      // Only update engine if not processing a hook (prevents circular calls)
-      if (!_processingHook) {
-        engine.localSetSelection(newBeat);
-      }
-
       set({
         ...rangeUpdate,
+        selector: nextSelector,
         selectedBeat: newBeat,
         selectedTrackInfo: extractTrackInfo(track),
         selectedStaffInfo: extractStaffInfo(beat.voice.bar.staff),
@@ -1276,12 +1494,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   clearSelection: () => {
     updateCursorRect(null, null, null);
     hideBarSelectionOverlay();
+    engine.localClearSelection();
     useEditorStore.setState({
+      selector: engine.selector,
       selectedBeat: null,
       selectedNoteIndex: -1,
       selectionRange: null,
     });
     set({
+      selector: createRenderSelectorState(),
       selectedBeat: null,
       selectionRange: null,
       selectedTrackInfo: null,
@@ -1299,8 +1520,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   clearSelectionRange: () => {
     hideBarSelectionOverlay();
-    useEditorStore.setState({ selectionRange: null });
-    set({ selectionRange: null });
+    engine.localSetSelectionRange(null);
+    useEditorStore.setState({
+      selector: engine.selector,
+      selectionRange: null,
+    });
+    set((state) => ({
+      selectionRange: null,
+      selector: {
+        ...state.selector,
+        selectionRange: null,
+      },
+    }));
   },
 }));
 

@@ -15,7 +15,12 @@ import { vi, expect } from "vitest";
 import * as Y from "yjs";
 import type { TFunction } from "i18next";
 import type { ActionExecutionContext } from "@/core/actions/types";
-import type { SelectedBeat, SelectionRange } from "@/core/engine";
+import type {
+  SelectedBeat,
+  SelectionRange,
+  SelectorState,
+  TransportState,
+} from "@/core/engine";
 import {
   initializeScore,
   snapshotScore,
@@ -162,6 +167,13 @@ function _resolveYMasterBar(barIndex: number): Y.Map<unknown> | null {
 // ─── Mock state (on globalThis so hoisted vi.mock factories share the same refs) ──
 
 interface TestMockState {
+  selector: SelectorState;
+  transport: TransportState & {
+    playerState: "stopped" | "playing" | "paused";
+    currentTime: number;
+    endTime: number;
+    tickPosition: number;
+  };
   selectedBeat: SelectedBeat | null;
   selectionRange: SelectionRange | null;
   selectedNoteIndex: number;
@@ -172,7 +184,35 @@ interface TestMockState {
   integrationApi: { load: ReturnType<typeof vi.fn>; settings: unknown } | null;
 }
 
+function createMockSelectorState(): SelectorState {
+  return {
+    track: null,
+    staff: null,
+    bar: null,
+    voice: null,
+    beat: null,
+    note: null,
+    selectedBeat: null,
+    selectedBeatUuid: null,
+    selectedNoteIndex: -1,
+    selectionRange: null,
+  };
+}
+
+function createMockTransportState(): TestMockState["transport"] {
+  return {
+    playhead: null,
+    playheadBeatUuid: null,
+    playerState: "stopped",
+    currentTime: 0,
+    endTime: 0,
+    tickPosition: 0,
+  };
+}
+
 const _mockState = ((globalThis as Record<string, unknown>).__testMockState ??= {
+  selector: createMockSelectorState(),
+  transport: createMockTransportState(),
   selectedBeat: null,
   selectionRange: null,
   selectedNoteIndex: -1,
@@ -281,6 +321,8 @@ vi.mock("@/stores/editor-store", () => {
       getState: vi.fn(() => {
         const s = ms();
         return {
+          selector: s?.selector ?? createMockSelectorState(),
+          transport: s?.transport ?? createMockTransportState(),
           selectedBeat: s?.selectedBeat ?? null,
           selectionRange: s?.selectionRange ?? null,
           selectedNoteIndex: s?.selectedNoteIndex ?? -1,
@@ -297,9 +339,30 @@ vi.mock("@/stores/editor-store", () => {
       setState: vi.fn((partial: Record<string, unknown>) => {
         const s = ms();
         if (!s) return;
-        if ("selectedBeat" in partial) s.selectedBeat = partial.selectedBeat;
-        if ("selectionRange" in partial) s.selectionRange = partial.selectionRange;
-        if ("selectedNoteIndex" in partial) s.selectedNoteIndex = partial.selectedNoteIndex;
+        if ("selector" in partial) {
+          s.selector = partial.selector as SelectorState;
+          s.selectedBeat = s.selector.selectedBeat;
+          s.selectionRange = s.selector.selectionRange;
+          s.selectedNoteIndex = s.selector.selectedNoteIndex;
+        }
+        if ("transport" in partial) {
+          s.transport = {
+            ...s.transport,
+            ...(partial.transport as Partial<TestMockState["transport"]>),
+          };
+        }
+        if ("selectedBeat" in partial) {
+          s.selectedBeat = partial.selectedBeat as SelectedBeat | null;
+          s.selector = { ...s.selector, selectedBeat: s.selectedBeat };
+        }
+        if ("selectionRange" in partial) {
+          s.selectionRange = partial.selectionRange as SelectionRange | null;
+          s.selector = { ...s.selector, selectionRange: s.selectionRange };
+        }
+        if ("selectedNoteIndex" in partial) {
+          s.selectedNoteIndex = partial.selectedNoteIndex as number;
+          s.selector = { ...s.selector, selectedNoteIndex: s.selectedNoteIndex };
+        }
       }),
       subscribe: vi.fn(() => vi.fn()),
     },
@@ -310,13 +373,46 @@ vi.mock("@/stores/render-store", () => {
   const ms = () => (globalThis as Record<string, unknown>).__testMockState as TestMockState;
   const mockSetState = vi.fn((partial: Record<string, unknown>) => {
     const s = ms();
-    if ("selectedBeat" in partial) s.selectedBeat = partial.selectedBeat as SelectedBeat | null;
-    if ("selectionRange" in partial) s.selectionRange = partial.selectionRange as SelectionRange | null;
-    if ("selectedNoteIndex" in partial) s.selectedNoteIndex = partial.selectedNoteIndex as number;
+    if ("selector" in partial) {
+      s.selector = partial.selector as SelectorState;
+      s.selectedBeat = s.selector.selectedBeat;
+      s.selectionRange = s.selector.selectionRange;
+      s.selectedNoteIndex = s.selector.selectedNoteIndex;
+    }
+    if ("transport" in partial) {
+      s.transport = {
+        ...s.transport,
+        ...(partial.transport as Partial<TestMockState["transport"]>),
+      };
+    }
+    if ("selectedBeat" in partial) {
+      s.selectedBeat = partial.selectedBeat as SelectedBeat | null;
+      s.selector = { ...s.selector, selectedBeat: s.selectedBeat };
+    }
+    if ("selectionRange" in partial) {
+      s.selectionRange = partial.selectionRange as SelectionRange | null;
+      s.selector = { ...s.selector, selectionRange: s.selectionRange };
+    }
+    if ("selectedNoteIndex" in partial) {
+      s.selectedNoteIndex = partial.selectedNoteIndex as number;
+      s.selector = { ...s.selector, selectedNoteIndex: s.selectedNoteIndex };
+    }
     if ("visibleTrackIndices" in partial) s.visibleTrackIndices = partial.visibleTrackIndices as number[];
     if ("addTrackDialogOpen" in partial) s.addTrackDialogOpen = partial.addTrackDialogOpen as boolean;
-    if ("playerState" in partial) s.storeOverrides.playerState = partial.playerState;
-    if ("currentTime" in partial) s.storeOverrides.currentTime = partial.currentTime;
+    if ("playerState" in partial) {
+      s.storeOverrides.playerState = partial.playerState;
+      s.transport = {
+        ...s.transport,
+        playerState: partial.playerState as TestMockState["transport"]["playerState"],
+      };
+    }
+    if ("currentTime" in partial) {
+      s.storeOverrides.currentTime = partial.currentTime;
+      s.transport = {
+        ...s.transport,
+        currentTime: partial.currentTime as number,
+      };
+    }
     if ("zoom" in partial) s.storeOverrides.zoom = partial.zoom;
     if ("showSnapGrid" in partial) s.storeOverrides.showSnapGrid = partial.showSnapGrid;
     if ("sidebarVisible" in partial) s.storeOverrides.sidebarVisible = partial.sidebarVisible;
@@ -326,6 +422,8 @@ vi.mock("@/stores/render-store", () => {
   const mockGetState = vi.fn(() => {
     const s = ms();
     return {
+      selector: s.selector,
+      transport: s.transport,
       selectedBeat: s.selectedBeat,
       selectionRange: s.selectionRange,
       selectedNoteIndex: s.selectedNoteIndex,
@@ -339,6 +437,8 @@ vi.mock("@/stores/render-store", () => {
       playerState: s.storeOverrides.playerState ?? "stopped",
       currentTime: s.storeOverrides.currentTime ?? 0,
       togglePlayback: vi.fn(),
+      setTransportPlayhead: vi.fn(),
+      setTransportPlayheadToSelection: vi.fn(),
       ...s.storeOverrides,
     };
   });
@@ -452,14 +552,26 @@ export function resetTestDoc(): { doc: Y.Doc; scoreMap: Y.Map<unknown> } {
 
 export function selectBeat(sel: SelectedBeat | null): void {
   _mockState.selectedBeat = sel;
+  _mockState.selector = {
+    ..._mockState.selector,
+    selectedBeat: sel,
+  };
 }
 
 export function setSelectionRange(range: SelectionRange | null): void {
   _mockState.selectionRange = range;
+  _mockState.selector = {
+    ..._mockState.selector,
+    selectionRange: range,
+  };
 }
 
 export function setSelectedNoteIndex(idx: number): void {
   _mockState.selectedNoteIndex = idx;
+  _mockState.selector = {
+    ..._mockState.selector,
+    selectedNoteIndex: idx,
+  };
 }
 
 export function setMockApiScore(score: unknown): void {
@@ -753,6 +865,8 @@ export function testContext(): ActionExecutionContext {
 }
 
 export function resetMockState(): void {
+  _mockState.selector = createMockSelectorState();
+  _mockState.transport = createMockTransportState();
   _mockState.selectedBeat = null;
   _mockState.selectionRange = null;
   _mockState.selectedNoteIndex = -1;

@@ -316,6 +316,12 @@
       "help": "实时帧率监视器及诊断。仅在展开时测量。"
     },
 
+    "editorState": {
+      "title": "Editor State",
+      "help": "EditorReactiveState 的运行时实时监视器。直接枚举当前 store 对象拥有的字段，包括动态加入的字段。",
+      "topLevel": "EditorReactiveState"
+    },
+
     "log": {
       "title": "日志",
       "help": "带严重级别的调试日志输出",

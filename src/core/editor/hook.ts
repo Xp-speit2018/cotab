@@ -5,7 +5,7 @@
  * Each call to `on()` returns an unsubscribe function that removes only those listeners.
  */
 
-import type { SelectedBeat } from "@/core/engine";
+import type { SelectedBeat, SelectorState, TransportState } from "@/core/engine";
 
 /**
  * Event-driven hooks for engine integrations.
@@ -23,6 +23,10 @@ export interface EngineHooks {
   onPeerYDocEdit?: () => void;
   /** Notification: Local selection was set (via localSetSelection) */
   onLocalSelectionSet?: (sel: SelectedBeat) => void;
+  /** Notification: Local selector state changed */
+  onLocalSelectorChange?: (selector: SelectorState) => void;
+  /** Notification: Local transport pointer changed */
+  onLocalTransportChange?: (transport: TransportState) => void;
   /** Notification: Peer selection changed (placeholder for future peer awareness) */
   onPeerSelectionSet?: (sel: SelectedBeat) => void;
   /** Notification: Connection metadata changed (connected, roomCode, peers, connectionStatus, connectionError, userName) */
@@ -43,6 +47,8 @@ export class HookRegistry {
     onLocalYDocEdit: new Set(),
     onPeerYDocEdit: new Set(),
     onLocalSelectionSet: new Set(),
+    onLocalSelectorChange: new Set(),
+    onLocalTransportChange: new Set(),
     onPeerSelectionSet: new Set(),
     onConnectionMetaChange: new Set(),
     onClipboardChange: new Set(),
@@ -95,6 +101,26 @@ export class HookRegistry {
     const listeners = this._listeners[key] as Set<(sel: SelectedBeat) => void>;
     for (const fn of listeners) {
       fn(sel);
+    }
+  }
+
+  emitSelector(
+    key: "onLocalSelectorChange",
+    selector: SelectorState,
+  ): void {
+    const listeners = this._listeners[key] as Set<(selector: SelectorState) => void>;
+    for (const fn of listeners) {
+      fn(selector);
+    }
+  }
+
+  emitTransport(
+    key: "onLocalTransportChange",
+    transport: TransportState,
+  ): void {
+    const listeners = this._listeners[key] as Set<(transport: TransportState) => void>;
+    for (const fn of listeners) {
+      fn(transport);
     }
   }
 

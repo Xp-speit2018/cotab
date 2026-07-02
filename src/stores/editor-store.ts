@@ -13,6 +13,8 @@ export type { SelectedBeat, SelectionRange } from "@/core/engine";
 
 // Local type for reactive state (mirrors engine's reactive properties)
 export interface EditorReactiveState {
+  selector: typeof engine.selector;
+  transport: typeof engine.transport;
   selectedBeat: typeof engine.selectedBeat;
   selectedNoteIndex: typeof engine.selectedNoteIndex;
   selectionRange: typeof engine.selectionRange;
@@ -36,6 +38,8 @@ function getUndoState(): { canUndo: boolean; canRedo: boolean } {
 }
 
 export const useEditorStore = create<EditorReactiveState>(() => ({
+  selector: engine.selector,
+  transport: engine.transport,
   selectedBeat: engine.selectedBeat,
   selectedNoteIndex: engine.selectedNoteIndex,
   selectionRange: engine.selectionRange,
@@ -51,13 +55,19 @@ export const useEditorStore = create<EditorReactiveState>(() => ({
 // Register hooks to sync engine state to Zustand store
 // (Module-level registration lives for app lifetime; ignore return value)
 engine.registerHooks({
-  // Selection changes: sync from engine to Zustand
-  onLocalSelectionSet: () => {
+  // Selector changes: sync local selector state from engine to Zustand.
+  onLocalSelectorChange: () => {
     useEditorStore.setState({
+      selector: engine.selector,
       selectedBeat: engine.selectedBeat,
       selectedNoteIndex: engine.selectedNoteIndex,
       selectionRange: engine.selectionRange,
       ...getUndoState(),
+    });
+  },
+  onLocalTransportChange: () => {
+    useEditorStore.setState({
+      transport: engine.transport,
     });
   },
   // Connection metadata changes: sync from engine to Zustand

@@ -316,6 +316,12 @@
       "help": "Real-time frame rate monitor with diagnostics. Only measures while open."
     },
 
+    "editorState": {
+      "title": "Editor State",
+      "help": "Live runtime monitor for EditorReactiveState. It enumerates own fields from the current store object, including fields added dynamically.",
+      "topLevel": "EditorReactiveState"
+    },
+
     "log": {
       "title": "Log",
       "help": "Debug log output with severity levels",

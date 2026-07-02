@@ -2,7 +2,7 @@ export const DEFAULT_SIDEBAR_WIDTH = 280;
 export const MIN_SIDEBAR_WIDTH = 200;
 export const MAX_SIDEBAR_WIDTH = 480;
 export const SIDEBAR_WIDTH_KEY = "cotab:sidebar-width";
-const STORAGE_KEY = "cotab:sidebar-tab-layout-v2";
+const STORAGE_KEY = "cotab:sidebar-tab-layout-v3";
 
 export function loadSidebarWidth(): number {
   try {
@@ -23,14 +23,14 @@ export function saveSidebarWidth(w: number) {
 
 export const TAB_COUNT = 3;
 
-export type SectionId = "song" | "tracks" | "selector" | "articulation" | "log" | "fps" | "bar" | "note" | "effects";
-export const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "articulation", "log", "fps", "bar", "note", "effects"];
+export type SectionId = "song" | "tracks" | "selector" | "articulation" | "log" | "fps" | "editorState" | "bar" | "note" | "effects";
+export const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "selector", "articulation", "log", "fps", "editorState", "bar", "note", "effects"];
 
 export type TabLayout = SectionId[][];
 export const DEFAULT_LAYOUT: TabLayout = [
   ["bar", "note", "effects", "articulation"],
   ["song", "tracks"],
-  ["selector", "log", "fps"],
+  ["selector", "editorState", "log", "fps"],
 ];
 
 export function loadTabLayout(): TabLayout {

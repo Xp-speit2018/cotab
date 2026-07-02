@@ -1,4 +1,4 @@
-import { usePlayerStore } from "@/stores/player-store";
+import { usePlayerStore } from "@/stores/render-store";
 import type { ShortcutBinding } from "./types";
 
 /**
@@ -22,13 +22,6 @@ export function patchBehaviorReaders(bindings: ShortcutBinding[]): void {
         if (b.behavior.type === "toggle") {
           (b.behavior as { getCurrentValue: () => boolean }).getCurrentValue = () =>
             usePlayerStore.getState().selectedBeatInfo?.isRest ?? false;
-        }
-        break;
-
-      case "view.toggleSidebar":
-        if (b.behavior.type === "toggle") {
-          (b.behavior as { getCurrentValue: () => boolean }).getCurrentValue = () =>
-            usePlayerStore.getState().sidebarVisible;
         }
         break;
 

@@ -6,19 +6,17 @@ import {
   getDoc,
   getScoreMap,
   getUndoManager,
-  resolveYTrack,
-  resolveYStaff,
-  resolveYBar,
-  resolveYVoice,
-  resolveYBeat,
-  resolveYNote,
-  resolveYMasterBar,
   transact,
-} from "@/core/sync";
-import {
   seedOneTrackScore,
   placeNoteDirectly,
   resetMockState,
+  resolveYTrackHelper,
+  resolveYStaffHelper,
+  resolveYBarHelper,
+  resolveYVoiceHelper,
+  resolveYBeatHelper,
+  resolveYNoteHelper,
+  resolveYMasterBarHelper,
 } from "@/test/setup";
 
 function resetDoc() {
@@ -74,48 +72,48 @@ describe("resolveY* navigators", () => {
   });
 
   it("resolveYTrack returns track at index 0", () => {
-    const track = resolveYTrack(0);
+    const track = resolveYTrackHelper(0);
     expect(track).not.toBeNull();
     expect(track!.get("name")).toBe("Test Guitar");
   });
 
   it("resolveYStaff returns staff", () => {
-    const staff = resolveYStaff(0, 0);
+    const staff = resolveYStaffHelper(0, 0);
     expect(staff).not.toBeNull();
     expect(staff!.get("showTablature")).toBe(true);
   });
 
   it("resolveYBar returns bar at given index", () => {
-    const bar0 = resolveYBar(0, 0, 0);
-    const bar1 = resolveYBar(0, 0, 1);
+    const bar0 = resolveYBarHelper(0, 0, 0);
+    const bar1 = resolveYBarHelper(0, 0, 1);
     expect(bar0).not.toBeNull();
     expect(bar1).not.toBeNull();
     expect(bar0!.get("uuid")).not.toBe(bar1!.get("uuid"));
   });
 
   it("resolveYVoice returns voice", () => {
-    const voice = resolveYVoice(0, 0, 0, 0);
+    const voice = resolveYVoiceHelper(0, 0, 0, 0);
     expect(voice).not.toBeNull();
     const beats = voice!.get("beats") as Y.Array<unknown>;
     expect(beats.length).toBeGreaterThanOrEqual(1);
   });
 
   it("resolveYBeat returns beat", () => {
-    const beat = resolveYBeat(0, 0, 0, 0, 0);
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0);
     expect(beat).not.toBeNull();
     expect(beat!.get("uuid")).toBeTypeOf("string");
   });
 
   it("resolveYNote returns note when present", () => {
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 5, 3);
-    const note = resolveYNote(0, 0, 0, 0, 0, 0);
+    const note = resolveYNoteHelper(0, 0, 0, 0, 0, 0);
     expect(note).not.toBeNull();
     expect(note!.get("fret")).toBe(5);
     expect(note!.get("string")).toBe(3);
   });
 
   it("resolveYMasterBar returns master bar", () => {
-    const mb = resolveYMasterBar(0);
+    const mb = resolveYMasterBarHelper(0);
     expect(mb).not.toBeNull();
     expect(mb!.get("timeSignatureNumerator")).toBe(4);
   });
@@ -127,31 +125,31 @@ describe("resolveY* out-of-bounds returns null", () => {
   });
 
   it("resolveYTrack(-1) returns null", () => {
-    expect(resolveYTrack(-1)).toBeNull();
+    expect(resolveYTrackHelper(-1)).toBeNull();
   });
 
   it("resolveYTrack(99) returns null", () => {
-    expect(resolveYTrack(99)).toBeNull();
+    expect(resolveYTrackHelper(99)).toBeNull();
   });
 
   it("resolveYStaff with bad staff index returns null", () => {
-    expect(resolveYStaff(0, 5)).toBeNull();
+    expect(resolveYStaffHelper(0, 5)).toBeNull();
   });
 
   it("resolveYBar with bad bar index returns null", () => {
-    expect(resolveYBar(0, 0, 99)).toBeNull();
+    expect(resolveYBarHelper(0, 0, 99)).toBeNull();
   });
 
   it("resolveYVoice with bad voice index returns null", () => {
-    expect(resolveYVoice(0, 0, 0, 99)).toBeNull();
+    expect(resolveYVoiceHelper(0, 0, 0, 99)).toBeNull();
   });
 
   it("resolveYBeat with bad beat index returns null", () => {
-    expect(resolveYBeat(0, 0, 0, 0, 99)).toBeNull();
+    expect(resolveYBeatHelper(0, 0, 0, 0, 99)).toBeNull();
   });
 
   it("resolveYNote with bad note index returns null", () => {
-    expect(resolveYNote(0, 0, 0, 0, 0, 99)).toBeNull();
+    expect(resolveYNoteHelper(0, 0, 0, 0, 0, 99)).toBeNull();
   });
 });
 

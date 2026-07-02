@@ -1,0 +1,17 @@
+[package]
+name = "cotab"
+version = "0.1.0"
+description = "CoTab desktop shell"
+authors = ["CoTab contributors"]
+edition = "2021"
+license = "AGPL-3.0-only"
+
+[lib]
+name = "cotab_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.3", features = [] }
+
+[dependencies]
+tauri = { version = "2.11.3", features = [] }

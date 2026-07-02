@@ -14,7 +14,7 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import type { SelectedBarInfo } from "@/stores/player-types";
+import type { SelectedBarInfo } from "@/stores/render-types";
 import { SectionHeader, ToggleBtn, PropRow } from "./primitives";
 import { keySignatureLabel, tripletFeelLabel } from "./labels";
 

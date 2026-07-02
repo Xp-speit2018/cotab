@@ -1,4 +1,4 @@
-import type { ActionCategory } from "@/actions/types";
+import type { ActionCategory } from "@/core/actions/types";
 
 /**
  * Platform-agnostic key combo stored as a normalized string.
@@ -16,7 +16,11 @@ export type ShortcutBehavior =
       direction: "forward" | "backward";
       getCurrentValue: () => number;
     }
-  | { type: "digitAccumulator" };
+  | { type: "digitAccumulator" }
+  | {
+      type: "navigate";
+      direction: "nextBeat" | "prevBeat" | "moveUp" | "moveDown" | "nextBar" | "prevBar" | "nextStaff" | "prevStaff";
+    };
 
 export interface ShortcutBinding {
   /** Unique ID matching the shortcut — typically mirrors the action ID, with a suffix for variants. */
@@ -40,26 +44,20 @@ export interface ShortcutBinding {
 }
 
 export type ShortcutCategory =
-  | "file"
-  | "playback"
   | "navigation"
   | "editing.beat"
   | "editing.bar"
   | "editing.track"
   | "history"
-  | "clipboard"
-  | "view";
+  | "clipboard";
 
 export const SHORTCUT_CATEGORY_ORDER: readonly ShortcutCategory[] = [
-  "file",
-  "playback",
   "navigation",
   "editing.beat",
   "editing.bar",
   "editing.track",
   "history",
   "clipboard",
-  "view",
 ];
 
 export interface ParsedKeyCombo {
@@ -94,8 +92,6 @@ export function buildKeyCombo(mod: boolean, alt: boolean, shift: boolean, key: s
  */
 export function shortcutCategoryToActionCategory(cat: ShortcutCategory): ActionCategory | null {
   switch (cat) {
-    case "playback":
-      return "playback";
     case "navigation":
       return "navigation";
     case "editing.beat":
@@ -104,13 +100,9 @@ export function shortcutCategoryToActionCategory(cat: ShortcutCategory): ActionC
       return "edit.bar";
     case "editing.track":
       return "edit.track";
-    case "file":
-      return "file";
     case "history":
       return null;
     case "clipboard":
       return "edit.clipboard";
-    case "view":
-      return "view";
   }
 }

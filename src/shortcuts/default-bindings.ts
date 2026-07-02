@@ -8,100 +8,78 @@ const digitAccum: ShortcutBehavior = { type: "digitAccumulator" };
  * Digit keys (0-9) for placeNote are registered separately via getDigitBindings().
  */
 export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
-  // ── File ────────────────────────────────────────────────────────────────
-  {
-    id: "file.exportGp",
-    actionId: "file.exportGp",
-    i18nKey: "shortcuts.file.exportGp",
-    category: "file",
-    defaultKeys: "",
-    keys: "",
-    behavior: direct,
-  },
-
-  // ── Playback ──────────────────────────────────────────────────────────────
-  {
-    id: "playback.togglePlaying",
-    actionId: "playback.setPlaying",
-    i18nKey: "shortcuts.playback.togglePlaying",
-    category: "playback",
-    defaultKeys: "space",
-    keys: "space",
-    behavior: { type: "toggle", getCurrentValue: () => false },
-  },
-
   // ── Navigation ────────────────────────────────────────────────────────────
   {
     id: "nav.nextBeat",
-    actionId: "nav.nextBeat",
+    actionId: "nav.setSelection",
     i18nKey: "shortcuts.nav.nextBeat",
     category: "navigation",
     defaultKeys: "arrowright",
     keys: "arrowright",
-    behavior: direct,
+    behavior: { type: "navigate", direction: "nextBeat" },
   },
   {
     id: "nav.prevBeat",
-    actionId: "nav.prevBeat",
+    actionId: "nav.setSelection",
     i18nKey: "shortcuts.nav.prevBeat",
     category: "navigation",
     defaultKeys: "arrowleft",
     keys: "arrowleft",
-    behavior: direct,
+    behavior: { type: "navigate", direction: "prevBeat" },
   },
   {
     id: "nav.moveUp",
-    actionId: "nav.moveUp",
+    actionId: "nav.setSelection",
     i18nKey: "shortcuts.nav.moveUp",
     category: "navigation",
     defaultKeys: "arrowup",
     keys: "arrowup",
-    behavior: direct,
+    behavior: { type: "navigate", direction: "moveUp" },
   },
   {
     id: "nav.moveDown",
-    actionId: "nav.moveDown",
+    actionId: "nav.setSelection",
     i18nKey: "shortcuts.nav.moveDown",
     category: "navigation",
     defaultKeys: "arrowdown",
     keys: "arrowdown",
-    behavior: direct,
+    behavior: { type: "navigate", direction: "moveDown" },
   },
   {
     id: "nav.nextBar",
-    actionId: "nav.nextBar",
+    actionId: "nav.setSelection",
     i18nKey: "shortcuts.nav.nextBar",
     category: "navigation",
     defaultKeys: "mod+arrowright",
     keys: "mod+arrowright",
-    behavior: direct,
+    behavior: { type: "navigate", direction: "nextBar" },
   },
   {
     id: "nav.prevBar",
-    actionId: "nav.prevBar",
+    actionId: "nav.setSelection",
     i18nKey: "shortcuts.nav.prevBar",
     category: "navigation",
     defaultKeys: "mod+arrowleft",
     keys: "mod+arrowleft",
-    behavior: direct,
+    behavior: { type: "navigate", direction: "prevBar" },
   },
   {
     id: "nav.nextStaff",
-    actionId: "nav.nextStaff",
+    actionId: "nav.setSelection",
     i18nKey: "shortcuts.nav.nextStaff",
     category: "navigation",
     defaultKeys: "mod+arrowdown",
     keys: "mod+arrowdown",
-    behavior: direct,
+    behavior: { type: "navigate", direction: "nextStaff" },
   },
   {
     id: "nav.prevStaff",
-    actionId: "nav.prevStaff",
+    actionId: "nav.setSelection",
     i18nKey: "shortcuts.nav.prevStaff",
     category: "navigation",
     defaultKeys: "mod+arrowup",
     keys: "mod+arrowup",
-    behavior: direct,
+    behavior: { type: "navigate", direction: "prevStaff" },
   },
 
   // ── Editing: Beat ─────────────────────────────────────────────────────────
@@ -215,15 +193,6 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
 
   // ── Editing: Track ────────────────────────────────────────────────────────
   {
-    id: "edit.track.add",
-    actionId: "edit.track.add",
-    i18nKey: "shortcuts.edit.track.add",
-    category: "editing.track",
-    defaultKeys: "mod+alt+t",
-    keys: "mod+alt+t",
-    behavior: direct,
-  },
-  {
     id: "edit.track.delete",
     actionId: "edit.track.delete",
     i18nKey: "shortcuts.edit.track.delete",
@@ -282,16 +251,6 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
 
-  // ── View ──────────────────────────────────────────────────────────────────
-  {
-    id: "view.toggleSidebar",
-    actionId: "view.setSidebarVisible",
-    i18nKey: "shortcuts.view.toggleSidebar",
-    category: "view",
-    defaultKeys: "mod+b",
-    keys: "mod+b",
-    behavior: { type: "toggle", getCurrentValue: () => true },
-  },
 ];
 
 /**

@@ -22,6 +22,8 @@ dist-ssr
 *.tsbuildinfo
 vite.config.d.ts
 vite.config.js
+src-tauri/gen/schemas
+src-tauri/target
 
 # Test artifacts
 test-results
@@ -34,7 +36,8 @@ docs
 wiki
 
 # E2E / Playwright (local debugging)
-e2e
+e2e/*
+!e2e/playback-start.spec.ts
 playwright.config.js
 
 # Editor directories and files

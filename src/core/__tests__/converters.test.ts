@@ -3,17 +3,14 @@
  * with real implementations (converters and AlphaTab are unmocked).
  */
 
-vi.unmock("@/core/converters");
-vi.unmock("@coderline/alphatab");
-
 import { describe, it, expect, beforeEach } from "vitest";
+import { readFileSync } from "node:fs";
 import * as Y from "yjs";
 import * as alphaTab from "@coderline/alphatab";
 import {
   destroyDoc,
   getScoreMap,
-} from "@/core/sync";
-import {
+  transact,
   seedOneTrackScore,
   seedTrackWithConfig,
   placeNoteDirectly,
@@ -23,11 +20,11 @@ import {
   createTestDoc,
 } from "@/test/setup";
 import { Duration } from "@/core/schema";
+// Import directly from relative path to bypass the mock in setup.ts
 import {
   buildAlphaTabScore,
   importScoreToYDoc,
-} from "@/core/converters";
-import { transact } from "@/core/sync";
+} from "../converters";
 
 beforeEach(() => {
   destroyDoc();
@@ -42,6 +39,7 @@ describe("buildAlphaTabScore (Y → AlphaTab)", () => {
   describe("metadata", () => {
     it("converts title, artist, tempo to AlphaTab Score", () => {
       const scoreMap = getScoreMap()!;
+      seedOneTrackScore(scoreMap, 1);
       transact(() => {
         scoreMap.set("title", "My Song");
         scoreMap.set("artist", "Test Artist");
@@ -53,8 +51,8 @@ describe("buildAlphaTabScore (Y → AlphaTab)", () => {
 
       expect(score.title).toBe("My Song");
       expect(score.artist).toBe("Test Artist");
-      // AlphaTab Score.tempo is readonly (derived from master bars); default is 120
-      expect((score as unknown as { tempo: number }).tempo).toBe(120);
+      expect(score.tempo).toBe(140);
+      expect(score.masterBars[0].tempoAutomation?.value).toBe(140);
     });
 
     it("defaults to Untitled and 120 tempo when empty", () => {
@@ -109,6 +107,25 @@ describe("buildAlphaTabScore (Y → AlphaTab)", () => {
       expect(score.masterBars).toHaveLength(1);
       expect(score.masterBars[0].timeSignatureNumerator).toBe(3);
       expect(score.masterBars[0].timeSignatureDenominator).toBe(4);
+    });
+
+    it("converts master bar tempo automations", () => {
+      const scoreMap = getScoreMap()!;
+      seedOneTrackScore(scoreMap, 3);
+
+      const yMasterBars = scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>;
+      transact(() => {
+        yMasterBars.get(0).set("tempo", 100);
+        yMasterBars.get(2).set("tempo", 132);
+      });
+
+      const settings = createAlphaTabSettings();
+      const score = buildAlphaTabScore(scoreMap, settings);
+
+      expect(score.tempo).toBe(100);
+      expect(score.masterBars[0].tempoAutomation?.value).toBe(100);
+      expect(score.masterBars[1].tempoAutomation).toBeNull();
+      expect(score.masterBars[2].tempoAutomation?.value).toBe(132);
     });
   });
 
@@ -331,11 +348,11 @@ describe("round-trip (Y → AlphaTab → Y)", () => {
     const newYScore = newDoc.getMap("score");
     expect(newYScore.get("title")).toBe("Round Trip Song");
     expect(newYScore.get("artist")).toBe("Round Trip Artist");
-    // AlphaTab Score.tempo is readonly; round-trip yields default 120
-    expect(newYScore.get("tempo")).toBe(120);
+    expect(newYScore.get("tempo")).toBe(90);
 
     const newMasterBars = newYScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
     expect(newMasterBars.length).toBe(2);
+    expect(newMasterBars.get(0).get("tempo")).toBe(90);
     expect(newMasterBars.get(0).get("timeSignatureNumerator")).toBe(3);
     expect(newMasterBars.get(0).get("timeSignatureDenominator")).toBe(4);
 
@@ -355,5 +372,40 @@ describe("round-trip (Y → AlphaTab → Y)", () => {
     expect(newNotes1.length).toBe(1);
     expect(newNotes1.get(0).get("fret")).toBe(0);
     expect(newNotes1.get(0).get("string")).toBe(1);
+  });
+
+  it("preserves Taijin Kyofusho per-bar tempo map through Y.Doc rebuild", () => {
+    const data = readFileSync("public/demos/Taijin_kyofusho.gp");
+    const settings = createAlphaTabSettings();
+    const alphaScore = alphaTab.importer.ScoreLoader.loadScoreFromBytes(
+      new Uint8Array(data),
+      settings,
+    );
+
+    const doc = new Y.Doc();
+    importScoreToYDoc(alphaScore, doc);
+
+    const yScore = doc.getMap("score");
+    const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    const yTempos = yMasterBars
+      .map((mb, index) => [index, mb.get("tempo")] as const)
+      .filter(([, tempo]) => tempo !== null);
+
+    expect(yTempos).toEqual([
+      [0, 70],
+      [8, 70],
+      [16, 75],
+      [24, 78],
+      [32, 80],
+      [40, 82],
+      [48, 85],
+    ]);
+
+    const rebuilt = buildAlphaTabScore(yScore, settings);
+    const rebuiltTempos = rebuilt.masterBars
+      .map((mb, index) => [index, mb.tempoAutomation?.value ?? null] as const)
+      .filter(([, tempo]) => tempo !== null);
+
+    expect(rebuiltTempos).toEqual(yTempos);
   });
 });

@@ -18,9 +18,9 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import { executeAction } from "@/actions";
-import { usePlayerStore } from "@/stores/player-store";
-import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/player-types";
+import { executeAction } from "@/core/actions";
+import { usePlayerStore } from "@/stores/render-store";
+import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/render-types";
 import { AccentuationType, GraceType, Duration } from "@/core/schema";
 import { SectionHeader, ToggleBtn, PropRow } from "./primitives";
 import { durationLabel, durationTooltip } from "./labels";

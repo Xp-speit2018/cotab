@@ -4,7 +4,7 @@
  */
 
 import * as alphaTab from "@coderline/alphatab";
-import type { DrumCategoryId, PercArticulationDef, PercSnapGroup } from "./player-types";
+import type { DrumCategoryId, PercArticulationDef, PercSnapGroup } from "./render-types";
 
 export const ALPHATAB_PERCUSSION_DEFS: readonly PercArticulationDef[] = [
   { id: 38, elementType: "Snare", staffLine: 3, technique: "hit" },

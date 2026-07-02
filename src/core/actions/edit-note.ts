@@ -1,12 +1,6 @@
 import * as Y from "yjs";
 import { actionRegistry } from "@/core/actions/registry";
 import type { ActionDefinition } from "@/core/actions/types";
-import {
-  getApi,
-  resolveBeat,
-  gp7IdToPercussionArticulation,
-  resolveGp7Id,
-} from "@/stores/render-internals";
 import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
 import { createNote } from "@/core/schema";
@@ -217,23 +211,10 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
   params: [{ name: "gp7Id", type: "number", i18nKey: "actions.edit.beat.togglePercussionArticulation.params.gp7Id" }],
   execute: (gp7Id, _context) => {
     const sel = engine.selectedBeat;
-    const api = getApi();
-    if (!sel || !api) return;
+    if (!sel) return;
 
-    const score = api.score;
-    if (!score) return;
-
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return;
-
-    const track = score.tracks[sel.trackIndex];
-    if (!track?.isPercussion) return;
+    const yStaff = engine.resolveYStaff(sel.trackIndex, sel.staffIndex);
+    if (!((yStaff?.get("isPercussion") as boolean | undefined) ?? false)) return;
 
     const yBeat = engine.resolveYBeat(
       sel.trackIndex,
@@ -246,8 +227,8 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
 
     let existingIdx = -1;
-    for (let i = 0; i < beat.notes.length; i++) {
-      if (resolveGp7Id(beat.notes[i]) === gp7Id) {
+    for (let i = 0; i < yNotes.length; i++) {
+      if (((yNotes.get(i).get("percussionArticulation") as number | undefined) ?? -1) === gp7Id) {
         existingIdx = i;
         break;
       }
@@ -258,7 +239,7 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
         yNotes.delete(existingIdx, 1);
       } else {
         const yNote = createNote(-1, -1);
-        yNote.set("percussionArticulation", gp7IdToPercussionArticulation(track, gp7Id));
+        yNote.set("percussionArticulation", gp7Id);
         yNotes.push([yNote]);
         yBeat.set("isEmpty", false);
       }

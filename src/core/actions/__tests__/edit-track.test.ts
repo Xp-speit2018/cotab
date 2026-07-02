@@ -3,10 +3,8 @@ import * as Y from "yjs";
 import {
   resetMockState,
   selectBeat,
-  setMockApiScore,
   seedOneTrackScore,
   seedTrackWithConfig,
-  buildMockAlphaTabScore,
   testContext,
   initDoc,
   destroyDoc,
@@ -81,70 +79,6 @@ vi.mock("@/core/engine", () => {
   };
 });
 
-// Use a mutable variable that both the mock and tests can access
-let _mockScoreRef: unknown = null;
-
-// Mock render-store for edit-track.ts (setState must be available)
-vi.mock("@/stores/render-store", () => {
-  const ms = () => (globalThis as Record<string, unknown>).__testMockState as Record<string, unknown> | undefined;
-  const mockGetState = vi.fn(() => {
-    const s = ms();
-    return {
-      selectedBeat: s?.selectedBeat ?? null,
-      selectionRange: s?.selectionRange ?? null,
-      selectedNoteIndex: s?.selectedNoteIndex ?? -1,
-      visibleTrackIndices: s?.visibleTrackIndices ?? [0],
-      addTrackDialogOpen: s?.addTrackDialogOpen ?? false,
-      ...(s?.storeOverrides ?? {}),
-    };
-  });
-  const mockSetState = vi.fn((partial: Record<string, unknown>) => {
-    const s = ms();
-    if (!s) return;
-    if ("selectedBeat" in partial) s.selectedBeat = partial.selectedBeat;
-    if ("selectionRange" in partial) s.selectionRange = partial.selectionRange;
-    if ("selectedNoteIndex" in partial) s.selectedNoteIndex = partial.selectedNoteIndex;
-    if ("visibleTrackIndices" in partial) s.visibleTrackIndices = partial.visibleTrackIndices;
-    if ("addTrackDialogOpen" in partial) s.addTrackDialogOpen = partial.addTrackDialogOpen;
-    Object.assign(s.storeOverrides, partial);
-  });
-  const mockSubscribe = vi.fn(() => vi.fn());
-  return {
-    usePlayerStore: Object.assign(
-      vi.fn(() => mockGetState()),
-      {
-        getState: mockGetState,
-        setState: mockSetState,
-        subscribe: mockSubscribe,
-      }
-    ),
-  };
-});
-
-// Mock render-internals for edit-track.ts
-vi.mock("@/stores/render-internals", () => ({
-  createTrackFromPreset: vi.fn((_score: unknown, preset: { id: string; defaultName: string }) => ({
-    name: preset.defaultName,
-    staves: [{ showTablature: true }],
-  })),
-  getApi: vi.fn(() => {
-    if (_mockScoreRef) {
-      return {
-        score: _mockScoreRef,
-        renderTracks: vi.fn(),
-      };
-    }
-    return null;
-  }),
-  setPendingSelection: vi.fn(),
-  getPendingSelection: vi.fn(() => null),
-  TRACK_PRESETS: [
-    { id: "guitar", defaultName: "Guitar", program: 24, tuning: [40, 45, 50, 55, 59, 64] },
-    { id: "bass", defaultName: "Bass", program: 33, tuning: [28, 33, 38, 43] },
-    { id: "drums", defaultName: "Drums", program: 0, isPercussion: true },
-  ],
-}));
-
 import { EditorEngine } from "@/core/engine";
 import { createTrack, createStaff } from "@/core/schema";
 import { executeAction } from "@/core/actions/registry";
@@ -163,16 +97,6 @@ const ctx = testContext();
 
 function trackCount(): number {
   return (getScoreMap()!.get("tracks") as Y.Array<unknown>).length;
-}
-
-function setupMockScore(trackNames: string[] = ["Guitar"]) {
-  const score = buildMockAlphaTabScore({
-    tracks: trackNames.map(() => ({
-      staves: [{ showTablature: true, bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }] }],
-    })),
-  });
-  setMockApiScore(score);
-  _mockScoreRef = score;
 }
 
 beforeEach(() => {
@@ -222,8 +146,6 @@ describe("edit.track.delete", () => {
       const bars = intStaff.get("bars") as Y.Array<Y.Map<unknown>>;
       EditorEngine.pushDefaultBar(bars);
     });
-
-    setupMockScore(["Guitar", "Bass"]);
   });
 
   it("removes track from Y.Array", () => {
@@ -239,7 +161,6 @@ describe("edit.track.delete", () => {
     destroyDoc();
     initDoc();
     seedOneTrackScore(getScoreMap()!, 1);
-    setupMockScore(["Guitar"]);
 
     expect(trackCount()).toBe(1);
     const result = executeAction("edit.track.delete", 0, ctx);
@@ -259,9 +180,6 @@ describe("edit.track.setName (all track types)", () => {
     destroyDoc();
     initDoc();
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Violin", tuning: [55, 62, 69, 76] });
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{ staves: [{ showTablature: true, tuning: [55, 62, 69, 76], bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }] }] }],
-    }));
     selectBeat({ ...defaultSel, string: 2 as number | null });
 
     executeAction("edit.track.setName", { trackIndex: 0, name: "Solo Violin" }, ctx);
@@ -273,9 +191,6 @@ describe("edit.track.setName (all track types)", () => {
     destroyDoc();
     initDoc();
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Piano", showTablature: false });
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{ staves: [{ showTablature: false, tuning: [], bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }] }] }],
-    }));
     selectBeat(defaultSel);
 
     executeAction("edit.track.setName", { trackIndex: 0, name: "Grand Piano" }, ctx);
@@ -287,9 +202,6 @@ describe("edit.track.setName (all track types)", () => {
     destroyDoc();
     initDoc();
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{ isPercussion: true, staves: [{ showTablature: false, tuning: [], bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }] }] }],
-    }));
     selectBeat(defaultSel);
 
     executeAction("edit.track.setName", { trackIndex: 0, name: "Kit" }, ctx);
@@ -298,22 +210,37 @@ describe("edit.track.setName (all track types)", () => {
 });
 
 describe("edit.track.add", () => {
-  it("pushes a new Y.Map track via direct transact", () => {
-    const scoreMap = getScoreMap()!;
+  it("adds a preset track directly to Y.Doc without a renderer score", () => {
     const tracksBefore = trackCount();
 
-    transact(() => {
-      const yTracks = scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>;
-      yTracks.push([createTrack("Piano")]);
-      const intTrack = yTracks.get(yTracks.length - 1);
-      const staves = intTrack.get("staves") as Y.Array<Y.Map<unknown>>;
-      staves.push([createStaff()]);
-      const intStaff = staves.get(0);
-      const bars = intStaff.get("bars") as Y.Array<Y.Map<unknown>>;
-      EditorEngine.pushDefaultBar(bars);
-    });
+    executeAction("edit.track.add", "acousticPiano", ctx);
 
     expect(trackCount()).toBe(tracksBefore + 1);
-    expect(resolveYTrackHelper(tracksBefore)!.get("name")).toBe("Piano");
+    const yTrack = resolveYTrackHelper(tracksBefore)!;
+    expect(yTrack.get("name")).toBe("Acoustic Piano");
+    expect(yTrack.get("playbackProgram")).toBe(0);
+    const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
+    expect(yStaves.length).toBe(2);
+    expect(yStaves.get(0).get("showTablature")).toBe(false);
+    expect(yStaves.get(1).get("showTablature")).toBe(false);
+  });
+
+  it("creates the first master bar when adding to an empty headless document", () => {
+    resetMockState();
+    destroyDoc();
+    initDoc();
+
+    executeAction("edit.track.add", "drumkit", ctx);
+
+    const scoreMap = getScoreMap()!;
+    const yMasterBars = scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    expect(yMasterBars.length).toBe(1);
+    expect(trackCount()).toBe(1);
+
+    const yTrack = resolveYTrackHelper(0)!;
+    expect(yTrack.get("name")).toBe("Drums");
+    expect(yTrack.get("playbackPrimaryChannel")).toBe(9);
+    const yStaff = (yTrack.get("staves") as Y.Array<Y.Map<unknown>>).get(0);
+    expect(yStaff.get("isPercussion")).toBe(true);
   });
 });

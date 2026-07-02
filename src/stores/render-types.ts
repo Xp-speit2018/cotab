@@ -29,21 +29,14 @@ import type {
   TripletFeel,
   KeySignatureType,
   BendPointSchema,
+  ScoreMetadataField,
 } from "@/core/schema";
+export { TRACK_PRESETS } from "@/core/presets";
+export type { TrackPreset } from "@/core/presets";
+export type { ScoreMetadataField } from "@/core/schema";
 
-export type { SelectedBeat, SelectionRange } from "@/core/engine";
+export type { PendingSelection, SelectedBeat, SelectionRange } from "@/core/engine";
 import type { SelectedBeat, SelectionRange } from "@/core/engine";
-
-// ─── Pending selection ───────────────────────────────────────────────────────
-
-export interface PendingSelection {
-  trackIndex: number;
-  barIndex: number;
-  beatIndex: number;
-  staffIndex: number;
-  voiceIndex: number;
-  string: number | null;
-}
 
 // ─── Snap grid ───────────────────────────────────────────────────────────────
 
@@ -84,27 +77,6 @@ export interface TrackInfo {
   isSolo: boolean;
   isPercussion: boolean;
 }
-
-export interface TrackPreset {
-  id: string;
-  nameKey: string;
-  defaultName: string;
-  program: number;
-  channel: number;
-  clef: number;
-  isPercussion: boolean;
-  stringCount: number;
-}
-
-export const TRACK_PRESETS: readonly TrackPreset[] = [
-  { id: "acousticGuitar", nameKey: "sidebar.selector.presets.acousticGuitar", defaultName: "Acoustic Guitar", program: 25, channel: 0, clef: 4, isPercussion: false, stringCount: 6 },
-  { id: "electricGuitarClean", nameKey: "sidebar.selector.presets.electricGuitarClean", defaultName: "Electric Guitar (Clean)", program: 27, channel: 0, clef: 4, isPercussion: false, stringCount: 6 },
-  { id: "electricGuitarDistortion", nameKey: "sidebar.selector.presets.electricGuitarDistortion", defaultName: "Electric Guitar (Distortion)", program: 30, channel: 0, clef: 4, isPercussion: false, stringCount: 6 },
-  { id: "bassGuitar", nameKey: "sidebar.selector.presets.bassGuitar", defaultName: "Bass Guitar", program: 33, channel: 0, clef: 3, isPercussion: false, stringCount: 4 },
-  { id: "violin", nameKey: "sidebar.selector.presets.violin", defaultName: "Violin", program: 40, channel: 0, clef: 4, isPercussion: false, stringCount: 4 },
-  { id: "acousticPiano", nameKey: "sidebar.selector.presets.acousticPiano", defaultName: "Acoustic Piano", program: 0, channel: 0, clef: 4, isPercussion: false, stringCount: 0 },
-  { id: "drumkit", nameKey: "sidebar.selector.presets.drumkit", defaultName: "Drums", program: 0, channel: 9, clef: 0, isPercussion: true, stringCount: 0 },
-] as const;
 
 export interface TrackBounds {
   y: number;
@@ -235,19 +207,6 @@ export interface SelectedVoiceInfo {
   beatCount: number;
 }
 
-export type ScoreMetadataField =
-  | "title"
-  | "subTitle"
-  | "artist"
-  | "album"
-  | "words"
-  | "music"
-  | "copyright"
-  | "tab"
-  | "instructions"
-  | "notices"
-  | "tempoLabel";
-
 export type DrumCategoryId = "cymbals" | "snare" | "toms" | "kick";
 
 // ─── Player state ───────────────────────────────────────────────────────────
@@ -298,6 +257,7 @@ export interface PlayerState {
   destroy: () => void;
   loadFile: (data: File | ArrayBuffer | Uint8Array) => void;
   loadUrl: (url: string) => void;
+  togglePlayback: () => void;
   setPlaybackSpeed: (speed: number) => void;
   setMasterVolume: (volume: number) => void;
   toggleLoop: () => void;

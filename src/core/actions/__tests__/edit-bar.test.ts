@@ -97,7 +97,6 @@ vi.mock("@/core/engine", () => {
 });
 
 import { executeAction } from "@/core/actions/registry";
-import { isBarEmptyAllTracks } from "@/stores/render-internals";
 import "@/core/actions/edit-bar";
 
 const defaultSel = {
@@ -116,7 +115,6 @@ beforeEach(() => {
   initDoc();
   seedOneTrackScore(getScoreMap()!, 2);
   selectBeat(defaultSel);
-  (isBarEmptyAllTracks as ReturnType<typeof vi.fn>).mockReturnValue(true);
 });
 
 function masterBarCount(): number {
@@ -210,7 +208,19 @@ describe("edit.bar.delete", () => {
   });
 
   it("is blocked when bar is not empty", () => {
-    (isBarEmptyAllTracks as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    const yBar = resolveYBarHelper(0, 0, 0)!;
+    const yVoice = (yBar.get("voices") as Y.Array<Y.Map<unknown>>).get(0);
+    const yBeat = (yVoice.get("beats") as Y.Array<Y.Map<unknown>>).get(0);
+    const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+
+    getScoreMap()!.doc!.transact(() => {
+      const yNote = new Y.Map<unknown>();
+      yNote.set("fret", 3);
+      yNote.set("string", 1);
+      yNotes.push([yNote]);
+      yBeat.set("isEmpty", false);
+    });
+
     const result = executeAction("edit.bar.delete", undefined, ctx);
     expect(result).toBe(false);
     expect(masterBarCount()).toBe(2);

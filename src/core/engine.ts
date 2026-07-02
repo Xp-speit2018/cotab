@@ -7,7 +7,12 @@
 
 import * as Y from "yjs";
 import { initializeScore } from "./schema";
-import type { SignalingConfig, PeerInfo } from "./editor/signaling";
+import type {
+  CollaborationAdapter,
+  CollaborationPersistence,
+  CollaborationProvider,
+  PeerInfo,
+} from "./editor/collaboration";
 import {
   createTrack,
   createStaff,
@@ -18,14 +23,18 @@ import {
 } from "./schema";
 import { HookRegistry, EngineHooks } from "./editor/hook";
 import { _setEngineRef } from "./converters";
-import type { PendingSelection } from "@/stores/render-types";
 
 // ─── Re-exports for convenience ─────────────────────────────────────────────
 
 export const FILE_IMPORT_ORIGIN = "file-import";
 
-// Re-export signaling types only (values are lazy-loaded via dynamic import)
-export type { SignalingConfig, PersistenceAdapter } from "./editor/signaling";
+// Re-export collaboration types for host adapters
+export type {
+  CollaborationAdapter,
+  CollaborationPersistence,
+  CollaborationProvider,
+  PeerInfo,
+} from "./editor/collaboration";
 
 // Pure converters (headless-safe)
 export {
@@ -65,6 +74,15 @@ export interface SelectionRange {
   voiceIndex: number;
   startBarIndex: number; // inclusive
   endBarIndex: number;   // inclusive, >= startBarIndex
+}
+
+export interface PendingSelection {
+  trackIndex: number;
+  barIndex: number;
+  beatIndex: number;
+  staffIndex: number;
+  voiceIndex: number;
+  string: number | null;
 }
 
 // Re-export EngineHooks for consumers
@@ -161,15 +179,14 @@ export class EditorEngine {
   private doc: Y.Doc | null = null;
   private scoreMap: Y.Map<unknown> | null = null;
   private undoManager: Y.UndoManager | null = null;
-  private _signalingConfig: SignalingConfig | null = null;
+  private _collaborationAdapter: CollaborationAdapter | null = null;
   private _hookRegistry = new HookRegistry();
 
   // Clipboard buffer (text-based for cross-platform compatibility)
   private _clipboardText: string | null = null;
 
-  // Provider state (lazy-loaded for Node.js compatibility)
-  private provider: unknown = null;
-  private persistence: { on: (event: string, cb: () => void) => void; destroy: () => void } | null = null;
+  private provider: CollaborationProvider | null = null;
+  private persistence: CollaborationPersistence | null = null;
 
   // ── State mutation ──────────────────────────────────────────────────────
 
@@ -403,13 +420,13 @@ export class EditorEngine {
 
   // ── Collaboration ─────────────────────────────────────────────────────────
 
-  setSignalingConfig(config: SignalingConfig): void {
-    this._signalingConfig = config;
+  setCollaborationAdapter(adapter: CollaborationAdapter): void {
+    this._collaborationAdapter = adapter;
   }
 
   async connect(roomCode: string, userName: string): Promise<void> {
-    if (!this._signalingConfig) {
-      throw new Error("Signaling config not set. Call setSignalingConfig() first.");
+    if (!this._collaborationAdapter) {
+      throw new Error("Collaboration adapter not set. Call setCollaborationAdapter() first.");
     }
 
     // Disconnect existing connection
@@ -420,45 +437,39 @@ export class EditorEngine {
     this.userName = userName;
     this._hookRegistry.emit('onConnectionMetaChange');
 
-    // Check room exists
-    try {
-      const res = await fetch(`${this._signalingConfig.signalingUrl}/api/rooms/${encodeURIComponent(roomCode)}`);
-      if (!res.ok) {
-        this.connectionStatus = "error";
-        this.connectionError = "errorRoomNotFound";
-        this._hookRegistry.emit('onConnectionMetaChange');
-        return;
+    if (this._collaborationAdapter.roomExists) {
+      try {
+        const exists = await this._collaborationAdapter.roomExists(roomCode);
+        if (!exists) {
+          this.connectionStatus = "error";
+          this.connectionError = "errorRoomNotFound";
+          this._hookRegistry.emit('onConnectionMetaChange');
+          return;
+        }
+      } catch {
+        // Some adapters cannot confirm room existence before joining.
       }
-    } catch {
-      // If the API is not available, proceed anyway
     }
 
     try {
-      // Lazy load signaling module (y-webrtc is browser-only)
-      const { createProvider, createPersistence } = await import("./editor/signaling");
-
-      // Create new doc
       this.destroyDoc();
       const newDoc = new Y.Doc();
       const newScoreMap = newDoc.getMap("score");
 
-      // Setup persistence
-      this.persistence = createPersistence(roomCode, newDoc, this._signalingConfig.persistence);
+      this.persistence = this._collaborationAdapter.createPersistence?.(roomCode, newDoc) ?? null;
       if (this.persistence) {
         this.persistence.on("synced", () => {
           this._hookRegistry.emit('onPeerYDocEdit');
         });
       }
 
-      // Setup provider
-      this.provider = createProvider(
+      this.provider = this._collaborationAdapter.createProvider({
         roomCode,
         userName,
-        newDoc,
-        this._signalingConfig,
-        (msg) => this.handlePresenceMessage(msg),
-      );
-      (this.provider as { on: (event: string, cb: () => void) => void }).on("synced", () => {
+        doc: newDoc,
+        onPresenceMessage: (msg) => this.handlePresenceMessage(msg),
+      });
+      this.provider.on("synced", () => {
         this._hookRegistry.emit('onPeerYDocEdit');
       });
 
@@ -488,10 +499,7 @@ export class EditorEngine {
 
   private async disconnectInternal(): Promise<void> {
     if (this.provider) {
-      // Lazy load signaling module to destroy provider
-      const { destroyProvider } = await import("./editor/signaling");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      destroyProvider(this.provider as any);
+      this.provider.destroy();
       this.provider = null;
     }
     if (this.persistence) {
@@ -501,8 +509,11 @@ export class EditorEngine {
   }
 
   async createRoom(userName: string): Promise<void> {
-    if (!this._signalingConfig) {
-      throw new Error("Signaling config not set. Call setSignalingConfig() first.");
+    if (!this._collaborationAdapter) {
+      throw new Error("Collaboration adapter not set. Call setCollaborationAdapter() first.");
+    }
+    if (!this._collaborationAdapter.createRoom) {
+      throw new Error("Current collaboration adapter does not support room creation.");
     }
 
     this.connectionStatus = "connecting";
@@ -511,15 +522,8 @@ export class EditorEngine {
     this._hookRegistry.emit('onConnectionMetaChange');
 
     try {
-      const res = await fetch(`${this._signalingConfig.signalingUrl}/api/rooms`, { method: "POST" });
-      if (!res.ok) {
-        this.connectionStatus = "error";
-        this.connectionError = "errorConnection";
-        this._hookRegistry.emit('onConnectionMetaChange');
-        return;
-      }
-      const data = (await res.json()) as { code: string };
-      await this.connect(data.code, userName);
+      const roomCode = await this._collaborationAdapter.createRoom();
+      await this.connect(roomCode, userName);
 
       // Ensure default score content
       if (this.scoreMap) {

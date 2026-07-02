@@ -4,13 +4,11 @@ import {
   resetMockState,
   selectBeat,
   setSelectedNoteIndex,
-  setMockApiScore,
   seedOneTrackScore,
   seedTrackWithConfig,
   placeNoteDirectly,
   placePercussionNoteDirectly,
   addBeatsDirectly,
-  buildMockAlphaTabScore,
   expectPercussionNote,
   VIOLIN_TUNING,
   testContext,
@@ -66,7 +64,6 @@ vi.mock("@/core/engine", () => {
 
 import { Duration } from "@/core/schema";
 import { executeAction } from "@/core/actions/registry";
-import { resolveBeat } from "@/stores/render-internals";
 import "@/core/actions/edit-beat";
 
 const defaultSel = {
@@ -87,26 +84,12 @@ beforeEach(() => {
   selectBeat(defaultSel);
 });
 
-function mockTabBeat(opts?: { notes?: Array<{ string: number; fret: number }>; duration?: number; isEmpty?: boolean; isRest?: boolean }) {
-  const notes = opts?.notes ?? [];
-  const mockBeat = {
-    notes,
-    duration: opts?.duration ?? 4,
-    isEmpty: opts?.isEmpty ?? notes.length === 0,
-    isRest: opts?.isRest ?? false,
-    voice: { bar: { clef: 4 } },
-  };
-  (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue(mockBeat as never);
-  setMockApiScore(buildMockAlphaTabScore({
-    tracks: [{
-      staves: [{
-        showTablature: true,
-        tuning: [40, 45, 50, 55, 59, 64],
-        bars: [{ voices: [{ beats: [mockBeat as never] }] }],
-      }],
-    }],
-  }));
-  return mockBeat;
+function configureBeat(opts?: { duration?: number; isEmpty?: boolean; isRest?: boolean }) {
+  const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0);
+  if (!yBeat) return;
+  if (opts?.duration !== undefined) yBeat.set("duration", opts.duration);
+  if (opts?.isEmpty !== undefined) yBeat.set("isEmpty", opts.isEmpty);
+  if (opts?.isRest !== undefined) yBeat.set("isRest", opts.isRest);
 }
 
 // ─── setDuration ──────────────────────────────────────────────────────────────
@@ -146,7 +129,6 @@ describe("edit.beat.toggleEmpty", () => {
 
 describe("edit.beat.placeNote (guitar tab)", () => {
   it("adds note to beat's notes array", () => {
-    mockTabBeat();
     executeAction("edit.beat.placeNote", 5, ctx);
 
     const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
@@ -157,14 +139,12 @@ describe("edit.beat.placeNote (guitar tab)", () => {
   });
 
   it("sets isEmpty to false", () => {
-    mockTabBeat();
     executeAction("edit.beat.placeNote", 3, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("isEmpty")).toBe(false);
   });
 
   it("updates fret on existing string", () => {
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 5, 3);
-    mockTabBeat({ notes: [{ string: 3, fret: 5 }] });
 
     executeAction("edit.beat.placeNote", 7, ctx);
 
@@ -175,7 +155,6 @@ describe("edit.beat.placeNote (guitar tab)", () => {
 
   it("does nothing without selection", () => {
     selectBeat(null);
-    mockTabBeat();
     executeAction("edit.beat.placeNote", 5, ctx);
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
@@ -187,7 +166,6 @@ describe("edit.beat.placeNote (guitar tab)", () => {
 describe("edit.beat.deleteNote", () => {
   it("clears notes array when single note", () => {
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 5, 3);
-    mockTabBeat({ notes: [{ string: 3, fret: 5 }] });
     setSelectedNoteIndex(0);
 
     executeAction("edit.beat.deleteNote", undefined, ctx);
@@ -199,7 +177,6 @@ describe("edit.beat.deleteNote", () => {
   it("removes only selected note when multiple", () => {
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 5, 3);
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 7, 1);
-    mockTabBeat({ notes: [{ string: 3, fret: 5 }, { string: 1, fret: 7 }] });
     setSelectedNoteIndex(0);
 
     executeAction("edit.beat.deleteNote", undefined, ctx);
@@ -211,7 +188,7 @@ describe("edit.beat.deleteNote", () => {
 
   it("removes beat from voice when beat is rest", () => {
     addBeatsDirectly(getScoreMap()!, 0, 0, 1);
-    mockTabBeat({ notes: [], isRest: true });
+    configureBeat({ isRest: true });
 
     const yVoiceBefore = resolveYVoiceHelper(0, 0, 0, 0)!;
     const beatsBefore = (yVoiceBefore.get("beats") as Y.Array<unknown>).length;
@@ -225,7 +202,7 @@ describe("edit.beat.deleteNote", () => {
   });
 
   it("blocks when voice has only 1 beat and beat is rest", () => {
-    mockTabBeat({ notes: [], isRest: true });
+    configureBeat({ isRest: true });
     const result = executeAction("edit.beat.deleteNote", undefined, ctx);
     expect(result).toBe(false);
   });
@@ -235,7 +212,6 @@ describe("edit.beat.deleteNote", () => {
 
 describe("edit.beat.insertRestBefore", () => {
   it("inserts a beat before the current position", () => {
-    mockTabBeat({ duration: 4 });
     const beatsBefore = (resolveYVoiceHelper(0, 0, 0, 0)!.get("beats") as Y.Array<unknown>).length;
 
     executeAction("edit.beat.insertRestBefore", 8, ctx);
@@ -251,7 +227,6 @@ describe("edit.beat.insertRestBefore", () => {
 
 describe("edit.beat.insertRestAfter", () => {
   it("inserts a beat after the current position", () => {
-    mockTabBeat({ duration: 4 });
     executeAction("edit.beat.insertRestAfter", 16, ctx);
 
     const beats = resolveYVoiceHelper(0, 0, 0, 0)!.get("beats") as Y.Array<Y.Map<unknown>>;
@@ -286,22 +261,6 @@ describe("edit.beat (violin tab)", () => {
       tuning: VIOLIN_TUNING,
     });
     selectBeat(violinSel);
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{
-        staves: [{
-          showTablature: true,
-          tuning: VIOLIN_TUNING,
-          bars: [{ voices: [{ beats: [{ notes: [], duration: 4, isEmpty: true, isRest: false, voice: { bar: { clef: 4 } } }] }] }],
-        }],
-      }],
-    }));
-    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
-      notes: [],
-      duration: 4,
-      isEmpty: true,
-      isRest: false,
-      voice: { bar: { clef: 4 } },
-    } as never);
   });
 
   it("setDuration updates Y.Map", () => {
@@ -332,22 +291,6 @@ describe("edit.beat (piano notation)", () => {
       showTablature: false,
     });
     selectBeat(pianoSel);
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{
-        staves: [{
-          showTablature: false,
-          tuning: [],
-          bars: [{ clef: 4, voices: [{ beats: [{ notes: [], duration: 4, isEmpty: true, isRest: false, voice: { bar: { clef: 4 } } }] }] }],
-        }],
-      }],
-    }));
-    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
-      notes: [],
-      duration: 4,
-      isEmpty: true,
-      isRest: false,
-      voice: { bar: { clef: 4 } },
-    } as never);
   });
 
   it("setDuration updates Y.Map", () => {
@@ -359,8 +302,8 @@ describe("edit.beat (piano notation)", () => {
     executeAction("edit.beat.placeNote", 7, ctx);
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
-    expect(yNotes.get(0).get("octave")).toBe(4);
-    expect(yNotes.get(0).get("tone")).toBe(7);
+    expect(yNotes.get(0).get("octave")).toBe(6);
+    expect(yNotes.get(0).get("tone")).toBe(5);
   });
 });
 
@@ -400,7 +343,6 @@ describe("applyBeatUpdates property setters", () => {
 
 describe("edit.beat.setRest", () => {
   it("setRest(true) clears notes and sets isEmpty=false", () => {
-    mockTabBeat();
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 5, 3);
 
     executeAction("edit.beat.setRest", true, ctx);
@@ -412,7 +354,6 @@ describe("edit.beat.setRest", () => {
   });
 
   it("setRest(false) on tab track adds default fret-0 note", () => {
-    mockTabBeat();
     executeAction("edit.beat.setRest", false, ctx);
 
     const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
@@ -429,15 +370,6 @@ describe("edit.beat.setRest", () => {
     initDoc();
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Piano", showTablature: false, tuning: [] });
     selectBeat(defaultSel);
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{
-        staves: [{
-          showTablature: false,
-          tuning: [],
-          bars: [{ voices: [{ beats: [{ notes: [], duration: 4, isEmpty: true, isRest: true }] }] }],
-        }],
-      }],
-    }));
 
     executeAction("edit.beat.setRest", false, ctx);
 
@@ -447,7 +379,6 @@ describe("edit.beat.setRest", () => {
 
   it("does nothing without selection", () => {
     selectBeat(null);
-    mockTabBeat();
     executeAction("edit.beat.setRest", true, ctx);
     // beat should still have its default isEmpty=true (unchanged)
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("isEmpty")).toBe(true);
@@ -468,23 +399,6 @@ describe("edit.beat (drumkit percussion)", () => {
       isPercussion: true,
     });
     selectBeat(drumSel);
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{
-        isPercussion: true,
-        staves: [{
-          showTablature: false,
-          tuning: [],
-          bars: [{ clef: 0, voices: [{ beats: [{ notes: [], duration: 4, isEmpty: true, isRest: false, voice: { bar: { clef: 0 } } }] }] }],
-        }],
-      }],
-    }));
-    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
-      notes: [],
-      duration: 4,
-      isEmpty: true,
-      isRest: false,
-      voice: { bar: { clef: 0 } },
-    } as never);
   });
 
   it("setDuration updates Y.Map", () => {
@@ -496,26 +410,11 @@ describe("edit.beat (drumkit percussion)", () => {
     executeAction("edit.beat.placeNote", undefined, ctx);
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
-    expectPercussionNote(yNotes.get(0), 42);
+    expectPercussionNote(yNotes.get(0), 48);
   });
 
   it("deleteNote removes percussion note", () => {
     placePercussionNoteDirectly(getScoreMap()!, 0, 0, 0, 42);
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{
-        isPercussion: true,
-        staves: [{
-          bars: [{ voices: [{ beats: [{ notes: [{ percussionArticulation: 42 }], duration: 4, isEmpty: false, isRest: false, voice: { bar: { clef: 0 } } }] }] }],
-        }],
-      }],
-    }));
-    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
-      notes: [{ percussionArticulation: 42 }],
-      duration: 4,
-      isEmpty: false,
-      isRest: false,
-      voice: { bar: { clef: 0 } },
-    } as never);
     setSelectedNoteIndex(0);
 
     executeAction("edit.beat.deleteNote", undefined, ctx);
@@ -537,7 +436,6 @@ describe("edit.beat edge cases", () => {
   });
 
   it("placeNote does nothing when string is null", () => {
-    mockTabBeat();
     selectBeat({ ...defaultSel, string: null });
 
     executeAction("edit.beat.placeNote", 5, ctx);
@@ -547,7 +445,9 @@ describe("edit.beat edge cases", () => {
   });
 
   it("insertRestBefore uses beat duration when not specified", () => {
-    mockTabBeat({ duration: 8 });
+    getScoreMap()!.doc!.transact(() => {
+      resolveYBeatHelper(0, 0, 0, 0, 0)!.set("duration", 8);
+    });
 
     executeAction("edit.beat.insertRestBefore", undefined, ctx);
 
@@ -556,7 +456,9 @@ describe("edit.beat edge cases", () => {
   });
 
   it("insertRestAfter uses beat duration when not specified", () => {
-    mockTabBeat({ duration: 16 });
+    getScoreMap()!.doc!.transact(() => {
+      resolveYBeatHelper(0, 0, 0, 0, 0)!.set("duration", 16);
+    });
 
     executeAction("edit.beat.insertRestAfter", undefined, ctx);
 

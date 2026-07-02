@@ -338,6 +338,7 @@ vi.mock("@/stores/render-store", () => {
       sidebarVisible: s.storeOverrides.sidebarVisible ?? true,
       playerState: s.storeOverrides.playerState ?? "stopped",
       currentTime: s.storeOverrides.currentTime ?? 0,
+      togglePlayback: vi.fn(),
       ...s.storeOverrides,
     };
   });

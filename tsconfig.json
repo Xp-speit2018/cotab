@@ -31,5 +31,6 @@
     "types": ["vitest/globals"]
   },
   "include": ["src", "vite-env.d.ts"],
+  "exclude": ["src/adapters/local", "src/cli", "src/mcp", "src/**/__tests__", "src/test"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

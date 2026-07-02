@@ -1,16 +1,136 @@
 import * as Y from "yjs";
 import { actionRegistry } from "@/core/actions/registry";
 import type { ActionDefinition } from "@/core/actions/types";
-import { engine, importTrack } from "@/core/engine";
+import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
 import {
-  createTrackFromPreset,
-  getApi,
-  TRACK_PRESETS,
-} from "@/stores/render-internals";
+  createBar,
+  createBeat,
+  createMasterBar,
+  createStaff,
+  createTrack,
+  createVoice,
+} from "@/core/schema";
+import { TRACK_PRESETS, type TrackPreset } from "@/core/presets";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
+
+function getNextChannel(yTracks: Y.Array<Y.Map<unknown>>, preset: TrackPreset): number {
+  if (preset.channel !== 0) return preset.channel;
+
+  let maxChannel = -1;
+  for (let i = 0; i < yTracks.length; i++) {
+    const channel = (yTracks.get(i).get("playbackPrimaryChannel") as number) ?? -1;
+    if (channel !== 9) {
+      maxChannel = Math.max(maxChannel, channel);
+    }
+  }
+
+  const next = maxChannel + 1;
+  return next === 9 ? 10 : next;
+}
+
+function appendRestBar(yStaff: Y.Map<unknown>, clef: number): void {
+  const yBars = yStaff.get("bars") as Y.Array<Y.Map<unknown>>;
+  const yBar = createBar(clef);
+  yBars.push([yBar]);
+
+  const intBar = yBars.get(yBars.length - 1);
+  const yVoices = intBar.get("voices") as Y.Array<Y.Map<unknown>>;
+  yVoices.push([createVoice()]);
+
+  const intVoice = yVoices.get(0);
+  const yBeats = intVoice.get("beats") as Y.Array<Y.Map<unknown>>;
+  const yBeat = createBeat();
+  yBeat.set("isEmpty", false);
+  yBeats.push([yBeat]);
+}
+
+function createPresetStaffShell(args: {
+  isPercussion: boolean;
+  showTablature: boolean;
+  showStandardNotation: boolean;
+  tuning: readonly number[];
+}): Y.Map<unknown> {
+  const yStaff = createStaff([...args.tuning]);
+  yStaff.set("isPercussion", args.isPercussion);
+  yStaff.set("showTablature", args.showTablature);
+  yStaff.set("showStandardNotation", args.showStandardNotation);
+  return yStaff;
+}
+
+function appendStaffFromPreset(
+  yStaves: Y.Array<Y.Map<unknown>>,
+  args: {
+    clef: number;
+    isPercussion: boolean;
+    showTablature: boolean;
+    showStandardNotation: boolean;
+    tuning: readonly number[];
+    barCount: number;
+  },
+): void {
+  yStaves.push([createPresetStaffShell(args)]);
+  const yStaff = yStaves.get(yStaves.length - 1);
+  for (let i = 0; i < args.barCount; i++) {
+    appendRestBar(yStaff, args.clef);
+  }
+}
+
+function appendTrackFromPresetY(
+  yTracks: Y.Array<Y.Map<unknown>>,
+  preset: TrackPreset,
+  barCount: number,
+  channel: number,
+): void {
+  yTracks.push([createTrack(preset.defaultName)]);
+  const yTrack = yTracks.get(yTracks.length - 1);
+  yTrack.set("shortName", preset.defaultName.slice(0, 20));
+  yTrack.set("instrument", preset.id);
+  yTrack.set("playbackProgram", preset.program);
+  yTrack.set("playbackPrimaryChannel", channel);
+  yTrack.set("playbackSecondaryChannel", channel);
+
+  const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
+
+  if (!preset.isPercussion && preset.stringCount === 0) {
+    appendStaffFromPreset(
+      yStaves,
+      {
+        clef: 4,
+        isPercussion: false,
+        showTablature: false,
+        showStandardNotation: true,
+        tuning: [],
+        barCount,
+      },
+    );
+    appendStaffFromPreset(
+      yStaves,
+      {
+        clef: 3,
+        isPercussion: false,
+        showTablature: false,
+        showStandardNotation: true,
+        tuning: [],
+        barCount,
+      },
+    );
+  } else {
+    appendStaffFromPreset(
+      yStaves,
+      {
+        clef: preset.clef,
+        isPercussion: preset.isPercussion,
+        showTablature: preset.stringCount > 0 && !preset.isPercussion,
+        showStandardNotation: preset.stringCount === 0 || preset.isPercussion,
+        tuning: preset.tuning ?? [],
+        barCount,
+      },
+    );
+  }
+}
 
 const addTrackAction: ActionDefinition<string> = {
   id: "edit.track.add",
@@ -24,11 +144,6 @@ const addTrackAction: ActionDefinition<string> = {
       debugLog("warn", "edit.track.add", "presetId required");
       return;
     }
-    const api = getApi();
-    if (!api?.score) {
-      debugLog("warn", "edit.track.add", "no API or score");
-      return;
-    }
     const preset = TRACK_PRESETS.find((p) => p.id === presetId);
     if (!preset) {
       debugLog("warn", "edit.track.add", "unknown preset", { presetId });
@@ -37,19 +152,21 @@ const addTrackAction: ActionDefinition<string> = {
     const yScore = getScoreMap();
     if (!yScore) return;
 
-    const score = api.score;
-    const atTrack = createTrackFromPreset(score, preset);
-    const yTrack = importTrack(atTrack);
+    const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
+    const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    const channel = getNextChannel(yTracks, preset);
 
     debugLog("info", "edit.track.add", "start", {
       presetId,
       presetName: preset.defaultName,
-      trackCount: score.tracks.length,
+      trackCount: yTracks.length,
     });
 
     transact(() => {
-      const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
-      yTracks.push([yTrack]);
+      if (yMasterBars.length === 0) {
+        yMasterBars.push([createMasterBar()]);
+      }
+      appendTrackFromPresetY(yTracks, preset, yMasterBars.length, channel);
     });
 
     debugLog("info", "edit.track.add", "complete");

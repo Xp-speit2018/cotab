@@ -4,8 +4,6 @@ import {
   resetMockState,
   selectBeat,
   setSelectedNoteIndex,
-  setMockApiScore,
-  buildMockAlphaTabScore,
   seedOneTrackScore,
   seedTrackWithConfig,
   placeNoteDirectly,
@@ -56,7 +54,6 @@ vi.mock("@/core/engine", () => {
 });
 
 import { createNote } from "@/core/schema";
-import { resolveBeat, resolveGp7Id } from "@/stores/render-internals";
 import {
   AccentuationType,
   VibratoType,
@@ -303,28 +300,10 @@ describe("edit.beat.togglePercussionArticulation", () => {
     initDoc();
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
     selectBeat(drumSel);
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{
-        isPercussion: true,
-        staves: [{
-          showTablature: false,
-          tuning: [],
-          bars: [{ clef: 0, voices: [{ beats: [{ notes: [], duration: 4, isEmpty: true, isRest: false }] }] }],
-        }],
-      }],
-    }));
   }
 
   it("adds percussion note when gp7Id not present in beat", () => {
     setupDrumTrack();
-    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
-      notes: [],
-      duration: 4,
-      isEmpty: true,
-      isRest: false,
-      voice: { bar: { clef: 0 } },
-    } as never);
-    (resolveGp7Id as ReturnType<typeof vi.fn>).mockReturnValue(-1);
 
     executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
 
@@ -336,18 +315,6 @@ describe("edit.beat.togglePercussionArticulation", () => {
   it("removes existing percussion note when gp7Id matches", () => {
     setupDrumTrack();
     placePercussionNoteDirectly(getScoreMap()!, 0, 0, 0, 42);
-
-    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
-      notes: [{ percussionArticulation: 42 }],
-      duration: 4,
-      isEmpty: false,
-      isRest: false,
-      voice: { bar: { clef: 0 } },
-    } as never);
-    (resolveGp7Id as ReturnType<typeof vi.fn>).mockImplementation((note: unknown) => {
-      const n = note as { percussionArticulation: number };
-      return n.percussionArticulation === 42 ? 42 : -1;
-    });
 
     executeAction("edit.beat.togglePercussionArticulation", 42, ctx);
 
@@ -361,23 +328,6 @@ describe("edit.beat.togglePercussionArticulation", () => {
     initDoc();
     seedOneTrackScore(getScoreMap()!, 1);
     selectBeat(defaultSel);
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{
-        isPercussion: false,
-        staves: [{
-          showTablature: true,
-          tuning: [40, 45, 50, 55, 59, 64],
-          bars: [{ voices: [{ beats: [{ notes: [], duration: 4, isEmpty: true, isRest: false }] }] }],
-        }],
-      }],
-    }));
-    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue({
-      notes: [],
-      duration: 4,
-      isEmpty: true,
-      isRest: false,
-      voice: { bar: { clef: 4 } },
-    } as never);
 
     executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
 
@@ -411,37 +361,26 @@ describe("edit.note edge cases", () => {
     expect(getNote().get("isTieDestination")).toBe(false);
   });
 
-  it("togglePercussionArticulation does nothing when api.score is null", () => {
+  it("togglePercussionArticulation works without a renderer score", () => {
     resetMockState();
     destroyDoc();
     initDoc();
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
     selectBeat({ ...defaultSel, string: 2 as number | null });
-    // Don't set mockApiScore - api.score will be null
 
     executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
-    expect(yNotes.length).toBe(0);
+    expect(yNotes.length).toBe(1);
+    expectPercussionNote(yNotes.get(0), 38);
   });
 
-  it("togglePercussionArticulation does nothing when beat cannot be resolved", () => {
+  it("togglePercussionArticulation does nothing when Y.Beat cannot be resolved", () => {
     resetMockState();
     destroyDoc();
     initDoc();
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
-    selectBeat({ ...defaultSel, string: 2 as number | null });
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{
-        isPercussion: true,
-        staves: [{
-          showTablature: false,
-          tuning: [],
-          bars: [{ clef: 0, voices: [{ beats: [] }] }], // No beats
-        }],
-      }],
-    }));
-    (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    selectBeat({ ...defaultSel, beatIndex: 999, string: 2 as number | null });
 
     executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
 

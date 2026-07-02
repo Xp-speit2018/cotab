@@ -342,8 +342,15 @@ export function buildAlphaTabScore(
     | Y.Array<Y.Map<unknown>>
     | undefined;
   if (yMasterBars) {
-    for (const yMb of yMasterBars) {
-      const mb = buildMasterBar(score, yMb, scoreTempo, scoreTempoLabel);
+    for (let i = 0; i < yMasterBars.length; i++) {
+      const yMb = yMasterBars.get(i);
+      const mb = buildMasterBar(
+        score,
+        yMb,
+        scoreTempo,
+        scoreTempoLabel,
+        i === 0,
+      );
       score.addMasterBar(mb);
     }
   }
@@ -356,7 +363,8 @@ function buildMasterBar(
   score: alphaTab.model.Score,
   yMb: Y.Map<unknown>,
   defaultTempo: number,
-  _defaultTempoLabel: string,
+  defaultTempoLabel: string,
+  isFirstMasterBar: boolean,
 ): alphaTab.model.MasterBar {
   const mb = new alphaTab.model.MasterBar();
   mb.score = score;
@@ -384,10 +392,20 @@ function buildMasterBar(
     mb.section = sec;
   }
 
-  // Note: AlphaTab's tempoAutomation/temposAutomations are readonly when building
-  // programmatically. Tempo is effectively set when loading from GP/AlphaTex.
-  // defaultTempo is kept for potential future API support.
-  void defaultTempo;
+  const barTempo = yMb.get("tempo") as number | null | undefined;
+  const tempo = barTempo ?? (isFirstMasterBar ? defaultTempo : null);
+  if (typeof tempo === "number" && Number.isFinite(tempo) && tempo > 0) {
+    const automation = alphaTab.model.Automation.buildTempoAutomation(
+      false,
+      0,
+      tempo,
+      2,
+    );
+    if (isFirstMasterBar) {
+      automation.text = defaultTempoLabel;
+    }
+    mb.tempoAutomations.push(automation);
+  }
 
   return mb;
 }

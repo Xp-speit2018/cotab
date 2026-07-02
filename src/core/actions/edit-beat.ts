@@ -2,21 +2,90 @@ import * as Y from "yjs";
 import { actionRegistry } from "@/core/actions/registry";
 import type { ActionDefinition } from "@/core/actions/types";
 import { debugLog } from "@/core/editor/action-log";
-import {
-  getApi,
-  getSnapGrids,
-  resolveBeat,
-  formatPitch,
-  snapPositionToPitch,
-  gp7IdToPercussionArticulation,
-  DRUM_STAFFLINE_DEFAULTS,
-  GP7_STAFF_LINE_MAP,
-} from "@/stores/render-internals";
-import { engine } from "@/core/engine";
+import { engine, type PendingSelection, type SelectedBeat } from "@/core/engine";
 import { createBeat, createNote } from "@/core/schema";
-import type { PendingSelection } from "@/stores/render-types";
+import { formatPitch, snapPositionToPitch } from "@/core/pitch";
 
 const transact = (fn: () => void, nextSelection?: PendingSelection | null) => engine.localEditYDoc(fn, nextSelection);
+
+const DRUM_STAFFLINE_DEFAULTS: Record<number, number> = {
+  [-3]: 52,
+  [-2]: 49,
+  [-1]: 42,
+  0: 51,
+  1: 50,
+  2: 48,
+  3: 38,
+  4: 47,
+  5: 45,
+  6: 43,
+  7: 36,
+  8: 35,
+  9: 44,
+};
+
+const STAFF_LINE_FIRST_GP7_ID: Record<number, number> = {
+  10: 66,
+  11: 67,
+  12: 68,
+  13: 110,
+  14: 63,
+  15: 109,
+  16: 108,
+  17: 64,
+  18: 115,
+  19: 62,
+  20: 75,
+  21: 85,
+  22: 117,
+  23: 69,
+  24: 116,
+  25: 114,
+  26: 80,
+  27: 81,
+  28: 58,
+  29: 78,
+  30: 79,
+  35: 87,
+  36: 86,
+  37: 74,
+  38: 73,
+};
+
+function pendingFromSelection(sel: SelectedBeat): PendingSelection {
+  return {
+    trackIndex: sel.trackIndex,
+    barIndex: sel.barIndex,
+    beatIndex: sel.beatIndex,
+    staffIndex: sel.staffIndex,
+    voiceIndex: sel.voiceIndex,
+    string: sel.string,
+  };
+}
+
+function getStaffMode(sel: SelectedBeat): {
+  isPercussion: boolean;
+  showTablature: boolean;
+  tuningLength: number;
+} | null {
+  const yStaff = engine.resolveYStaff(sel.trackIndex, sel.staffIndex);
+  if (!yStaff) return null;
+  const tuning = yStaff.get("tuning") as Y.Array<number> | undefined;
+  return {
+    isPercussion: (yStaff.get("isPercussion") as boolean) ?? false,
+    showTablature: (yStaff.get("showTablature") as boolean) ?? true,
+    tuningLength: tuning?.length ?? 0,
+  };
+}
+
+function getClef(sel: SelectedBeat): number {
+  const yBar = engine.resolveYBar(sel.trackIndex, sel.staffIndex, sel.barIndex);
+  return (yBar?.get("clef") as number | undefined) ?? 4;
+}
+
+function getPercussionArticulation(staffLine: number): number {
+  return DRUM_STAFFLINE_DEFAULTS[staffLine] ?? STAFF_LINE_FIRST_GP7_ID[staffLine] ?? 42;
+}
 
 function applyBeatUpdates(updates: Record<string, unknown>): void {
   const sel = engine.selectedBeat;
@@ -49,25 +118,10 @@ const placeNoteAction: ActionDefinition<number | void> = {
   params: [{ name: "targetValue", type: "number", i18nKey: "actions.edit.beat.placeNote.params.targetValue" }],
   execute: (targetValue, _context) => {
     const sel = engine.selectedBeat;
-    const api = getApi();
-    if (!sel || !api || sel.string === null) return;
+    if (!sel || sel.string === null) return;
 
-    const score = api.score;
-    if (!score) return;
-
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return;
-
-    const track = score.tracks[sel.trackIndex];
-    if (!track) return;
-    const staff = track.staves[sel.staffIndex];
-    if (!staff) return;
+    const staffMode = getStaffMode(sel);
+    if (!staffMode) return;
 
     const yBeat = engine.resolveYBeat(
       sel.trackIndex,
@@ -78,43 +132,17 @@ const placeNoteAction: ActionDefinition<number | void> = {
     );
     if (!yBeat) return;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+    const pendingSel = pendingFromSelection(sel);
 
-    const pendingSel = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
-
-    if (track.isPercussion) {
-      const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
-      const grid = getSnapGrids().get(gridKey);
-      const observedArtic = grid?.percussionMap?.get(sel.string);
-
-      let percArticulation: number;
-      if (observedArtic !== undefined) {
-        percArticulation = observedArtic;
-      } else {
-        const defaultGp7Id = DRUM_STAFFLINE_DEFAULTS[sel.string];
-        if (defaultGp7Id !== undefined) {
-          percArticulation = gp7IdToPercussionArticulation(track, defaultGp7Id);
-        } else {
-          const idsAtLine = GP7_STAFF_LINE_MAP.get(sel.string);
-          const fallbackId = idsAtLine?.[0] ?? 42;
-          percArticulation = gp7IdToPercussionArticulation(track, fallbackId);
-        }
-      }
-
+    if (staffMode.isPercussion) {
       const yNote = createNote(-1, -1);
-      yNote.set("percussionArticulation", percArticulation);
+      yNote.set("percussionArticulation", getPercussionArticulation(sel.string));
 
       transact(() => {
         yNotes.push([yNote]);
         yBeat.set("isEmpty", false);
       }, pendingSel);
-    } else if (staff.showTablature && staff.tuning.length > 0) {
+    } else if (staffMode.showTablature && staffMode.tuningLength > 0) {
       const fret = typeof targetValue === "number" ? targetValue : 1;
       let existingIdx = -1;
       for (let i = 0; i < yNotes.length; i++) {
@@ -135,7 +163,8 @@ const placeNoteAction: ActionDefinition<number | void> = {
       }, pendingSel);
     } else {
       const position = typeof targetValue === "number" ? targetValue : sel.string;
-      const pitch = snapPositionToPitch(beat.voice.bar.clef, position);
+      const clef = getClef(sel);
+      const pitch = snapPositionToPitch(clef, position);
 
       const yNote = createNote(-1, -1);
       yNote.set("octave", pitch.octave);
@@ -147,7 +176,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
         barIndex: sel.barIndex,
         beatIndex: sel.beatIndex,
         snapPosition: position,
-        clef: beat.voice.bar.clef as unknown as number,
+        clef,
         octave: pitch.octave,
         tone: pitch.tone,
         pitch: formatPitch(pitch.octave, pitch.tone),
@@ -167,17 +196,7 @@ const deleteNoteAction: ActionDefinition<void> = {
   category: "edit.beat",
   execute: (_args, _context): boolean => {
     const sel = engine.selectedBeat;
-    const api = getApi();
-    if (!sel || !api) return false;
-
-    const beat = resolveBeat(
-      sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
-      sel.staffIndex,
-      sel.voiceIndex,
-    );
-    if (!beat) return false;
+    if (!sel) return false;
 
     const yVoice = engine.resolveYVoice(
       sel.trackIndex,
@@ -198,7 +217,7 @@ const deleteNoteAction: ActionDefinition<void> = {
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
     const noteIdx = engine.selectedNoteIndex;
 
-    if (beat.notes.length === 0 || beat.isRest) {
+    if (yNotes.length === 0 || ((yBeat.get("isRest") as boolean) ?? false)) {
       if (yBeats.length <= 1) return false;
 
       const newBeatIdx = Math.min(sel.beatIndex, yBeats.length - 2);
@@ -215,11 +234,11 @@ const deleteNoteAction: ActionDefinition<void> = {
       return true;
     }
 
-    if (noteIdx < 0 || noteIdx >= beat.notes.length) return false;
+    if (noteIdx < 0 || noteIdx >= yNotes.length) return false;
 
-    if (beat.notes.length > 1) {
-      const newNoteIdx = Math.min(noteIdx, beat.notes.length - 2);
-      const nextNote = beat.notes[newNoteIdx >= noteIdx ? newNoteIdx + 1 : newNoteIdx];
+    if (yNotes.length > 1) {
+      const newNoteIdx = Math.min(noteIdx, yNotes.length - 2);
+      const nextNote = yNotes.get(newNoteIdx >= noteIdx ? newNoteIdx + 1 : newNoteIdx);
 
       transact(() => {
         yNotes.delete(noteIdx, 1);
@@ -229,7 +248,7 @@ const deleteNoteAction: ActionDefinition<void> = {
         beatIndex: sel.beatIndex,
         staffIndex: sel.staffIndex,
         voiceIndex: sel.voiceIndex,
-        string: nextNote?.string ?? sel.string,
+        string: (nextNote?.get("string") as number | undefined) ?? sel.string,
       });
     } else {
       transact(() => {
@@ -257,14 +276,14 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
     const sel = engine.selectedBeat;
     if (!sel) return;
 
-    const beat = resolveBeat(
+    const yBeat = engine.resolveYBeat(
       sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
       sel.staffIndex,
+      sel.barIndex,
       sel.voiceIndex,
+      sel.beatIndex,
     );
-    if (!beat) return;
+    if (!yBeat) return;
 
     const yVoice = engine.resolveYVoice(
       sel.trackIndex,
@@ -274,7 +293,7 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
     );
     if (!yVoice) return;
 
-    const dur = typeof duration === "number" ? duration : (beat.duration as unknown as number);
+    const dur = typeof duration === "number" ? duration : ((yBeat.get("duration") as number | undefined) ?? 4);
     const restBeat = createBeat(dur);
     restBeat.set("isEmpty", false);
 
@@ -294,14 +313,14 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
     const sel = engine.selectedBeat;
     if (!sel) return;
 
-    const beat = resolveBeat(
+    const yBeat = engine.resolveYBeat(
       sel.trackIndex,
-      sel.barIndex,
-      sel.beatIndex,
       sel.staffIndex,
+      sel.barIndex,
       sel.voiceIndex,
+      sel.beatIndex,
     );
-    if (!beat) return;
+    if (!yBeat) return;
 
     const yVoice = engine.resolveYVoice(
       sel.trackIndex,
@@ -311,7 +330,7 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
     );
     if (!yVoice) return;
 
-    const dur = typeof duration === "number" ? duration : (beat.duration as unknown as number);
+    const dur = typeof duration === "number" ? duration : ((yBeat.get("duration") as number | undefined) ?? 4);
     const restBeat = createBeat(dur);
     restBeat.set("isEmpty", false);
 
@@ -338,8 +357,7 @@ const setRestAction: ActionDefinition<boolean> = {
   params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setRest.params.value" }],
   execute: (value, _context) => {
     const sel = engine.selectedBeat;
-    const api = getApi();
-    if (!sel || !api) return;
+    if (!sel) return;
 
     const yBeat = engine.resolveYBeat(
       sel.trackIndex,
@@ -350,14 +368,7 @@ const setRestAction: ActionDefinition<boolean> = {
     );
     if (!yBeat) return;
 
-    const pendingSel = {
-      trackIndex: sel.trackIndex,
-      barIndex: sel.barIndex,
-      beatIndex: sel.beatIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      string: sel.string,
-    };
+    const pendingSel = pendingFromSelection(sel);
 
     if (value) {
       transact(() => {
@@ -368,11 +379,10 @@ const setRestAction: ActionDefinition<boolean> = {
         yBeat.set("isEmpty", false);
       }, pendingSel);
     } else {
-      const track = api.score?.tracks[sel.trackIndex];
-      const staff = track?.staves[sel.staffIndex];
+      const staffMode = getStaffMode(sel);
 
       transact(() => {
-        if (staff?.showTablature && staff.tuning.length > 0 && sel.string !== null) {
+        if (staffMode?.showTablature && staffMode.tuningLength > 0 && sel.string !== null) {
           const yNote = createNote(0, sel.string);
           const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
           yNotes.push([yNote]);

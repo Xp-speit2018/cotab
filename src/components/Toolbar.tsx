@@ -67,6 +67,7 @@ export function Toolbar() {
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
   const loadFile = usePlayerStore((s) => s.loadFile);
+  const togglePlayback = usePlayerStore((s) => s.togglePlayback);
   const editorMode = usePlayerStore((s) => s.editorMode);
   const tabConnected = useEditorStore((s) => s.connected);
   const tabRoomCode = useEditorStore((s) => s.roomCode);
@@ -218,11 +219,8 @@ export function Toolbar() {
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => {
-                const api = getApi();
-                if (!api) return;
-                if (isPlaying) api.pause(); else api.play();
-              }}
+              aria-label={isPlaying ? t("toolbar.pause") : t("toolbar.play")}
+              onClick={togglePlayback}
               disabled={!isPlayerReady}
             >
               {isPlaying ? (

@@ -1,6 +1,6 @@
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
-import type { ScoreMetadataField } from "@/stores/render-types";
+import type { ScoreMetadataField } from "@/core/schema";
 import { engine } from "@/core/engine";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);

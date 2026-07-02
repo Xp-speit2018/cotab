@@ -73,14 +73,14 @@ import {
 import {
   engine,
   importFromAlphaTab,
-  type SignalingConfig,
 } from "@/core/engine";
-import { IndexeddbPersistence } from "y-indexeddb";
+import { createWebCollaborationAdapter } from "@/adapters/web/collaboration";
 import {
   isRebuildingFromYDoc,
   installRendererObserver,
   uninstallRendererObserver,
 } from "./renderer-bridge";
+import { togglePlayback as toggleApiPlayback } from "./playback-control";
 
 // Unsubscribe function for engine hooks
 let _unsubscribeHooks: (() => void) | null = null;
@@ -570,12 +570,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     engine.initDoc();
 
-    // Configure signaling with browser-specific persistence
-    const signalingConfig: SignalingConfig = {
+    engine.setCollaborationAdapter(createWebCollaborationAdapter({
       signalingUrl: import.meta.env.VITE_SIGNALING_URL,
-      persistence: IndexeddbPersistence,
-    };
-    engine.setSignalingConfig(signalingConfig);
+    }));
 
     installRendererObserver();
     _unsubscribeHooks = engine.registerHooks({
@@ -875,11 +872,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     api.playerStateChanged.on(
       (e: alphaTab.synth.PlayerStateChangedEventArgs) => {
-        const state =
-          e.state === alphaTab.synth.PlayerState.Playing
-            ? "playing"
-            : "paused";
-        set({ playerState: state });
+        if (e.state === alphaTab.synth.PlayerState.Playing) {
+          set({ playerState: "playing" });
+          return;
+        }
+
+        set((state) => ({
+          playerState:
+            state.playerState === "playing" ? "paused" : state.playerState,
+        }));
       },
     );
 
@@ -997,6 +998,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   // ── Playback Controls ────────────────────────────────────────────────────
+
+  togglePlayback: () => {
+    const api = getApi();
+    if (!api) return;
+    toggleApiPlayback(api, get(), resolveBeat);
+  },
 
   setPlaybackSpeed: (speed) => {
     const api = getApi();

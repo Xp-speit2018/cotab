@@ -12,10 +12,8 @@ import {
   resetMockState,
   selectBeat,
   setSelectedNoteIndex,
-  setMockApiScore,
   seedOneTrackScore,
   addBeatsDirectly,
-  buildMockAlphaTabScore,
   snapshotDoc,
   testContext,
   initDoc,
@@ -26,43 +24,6 @@ import {
   resolveYTrackHelper,
   resolveYNoteHelper,
 } from "@/test/setup";
-
-// Mock render-store for edit-track.ts which calls usePlayerStore.setState
-vi.mock("@/stores/render-store", () => {
-  const ms = () => (globalThis as Record<string, unknown>).__testMockState as Record<string, unknown> | undefined;
-  const mockGetState = vi.fn(() => {
-    const s = ms();
-    return {
-      selectedBeat: s?.selectedBeat ?? null,
-      selectionRange: s?.selectionRange ?? null,
-      selectedNoteIndex: s?.selectedNoteIndex ?? -1,
-      visibleTrackIndices: s?.visibleTrackIndices ?? [0],
-      addTrackDialogOpen: s?.addTrackDialogOpen ?? false,
-      ...(s?.storeOverrides ?? {}),
-    };
-  });
-  const mockSetState = vi.fn((partial: Record<string, unknown>) => {
-    const s = ms();
-    if (!s) return;
-    if ("selectedBeat" in partial) s.selectedBeat = partial.selectedBeat;
-    if ("selectionRange" in partial) s.selectionRange = partial.selectionRange;
-    if ("selectedNoteIndex" in partial) s.selectedNoteIndex = partial.selectedNoteIndex;
-    if ("visibleTrackIndices" in partial) s.visibleTrackIndices = partial.visibleTrackIndices;
-    if ("addTrackDialogOpen" in partial) s.addTrackDialogOpen = partial.addTrackDialogOpen;
-    Object.assign(s.storeOverrides, partial);
-  });
-  const mockSubscribe = vi.fn(() => vi.fn());
-  return {
-    usePlayerStore: Object.assign(
-      vi.fn(() => mockGetState()),
-      {
-        getState: mockGetState,
-        setState: mockSetState,
-        subscribe: mockSubscribe,
-      }
-    ),
-  };
-});
 
 // Inline factory helpers to avoid module resolution issues in hoisted mock
 const _createYMap = () => new Y.Map<unknown>();
@@ -145,7 +106,6 @@ vi.mock("@/core/engine", () => {
 import { EditorEngine } from "@/core/engine";
 import { createTrack, createStaff, Duration } from "@/core/schema";
 import { executeAction } from "@/core/actions/registry";
-import { resolveBeat, isBarEmptyAllTracks } from "@/stores/render-internals";
 import "@/core/actions/edit-score";
 import "@/core/actions/edit-bar";
 import "@/core/actions/edit-beat";
@@ -173,18 +133,6 @@ function sel(overrides: Partial<{
     string: 3 as number | null,
     ...overrides,
   };
-}
-
-function mockTabBeat(_beatSel: ReturnType<typeof sel>) {
-  const mockBeat = {
-    notes: [] as Array<{ string: number; fret: number }>,
-    duration: 4,
-    isEmpty: true,
-    isRest: false,
-    voice: { bar: { clef: 4 } },
-  };
-  (resolveBeat as ReturnType<typeof vi.fn>).mockReturnValue(mockBeat as never);
-  return mockBeat;
 }
 
 function masterBarCount(): number {
@@ -229,17 +177,6 @@ describe("compose Happy Birthday", () => {
     destroyDoc();
     initDoc();
     seedOneTrackScore(getScoreMap()!, 1, [3, 4]);
-    (isBarEmptyAllTracks as ReturnType<typeof vi.fn>).mockReturnValue(true);
-
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [{
-        staves: [{
-          showTablature: true,
-          tuning: [40, 45, 50, 55, 59, 64],
-          bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }],
-        }],
-      }],
-    }));
   });
 
   // ─── Phase 1: Set metadata ───────────────────────────────────────────────
@@ -284,7 +221,6 @@ describe("compose Happy Birthday", () => {
     for (let i = 0; i < notes.length; i++) {
       const s = sel({ barIndex: 0, beatIndex: i, string: notes[i].string });
       selectBeat(s);
-      mockTabBeat(s);
       executeAction("edit.beat.placeNote", notes[i].fret, ctx);
     }
 
@@ -369,13 +305,6 @@ describe("compose Happy Birthday", () => {
       EditorEngine.pushDefaultBar(bars);
     });
 
-    setMockApiScore(buildMockAlphaTabScore({
-      tracks: [
-        { staves: [{ showTablature: true, bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }] }] },
-        { staves: [{ showTablature: false, tuning: [], bars: [{ voices: [{ beats: [{ notes: [], isEmpty: true }] }] }] }] },
-      ],
-    }));
-
     expect(trackCount()).toBe(2);
     selectBeat(sel({ trackIndex: 0 }));
     executeAction("edit.track.delete", 0, ctx);
@@ -388,7 +317,6 @@ describe("compose Happy Birthday", () => {
   it("Phase 8: apply note properties after placing", () => {
     const s = sel({ barIndex: 0, beatIndex: 0, string: 2 });
     selectBeat(s);
-    mockTabBeat(s);
     executeAction("edit.beat.placeNote", 1, ctx);
 
     setSelectedNoteIndex(0);
@@ -434,7 +362,6 @@ describe("compose Happy Birthday", () => {
     for (let i = 0; i < bar1Notes.length; i++) {
       const s = sel({ barIndex: 0, beatIndex: i, string: bar1Notes[i].string });
       selectBeat(s);
-      mockTabBeat(s);
       executeAction("edit.beat.placeNote", bar1Notes[i].fret, ctx);
     }
 

@@ -403,6 +403,19 @@ export interface ScoreSchema {
   tracks: TrackSchema[];
 }
 
+export type ScoreMetadataField =
+  | "title"
+  | "subTitle"
+  | "artist"
+  | "album"
+  | "words"
+  | "music"
+  | "copyright"
+  | "tab"
+  | "instructions"
+  | "notices"
+  | "tempoLabel";
+
 // ─── Factory Functions (create initialized Y.Map instances) ──────────────────
 
 /** Standard guitar tuning in MIDI note numbers (E2 A2 D3 G3 B3 E4). */

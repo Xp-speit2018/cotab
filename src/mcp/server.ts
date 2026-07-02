@@ -1,8 +1,11 @@
 /**
- * MCP server — headless engine verification via stdio transport.
+ * MCP stdio adapter — headless engine access via the MCP protocol.
+ *
+ * This is not a sync authority. It is a local protocol host over the same
+ * shared editor engine used by the Web UI and CLI targets.
  *
  * Proves the editor engine runs in Node.js without DOM by:
- * 1. Importing the engine (which now lazy-loads y-webrtc)
+ * 1. Importing the engine without Web UI or WebRTC adapter code
  * 2. Loading and manipulating scores via actions
  * 3. Exporting to GP7 format
  */
@@ -15,26 +18,8 @@ import {
   type CallToolRequest,
   type ListToolsRequest,
 } from "@modelcontextprotocol/sdk/types.js";
-import { engine } from "@/core/engine";
-import "@/core/actions"; // Register all actions
-import { executeActionUnsafe } from "@/core/actions/registry";
-import { snapshotScore } from "@/core/schema";
+import { localEngineHost } from "@/adapters/local/engine-host";
 import type { SelectedBeat } from "@/core/engine";
-
-// Initialize engine on first use
-function ensureEngine(): void {
-  if (!engine.getDoc()) {
-    engine.initDoc();
-  }
-}
-
-// Build action execution context
-function buildContext() {
-  return {
-    engine,
-    selectedBeat: engine.selectedBeat,
-  };
-}
 
 // Tool definitions
 const TOOLS = [
@@ -118,22 +103,15 @@ const TOOLS = [
 
 // Tool handlers
 function handleGetScore() {
-  ensureEngine();
-  const scoreMap = engine.getScoreMap();
-  if (!scoreMap) {
-    return { content: [{ type: "text" as const, text: "No document loaded" }] };
-  }
-  const snapshot = snapshotScore(scoreMap);
+  const snapshot = localEngineHost.snapshot();
   return {
     content: [{ type: "text" as const, text: JSON.stringify(snapshot, null, 2) }],
   };
 }
 
 function handleExecuteAction(args: { id: string; args?: unknown }) {
-  ensureEngine();
-  const ctx = buildContext();
   try {
-    const result = executeActionUnsafe(args.id, args.args ?? undefined, ctx);
+    const result = localEngineHost.executeAction(args.id, args.args ?? undefined);
     return {
       content: [
         {
@@ -159,7 +137,6 @@ function handleSetSelection(args: {
   beatIndex: number;
   string?: number | null;
 }) {
-  ensureEngine();
   const selection: SelectedBeat = {
     trackIndex: args.trackIndex,
     staffIndex: args.staffIndex,
@@ -168,52 +145,42 @@ function handleSetSelection(args: {
     beatIndex: args.beatIndex,
     string: args.string ?? null,
   };
-  engine.localSetSelection(selection);
+  localEngineHost.setSelection(selection);
   return {
     content: [{ type: "text" as const, text: JSON.stringify({ success: true, selection }) }],
   };
 }
 
 function handleGetSelection() {
-  ensureEngine();
-  const selection = engine.selectedBeat;
+  const selection = localEngineHost.getSelection();
   return {
     content: [{ type: "text" as const, text: JSON.stringify({ selection }, null, 2) }],
   };
 }
 
 function handleUndo() {
-  ensureEngine();
-  const undoManager = engine.getUndoManager();
-  if (!undoManager) {
+  if (!localEngineHost.undo()) {
     return { content: [{ type: "text" as const, text: "No undo manager available" }] };
   }
-  undoManager.undo();
   return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, operation: "undo" }) }] };
 }
 
 function handleRedo() {
-  ensureEngine();
-  const undoManager = engine.getUndoManager();
-  if (!undoManager) {
+  if (!localEngineHost.redo()) {
     return { content: [{ type: "text" as const, text: "No undo manager available" }] };
   }
-  undoManager.redo();
   return { content: [{ type: "text" as const, text: JSON.stringify({ success: true, operation: "redo" }) }] };
 }
 
 function handleInitDoc() {
-  engine.initDoc();
+  localEngineHost.ensureDocument();
   return {
     content: [{ type: "text" as const, text: JSON.stringify({ success: true, operation: "initDoc" }) }],
   };
 }
 
-async function handleListActions() {
-  // Import dynamically to avoid circular issues
-  const { getAllActions } = await import("@/core/actions/registry");
-  const actions = getAllActions() as { id: string }[];
-  const ids = actions.map((a) => a.id).sort();
+function handleListActions() {
+  const ids = localEngineHost.listActionIds();
   return {
     content: [{ type: "text" as const, text: JSON.stringify({ actions: ids }, null, 2) }],
   };
@@ -239,7 +206,7 @@ async function handleToolCall(request: CallToolRequest) {
     case "init_doc":
       return handleInitDoc();
     case "list_actions":
-      return await handleListActions();
+      return handleListActions();
     default:
       return {
         content: [{ type: "text" as const, text: `Unknown tool: ${name}` }],
@@ -273,5 +240,5 @@ export async function startServer(): Promise<void> {
   await server.connect(transport);
 
   // Log to stderr so it doesn't interfere with stdio protocol
-  console.error("CoTab MCP server started on stdio");
+  console.error("CoTab MCP stdio adapter started");
 }

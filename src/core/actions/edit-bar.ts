@@ -2,12 +2,42 @@ import * as Y from "yjs";
 import { actionRegistry } from "@/core/actions/registry";
 import type { ActionDefinition } from "@/core/actions/types";
 import { debugLog } from "@/core/editor/action-log";
-import { isBarEmptyAllTracks } from "@/stores/render-internals";
 import { engine, EditorEngine } from "@/core/engine";
 import { createMasterBar } from "@/core/schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
+
+function isBarEmptyAllTracksY(yScore: Y.Map<unknown>, barIndex: number): boolean {
+  const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
+  if (!yTracks) return false;
+
+  for (let ti = 0; ti < yTracks.length; ti++) {
+    const yStaves = yTracks.get(ti).get("staves") as Y.Array<Y.Map<unknown>> | undefined;
+    if (!yStaves) continue;
+
+    for (let si = 0; si < yStaves.length; si++) {
+      const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>> | undefined;
+      const yBar = yBars?.get(barIndex);
+      if (!yBar) continue;
+
+      const yVoices = yBar.get("voices") as Y.Array<Y.Map<unknown>> | undefined;
+      if (!yVoices) continue;
+
+      for (let vi = 0; vi < yVoices.length; vi++) {
+        const yBeats = yVoices.get(vi).get("beats") as Y.Array<Y.Map<unknown>> | undefined;
+        if (!yBeats) continue;
+
+        for (let bi = 0; bi < yBeats.length; bi++) {
+          const yNotes = yBeats.get(bi).get("notes") as Y.Array<Y.Map<unknown>> | undefined;
+          if (yNotes && yNotes.length > 0) return false;
+        }
+      }
+    }
+  }
+
+  return true;
+}
 
 const insertBarBeforeAction: ActionDefinition<void> = {
   id: "edit.bar.insertBefore",
@@ -103,7 +133,7 @@ const deleteBarAction: ActionDefinition<void> = {
       return false;
     }
 
-    if (!isBarEmptyAllTracks(sel.barIndex)) {
+    if (!isBarEmptyAllTracksY(yScore, sel.barIndex)) {
       debugLog("warn", "edit.bar.delete", "blocked — bar not empty");
       return false;
     }

@@ -11,10 +11,31 @@ Copilot with [Cursor](https://cursor.com) and [Claude Code](https://claude.ai/co
 - **Framework:** React 18, Vite 6, TypeScript (strict)
 - **UI:** Tailwind CSS 4, shadcn/ui (Radix UI), Lucide React
 - **Rendering:** [@coderline/alphatab](https://github.com/CoderLine/alphaTab)
-- **State & collaboration:** Zustand, Yjs, `y-webrtc`, `y-indexeddb`
+- **State & collaboration:** Zustand, Yjs
+- **Web collaboration adapter:** `y-webrtc`, `y-indexeddb`
 - **i18n:** i18next, react-i18next
 
 Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
+
+## Architecture
+
+CoTab is currently decentralized: collaboration is CRDT-based peer-to-peer over
+Yjs, with a signaling server only used to help peers discover each other.
+`EditorEngine` in `src/core` owns the shared score model, editing actions, and
+p2p collaboration lifecycle. Host targets provide runtime-specific adapters for
+transport, persistence, rendering, and protocol surfaces. These targets should
+not become sync authorities.
+
+Current target boundaries:
+
+- `src/core` is the shared logical engine.
+- `src/adapters/web` contains browser/WebView collaboration wiring such as
+  WebRTC signaling and IndexedDB persistence.
+- Desktop is a Tauri shell over the Web build, so it uses the Web target
+  boundary unless a future native Tauri adapter is added.
+- `src/adapters/local` is the local headless engine host used by the CLI and MCP
+  stdio targets.
+- `src/cli` and `src/mcp` are command/protocol surfaces over the local adapter.
 
 ## What’s done
 
@@ -33,7 +54,8 @@ Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
 
 ## Roadmap
 
-- [ ] **Agentic score editing** — Expose score editing functions (add/delete tracks, bars, notes, metadata, etc.) as an MCP server, or skills, so AI agents and external tools can drive the editor programmatically.
+- [ ] **Server-Assisted Sync** - Optional future mode for NAT-hostile networks. This may add a websocket-backed room with server authority, but the current architecture remains p2p CRDT.
+- [ ] **Agentic score editing** — Expose score editing functions (add/delete tracks, bars, notes, metadata, etc.) through an MCP stdio adapter or skills, so AI agents and external tools can drive the editor programmatically without becoming sync authorities.
 - [ ] **UI/UX improvements and unification** — Polish, consistency, and accessibility.
 - [ ] **Cloud storage support** — Optional sync/storage in the cloud.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.
@@ -45,10 +67,20 @@ Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
 npm install
 npm run dev      # Development server
 npm run build    # Production build
+npm run desktop:build # Tauri desktop shell over the Web build
 npm run preview  # Serve production build
 ```
 
 Signaling server (for p2p): see `server/README.md`.
+
+## Target Verification
+
+```bash
+npm run typecheck:targets  # core, adapters, CLI, MCP
+npm run typecheck:adapters # local headless + Web/WebView adapters
+npm run verify:targets     # target typechecks, tests, Web/Tauri build
+npm run cotab:cli -- list-actions
+```
 
 ## Disclaimer
 

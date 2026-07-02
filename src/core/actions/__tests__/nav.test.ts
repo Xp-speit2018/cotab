@@ -82,33 +82,29 @@ vi.mock("@/core/engine", () => {
   return { engine: engineObj };
 });
 
-// Mock the render-store for computeNextStaff/computePrevStaff
-vi.mock("@/stores/render-store", () => ({
-  usePlayerStore: {
-    getState: vi.fn(() => ({
-      visibleTrackIndices: [0],
-    })),
-  },
-}));
-
-// Mock the snap-grid for getNavigablePositions
 const mockGetNavigablePositions = vi.fn((_trackIndex: number, _staffIndex: number) => null as number[] | null);
-vi.mock("@/stores/snap-grid", () => ({
-  getNavigablePositions: (...args: [number, number]) => mockGetNavigablePositions(...args),
-}));
 
 import { executeAction } from "@/core/actions/registry";
 import {
+  computeMoveDown as computeCoreMoveDown,
+  computeMoveUp as computeCoreMoveUp,
   computeNextBeat,
-  computePrevBeat,
-  computeMoveUp,
-  computeMoveDown,
   computeNextBar,
-  computePrevBar,
   computeNextStaff,
+  computePrevBar,
+  computePrevBeat,
   computePrevStaff,
-} from "@/components/navigation/navigation-helpers";
+} from "@/core/navigation";
+import type { SelectedBeat } from "@/core/engine";
 import "@/core/actions/navigation";
+
+function computeMoveUp(current: SelectedBeat): SelectedBeat | null {
+  return computeCoreMoveUp(current, { getNavigablePositions: mockGetNavigablePositions });
+}
+
+function computeMoveDown(current: SelectedBeat): SelectedBeat | null {
+  return computeCoreMoveDown(current, { getNavigablePositions: mockGetNavigablePositions });
+}
 
 const defaultSel = {
   trackIndex: 0,

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * CoTab MCP Server CLI Entry Point
+ * CoTab MCP stdio adapter entry point.
  *
  * Usage: tsx src/mcp/cli.ts
  * Or after build: node dist/mcp/cli.js
  */
 
-import { startServer } from "./server";
+import { startServer } from "./server.js";
 
-startServer().catch((error) => {
-  console.error("Fatal error starting MCP server:", error);
+startServer().catch((error: unknown) => {
+  console.error("Fatal error starting MCP stdio adapter:", error);
   process.exit(1);
 });

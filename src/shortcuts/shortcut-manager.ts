@@ -103,8 +103,33 @@ function handleKeyDown(e: KeyboardEvent): void {
 
     case "navigate": {
       cancelDigitInput();
-      const current = engine.selectedBeat;
-      if (!current) return;
+      const {
+        trackIndex,
+        staffIndex,
+        voiceIndex,
+        barIndex,
+        beatIndex,
+        string,
+        beatUuid,
+      } = engine.selector;
+      if (
+        trackIndex === null ||
+        staffIndex === null ||
+        voiceIndex === null ||
+        barIndex === null ||
+        beatIndex === null
+      ) {
+        return;
+      }
+      const current = {
+        trackIndex,
+        staffIndex,
+        voiceIndex,
+        barIndex,
+        beatIndex,
+        string,
+        ...(beatUuid ? { beatUuid } : {}),
+      };
 
       const target = computeNavigationTarget(behavior.direction, current);
       if (target) {

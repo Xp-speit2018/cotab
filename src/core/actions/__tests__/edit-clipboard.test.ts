@@ -27,6 +27,7 @@ vi.mock("@/core/engine", () => {
   const ms = () => (globalThis as Record<string, unknown>).__testMockState as Record<string, unknown> | undefined;
   return {
     engine: {
+      get selector() { return ms()?.selector; },
       get selectedBeat() { return ms()?.selectedBeat ?? null; },
       get selectedNoteIndex() { return (ms()?.selectedNoteIndex as number) ?? -1; },
       get selectionRange() { return ms()?.selectionRange ?? null; },

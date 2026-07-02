@@ -51,6 +51,7 @@ vi.mock("@/core/engine", () => {
   };
   return {
     engine: {
+      get selector() { return ms()?.selector; },
       get selectedBeat() { return ms()?.selectedBeat ?? null; },
       get selectedNoteIndex() { return (ms()?.selectedNoteIndex as number) ?? -1; },
       get selectionRange() { return ms()?.selectionRange ?? null; },

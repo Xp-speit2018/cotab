@@ -65,12 +65,64 @@ export function createLocalEngineHost(): LocalEngineHost {
     setSelection(selection: SelectedBeat): SelectedBeat | null {
       ensureDocument();
       engine.localSetSelection(selection);
-      return engine.selectedBeat;
+      const {
+        trackIndex,
+        staffIndex,
+        voiceIndex,
+        barIndex,
+        beatIndex,
+        string,
+        beatUuid,
+      } = engine.selector;
+      if (
+        trackIndex === null ||
+        staffIndex === null ||
+        voiceIndex === null ||
+        barIndex === null ||
+        beatIndex === null
+      ) {
+        return null;
+      }
+      return {
+        trackIndex,
+        staffIndex,
+        voiceIndex,
+        barIndex,
+        beatIndex,
+        string,
+        ...(beatUuid ? { beatUuid } : {}),
+      };
     },
 
     getSelection(): SelectedBeat | null {
       ensureDocument();
-      return engine.selectedBeat;
+      const {
+        trackIndex,
+        staffIndex,
+        voiceIndex,
+        barIndex,
+        beatIndex,
+        string,
+        beatUuid,
+      } = engine.selector;
+      if (
+        trackIndex === null ||
+        staffIndex === null ||
+        voiceIndex === null ||
+        barIndex === null ||
+        beatIndex === null
+      ) {
+        return null;
+      }
+      return {
+        trackIndex,
+        staffIndex,
+        voiceIndex,
+        barIndex,
+        beatIndex,
+        string,
+        ...(beatUuid ? { beatUuid } : {}),
+      };
     },
 
     undo(): boolean {

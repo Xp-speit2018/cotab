@@ -233,9 +233,7 @@ export interface BeatPositionArgs {
   string?: number | null;
 }
 
-export interface RenderSelectorState extends SelectorState {
-  selectedString: number | null;
-}
+export type RenderSelectorState = SelectorState;
 
 export interface RenderTransportState extends TransportState {
   playerState: PlaybackState;

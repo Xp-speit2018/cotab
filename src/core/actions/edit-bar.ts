@@ -44,8 +44,8 @@ const insertBarBeforeAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.bar.insertBefore",
   category: "edit.bar",
   execute: (_args, _context) => {
-    const sel = engine.selectedBeat;
-    if (!sel) {
+    const { barIndex } = engine.selector;
+    if (barIndex === null) {
       debugLog("warn", "edit.bar.insertBefore", "no selection");
       return;
     }
@@ -53,22 +53,22 @@ const insertBarBeforeAction: ActionDefinition<void> = {
     if (!yScore) return;
 
     const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
-    const refIndex = Math.min(sel.barIndex, yMasterBars.length - 1);
+    const refIndex = Math.min(barIndex, yMasterBars.length - 1);
     const refMb = yMasterBars.get(refIndex);
     const num = (refMb.get("timeSignatureNumerator") as number) ?? 4;
     const den = (refMb.get("timeSignatureDenominator") as number) ?? 4;
 
     transact(() => {
-      yMasterBars.insert(sel.barIndex, [createMasterBar(num, den)]);
+      yMasterBars.insert(barIndex, [createMasterBar(num, den)]);
 
       const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
       for (let ti = 0; ti < yTracks.length; ti++) {
         const yStaves = yTracks.get(ti).get("staves") as Y.Array<Y.Map<unknown>>;
         for (let si = 0; si < yStaves.length; si++) {
           const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
-          const refBarIdx = Math.min(sel.barIndex, yBars.length - 1);
+          const refBarIdx = Math.min(barIndex, yBars.length - 1);
           const clef = (yBars.get(refBarIdx).get("clef") as number) ?? 4;
-          EditorEngine.pushDefaultBar(yBars, sel.barIndex, clef);
+          EditorEngine.pushDefaultBar(yBars, barIndex, clef);
         }
       }
     });
@@ -82,8 +82,8 @@ const insertBarAfterAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.bar.insertAfter",
   category: "edit.bar",
   execute: (_args, _context) => {
-    const sel = engine.selectedBeat;
-    if (!sel) {
+    const { barIndex } = engine.selector;
+    if (barIndex === null) {
       debugLog("warn", "edit.bar.insertAfter", "no selection");
       return;
     }
@@ -91,10 +91,10 @@ const insertBarAfterAction: ActionDefinition<void> = {
     if (!yScore) return;
 
     const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
-    const refMb = yMasterBars.get(sel.barIndex);
+    const refMb = yMasterBars.get(barIndex);
     const num = (refMb.get("timeSignatureNumerator") as number) ?? 4;
     const den = (refMb.get("timeSignatureDenominator") as number) ?? 4;
-    const insertIdx = sel.barIndex + 1;
+    const insertIdx = barIndex + 1;
 
     transact(() => {
       yMasterBars.insert(insertIdx, [createMasterBar(num, den)]);
@@ -104,7 +104,7 @@ const insertBarAfterAction: ActionDefinition<void> = {
         const yStaves = yTracks.get(ti).get("staves") as Y.Array<Y.Map<unknown>>;
         for (let si = 0; si < yStaves.length; si++) {
           const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
-          const clef = (yBars.get(sel.barIndex).get("clef") as number) ?? 4;
+          const clef = (yBars.get(barIndex).get("clef") as number) ?? 4;
           EditorEngine.pushDefaultBar(yBars, insertIdx, clef);
         }
       }
@@ -119,8 +119,8 @@ const deleteBarAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.bar.delete",
   category: "edit.bar",
   execute: (_args, _context): boolean => {
-    const sel = engine.selectedBeat;
-    if (!sel) {
+    const { barIndex } = engine.selector;
+    if (barIndex === null) {
       debugLog("warn", "edit.bar.delete", "no selection");
       return false;
     }
@@ -133,20 +133,20 @@ const deleteBarAction: ActionDefinition<void> = {
       return false;
     }
 
-    if (!isBarEmptyAllTracksY(yScore, sel.barIndex)) {
+    if (!isBarEmptyAllTracksY(yScore, barIndex)) {
       debugLog("warn", "edit.bar.delete", "blocked — bar not empty");
       return false;
     }
 
     transact(() => {
-      yMasterBars.delete(sel.barIndex, 1);
+      yMasterBars.delete(barIndex, 1);
 
       const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
       for (let ti = 0; ti < yTracks.length; ti++) {
         const yStaves = yTracks.get(ti).get("staves") as Y.Array<Y.Map<unknown>>;
         for (let si = 0; si < yStaves.length; si++) {
           const yBars = yStaves.get(si).get("bars") as Y.Array<Y.Map<unknown>>;
-          yBars.delete(sel.barIndex, 1);
+          yBars.delete(barIndex, 1);
         }
       }
     });

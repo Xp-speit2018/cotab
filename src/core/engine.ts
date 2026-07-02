@@ -84,9 +84,14 @@ export interface SelectorState {
   voice: unknown | null;
   beat: unknown | null;
   note: unknown | null;
-  selectedBeat: SelectedBeat | null;
-  selectedBeatUuid: string | null;
-  selectedNoteIndex: number;
+  trackIndex: number | null;
+  staffIndex: number | null;
+  voiceIndex: number | null;
+  barIndex: number | null;
+  beatIndex: number | null;
+  string: number | null;
+  beatUuid: string | null;
+  noteIndex: number;
   selectionRange: SelectionRange | null;
 }
 
@@ -117,9 +122,14 @@ function createEmptySelectorState(): SelectorState {
     voice: null,
     beat: null,
     note: null,
-    selectedBeat: null,
-    selectedBeatUuid: null,
-    selectedNoteIndex: -1,
+    trackIndex: null,
+    staffIndex: null,
+    voiceIndex: null,
+    barIndex: null,
+    beatIndex: null,
+    string: null,
+    beatUuid: null,
+    noteIndex: -1,
     selectionRange: null,
   };
 }
@@ -222,10 +232,6 @@ export class EditorEngine {
   selector: SelectorState = createEmptySelectorState();
   transport: TransportState = createEmptyTransportState();
 
-  selectedBeat: SelectedBeat | null = null;
-  selectedBeatUuid: string | null = null; // Stable UUID for selection persistence
-  selectedNoteIndex: number = -1;
-  selectionRange: SelectionRange | null = null;
   pendingSelection: PendingSelection | null = null; // Post-mutation selection hint
   connected: boolean = false;
   roomCode: string | null = null;
@@ -259,28 +265,36 @@ export class EditorEngine {
     selectedNoteIndex: number = -1,
     pointers: Partial<SelectorPointers> = {},
   ): void {
-    const sameSelection = this.selectedBeat && selectionsEqual(this.selectedBeat, sel);
+    const sameSelection =
+      this.selector.trackIndex === sel.trackIndex &&
+      this.selector.staffIndex === sel.staffIndex &&
+      this.selector.voiceIndex === sel.voiceIndex &&
+      this.selector.barIndex === sel.barIndex &&
+      this.selector.beatIndex === sel.beatIndex &&
+      this.selector.string === sel.string;
     // Skip if same value (prevent circular notifications)
     if (
       sameSelection &&
-      this.selectedNoteIndex === selectedNoteIndex &&
+      this.selector.noteIndex === selectedNoteIndex &&
       Object.keys(pointers).length === 0
     ) {
       return;
     }
-    this.selectedBeat = sel;
     // Store UUID for stable lookup across re-renders
     const yBeat = this.resolveYBeat(sel.trackIndex, sel.staffIndex, sel.barIndex, sel.voiceIndex, sel.beatIndex);
-    this.selectedBeatUuid = yBeat?.get("uuid") as string ?? null;
-    this.selectedNoteIndex = selectedNoteIndex;
-    this.selectionRange = null;
+    const beatUuid = yBeat?.get("uuid") as string ?? null;
     this.selector = {
       ...this.selector,
       ...createEmptySelectorPointers(),
       ...pointers,
-      selectedBeat: sel,
-      selectedBeatUuid: this.selectedBeatUuid,
-      selectedNoteIndex,
+      trackIndex: sel.trackIndex,
+      staffIndex: sel.staffIndex,
+      voiceIndex: sel.voiceIndex,
+      barIndex: sel.barIndex,
+      beatIndex: sel.beatIndex,
+      string: sel.string,
+      beatUuid,
+      noteIndex: selectedNoteIndex,
       selectionRange: null,
     };
     this._hookRegistry.emitSelector("onLocalSelectorChange", this.selector);
@@ -298,7 +312,6 @@ export class EditorEngine {
   }
 
   localSetSelectionRange(range: SelectionRange | null): void {
-    this.selectionRange = range;
     this.selector = {
       ...this.selector,
       selectionRange: range,
@@ -308,10 +321,6 @@ export class EditorEngine {
 
   localClearSelection(): void {
     this.selector = createEmptySelectorState();
-    this.selectedBeat = null;
-    this.selectedBeatUuid = null;
-    this.selectedNoteIndex = -1;
-    this.selectionRange = null;
     this._hookRegistry.emitSelector("onLocalSelectorChange", this.selector);
   }
 
@@ -534,7 +543,7 @@ export class EditorEngine {
               const yBeat = yBeats.get(beatIndex);
               if ((yBeat.get("uuid") as string) === beatUuid) {
                 // Preserve string from current selection if available
-                const currentString = this.selectedBeat?.string ?? null;
+                const currentString = this.selector.string;
                 return {
                   trackIndex,
                   staffIndex,

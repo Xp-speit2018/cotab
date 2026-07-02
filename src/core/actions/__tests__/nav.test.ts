@@ -60,8 +60,27 @@ vi.mock("@/core/engine", () => {
         string,
         unknown
       >;
-      if (ms) ms.selectedBeat = sel;
+      if (ms) {
+        ms.selectedBeat = sel;
+        ms.selector = {
+          ...(ms.selector as Record<string, unknown>),
+          trackIndex: sel.trackIndex,
+          staffIndex: sel.staffIndex,
+          voiceIndex: sel.voiceIndex,
+          barIndex: sel.barIndex,
+          beatIndex: sel.beatIndex,
+          string: sel.string,
+          beatUuid: (sel.beatUuid as string | undefined) ?? null,
+        };
+      }
     }),
+    get selector() {
+      const ms = (globalThis as Record<string, unknown>).__testMockState as Record<
+        string,
+        unknown
+      >;
+      return ms?.selector;
+    },
     // Getter for selectedBeat that reads from mock state
     get selectedBeat() {
       const ms = (globalThis as Record<string, unknown>).__testMockState as Record<

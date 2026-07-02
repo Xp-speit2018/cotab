@@ -192,9 +192,14 @@ function createMockSelectorState(): SelectorState {
     voice: null,
     beat: null,
     note: null,
-    selectedBeat: null,
-    selectedBeatUuid: null,
-    selectedNoteIndex: -1,
+    trackIndex: null,
+    staffIndex: null,
+    voiceIndex: null,
+    barIndex: null,
+    beatIndex: null,
+    string: null,
+    beatUuid: null,
+    noteIndex: -1,
     selectionRange: null,
   };
 }
@@ -341,9 +346,24 @@ vi.mock("@/stores/editor-store", () => {
         if (!s) return;
         if ("selector" in partial) {
           s.selector = partial.selector as SelectorState;
-          s.selectedBeat = s.selector.selectedBeat;
+          s.selectedBeat =
+            s.selector.trackIndex !== null &&
+            s.selector.staffIndex !== null &&
+            s.selector.voiceIndex !== null &&
+            s.selector.barIndex !== null &&
+            s.selector.beatIndex !== null
+              ? {
+                  trackIndex: s.selector.trackIndex,
+                  staffIndex: s.selector.staffIndex,
+                  voiceIndex: s.selector.voiceIndex,
+                  barIndex: s.selector.barIndex,
+                  beatIndex: s.selector.beatIndex,
+                  string: s.selector.string,
+                  ...(s.selector.beatUuid ? { beatUuid: s.selector.beatUuid } : {}),
+                }
+              : null;
           s.selectionRange = s.selector.selectionRange;
-          s.selectedNoteIndex = s.selector.selectedNoteIndex;
+          s.selectedNoteIndex = s.selector.noteIndex;
         }
         if ("transport" in partial) {
           s.transport = {
@@ -353,7 +373,16 @@ vi.mock("@/stores/editor-store", () => {
         }
         if ("selectedBeat" in partial) {
           s.selectedBeat = partial.selectedBeat as SelectedBeat | null;
-          s.selector = { ...s.selector, selectedBeat: s.selectedBeat };
+          s.selector = {
+            ...s.selector,
+            trackIndex: s.selectedBeat?.trackIndex ?? null,
+            staffIndex: s.selectedBeat?.staffIndex ?? null,
+            voiceIndex: s.selectedBeat?.voiceIndex ?? null,
+            barIndex: s.selectedBeat?.barIndex ?? null,
+            beatIndex: s.selectedBeat?.beatIndex ?? null,
+            string: s.selectedBeat?.string ?? null,
+            beatUuid: s.selectedBeat?.beatUuid ?? null,
+          };
         }
         if ("selectionRange" in partial) {
           s.selectionRange = partial.selectionRange as SelectionRange | null;
@@ -361,7 +390,7 @@ vi.mock("@/stores/editor-store", () => {
         }
         if ("selectedNoteIndex" in partial) {
           s.selectedNoteIndex = partial.selectedNoteIndex as number;
-          s.selector = { ...s.selector, selectedNoteIndex: s.selectedNoteIndex };
+          s.selector = { ...s.selector, noteIndex: s.selectedNoteIndex };
         }
       }),
       subscribe: vi.fn(() => vi.fn()),
@@ -375,9 +404,24 @@ vi.mock("@/stores/render-store", () => {
     const s = ms();
     if ("selector" in partial) {
       s.selector = partial.selector as SelectorState;
-      s.selectedBeat = s.selector.selectedBeat;
+      s.selectedBeat =
+        s.selector.trackIndex !== null &&
+        s.selector.staffIndex !== null &&
+        s.selector.voiceIndex !== null &&
+        s.selector.barIndex !== null &&
+        s.selector.beatIndex !== null
+          ? {
+              trackIndex: s.selector.trackIndex,
+              staffIndex: s.selector.staffIndex,
+              voiceIndex: s.selector.voiceIndex,
+              barIndex: s.selector.barIndex,
+              beatIndex: s.selector.beatIndex,
+              string: s.selector.string,
+              ...(s.selector.beatUuid ? { beatUuid: s.selector.beatUuid } : {}),
+            }
+          : null;
       s.selectionRange = s.selector.selectionRange;
-      s.selectedNoteIndex = s.selector.selectedNoteIndex;
+      s.selectedNoteIndex = s.selector.noteIndex;
     }
     if ("transport" in partial) {
       s.transport = {
@@ -387,7 +431,16 @@ vi.mock("@/stores/render-store", () => {
     }
     if ("selectedBeat" in partial) {
       s.selectedBeat = partial.selectedBeat as SelectedBeat | null;
-      s.selector = { ...s.selector, selectedBeat: s.selectedBeat };
+      s.selector = {
+        ...s.selector,
+        trackIndex: s.selectedBeat?.trackIndex ?? null,
+        staffIndex: s.selectedBeat?.staffIndex ?? null,
+        voiceIndex: s.selectedBeat?.voiceIndex ?? null,
+        barIndex: s.selectedBeat?.barIndex ?? null,
+        beatIndex: s.selectedBeat?.beatIndex ?? null,
+        string: s.selectedBeat?.string ?? null,
+        beatUuid: s.selectedBeat?.beatUuid ?? null,
+      };
     }
     if ("selectionRange" in partial) {
       s.selectionRange = partial.selectionRange as SelectionRange | null;
@@ -395,7 +448,7 @@ vi.mock("@/stores/render-store", () => {
     }
     if ("selectedNoteIndex" in partial) {
       s.selectedNoteIndex = partial.selectedNoteIndex as number;
-      s.selector = { ...s.selector, selectedNoteIndex: s.selectedNoteIndex };
+      s.selector = { ...s.selector, noteIndex: s.selectedNoteIndex };
     }
     if ("visibleTrackIndices" in partial) s.visibleTrackIndices = partial.visibleTrackIndices as number[];
     if ("addTrackDialogOpen" in partial) s.addTrackDialogOpen = partial.addTrackDialogOpen as boolean;
@@ -554,7 +607,13 @@ export function selectBeat(sel: SelectedBeat | null): void {
   _mockState.selectedBeat = sel;
   _mockState.selector = {
     ..._mockState.selector,
-    selectedBeat: sel,
+    trackIndex: sel?.trackIndex ?? null,
+    staffIndex: sel?.staffIndex ?? null,
+    voiceIndex: sel?.voiceIndex ?? null,
+    barIndex: sel?.barIndex ?? null,
+    beatIndex: sel?.beatIndex ?? null,
+    string: sel?.string ?? null,
+    beatUuid: sel?.beatUuid ?? null,
   };
 }
 
@@ -570,7 +629,7 @@ export function setSelectedNoteIndex(idx: number): void {
   _mockState.selectedNoteIndex = idx;
   _mockState.selector = {
     ..._mockState.selector,
-    selectedNoteIndex: idx,
+    noteIndex: idx,
   };
 }
 

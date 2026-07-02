@@ -90,8 +90,8 @@ describe("Headless Engine", () => {
 
     engine.localSetSelection(selection);
 
-    expect(engine.selectedBeat).toEqual(selection);
-    expect(engine.selectedBeatUuid).toBeDefined();
+    expect(engine.selector).toMatchObject(selection);
+    expect(engine.selector.beatUuid).toBeDefined();
   });
 
   it("should list all registered actions", async () => {

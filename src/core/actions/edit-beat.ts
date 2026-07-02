@@ -88,11 +88,18 @@ function getPercussionArticulation(staffLine: number): number {
 }
 
 function applyBeatUpdates(updates: Record<string, unknown>): void {
-  const sel = engine.selectedBeat;
-  if (!sel) {
+  const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
+  if (
+    trackIndex === null ||
+    staffIndex === null ||
+    barIndex === null ||
+    voiceIndex === null ||
+    beatIndex === null
+  ) {
     debugLog("debug", "edit.beat.applyBeatUpdates", "no selection", { updates });
     return;
   }
+  const sel: SelectedBeat = { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
   const yBeat = engine.resolveYBeat(
     sel.trackIndex,
     sel.staffIndex,
@@ -117,8 +124,16 @@ const placeNoteAction: ActionDefinition<number | void> = {
   category: "edit.beat",
   params: [{ name: "targetValue", type: "number", i18nKey: "actions.edit.beat.placeNote.params.targetValue" }],
   execute: (targetValue, _context) => {
-    const sel = engine.selectedBeat;
-    if (!sel || sel.string === null) return;
+    const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null ||
+      string === null
+    ) return;
+    const sel: SelectedBeat = { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
 
     const staffMode = getStaffMode(sel);
     if (!staffMode) return;
@@ -136,7 +151,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
 
     if (staffMode.isPercussion) {
       const yNote = createNote(-1, -1);
-      yNote.set("percussionArticulation", getPercussionArticulation(sel.string));
+      yNote.set("percussionArticulation", getPercussionArticulation(string));
 
       transact(() => {
         yNotes.push([yNote]);
@@ -162,7 +177,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
         yBeat.set("isEmpty", false);
       }, pendingSel);
     } else {
-      const position = typeof targetValue === "number" ? targetValue : sel.string;
+      const position = typeof targetValue === "number" ? targetValue : string;
       const clef = getClef(sel);
       const pitch = snapPositionToPitch(clef, position);
 
@@ -195,8 +210,15 @@ const deleteNoteAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.beat.deleteNote",
   category: "edit.beat",
   execute: (_args, _context): boolean => {
-    const sel = engine.selectedBeat;
-    if (!sel) return false;
+    const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null
+    ) return false;
+    const sel: SelectedBeat = { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
 
     const yVoice = engine.resolveYVoice(
       sel.trackIndex,
@@ -215,7 +237,7 @@ const deleteNoteAction: ActionDefinition<void> = {
 
     const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
-    const noteIdx = engine.selectedNoteIndex;
+    const noteIdx = engine.selector.noteIndex;
 
     if (yNotes.length === 0 || ((yBeat.get("isRest") as boolean) ?? false)) {
       if (yBeats.length <= 1) return false;
@@ -273,8 +295,15 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
   category: "edit.beat",
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestBefore.params.duration" }],
   execute: (duration, _context) => {
-    const sel = engine.selectedBeat;
-    if (!sel) return;
+    const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null
+    ) return;
+    const sel: SelectedBeat = { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
 
     const yBeat = engine.resolveYBeat(
       sel.trackIndex,
@@ -310,8 +339,15 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
   category: "edit.beat",
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestAfter.params.duration" }],
   execute: (duration, _context) => {
-    const sel = engine.selectedBeat;
-    if (!sel) return;
+    const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null
+    ) return;
+    const sel: SelectedBeat = { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
 
     const yBeat = engine.resolveYBeat(
       sel.trackIndex,
@@ -356,8 +392,15 @@ const setRestAction: ActionDefinition<boolean> = {
   category: "edit.beat",
   params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setRest.params.value" }],
   execute: (value, _context) => {
-    const sel = engine.selectedBeat;
-    if (!sel) return;
+    const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null
+    ) return;
+    const sel: SelectedBeat = { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
 
     const yBeat = engine.resolveYBeat(
       sel.trackIndex,
@@ -568,8 +611,15 @@ const toggleBeatIsEmptyAction: ActionDefinition<void> = {
   i18nKey: "actions.edit.beat.toggleEmpty",
   category: "edit.beat",
   execute: (_args, _context) => {
-    const sel = engine.selectedBeat;
-    if (!sel) return;
+    const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null
+    ) return;
+    const sel: SelectedBeat = { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
 
     const yBeat = engine.resolveYBeat(
       sel.trackIndex,

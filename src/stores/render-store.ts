@@ -244,11 +244,15 @@ function createRenderSelectorState(): RenderSelectorState {
     voice: null,
     beat: null,
     note: null,
-    selectedBeat: null,
-    selectedBeatUuid: null,
-    selectedNoteIndex: -1,
+    trackIndex: null,
+    staffIndex: null,
+    voiceIndex: null,
+    barIndex: null,
+    beatIndex: null,
+    string: null,
+    beatUuid: null,
+    noteIndex: -1,
     selectionRange: null,
-    selectedString: null,
   };
 }
 
@@ -745,7 +749,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       engine.localSetSelectionRange(range);
       useEditorStore.setState({
         selector: engine.selector,
-        selectionRange: range,
       });
       set((state) => ({
         selectionRange: range,
@@ -773,7 +776,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           engine.localSetSelectionRange(null);
           useEditorStore.setState({
             selector: engine.selector,
-            selectionRange: null,
           });
           set((state) => ({
             selectionRange: null,
@@ -819,7 +821,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       engine.localSetSelectionRange(null);
       useEditorStore.setState({
         selector: engine.selector,
-        selectionRange: null,
       });
       set((state) => ({
         selectionRange: null,
@@ -1085,9 +1086,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     useEditorStore.setState({
       selector: engine.selector,
       transport: engine.transport,
-      selectedBeat: null,
-      selectedNoteIndex: -1,
-      selectionRange: null,
     });
     set({
       isLoading: false,
@@ -1184,8 +1182,34 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setTransportPlayheadToSelection: () => {
-    const selectorBeat = get().selector.selectedBeat ?? get().selectedBeat;
-    get().setTransportPlayhead(selectorBeat);
+    const {
+      trackIndex,
+      staffIndex,
+      voiceIndex,
+      barIndex,
+      beatIndex,
+      string,
+      beatUuid,
+    } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      voiceIndex === null ||
+      barIndex === null ||
+      beatIndex === null
+    ) {
+      get().setTransportPlayhead(null);
+      return;
+    }
+    get().setTransportPlayhead({
+      trackIndex,
+      staffIndex,
+      voiceIndex,
+      barIndex,
+      beatIndex,
+      string,
+      ...(beatUuid ? { beatUuid } : {}),
+    });
   },
 
   setPlaybackSpeed: (speed) => {
@@ -1439,14 +1463,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       }
       const nextSelectionRange = getDragState() === null
         ? null
-        : get().selectionRange;
+        : get().selector.selectionRange;
       const nextSelector: RenderSelectorState = {
         ...selectorPointers,
-        selectedBeat: newBeat,
-        selectedBeatUuid: engine.selectedBeatUuid,
-        selectedNoteIndex: resolvedNoteIndex,
+        trackIndex,
+        staffIndex,
+        voiceIndex,
+        barIndex,
+        beatIndex,
+        string: selectedStr,
+        beatUuid: engine.selector.beatUuid,
+        noteIndex: resolvedNoteIndex,
         selectionRange: nextSelectionRange,
-        selectedString: selectedStr,
       };
 
       // Write base selection to headless editor-store
@@ -1458,14 +1486,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           voice: nextSelector.voice,
           beat: nextSelector.beat,
           note: nextSelector.note,
-          selectedBeat: nextSelector.selectedBeat,
-          selectedBeatUuid: nextSelector.selectedBeatUuid,
-          selectedNoteIndex: nextSelector.selectedNoteIndex,
+          trackIndex: nextSelector.trackIndex,
+          staffIndex: nextSelector.staffIndex,
+          voiceIndex: nextSelector.voiceIndex,
+          barIndex: nextSelector.barIndex,
+          beatIndex: nextSelector.beatIndex,
+          string: nextSelector.string,
+          beatUuid: nextSelector.beatUuid,
+          noteIndex: nextSelector.noteIndex,
           selectionRange: nextSelector.selectionRange,
         },
-        selectedBeat: newBeat,
-        selectedNoteIndex: resolvedNoteIndex,
-        ...(getDragState() === null ? { selectionRange: null } : {}),
       });
 
       set({
@@ -1497,9 +1527,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     engine.localClearSelection();
     useEditorStore.setState({
       selector: engine.selector,
-      selectedBeat: null,
-      selectedNoteIndex: -1,
-      selectionRange: null,
     });
     set({
       selector: createRenderSelectorState(),
@@ -1523,7 +1550,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     engine.localSetSelectionRange(null);
     useEditorStore.setState({
       selector: engine.selector,
-      selectionRange: null,
     });
     set((state) => ({
       selectionRange: null,

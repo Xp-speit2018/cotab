@@ -8,28 +8,45 @@ import { createNote } from "@/core/schema";
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
 function applyNoteUpdates(updates: Record<string, unknown>): void {
-  const sel = engine.selectedBeat;
-  const noteIndex = engine.selectedNoteIndex;
-  if (!sel || noteIndex < 0) {
+  const {
+    trackIndex,
+    staffIndex,
+    barIndex,
+    voiceIndex,
+    beatIndex,
+    noteIndex,
+  } = engine.selector;
+  if (
+    trackIndex === null ||
+    staffIndex === null ||
+    barIndex === null ||
+    voiceIndex === null ||
+    beatIndex === null ||
+    noteIndex < 0
+  ) {
     debugLog("debug", "edit.note.applyNoteUpdates", "no selection or note index", {
       updates,
-      hasSelection: !!sel,
+      hasSelection: trackIndex !== null && staffIndex !== null && barIndex !== null && voiceIndex !== null && beatIndex !== null,
       noteIndex,
     });
     return;
   }
   const yNote = engine.resolveYNote(
-    sel.trackIndex,
-    sel.staffIndex,
-    sel.barIndex,
-    sel.voiceIndex,
-    sel.beatIndex,
+    trackIndex,
+    staffIndex,
+    barIndex,
+    voiceIndex,
+    beatIndex,
     noteIndex,
   );
   if (!yNote) {
     debugLog("debug", "edit.note.applyNoteUpdates", "no Y.Note resolved", {
       updates,
-      sel,
+      trackIndex,
+      staffIndex,
+      barIndex,
+      voiceIndex,
+      beatIndex,
       noteIndex,
     });
     return;
@@ -210,18 +227,24 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
   category: "edit.beat",
   params: [{ name: "gp7Id", type: "number", i18nKey: "actions.edit.beat.togglePercussionArticulation.params.gp7Id" }],
   execute: (gp7Id, _context) => {
-    const sel = engine.selectedBeat;
-    if (!sel) return;
+    const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null
+    ) return;
 
-    const yStaff = engine.resolveYStaff(sel.trackIndex, sel.staffIndex);
+    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!((yStaff?.get("isPercussion") as boolean | undefined) ?? false)) return;
 
     const yBeat = engine.resolveYBeat(
-      sel.trackIndex,
-      sel.staffIndex,
-      sel.barIndex,
-      sel.voiceIndex,
-      sel.beatIndex,
+      trackIndex,
+      staffIndex,
+      barIndex,
+      voiceIndex,
+      beatIndex,
     );
     if (!yBeat) return;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;

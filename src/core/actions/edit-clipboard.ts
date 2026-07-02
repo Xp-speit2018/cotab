@@ -136,30 +136,35 @@ function summariseBar(beats: BeatSchema[]): { beats: number; notes: number } {
  * Returns true if successful.
  */
 function copyToBuffer(): boolean {
-  const sel = engine.selectedBeat;
-  if (!sel) {
+  const { trackIndex, staffIndex, barIndex, voiceIndex } = engine.selector;
+  if (
+    trackIndex === null ||
+    staffIndex === null ||
+    barIndex === null ||
+    voiceIndex === null
+  ) {
     debugLog("debug", "edit.clipboard", "copy: no selection");
     return false;
   }
 
-  const yTrack = engine.resolveYTrack(sel.trackIndex);
-  const yStaff = engine.resolveYStaff(sel.trackIndex, sel.staffIndex);
+  const yTrack = engine.resolveYTrack(trackIndex);
+  const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
   if (!yTrack || !yStaff) {
     debugLog("debug", "edit.clipboard", "copy: no Y.Track/Staff resolved");
     return false;
   }
 
-  const range = engine.selectionRange;
-  const startBar = range ? range.startBarIndex : sel.barIndex;
-  const endBar = range ? range.endBarIndex : sel.barIndex;
+  const range = engine.selector.selectionRange;
+  const startBar = range ? range.startBarIndex : barIndex;
+  const endBar = range ? range.endBarIndex : barIndex;
 
   const bars: BeatSchema[][] = [];
   for (let barIdx = startBar; barIdx <= endBar; barIdx++) {
     const yVoice = engine.resolveYVoice(
-      sel.trackIndex,
-      sel.staffIndex,
+      trackIndex,
+      staffIndex,
       barIdx,
-      sel.voiceIndex,
+      voiceIndex,
     );
     if (!yVoice) {
       debugLog("debug", "edit.clipboard", `copy: no Y.Voice at bar ${barIdx}`);
@@ -179,9 +184,9 @@ function copyToBuffer(): boolean {
   engine.setClipboard(JSON.stringify(clipboardData));
 
   debugLog("info", "edit.clipboard", `copied bars ${startBar}–${endBar} (${bars.length} bar${bars.length > 1 ? "s" : ""})`, {
-    trackIndex: sel.trackIndex,
-    staffIndex: sel.staffIndex,
-    voiceIndex: sel.voiceIndex,
+    trackIndex,
+    staffIndex,
+    voiceIndex,
     startBarIndex: startBar,
     endBarIndex: endBar,
     barCount: bars.length,
@@ -218,25 +223,30 @@ const cutAction: ActionDefinition<void> = {
   i18nKey: "shortcuts.clipboard.cut",
   category: "edit.clipboard",
   execute: () => {
-    const sel = engine.selectedBeat;
-    if (!sel) {
+    const { trackIndex, staffIndex, barIndex, voiceIndex } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null
+    ) {
       debugLog("debug", "edit.clipboard", "cut: no selection");
       return;
     }
 
     if (!copyToBuffer()) return;
 
-    const range = engine.selectionRange;
-    const startBar = range ? range.startBarIndex : sel.barIndex;
-    const endBar = range ? range.endBarIndex : sel.barIndex;
+    const range = engine.selector.selectionRange;
+    const startBar = range ? range.startBarIndex : barIndex;
+    const endBar = range ? range.endBarIndex : barIndex;
 
     transact(() => {
       for (let barIdx = startBar; barIdx <= endBar; barIdx++) {
         const yVoice = engine.resolveYVoice(
-          sel.trackIndex,
-          sel.staffIndex,
+          trackIndex,
+          staffIndex,
           barIdx,
-          sel.voiceIndex,
+          voiceIndex,
         );
         if (!yVoice) continue;
         const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
@@ -246,9 +256,9 @@ const cutAction: ActionDefinition<void> = {
     });
 
     debugLog("info", "edit.clipboard", `cut bars ${startBar}–${endBar} (${endBar - startBar + 1} bar${startBar !== endBar ? "s" : ""}) → cleared`, {
-      trackIndex: sel.trackIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
+      trackIndex,
+      staffIndex,
+      voiceIndex,
       startBarIndex: startBar,
       endBarIndex: endBar,
       barCount: endBar - startBar + 1,
@@ -267,15 +277,20 @@ const pasteAction: ActionDefinition<void> = {
       return;
     }
 
-    const sel = engine.selectedBeat;
-    if (!sel) {
+    const { trackIndex, staffIndex, barIndex, voiceIndex } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null
+    ) {
       debugLog("debug", "edit.clipboard", "paste: no selection");
       return;
     }
 
     // Same-staff guard by UUID
-    const yTrack = engine.resolveYTrack(sel.trackIndex);
-    const yStaff = engine.resolveYStaff(sel.trackIndex, sel.staffIndex);
+    const yTrack = engine.resolveYTrack(trackIndex);
+    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yTrack || !yStaff) {
       debugLog("debug", "edit.clipboard", "paste: no Y.Track/Staff resolved");
       return;
@@ -296,26 +311,26 @@ const pasteAction: ActionDefinition<void> = {
 
     const totalBars = getBarCount();
     const barsInBuffer = clipboardData.bars.length;
-    const barsWritten = Math.min(barsInBuffer, totalBars - sel.barIndex);
+    const barsWritten = Math.min(barsInBuffer, totalBars - barIndex);
 
     if (barsWritten < barsInBuffer) {
-      debugLog("warn", "edit.clipboard", `paste: clamped ${barsInBuffer} buffered bars to ${barsWritten} (score has ${totalBars} bars, target starts at bar ${sel.barIndex})`, {
+      debugLog("warn", "edit.clipboard", `paste: clamped ${barsInBuffer} buffered bars to ${barsWritten} (score has ${totalBars} bars, target starts at bar ${barIndex})`, {
         barsInBuffer,
         barsWritten,
         totalBars,
-        targetBarIndex: sel.barIndex,
+        targetBarIndex: barIndex,
       });
     }
 
     transact(() => {
       for (let i = 0; i < barsWritten; i++) {
-        const targetBarIndex = sel.barIndex + i;
+        const targetBarIndex = barIndex + i;
 
         const yVoice = engine.resolveYVoice(
-          sel.trackIndex,
-          sel.staffIndex,
+          trackIndex,
+          staffIndex,
           targetBarIndex,
-          sel.voiceIndex,
+          voiceIndex,
         );
         if (!yVoice) continue;
 
@@ -329,16 +344,16 @@ const pasteAction: ActionDefinition<void> = {
       }
     });
 
-    const lastTargetBar = sel.barIndex + barsWritten - 1;
-    debugLog("info", "edit.clipboard", `pasted ${barsWritten} bar${barsWritten > 1 ? "s" : ""} into bars ${sel.barIndex}–${lastTargetBar}`, {
-      trackIndex: sel.trackIndex,
-      staffIndex: sel.staffIndex,
-      voiceIndex: sel.voiceIndex,
-      targetStartBar: sel.barIndex,
+    const lastTargetBar = barIndex + barsWritten - 1;
+    debugLog("info", "edit.clipboard", `pasted ${barsWritten} bar${barsWritten > 1 ? "s" : ""} into bars ${barIndex}–${lastTargetBar}`, {
+      trackIndex,
+      staffIndex,
+      voiceIndex,
+      targetStartBar: barIndex,
       targetEndBar: lastTargetBar,
       barsWritten,
       barSummaries: clipboardData.bars.slice(0, barsWritten).map((b, i) => ({
-        targetBarIndex: sel.barIndex + i,
+        targetBarIndex: barIndex + i,
         ...summariseBar(b),
       })),
     });

@@ -15,9 +15,6 @@ export type { SelectedBeat, SelectionRange } from "@/core/engine";
 export interface EditorReactiveState {
   selector: typeof engine.selector;
   transport: typeof engine.transport;
-  selectedBeat: typeof engine.selectedBeat;
-  selectedNoteIndex: typeof engine.selectedNoteIndex;
-  selectionRange: typeof engine.selectionRange;
   canUndo: boolean;
   canRedo: boolean;
   connected: typeof engine.connected;
@@ -40,9 +37,6 @@ function getUndoState(): { canUndo: boolean; canRedo: boolean } {
 export const useEditorStore = create<EditorReactiveState>(() => ({
   selector: engine.selector,
   transport: engine.transport,
-  selectedBeat: engine.selectedBeat,
-  selectedNoteIndex: engine.selectedNoteIndex,
-  selectionRange: engine.selectionRange,
   ...getUndoState(),
   connected: engine.connected,
   roomCode: engine.roomCode,
@@ -59,9 +53,6 @@ engine.registerHooks({
   onLocalSelectorChange: () => {
     useEditorStore.setState({
       selector: engine.selector,
-      selectedBeat: engine.selectedBeat,
-      selectedNoteIndex: engine.selectedNoteIndex,
-      selectionRange: engine.selectionRange,
       ...getUndoState(),
     });
   },

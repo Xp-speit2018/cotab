@@ -47,9 +47,8 @@ export interface ActionDefinition<TArgs = void, TResult = void | boolean> {
 
 declare global {
   /**
-   * Global action map used for compile-time typing of action IDs,
-   * argument payloads, and results. Individual action modules
-   * augment this interface with their own entries.
+   * Global map for the current DocumentAction registry in src/core/actions.
+   * Individual action modules augment this interface with their own entries.
    */
   // eslint-disable-next-line @typescript-eslint/no-empty-interface
   interface ActionMap {}

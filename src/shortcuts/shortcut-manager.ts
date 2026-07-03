@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
-import type { ActionExecutionContext } from "@/core/actions/types";
-import { executeActionUnsafe } from "@/core/actions/registry";
+import type { AppActionExecutionContext } from "@/app-actions";
+import { executeAppActionUnsafe } from "@/app-actions";
 import { useShortcutStore } from "./shortcut-store";
 import { keyboardEventToCombo } from "./platform";
 import { handleDigitInput, cancelDigitInput } from "./fret-input";
@@ -20,7 +20,7 @@ import {
 let installed = false;
 let tFunction: TFunction | null = null;
 
-function getContext(): ActionExecutionContext {
+function getContext(): AppActionExecutionContext {
   return { t: tFunction! };
 }
 
@@ -73,14 +73,14 @@ function handleKeyDown(e: KeyboardEvent): void {
   switch (behavior.type) {
     case "direct": {
       cancelDigitInput();
-      executeActionUnsafe(actionId, undefined, context);
+      executeAppActionUnsafe(actionId, undefined, context);
       break;
     }
 
     case "toggle": {
       cancelDigitInput();
       const current = behavior.getCurrentValue();
-      executeActionUnsafe(actionId, !current, context);
+      executeAppActionUnsafe(actionId, !current, context);
       break;
     }
 
@@ -88,7 +88,7 @@ function handleKeyDown(e: KeyboardEvent): void {
       cancelDigitInput();
       const current = behavior.getCurrentValue();
       const next = getNextCycleValue(behavior.values, current, behavior.direction);
-      executeActionUnsafe(actionId, next, context);
+      executeAppActionUnsafe(actionId, next, context);
       break;
     }
 
@@ -133,7 +133,7 @@ function handleKeyDown(e: KeyboardEvent): void {
 
       const target = computeNavigationTarget(behavior.direction, current);
       if (target) {
-        executeActionUnsafe("nav.setSelection", target, context);
+        executeAppActionUnsafe("nav.setSelection", target, context);
       }
       break;
     }

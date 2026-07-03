@@ -11,7 +11,7 @@ import type { ShortcutBinding } from "./types";
 export function patchBehaviorReaders(bindings: ShortcutBinding[]): void {
   for (const b of bindings) {
     switch (b.id) {
-      case "playback.togglePlaying":
+      case "transport.playPause":
         if (b.behavior.type === "toggle") {
           (b.behavior as { getCurrentValue: () => boolean }).getCurrentValue = () =>
             usePlayerStore.getState().playerState === "playing";

@@ -1,5 +1,5 @@
-import type { ActionExecutionContext } from "@/core/actions/types";
-import { executeAction } from "@/core/actions";
+import type { AppActionExecutionContext } from "@/app-actions";
+import { executeAppActionUnsafe } from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
 import { useShortcutStore } from "./shortcut-store";
 import { debugLog } from "@/core/editor/action-log";
@@ -44,11 +44,11 @@ function isPercussionTrack(): boolean {
  * - Percussion tracks: directly toggle the mapped articulation.
  * - Notation tracks (e.g. piano): only `1` places a note at the current grid position.
  */
-export function handleDigitInput(digit: number, context: ActionExecutionContext): boolean {
+export function handleDigitInput(digit: number, context: AppActionExecutionContext): boolean {
   if (isPercussionTrack()) {
     const gp7Id = useShortcutStore.getState().getPercussionGp7Id(digit);
     if (gp7Id !== undefined) {
-      executeAction("edit.beat.togglePercussionArticulation", gp7Id, context);
+      executeAppActionUnsafe("edit.beat.togglePercussionArticulation", gp7Id, context);
       debugLog("debug", "fretInput", "percussion digit", { digit, gp7Id });
     }
     reset();
@@ -59,7 +59,7 @@ export function handleDigitInput(digit: number, context: ActionExecutionContext)
     state.accumulated += String(digit);
     const fretValue = parseInt(state.accumulated, 10);
 
-    executeAction("edit.beat.placeNote", fretValue, context);
+    executeAppActionUnsafe("edit.beat.placeNote", fretValue, context);
     debugLog("debug", "fretInput", "tab digit", {
       digit,
       accumulated: state.accumulated,
@@ -81,7 +81,7 @@ export function handleDigitInput(digit: number, context: ActionExecutionContext)
   // current grid position. The clef of the active staff determines
   // the pitch mapping, so Treble and Alto/Bass staves resolve correctly.
   if (digit === 1) {
-    executeAction("edit.beat.placeNote", undefined, context);
+    executeAppActionUnsafe("edit.beat.placeNote", undefined, context);
     debugLog("debug", "fretInput", "notation placeNote", { digit });
   }
   reset();

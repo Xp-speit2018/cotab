@@ -51,7 +51,9 @@ import {
   setDragEndHandler,
 } from "./render-api";
 import type {
+  BeatAddress,
   BeatPositionArgs,
+  LoopRange,
   PlaybackState,
   PlayerState,
   RenderSelectorState,
@@ -86,17 +88,26 @@ import {
   engine,
   importFromAlphaTab,
 } from "@/core/engine";
+import { eventMatchesTransportModifier } from "@/shortcuts/transport-modifier";
 import { createWebCollaborationAdapter } from "@/adapters/web/collaboration";
 import {
   isRebuildingFromYDoc,
   installRendererObserver,
   uninstallRendererObserver,
 } from "./renderer-bridge";
-import { togglePlayback as toggleApiPlayback } from "./playback-control";
+import {
+  resolvePlaybackFinishedState,
+  togglePlayback as toggleApiPlayback,
+} from "./playback-control";
 
 // Unsubscribe function for engine hooks
 let _unsubscribeHooks: (() => void) | null = null;
 let _processingHook = false; // Guard against circular calls
+const LOOP_RANGE_BEAT_LEFT_PADDING = 8;
+const LOOP_RANGE_BEAT_RIGHT_PADDING = 18;
+const RANGE_PREVIEW_THRESHOLD_PX = 4;
+const TRANSPORT_DRAG_THRESHOLD_PX = 4;
+const SELECTOR_RANGE_SNAP_THRESHOLD_PX = 12;
 
 // Re-export for consumers that still import from player-store
 export type { PendingSelection } from "./render-types";
@@ -260,6 +271,7 @@ function createRenderTransportState(): RenderTransportState {
   return {
     playhead: null,
     playheadBeatUuid: null,
+    loopRange: null,
     playerState: "stopped",
     currentTime: 0,
     endTime: 0,
@@ -305,6 +317,115 @@ function seekApiToBeatPosition(position: SelectedBeat): number | null {
   return tick;
 }
 
+function resolveBeatAddressTick(address: BeatAddress): number | null {
+  const beat = resolveBeat(
+    address.trackIndex,
+    address.barIndex,
+    address.beatIndex,
+    address.staffIndex,
+    address.voiceIndex,
+  );
+  return beat ? beatPlaybackStartTick(beat) : null;
+}
+
+function compareBeatAddresses(a: BeatAddress, b: BeatAddress): number {
+  const aTick = resolveBeatAddressTick(a);
+  const bTick = resolveBeatAddressTick(b);
+  if (aTick !== null && bTick !== null && aTick !== bTick) {
+    return aTick - bTick;
+  }
+  if (a.barIndex !== b.barIndex) return a.barIndex - b.barIndex;
+  return a.beatIndex - b.beatIndex;
+}
+
+function normalizeLoopRange(start: BeatAddress, end: BeatAddress): LoopRange {
+  return compareBeatAddresses(start, end) <= 0
+    ? { start, end }
+    : { start: end, end: start };
+}
+
+function resolveFollowingBeat(address: BeatAddress): alphaTab.model.Beat | null {
+  const score = getApi()?.score;
+  const bars = score?.tracks?.[address.trackIndex]?.staves?.[address.staffIndex]?.bars;
+  if (!bars) return null;
+
+  for (let barIndex = address.barIndex; barIndex < bars.length; barIndex++) {
+    const beats = bars[barIndex]?.voices?.[address.voiceIndex]?.beats;
+    if (!beats || beats.length === 0) continue;
+    const firstBeatIndex = barIndex === address.barIndex ? address.beatIndex + 1 : 0;
+    if (firstBeatIndex < beats.length) return beats[firstBeatIndex] ?? null;
+  }
+  return null;
+}
+
+function beatToAddress(beat: alphaTab.model.Beat): BeatAddress {
+  const bar = beat.voice.bar;
+  const staff = bar.staff;
+  return {
+    trackIndex: staff.track.index,
+    staffIndex: staff.index,
+    voiceIndex: beat.voice.index,
+    barIndex: bar.index,
+    beatIndex: beat.index,
+  };
+}
+
+function resolveLoopRangeTicks(
+  range: LoopRange,
+): { startTick: number; endTick: number } | null {
+  const startBeat = resolveBeat(
+    range.start.trackIndex,
+    range.start.barIndex,
+    range.start.beatIndex,
+    range.start.staffIndex,
+    range.start.voiceIndex,
+  );
+  if (!startBeat) return null;
+  const startTick = beatPlaybackStartTick(startBeat);
+  if (startTick === null) return null;
+
+  const endBeat = resolveBeat(
+    range.end.trackIndex,
+    range.end.barIndex,
+    range.end.beatIndex,
+    range.end.staffIndex,
+    range.end.voiceIndex,
+  );
+  if (!endBeat) return null;
+
+  const followingBeat = resolveFollowingBeat(range.end);
+  if (followingBeat) {
+    const endTick = beatPlaybackStartTick(followingBeat);
+    if (endTick !== null && endTick > startTick) {
+      return { startTick, endTick };
+    }
+  }
+
+  const lastStartTick = beatPlaybackStartTick(endBeat);
+  if (lastStartTick === null || lastStartTick < startTick) return null;
+  const duration =
+    typeof endBeat.playbackDuration === "number" && endBeat.playbackDuration > 0
+      ? endBeat.playbackDuration
+      : 1;
+  return { startTick, endTick: lastStartTick + duration };
+}
+
+function applyApiPlaybackRange(range: LoopRange | null): void {
+  const api = getApi();
+  if (!api) return;
+  if (!range) {
+    api.playbackRange = null;
+    return;
+  }
+
+  const ticks = resolveLoopRangeTicks(range);
+  if (!ticks) return;
+  const playbackRange = new alphaTab.synth.PlaybackRange();
+  playbackRange.startTick = ticks.startTick;
+  playbackRange.endTick = ticks.endTick;
+  api.playbackRange = playbackRange;
+}
+
 function updateCursorRect(
   beatBounds: alphaTab.rendering.BeatBounds | null,
   snap: { string: number; y: number } | null,
@@ -329,30 +450,121 @@ function updateCursorRect(
   cursorElement.style.height = `${h}px`;
 }
 
-// ─── Bar selection overlay (multi-bar drag) ──────────────────────────────────
+// ─── Transport playhead overlay ──────────────────────────────────────────────
 
-let barSelectionElements: HTMLDivElement[] = [];
+let transportPlayheadElement: HTMLDivElement | null = null;
 
-function updateBarSelectionOverlay(range: SelectionRange | null): void {
-  const api = getApi();
+function updateTransportPlayheadOverlay(playhead: SelectedBeat | null): void {
   const mainElement = getMainElement();
-
-  if (!range || !api || !mainElement) {
-    for (const el of barSelectionElements) el.style.display = "none";
+  if (!playhead || !mainElement) {
+    if (transportPlayheadElement) transportPlayheadElement.style.display = "none";
     return;
   }
 
-  const lookup = api.boundsLookup;
-  if (!lookup) {
-    for (const el of barSelectionElements) el.style.display = "none";
+  const beatBounds = findBeatBounds(
+    playhead.trackIndex,
+    playhead.staffIndex,
+    playhead.barIndex,
+    playhead.beatIndex,
+  );
+  if (!beatBounds) {
+    if (transportPlayheadElement) transportPlayheadElement.style.display = "none";
     return;
   }
 
   const cursorsWrapper = mainElement.querySelector(".at-cursors");
   if (!cursorsWrapper) return;
 
-  // Collect rectangles per staff system row
-  const rects: { x: number; y: number; w: number; h: number }[] = [];
+  if (!transportPlayheadElement) {
+    transportPlayheadElement = document.createElement("div");
+    transportPlayheadElement.classList.add("at-transport-playhead");
+    cursorsWrapper.appendChild(transportPlayheadElement);
+  }
+
+  const rb = beatBounds.visualBounds;
+  transportPlayheadElement.style.display = "";
+  transportPlayheadElement.style.left = `${beatBounds.onNotesX}px`;
+  transportPlayheadElement.style.top = `${rb.y}px`;
+  transportPlayheadElement.style.height = `${rb.h}px`;
+}
+
+function destroyTransportPlayheadOverlay(): void {
+  transportPlayheadElement?.remove();
+  transportPlayheadElement = null;
+}
+
+// ─── Range overlays ─────────────────────────────────────────────────────────
+
+type RangeOverlayKind = "selector" | "transport";
+type OverlayRect = { x: number; y: number; w: number; h: number };
+
+const rangeOverlayElements: Record<RangeOverlayKind, HTMLDivElement[]> = {
+  selector: [],
+  transport: [],
+};
+let rangeBackgroundLayer: HTMLDivElement | null = null;
+
+function getCursorsWrapper(): Element | null {
+  const mainElement = getMainElement();
+  return mainElement?.querySelector(".at-cursors") ?? null;
+}
+
+function getRangeBackgroundLayer(): HTMLElement | null {
+  const mainElement = getMainElement();
+  if (!mainElement) return null;
+  const surface = mainElement.querySelector(".at-surface");
+  const host = surface instanceof HTMLElement ? surface : mainElement;
+  if (rangeBackgroundLayer?.isConnected && rangeBackgroundLayer.parentElement === host) {
+    return rangeBackgroundLayer;
+  }
+
+  rangeBackgroundLayer?.remove();
+  rangeBackgroundLayer = document.createElement("div");
+  rangeBackgroundLayer.classList.add("cotab-range-background-layer");
+  host.prepend(rangeBackgroundLayer);
+  return rangeBackgroundLayer;
+}
+
+function hideOverlayElements(elements: HTMLDivElement[]): void {
+  for (const el of elements) el.style.display = "none";
+}
+
+function renderRangeOverlay(kind: RangeOverlayKind, rects: OverlayRect[]): void {
+  const rangeLayer = getRangeBackgroundLayer();
+  const elements = rangeOverlayElements[kind];
+  if (!rangeLayer) {
+    hideOverlayElements(elements);
+    return;
+  }
+
+  while (elements.length < rects.length) {
+    const el = document.createElement("div");
+    el.classList.add(kind === "selector" ? "at-bar-selection" : "at-loop-range");
+    rangeLayer.appendChild(el);
+    elements.push(el);
+  }
+
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements[i];
+    if (i < rects.length) {
+      const r = rects[i];
+      el.style.display = "";
+      el.style.left = `${r.x}px`;
+      el.style.top = `${r.y}px`;
+      el.style.width = `${r.w}px`;
+      el.style.height = `${r.h}px`;
+    } else {
+      el.style.display = "none";
+    }
+  }
+}
+
+function buildSelectorRangeRects(range: SelectionRange): OverlayRect[] {
+  const api = getApi();
+  const lookup = api?.boundsLookup;
+  if (!lookup) return [];
+
+  const rects: OverlayRect[] = [];
 
   for (const system of lookup.staffSystems) {
     let rowFirstX: number | null = null;
@@ -361,8 +573,6 @@ function updateBarSelectionOverlay(range: SelectionRange | null): void {
     let rowH = 0;
 
     for (const masterBar of system.bars) {
-      // Check if this master bar's index is in our range
-      // Get bar index from the first barBounds
       if (masterBar.bars.length === 0) continue;
       const refBar = masterBar.bars[0].beats.length > 0
         ? masterBar.bars[0].beats[0].beat.voice.bar
@@ -372,7 +582,6 @@ function updateBarSelectionOverlay(range: SelectionRange | null): void {
 
       if (barIdx < range.startBarIndex || barIdx > range.endBarIndex) continue;
 
-      // Find the BarBounds for the target track/staff
       for (const barBounds of masterBar.bars) {
         if (barBounds.beats.length === 0) continue;
         const bb = barBounds.beats[0].beat.voice.bar;
@@ -388,7 +597,6 @@ function updateBarSelectionOverlay(range: SelectionRange | null): void {
           rowH = rb.h;
         }
         rowLastXW = rb.x + rb.w;
-        // Update height to cover the tallest bar
         if (rb.h > rowH) rowH = rb.h;
         break;
       }
@@ -399,36 +607,278 @@ function updateBarSelectionOverlay(range: SelectionRange | null): void {
     }
   }
 
-  // Create/reuse elements
-  while (barSelectionElements.length < rects.length) {
-    const el = document.createElement("div");
-    el.classList.add("at-bar-selection");
-    cursorsWrapper.appendChild(el);
-    barSelectionElements.push(el);
+  return rects;
+}
+
+function getBeatContentXRange(address: BeatAddress): { left: number; right: number } | null {
+  const beatBounds = findBeatBounds(
+    address.trackIndex,
+    address.staffIndex,
+    address.barIndex,
+    address.beatIndex,
+  );
+  if (!beatBounds) return null;
+
+  const noteBounds = Array.from(beatBounds.notes ?? [])
+    .map((noteBounds) => noteBounds.noteHeadBounds)
+    .filter((bounds) =>
+      Boolean(bounds && Number.isFinite(bounds.x) && Number.isFinite(bounds.w) && bounds.w > 0),
+    );
+  if (noteBounds.length > 0) {
+    const left = Math.min(...noteBounds.map((bounds) => bounds.x));
+    const right = Math.max(...noteBounds.map((bounds) => bounds.x + bounds.w));
+    return { left, right };
   }
 
-  for (let i = 0; i < barSelectionElements.length; i++) {
-    const el = barSelectionElements[i];
-    if (i < rects.length) {
-      const r = rects[i];
-      el.style.display = "";
-      el.style.left = `${r.x}px`;
-      el.style.top = `${r.y}px`;
-      el.style.width = `${r.w}px`;
-      el.style.height = `${r.h}px`;
-    } else {
-      el.style.display = "none";
+  const rb = beatBounds.realBounds;
+  const vb = beatBounds.visualBounds;
+  const visualLeft = Number.isFinite(vb.x)
+    ? vb.x
+    : Number.isFinite(rb.x)
+      ? rb.x
+      : beatBounds.onNotesX;
+  const visualRight =
+    Number.isFinite(vb.x) && Number.isFinite(vb.w) && vb.w > 0
+      ? vb.x + vb.w
+      : Number.isFinite(rb.x) && Number.isFinite(rb.w) && rb.w > 0
+        ? rb.x + rb.w
+      : beatBounds.onNotesX;
+
+  return {
+    left: Math.min(visualLeft, beatBounds.onNotesX),
+    right: Math.max(visualRight, beatBounds.onNotesX),
+  };
+}
+
+function getLoopBeatXRange(address: BeatAddress): { left: number; right: number } | null {
+  const contentRange = getBeatContentXRange(address);
+  if (!contentRange) return null;
+
+  return {
+    left: contentRange.left - LOOP_RANGE_BEAT_LEFT_PADDING,
+    right: contentRange.right + LOOP_RANGE_BEAT_RIGHT_PADDING,
+  };
+}
+
+function resolveBarBoundaryBeatAddress(
+  reference: BeatAddress,
+  barIndex: number,
+  boundary: "first" | "last",
+): BeatAddress | null {
+  const score = getApi()?.score;
+  const beats =
+    score?.tracks?.[reference.trackIndex]?.staves?.[reference.staffIndex]?.bars?.[barIndex]
+      ?.voices?.[reference.voiceIndex]?.beats;
+  if (!beats || beats.length === 0) return null;
+  return {
+    ...reference,
+    barIndex,
+    beatIndex: boundary === "first" ? 0 : beats.length - 1,
+  };
+}
+
+function beatAddressFromHit(hit: {
+  trackIndex: number;
+  staffIndex: number;
+  voiceIndex: number;
+  barIndex: number;
+  beatIndex: number;
+}): BeatAddress {
+  return {
+    trackIndex: hit.trackIndex,
+    staffIndex: hit.staffIndex,
+    voiceIndex: hit.voiceIndex,
+    barIndex: hit.barIndex,
+    beatIndex: hit.beatIndex,
+  };
+}
+
+function collectBeatAnchors(
+  reference: BeatAddress,
+): Array<{ address: BeatAddress; left: number; right: number }> {
+  const api = getApi();
+  const lookup = api?.boundsLookup;
+  if (!lookup) return [];
+
+  const anchors: Array<{ address: BeatAddress; left: number; right: number }> = [];
+  for (const system of lookup.staffSystems) {
+    for (const masterBar of system.bars) {
+      for (const barBounds of masterBar.bars) {
+        for (const beatBounds of barBounds.beats) {
+          const beat = beatBounds.beat;
+          const bar = beat.voice.bar;
+          const staff = bar.staff;
+          if (
+            staff.track.index !== reference.trackIndex ||
+            staff.index !== reference.staffIndex ||
+            beat.voice.index !== reference.voiceIndex
+          ) continue;
+          const address = beatToAddress(beat);
+          const contentRange = getBeatContentXRange(address);
+          if (!contentRange) continue;
+          anchors.push({ address, left: contentRange.left, right: contentRange.right });
+        }
+      }
     }
   }
+
+  return anchors.sort((a, b) => compareBeatAddresses(a.address, b.address));
+}
+
+function resolveTransportLoopEndpointAtPoint(
+  hit: {
+    trackIndex: number;
+    staffIndex: number;
+    voiceIndex: number;
+    barIndex: number;
+    beatIndex: number;
+  },
+  x: number,
+  anchorX: number,
+): BeatAddress {
+  const address = beatAddressFromHit(hit);
+  const anchors = collectBeatAnchors(address);
+  if (anchors.length === 0) return address;
+
+  if (x >= anchorX) {
+    let endpoint = anchors[0].address;
+    for (const anchor of anchors) {
+      if (anchor.left > x) break;
+      endpoint = anchor.address;
+    }
+    return endpoint;
+  }
+
+  for (const anchor of anchors) {
+    if (anchor.right >= x) return anchor.address;
+  }
+  return anchors[anchors.length - 1].address;
+}
+
+function buildLoopRangeRects(range: LoopRange): OverlayRect[] {
+  const api = getApi();
+  const lookup = api?.boundsLookup;
+  if (!lookup) return [];
+
+  const rects: OverlayRect[] = [];
+  const startBarIndex = range.start.barIndex;
+  const endBarIndex = range.end.barIndex;
+
+  for (const system of lookup.staffSystems) {
+    let rowFirstX: number | null = null;
+    let rowLastXW: number | null = null;
+    let rowY = 0;
+    let rowH = 0;
+
+    for (const masterBar of system.bars) {
+      if (masterBar.bars.length === 0) continue;
+      const masterBarIndex = masterBar.index;
+      if (masterBarIndex < startBarIndex || masterBarIndex > endBarIndex) continue;
+
+      const leftAddress =
+        masterBarIndex === startBarIndex
+          ? range.start
+          : resolveBarBoundaryBeatAddress(range.start, masterBarIndex, "first");
+      const rightAddress =
+        masterBarIndex === endBarIndex
+          ? range.end
+          : resolveBarBoundaryBeatAddress(range.start, masterBarIndex, "last");
+      if (!leftAddress || !rightAddress) continue;
+
+      const leftRange = getLoopBeatXRange(leftAddress);
+      const rightRange = getLoopBeatXRange(rightAddress);
+      if (!leftRange || !rightRange) continue;
+
+      const rb = masterBar.visualBounds;
+      const left = leftRange.left;
+      let right = rightRange.right;
+      if (right <= left) right = left + 4;
+
+      if (rowFirstX === null) {
+        rowFirstX = left;
+        rowY = rb.y;
+        rowH = rb.h;
+      }
+      rowLastXW = right;
+      const bottom = rb.y + rb.h;
+      const currentBottom = rowY + rowH;
+      if (rb.y < rowY) {
+        rowH = currentBottom - rb.y;
+        rowY = rb.y;
+      }
+      if (bottom > rowY + rowH) rowH = bottom - rowY;
+    }
+
+    if (rowFirstX !== null && rowLastXW !== null) {
+      rects.push({ x: rowFirstX, y: rowY, w: rowLastXW - rowFirstX, h: rowH });
+    }
+  }
+
+  return rects;
+}
+
+let dragRangePreviewElement: HTMLDivElement | null = null;
+
+function updateDragRangePreviewOverlay(
+  anchor: { x: number; y: number },
+  current: { x: number; y: number },
+): void {
+  const cursorsWrapper = getCursorsWrapper();
+  if (!cursorsWrapper) return;
+
+  if (!dragRangePreviewElement) {
+    dragRangePreviewElement = document.createElement("div");
+    dragRangePreviewElement.classList.add("at-drag-range-preview");
+    cursorsWrapper.appendChild(dragRangePreviewElement);
+  }
+
+  const x = Math.min(anchor.x, current.x);
+  let y = Math.min(anchor.y, current.y);
+  const centerY = (anchor.y + current.y) / 2;
+  const w = Math.max(4, Math.abs(current.x - anchor.x));
+  let h = Math.abs(current.y - anchor.y);
+  if (h < 28) {
+    h = 28;
+    y = centerY - h / 2;
+  }
+  y = Math.max(0, y);
+
+  dragRangePreviewElement.style.display = "";
+  dragRangePreviewElement.style.left = `${x}px`;
+  dragRangePreviewElement.style.top = `${y}px`;
+  dragRangePreviewElement.style.width = `${w}px`;
+  dragRangePreviewElement.style.height = `${h}px`;
+}
+
+function hideDragRangePreviewOverlay(): void {
+  if (dragRangePreviewElement) dragRangePreviewElement.style.display = "none";
+}
+
+function destroyDragRangePreviewOverlay(): void {
+  dragRangePreviewElement?.remove();
+  dragRangePreviewElement = null;
+}
+
+function updateBarSelectionOverlay(range: SelectionRange | null): void {
+  renderRangeOverlay("selector", range ? buildSelectorRangeRects(range) : []);
 }
 
 function hideBarSelectionOverlay(): void {
-  for (const el of barSelectionElements) el.style.display = "none";
+  renderRangeOverlay("selector", []);
 }
 
-function destroyBarSelectionOverlay(): void {
-  for (const el of barSelectionElements) el.remove();
-  barSelectionElements = [];
+function updateTransportLoopOverlay(range: LoopRange | null): void {
+  renderRangeOverlay("transport", range ? buildLoopRangeRects(range) : []);
+}
+
+function destroyRangeOverlays(): void {
+  for (const elements of Object.values(rangeOverlayElements)) {
+    for (const el of elements) el.remove();
+    elements.length = 0;
+  }
+  rangeBackgroundLayer?.remove();
+  rangeBackgroundLayer = null;
+  destroyDragRangePreviewOverlay();
 }
 
 // Monkey-patch: AlphaTab mis-positions its built-in bar/beat cursors on
@@ -676,8 +1126,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             ...state.transport,
             playhead: transport.playhead,
             playheadBeatUuid: transport.playheadBeatUuid,
+            loopRange: transport.loopRange,
           },
         }));
+        updateTransportPlayheadOverlay(transport.playhead);
+        updateTransportLoopOverlay(transport.loopRange);
       },
     });
     set({ isLoading: true });
@@ -726,19 +1179,52 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const coords = toAlphaTabCoords(e);
       if (!coords) return;
 
+      ds.currentX = coords.x;
+      ds.currentY = coords.y;
+      const dragDistance = Math.hypot(coords.x - ds.anchorX, coords.y - ds.anchorY);
+      if (dragDistance < RANGE_PREVIEW_THRESHOLD_PX) return;
+
+      ds.hasMoved = true;
+      updateDragRangePreviewOverlay(
+        { x: ds.anchorX, y: ds.anchorY },
+        { x: ds.currentX, y: ds.currentY },
+      );
+
       const hit = resolveBarAtPoint(coords.x, coords.y);
       if (!hit) return;
+      const snapThreshold =
+        ds.mode === "selector" ? SELECTOR_RANGE_SNAP_THRESHOLD_PX : TRANSPORT_DRAG_THRESHOLD_PX;
+      if (dragDistance < snapThreshold) return;
 
-      // Only update if same track/staff and bar index changed
       if (
-        hit.trackIndex !== ds.anchorTrackIndex ||
-        hit.staffIndex !== ds.anchorStaffIndex
+        ds.mode === "selector" &&
+        (
+          hit.trackIndex !== ds.anchorTrackIndex ||
+          hit.staffIndex !== ds.anchorStaffIndex
+        )
       ) return;
-      if (hit.barIndex === ds.currentBarIndex) return;
 
       ds.currentBarIndex = hit.barIndex;
+      ds.currentBeatIndex = hit.beatIndex;
       const startBarIndex = Math.min(ds.anchorBarIndex, ds.currentBarIndex);
       const endBarIndex = Math.max(ds.anchorBarIndex, ds.currentBarIndex);
+
+      if (ds.mode === "transport") {
+        const endpoint = resolveTransportLoopEndpointAtPoint(hit, coords.x, ds.anchorX);
+        const range = normalizeLoopRange(
+          {
+            trackIndex: ds.anchorTrackIndex,
+            staffIndex: ds.anchorStaffIndex,
+            voiceIndex: ds.anchorVoiceIndex,
+            barIndex: ds.anchorBarIndex,
+            beatIndex: ds.anchorBeatIndex,
+          },
+          endpoint,
+        );
+        get().setTransportLoopRange(range);
+        return;
+      }
+
       const range: SelectionRange = {
         trackIndex: ds.anchorTrackIndex,
         staffIndex: ds.anchorStaffIndex,
@@ -746,6 +1232,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         startBarIndex,
         endBarIndex,
       };
+
       engine.localSetSelectionRange(range);
       useEditorStore.setState({
         selector: engine.selector,
@@ -771,8 +1258,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       const ds = getDragState();
       if (ds) {
-        // If single bar (click, no real drag), clear range
-        if (ds.anchorBarIndex === ds.currentBarIndex) {
+        // Plain selector click clears selector range. Transport click only
+        // moves the playhead; loop range changes require an actual drag.
+        if (ds.mode === "selector" && !ds.hasMoved) {
           engine.localSetSelectionRange(null);
           useEditorStore.setState({
             selector: engine.selector,
@@ -787,6 +1275,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           hideBarSelectionOverlay();
         }
       }
+      hideDragRangePreviewOverlay();
       setDragState(null);
     };
 
@@ -796,6 +1285,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       const hit = resolveBarAtPoint(coords.x, coords.y);
       if (!hit) return; // Click missed all beats — let AlphaTab handle it
+
+      const mode = eventMatchesTransportModifier(e) ? "transport" : "selector";
 
       // Prevent AlphaTab from processing this click
       e.stopPropagation();
@@ -814,7 +1305,43 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           beatIndex: hit.beatIndex,
           noteCount: hit.beat.notes.length,
           snappedString: hit.snappedString,
+          pointerMode: mode,
         };
+      }
+
+      if (mode === "transport") {
+        get().setTransportLoopRange(null);
+        hideDragRangePreviewOverlay();
+        get().setTransportPlayhead({
+          trackIndex: hit.trackIndex,
+          staffIndex: hit.staffIndex,
+          voiceIndex: hit.voiceIndex,
+          barIndex: hit.barIndex,
+          beatIndex: hit.beatIndex,
+          string: hit.snappedString,
+        });
+
+        setDragState({
+          mode,
+          anchorBarIndex: hit.barIndex,
+          anchorBeatIndex: hit.beatIndex,
+          anchorTrackIndex: hit.trackIndex,
+          anchorStaffIndex: hit.staffIndex,
+          anchorVoiceIndex: hit.voiceIndex,
+          currentBarIndex: hit.barIndex,
+          currentBeatIndex: hit.beatIndex,
+          anchorX: coords.x,
+          anchorY: coords.y,
+          currentX: coords.x,
+          currentY: coords.y,
+          hasMoved: false,
+        });
+
+        setDragMoveHandler(onDragMove);
+        setDragEndHandler(onDragEnd);
+        document.addEventListener("mousemove", onDragMove);
+        document.addEventListener("mouseup", onDragEnd);
+        return;
       }
 
       // Clear any existing selection range
@@ -830,6 +1357,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         },
       }));
       hideBarSelectionOverlay();
+      hideDragRangePreviewOverlay();
 
       get().setSelection({
         trackIndex: hit.trackIndex,
@@ -842,11 +1370,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       // Initialize drag tracking
       setDragState({
+        mode,
         anchorBarIndex: hit.barIndex,
+        anchorBeatIndex: hit.beatIndex,
         anchorTrackIndex: hit.trackIndex,
         anchorStaffIndex: hit.staffIndex,
         anchorVoiceIndex: hit.voiceIndex,
         currentBarIndex: hit.barIndex,
+        currentBeatIndex: hit.beatIndex,
+        anchorX: coords.x,
+        anchorY: coords.y,
+        currentX: coords.x,
+        currentY: coords.y,
+        hasMoved: false,
       });
 
       // Attach drag listeners to document (so drag works outside viewport)
@@ -941,6 +1477,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       // 7. Reposition bar selection overlay after re-render
       updateBarSelectionOverlay(get().selectionRange);
+      updateTransportPlayheadOverlay(get().transport.playhead);
+      updateTransportLoopOverlay(get().transport.loopRange);
+      applyApiPlaybackRange(get().transport.loopRange);
     });
 
     api.scoreLoaded.on((score: alphaTab.model.Score) => {
@@ -1034,16 +1573,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     );
 
     api.playerFinished.on(() => {
-      set((state) => ({
-        playerState: "stopped",
-        currentTime: 0,
-        transport: {
-          ...state.transport,
-          playerState: "stopped",
-          currentTime: 0,
-          tickPosition: 0,
-        },
-      }));
+      set((state) => {
+        const finished = resolvePlaybackFinishedState(state, api);
+        return {
+          playerState: finished.playerState,
+          currentTime: finished.currentTime,
+          transport: {
+            ...state.transport,
+            playerState: finished.transportPlayerState,
+            currentTime: finished.transportCurrentTime,
+            tickPosition: finished.transportTickPosition,
+          },
+        };
+      });
     });
 
     // Load the demo file
@@ -1063,7 +1605,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
 
     destroySnapGridOverlay();
-    destroyBarSelectionOverlay();
+    destroyRangeOverlays();
+    destroyTransportPlayheadOverlay();
     engine.pendingSelection = null;
 
     // Clean up drag listeners
@@ -1168,6 +1711,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           tickPosition: tick ?? state.transport.tickPosition,
         },
       }));
+      updateTransportPlayheadOverlay(playhead);
       return;
     }
 
@@ -1179,6 +1723,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         playheadBeatUuid: null,
       },
     }));
+    updateTransportPlayheadOverlay(null);
   },
 
   setTransportPlayheadToSelection: () => {
@@ -1231,7 +1776,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (!api) return;
     const newLooping = !get().isLooping;
     api.isLooping = newLooping;
+    applyApiPlaybackRange(get().transport.loopRange);
     set({ isLooping: newLooping });
+  },
+
+  setTransportLoopRange: (range) => {
+    engine.localSetTransportLoopRange(range);
+    useEditorStore.setState({
+      transport: engine.transport,
+    });
+    set((state) => ({
+      transport: {
+        ...state.transport,
+        loopRange: range,
+      },
+    }));
+    applyApiPlaybackRange(range);
+    updateTransportLoopOverlay(range);
   },
 
   // ── Track Controls ───────────────────────────────────────────────────────

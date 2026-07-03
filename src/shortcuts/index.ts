@@ -10,3 +10,11 @@ export type { Platform } from "./platform";
 export { isDisallowed, getDisallowReason, getSoftOverride } from "./disallow-list";
 export type { ShortcutBinding, ShortcutCategory, KeyCombo } from "./types";
 export { SHORTCUT_CATEGORY_ORDER } from "./types";
+export {
+  DEFAULT_TRANSPORT_MODIFIER,
+  eventMatchesTransportModifier,
+  getTransportModifier,
+  transportModifierToKeyCombo,
+} from "./transport-modifier";
+export type { TransportModifier } from "./transport-modifier";
+export { useTransportModifierActive } from "./use-transport-modifier-active";

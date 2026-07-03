@@ -57,11 +57,19 @@ export function setPendingSelection(selection: PendingSelection | null): void {
 // ─── Drag state (mutable refs, not Zustand — avoids re-renders during drag) ─
 
 export interface DragState {
+  mode: "selector" | "transport";
   anchorBarIndex: number;
+  anchorBeatIndex: number;
   anchorTrackIndex: number;
   anchorStaffIndex: number;
   anchorVoiceIndex: number;
   currentBarIndex: number;
+  currentBeatIndex: number;
+  anchorX: number;
+  anchorY: number;
+  currentX: number;
+  currentY: number;
+  hasMoved: boolean;
 }
 
 let dragState: DragState | null = null;

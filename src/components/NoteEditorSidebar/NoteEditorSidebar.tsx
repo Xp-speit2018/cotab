@@ -49,6 +49,7 @@ import { NoteSection } from "./NoteSection";
 import { EffectsSection } from "./EffectsSection";
 import { LogSection } from "./LogSection";
 import { EditorStateSection } from "./EditorStateSection";
+import { AlphaTabStateSection } from "./AlphaTabStateSection";
 
 export function NoteEditorSidebar() {
   const { t } = useTranslation();
@@ -179,6 +180,8 @@ export function NoteEditorSidebar() {
           return <FpsSection dragHandleProps={dragHandleProps} />;
         case "editorState":
           return <EditorStateSection dragHandleProps={dragHandleProps} />;
+        case "alphaTabState":
+          return <AlphaTabStateSection dragHandleProps={dragHandleProps} />;
         case "bar":
           return hasBeat ? (
             <BarSection bar={selectedBarInfo!} dragHandleProps={dragHandleProps} />

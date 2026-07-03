@@ -36,13 +36,16 @@ export type { TrackPreset } from "@/core/presets";
 export type { ScoreMetadataField } from "@/core/schema";
 
 export type {
+  BeatAddress,
   PendingSelection,
+  LoopRange,
   SelectedBeat,
   SelectionRange,
   SelectorState,
   TransportState,
 } from "@/core/engine";
 import type {
+  LoopRange,
   SelectedBeat,
   SelectionRange,
   SelectorState,
@@ -294,6 +297,7 @@ export interface PlayerState {
   setPlaybackSpeed: (speed: number) => void;
   setMasterVolume: (volume: number) => void;
   toggleLoop: () => void;
+  setTransportLoopRange: (range: LoopRange | null) => void;
   setTrackVolume: (trackIndex: number, volume: number) => void;
   setTrackMute: (trackIndex: number, muted: boolean) => void;
   setTrackSolo: (trackIndex: number, solo: boolean) => void;

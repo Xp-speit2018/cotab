@@ -30,7 +30,8 @@ test-results
 test-screenshots
 
 # Dev notes
-docs
+docs/*
+!docs/ACTIONS.md
 
 # Wiki (separate git repo)
 wiki
@@ -38,6 +39,7 @@ wiki
 # E2E / Playwright (local debugging)
 e2e/*
 !e2e/playback-start.spec.ts
+!e2e/transport-mouse-mode.spec.ts
 playwright.config.js
 
 # Editor directories and files

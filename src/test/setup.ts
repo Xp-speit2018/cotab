@@ -208,6 +208,7 @@ function createMockTransportState(): TestMockState["transport"] {
   return {
     playhead: null,
     playheadBeatUuid: null,
+    loopRange: null,
     playerState: "stopped",
     currentTime: 0,
     endTime: 0,

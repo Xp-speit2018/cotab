@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { SelectedBeat } from "@/core/engine";
 import {
+  resolvePlaybackFinishedState,
   togglePlayback,
   type PlaybackApi,
   type PlaybackBeatResolver,
@@ -108,5 +109,79 @@ describe("playback-control", () => {
 
     expect(api.tickPosition).toBe(1920);
     expect(api.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("pauses at the loop range end when looping is disabled", () => {
+    const result = resolvePlaybackFinishedState(
+      {
+        currentTime: 12_500,
+        isLooping: false,
+        transport: {
+          currentTime: 12_500,
+          loopRange: {
+            start: {
+              trackIndex: 0,
+              staffIndex: 0,
+              voiceIndex: 0,
+              barIndex: 2,
+              beatIndex: 0,
+            },
+            end: {
+              trackIndex: 0,
+              staffIndex: 0,
+              voiceIndex: 0,
+              barIndex: 4,
+              beatIndex: 0,
+            },
+          },
+        },
+      },
+      { tickPosition: 9_600 },
+    );
+
+    expect(result).toEqual({
+      playerState: "paused",
+      currentTime: 12_500,
+      transportPlayerState: "paused",
+      transportCurrentTime: 12_500,
+      transportTickPosition: 9_600,
+    });
+  });
+
+  it("resets finished playback when loop range looping is enabled", () => {
+    const result = resolvePlaybackFinishedState(
+      {
+        currentTime: 12_500,
+        isLooping: true,
+        transport: {
+          currentTime: 12_500,
+          loopRange: {
+            start: {
+              trackIndex: 0,
+              staffIndex: 0,
+              voiceIndex: 0,
+              barIndex: 2,
+              beatIndex: 0,
+            },
+            end: {
+              trackIndex: 0,
+              staffIndex: 0,
+              voiceIndex: 0,
+              barIndex: 4,
+              beatIndex: 0,
+            },
+          },
+        },
+      },
+      { tickPosition: 9_600 },
+    );
+
+    expect(result).toEqual({
+      playerState: "stopped",
+      currentTime: 0,
+      transportPlayerState: "stopped",
+      transportCurrentTime: 0,
+      transportTickPosition: 0,
+    });
   });
 });

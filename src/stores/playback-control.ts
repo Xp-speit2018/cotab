@@ -16,6 +16,24 @@ export interface PlaybackTransportState {
   transport: Pick<RenderTransportState, "playhead">;
 }
 
+export interface PlaybackFinishedState {
+  currentTime: number;
+  isLooping: boolean;
+  transport: Pick<RenderTransportState, "loopRange" | "currentTime">;
+}
+
+export interface PlaybackFinishedApi {
+  tickPosition: number;
+}
+
+export interface PlaybackFinishedResult {
+  playerState: PlaybackState;
+  currentTime: number;
+  transportPlayerState: PlaybackState;
+  transportCurrentTime: number;
+  transportTickPosition: number;
+}
+
 export type PlaybackBeatResolver = (
   trackIndex: number,
   barIndex: number,
@@ -74,4 +92,19 @@ export function togglePlayback(
     seekToTransportPlayhead(api, state, resolveBeat);
   }
   api.play();
+}
+
+export function resolvePlaybackFinishedState(
+  state: PlaybackFinishedState,
+  api: PlaybackFinishedApi,
+): PlaybackFinishedResult {
+  const pausedAtLoopEnd = state.transport.loopRange !== null && !state.isLooping;
+  const playerState: PlaybackState = pausedAtLoopEnd ? "paused" : "stopped";
+  return {
+    playerState,
+    currentTime: pausedAtLoopEnd ? state.currentTime : 0,
+    transportPlayerState: playerState,
+    transportCurrentTime: pausedAtLoopEnd ? state.transport.currentTime : 0,
+    transportTickPosition: pausedAtLoopEnd ? api.tickPosition : 0,
+  };
 }

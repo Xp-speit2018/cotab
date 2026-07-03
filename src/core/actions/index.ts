@@ -1,8 +1,9 @@
 /**
- * Core actions — headless action system for the editor engine.
+ * DocumentActions — headless action system for the editor engine.
  *
- * These actions operate purely on Y.Doc and engine state, with no
- * direct dependencies on React or the AlphaTab renderer.
+ * These are not the whole AppAction space. TransportAction and ViewAction
+ * implementations live above core because they may depend on local player or
+ * UI state.
  */
 
 import { executeAction as executeActionInternal } from "./registry";

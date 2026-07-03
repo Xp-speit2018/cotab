@@ -5,6 +5,12 @@
     "stop": "Stop",
     "pause": "Pause",
     "play": "Play",
+    "loop": "Loop Range",
+    "playFromPlayhead": "Play from Playhead",
+    "noPlayhead": "No playhead",
+    "playheadPosition": "Bar {{bar}} Beat {{beat}}",
+    "loopRange": "Loop {{start}}-{{end}}",
+    "transportMode": "Transport {{modifier}}",
     "loading": "Loading {{percent}}%",
     "zoom": "Zoom",
     "fpsMonitor": "FPS Monitor (Shift+F)",
@@ -322,6 +328,12 @@
       "topLevel": "EditorReactiveState"
     },
 
+    "alphaTabState": {
+      "title": "AlphaTab State",
+      "help": "Live runtime monitor for the AlphaTab API, player, score, bounds lookup, and playback fields.",
+      "topLevel": "AlphaTabApi"
+    },
+
     "log": {
       "title": "Log",
       "help": "Debug log output with severity levels",
@@ -480,7 +492,7 @@
 
     "category": {
       "file": "File",
-      "playback": "Playback",
+      "transport": "Transport",
       "navigation": "Navigation",
       "editing.beat": "Editing — Beat",
       "editing.bar": "Editing — Bar",
@@ -526,8 +538,19 @@
     "file": {
       "exportGp": { "name": "Export GP File" }
     },
-    "playback": {
-      "togglePlaying": { "name": "Toggle Playing" }
+    "transport": {
+      "playPause": { "name": "Play / Pause" },
+      "stop": { "name": "Stop" },
+      "setPlayheadToSelector": { "name": "Set Playhead to Selector" },
+      "toggleLoop": { "name": "Toggle Loop" }
+    },
+    "transportModifier": {
+      "title": "Transport Modifier",
+      "option": {
+        "alt": "Alt / Option",
+        "shift": "Shift",
+        "mod": "Ctrl / Cmd"
+      }
     },
     "nav": {
       "nextBeat": { "name": "Next Beat" },

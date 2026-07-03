@@ -77,6 +77,19 @@ export interface SelectionRange {
   endBarIndex: number;   // inclusive, >= startBarIndex
 }
 
+export interface BeatAddress {
+  trackIndex: number;
+  staffIndex: number;
+  voiceIndex: number;
+  barIndex: number;
+  beatIndex: number;
+}
+
+export interface LoopRange {
+  start: BeatAddress;
+  end: BeatAddress;
+}
+
 export interface SelectorState {
   track: unknown | null;
   staff: unknown | null;
@@ -103,6 +116,7 @@ export type SelectorPointers = Pick<
 export interface TransportState {
   playhead: SelectedBeat | null;
   playheadBeatUuid: string | null;
+  loopRange: LoopRange | null;
 }
 
 export interface PendingSelection {
@@ -149,7 +163,34 @@ function createEmptyTransportState(): TransportState {
   return {
     playhead: null,
     playheadBeatUuid: null,
+    loopRange: null,
   };
+}
+
+function selectionRangesEqual(a: SelectionRange | null, b: SelectionRange | null): boolean {
+  if (a === null || b === null) return a === b;
+  return (
+    a.trackIndex === b.trackIndex &&
+    a.staffIndex === b.staffIndex &&
+    a.voiceIndex === b.voiceIndex &&
+    a.startBarIndex === b.startBarIndex &&
+    a.endBarIndex === b.endBarIndex
+  );
+}
+
+function beatAddressesEqual(a: BeatAddress, b: BeatAddress): boolean {
+  return (
+    a.trackIndex === b.trackIndex &&
+    a.staffIndex === b.staffIndex &&
+    a.voiceIndex === b.voiceIndex &&
+    a.barIndex === b.barIndex &&
+    a.beatIndex === b.beatIndex
+  );
+}
+
+function loopRangesEqual(a: LoopRange | null, b: LoopRange | null): boolean {
+  if (a === null || b === null) return a === b;
+  return beatAddressesEqual(a.start, b.start) && beatAddressesEqual(a.end, b.end);
 }
 
 // Re-export EngineHooks for consumers
@@ -312,6 +353,7 @@ export class EditorEngine {
   }
 
   localSetSelectionRange(range: SelectionRange | null): void {
+    if (selectionRangesEqual(this.selector.selectionRange, range)) return;
     this.selector = {
       ...this.selector,
       selectionRange: range,
@@ -343,8 +385,18 @@ export class EditorEngine {
         )
       : null;
     this.transport = {
+      ...this.transport,
       playhead,
       playheadBeatUuid: yBeat?.get("uuid") as string ?? null,
+    };
+    this._hookRegistry.emitTransport("onLocalTransportChange", this.transport);
+  }
+
+  localSetTransportLoopRange(range: LoopRange | null): void {
+    if (loopRangesEqual(this.transport.loopRange, range)) return;
+    this.transport = {
+      ...this.transport,
+      loopRange: range,
     };
     this._hookRegistry.emitTransport("onLocalTransportChange", this.transport);
   }

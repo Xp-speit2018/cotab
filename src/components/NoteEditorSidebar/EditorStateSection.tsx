@@ -216,6 +216,26 @@ function ValueNode({
   );
 }
 
+export function RuntimeStateTree({
+  label,
+  value,
+  path,
+}: {
+  label: string;
+  value: unknown;
+  path: string;
+}) {
+  return (
+    <ValueNode
+      label={label}
+      value={value}
+      path={path}
+      depth={0}
+      ancestors={[]}
+    />
+  );
+}
+
 export function EditorStateSection({
   dragHandleProps,
 }: {
@@ -235,12 +255,10 @@ export function EditorStateSection({
       />
       <CollapsibleContent>
         <div className="py-0.5">
-          <ValueNode
+          <RuntimeStateTree
             label={t("sidebar.editorState.topLevel")}
             value={snapshot}
             path="EditorReactiveState"
-            depth={0}
-            ancestors={[]}
           />
         </div>
         <Separator />

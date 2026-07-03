@@ -4,6 +4,13 @@ import { SHORTCUT_CATEGORY_ORDER } from "./types";
 import { getAllDefaultBindings } from "./default-bindings";
 import { patchBehaviorReaders } from "./behaviors";
 import { isDisallowed } from "./disallow-list";
+import {
+  DEFAULT_TRANSPORT_MODIFIER,
+  getTransportModifier,
+  resetTransportModifier as resetStoredTransportModifier,
+  setTransportModifier as setStoredTransportModifier,
+} from "./transport-modifier";
+import type { TransportModifier } from "./transport-modifier";
 
 const STORAGE_KEY = "cotab:shortcut-bindings";
 const PERC_MAPPING_KEY = "cotab:percussion-digit-map";
@@ -95,6 +102,10 @@ export interface ShortcutStoreState {
   findDuplicates: (combo: KeyCombo, excludeId?: string) => ShortcutBinding[];
   isConfigPanelOpen: boolean;
   setConfigPanelOpen: (open: boolean) => void;
+  transportModifier: TransportModifier;
+  setTransportModifier: (modifier: TransportModifier) => void;
+  resetTransportModifier: () => void;
+  isTransportModifierModified: () => boolean;
 
   percussionDigitMap: PercussionDigitMap;
   setPercussionDigitMapping: (digit: number, gp7Id: number) => void;
@@ -119,6 +130,7 @@ export const useShortcutStore = create<ShortcutStoreState>((set, get) => {
     bindings: initial,
     comboIndex: buildComboIndex(initial),
     isConfigPanelOpen: false,
+    transportModifier: getTransportModifier(),
 
     getBinding: (combo) => get().comboIndex.get(combo.toLowerCase()),
 
@@ -159,10 +171,11 @@ export const useShortcutStore = create<ShortcutStoreState>((set, get) => {
     resetAll: () => {
       const fresh = getAllDefaultBindings();
       patchBehaviorReaders(fresh);
+      const transportModifier = resetStoredTransportModifier();
       if (typeof localStorage !== "undefined") {
         localStorage.removeItem(STORAGE_KEY);
       }
-      set({ bindings: fresh, comboIndex: buildComboIndex(fresh) });
+      set({ bindings: fresh, comboIndex: buildComboIndex(fresh), transportModifier });
     },
 
     findDuplicates: (combo, excludeId) => {
@@ -174,6 +187,19 @@ export const useShortcutStore = create<ShortcutStoreState>((set, get) => {
     },
 
     setConfigPanelOpen: (open) => set({ isConfigPanelOpen: open }),
+
+    setTransportModifier: (modifier) => {
+      setStoredTransportModifier(modifier);
+      set({ transportModifier: modifier });
+    },
+
+    resetTransportModifier: () => {
+      const modifier = resetStoredTransportModifier();
+      set({ transportModifier: modifier });
+    },
+
+    isTransportModifierModified: () =>
+      get().transportModifier !== DEFAULT_TRANSPORT_MODIFIER,
 
     percussionDigitMap: loadPercussionDigitMap(),
 

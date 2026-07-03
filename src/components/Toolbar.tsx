@@ -14,6 +14,7 @@ import {
   Users,
   Undo2,
   Redo2,
+  Repeat2,
 } from "lucide-react";
 import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -28,10 +29,15 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@/components/ui/popover";
-import { executeAction } from "@/core/actions";
+import { executeAppAction } from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
 import { getApi } from "@/stores/render-api";
-import { useShortcutStore } from "@/shortcuts";
+import {
+  formatShortcut,
+  transportModifierToKeyCombo,
+  useShortcutStore,
+  useTransportModifierActive,
+} from "@/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import { cn } from "@/lib/utils";
 
@@ -62,19 +68,35 @@ export function Toolbar() {
   const playerState = usePlayerStore((s) => s.playerState);
   const currentTime = usePlayerStore((s) => s.currentTime);
   const endTime = usePlayerStore((s) => s.endTime);
+  const isLooping = usePlayerStore((s) => s.isLooping);
   const zoom = usePlayerStore((s) => s.zoom);
   const scoreTitle = usePlayerStore((s) => s.scoreTitle);
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
   const loadFile = usePlayerStore((s) => s.loadFile);
-  const togglePlayback = usePlayerStore((s) => s.togglePlayback);
+  const transport = usePlayerStore((s) => s.transport);
   const editorMode = usePlayerStore((s) => s.editorMode);
   const tabConnected = useEditorStore((s) => s.connected);
   const tabRoomCode = useEditorStore((s) => s.roomCode);
   const canUndo = useEditorStore((s) => s.canUndo);
   const canRedo = useEditorStore((s) => s.canRedo);
+  const transportModifier = useShortcutStore((s) => s.transportModifier);
+  const transportModifierActive = useTransportModifierActive();
 
   const isPlaying = playerState === "playing";
+  const transportModifierLabel = formatShortcut(transportModifierToKeyCombo(transportModifier));
+  const playheadLabel = transport.playhead
+    ? t("toolbar.playheadPosition", {
+        bar: transport.playhead.barIndex + 1,
+        beat: transport.playhead.beatIndex + 1,
+      })
+    : t("toolbar.noPlayhead");
+  const loopLabel = transport.loopRange
+    ? t("toolbar.loopRange", {
+        start: `${transport.loopRange.start.barIndex + 1}.${transport.loopRange.start.beatIndex + 1}`,
+        end: `${transport.loopRange.end.barIndex + 1}.${transport.loopRange.end.beatIndex + 1}`,
+      })
+    : null;
 
   const cycleEditorMode = () => {
     const nextMode = editorMode === "essentials" ? "advanced" : "essentials";
@@ -167,7 +189,7 @@ export function Toolbar() {
             size="icon"
             className="h-8 w-8"
             disabled={!canUndo}
-            onClick={() => executeAction("edit.undo", undefined, { t })}
+            onClick={() => executeAppAction("edit.undo", undefined, { t })}
           >
             <Undo2 className="h-4 w-4" />
           </Button>
@@ -182,7 +204,7 @@ export function Toolbar() {
             size="icon"
             className="h-8 w-8"
             disabled={!canRedo}
-            onClick={() => executeAction("edit.redo", undefined, { t })}
+            onClick={() => executeAppAction("edit.redo", undefined, { t })}
           >
             <Redo2 className="h-4 w-4" />
           </Button>
@@ -193,18 +215,22 @@ export function Toolbar() {
       <Separator orientation="vertical" className="mx-1 h-6" />
 
       {/* ── Center: Playback Controls ──────────────────────────────────── */}
-      <div className="flex items-center gap-1">
+      <div
+        className={cn(
+          "flex items-center gap-1 rounded-md px-0.5 transition-colors",
+          transportModifierActive && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+        )}
+      >
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
-              onClick={() => {
-                const api = getApi();
-                if (api) api.stop();
-                usePlayerStore.setState({ playerState: "stopped", currentTime: 0 });
-              }}
+              className={cn(
+                "h-8 w-8",
+                transportModifierActive && "hover:bg-emerald-500/15",
+              )}
+              onClick={() => executeAppAction("transport.stop", undefined, { t })}
               disabled={!isPlayerReady}
             >
               <Square className="h-4 w-4" />
@@ -218,9 +244,12 @@ export function Toolbar() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
-              aria-label={isPlaying ? t("toolbar.pause") : t("toolbar.play")}
-              onClick={togglePlayback}
+              className={cn(
+                "h-8 w-8",
+                transportModifierActive && "hover:bg-emerald-500/15",
+              )}
+              aria-label={isPlaying ? t("toolbar.pause") : t("toolbar.playFromPlayhead")}
+              onClick={() => executeAppAction("transport.playPause", undefined, { t })}
               disabled={!isPlayerReady}
             >
               {isPlaying ? (
@@ -231,15 +260,47 @@ export function Toolbar() {
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {isPlaying ? t("toolbar.pause") : t("toolbar.play")}
+            {isPlaying ? t("toolbar.pause") : t("toolbar.playFromPlayhead")}
           </TooltipContent>
         </Tooltip>
 
-        <span className="min-w-[100px] text-center font-mono text-xs text-muted-foreground tabular-nums">
-          {isPlayerReady
-            ? `${formatTime(currentTime)} / ${formatTime(endTime)}`
-            : t("toolbar.loading", { percent: Math.floor(soundFontProgress * 100) })}
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isLooping ? "secondary" : "ghost"}
+              size="icon"
+              className={cn(
+                "h-8 w-8",
+                isLooping && "bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/20 dark:text-emerald-300",
+                transportModifierActive && "hover:bg-emerald-500/15",
+              )}
+              aria-pressed={isLooping}
+              aria-label={t("toolbar.loop")}
+              onClick={() => executeAppAction("transport.toggleLoop", undefined, { t })}
+              disabled={!isPlayerReady || !transport.loopRange}
+            >
+              <Repeat2 className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("toolbar.loop")}</TooltipContent>
+        </Tooltip>
+
+        <div className="flex min-w-[150px] flex-col justify-center px-1 leading-tight">
+          <span className="truncate text-xs font-medium tabular-nums">
+            {playheadLabel}
+            {loopLabel ? ` · ${loopLabel}` : ""}
+          </span>
+          <span className="truncate font-mono text-[11px] text-muted-foreground tabular-nums">
+            {isPlayerReady
+              ? `${formatTime(currentTime)} / ${formatTime(endTime)}`
+              : t("toolbar.loading", { percent: Math.floor(soundFontProgress * 100) })}
+          </span>
+        </div>
+        {transportModifierActive && (
+          <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+            {t("toolbar.transportMode", { modifier: transportModifierLabel })}
+          </span>
+        )}
       </div>
 
       <Separator orientation="vertical" className="mx-1 h-6" />

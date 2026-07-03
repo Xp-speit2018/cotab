@@ -11,6 +11,7 @@ import { VolumeKnob } from "@/components/ui/volume-knob";
 import { ResizeHandle } from "@/components/ui/resize-handle";
 import { usePlayerStore } from "@/stores/render-store";
 import type { TrackInfo, TrackBounds } from "@/stores/render-types";
+import { useTransportModifierActive } from "@/shortcuts";
 import { cn } from "@/lib/utils";
 
 // ─── Compact Mixer (positioned per-track, aligned to rendered staff) ─────────
@@ -111,6 +112,7 @@ export function ScoreViewport() {
   const tracks = usePlayerStore((s) => s.tracks);
   const visibleTrackIndices = usePlayerStore((s) => s.visibleTrackIndices);
   const trackBounds = usePlayerStore((s) => s.trackBounds);
+  const transportModifierActive = useTransportModifierActive();
 
   // visibleTrackIndices is the single source of truth (derived from api.tracks).
   // trackBounds has one entry per visible track, in the same order.
@@ -241,7 +243,10 @@ export function ScoreViewport() {
       {/* AlphaTab Viewport (scroll container) */}
       <div
         ref={viewportRef}
-        className="at-viewport flex-1 overflow-auto isolate"
+        className={cn(
+          "at-viewport flex-1 overflow-auto isolate",
+          transportModifierActive && "at-transport-mode",
+        )}
         onScroll={syncMixerTransform}
       >
         {/* AlphaTab Main (rendering target) */}

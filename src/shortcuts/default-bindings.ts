@@ -82,6 +82,17 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: { type: "navigate", direction: "prevStaff" },
   },
 
+  // ── Transport ────────────────────────────────────────────────────────────
+  {
+    id: "transport.playPause",
+    actionId: "transport.playPause",
+    i18nKey: "shortcuts.transport.playPause",
+    category: "transport",
+    defaultKeys: "space",
+    keys: "space",
+    behavior: direct,
+  },
+
   // ── Editing: Beat ─────────────────────────────────────────────────────────
   {
     id: "edit.beat.toggleRest",

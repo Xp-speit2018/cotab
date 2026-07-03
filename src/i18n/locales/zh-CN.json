@@ -5,6 +5,12 @@
     "stop": "停止",
     "pause": "暂停",
     "play": "播放",
+    "loop": "循环范围",
+    "playFromPlayhead": "从播放头播放",
+    "noPlayhead": "无播放头",
+    "playheadPosition": "{{bar}} 小节 {{beat}} 拍",
+    "loopRange": "循环 {{start}}-{{end}}",
+    "transportMode": "走带 {{modifier}}",
     "loading": "加载中 {{percent}}%",
     "zoom": "缩放",
     "fpsMonitor": "帧率监视器 (Shift+F)",
@@ -322,6 +328,12 @@
       "topLevel": "EditorReactiveState"
     },
 
+    "alphaTabState": {
+      "title": "AlphaTab State",
+      "help": "AlphaTab API、播放器、乐谱、bounds lookup 和播放字段的运行时实时监视器。",
+      "topLevel": "AlphaTabApi"
+    },
+
     "log": {
       "title": "日志",
       "help": "带严重级别的调试日志输出",
@@ -480,7 +492,7 @@
 
     "category": {
       "file": "文件",
-      "playback": "播放",
+      "transport": "走带",
       "navigation": "导航",
       "editing.beat": "编辑 — 节拍",
       "editing.bar": "编辑 — 小节",
@@ -526,8 +538,19 @@
     "file": {
       "exportGp": { "name": "导出 GP 文件" }
     },
-    "playback": {
-      "togglePlaying": { "name": "切换播放" }
+    "transport": {
+      "playPause": { "name": "播放 / 暂停" },
+      "stop": { "name": "停止" },
+      "setPlayheadToSelector": { "name": "将播放头设为选择指针" },
+      "toggleLoop": { "name": "切换循环" }
+    },
+    "transportModifier": {
+      "title": "走带修饰键",
+      "option": {
+        "alt": "Alt / Option",
+        "shift": "Shift",
+        "mod": "Ctrl / Cmd"
+      }
     },
     "nav": {
       "nextBeat": { "name": "下一拍" },

@@ -145,14 +145,46 @@
   stroke: #0078ff;
 }
 
+.at-main > .at-surface {
+  position: relative;
+  z-index: 1;
+}
+
+.cotab-range-background-layer {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* ─── Bar Selection (multi-bar drag selection rectangles) ──────────────────── */
 
 .at-bar-selection {
   position: absolute;
-  background: rgba(0, 120, 255, 0.08);
-  border: 1.5px solid rgba(0, 120, 255, 0.35);
+  background: rgba(59, 130, 246, 0.10);
+  border-left: 2px solid rgba(59, 130, 246, 0.35);
+  border-right: 2px solid rgba(59, 130, 246, 0.35);
   pointer-events: none;
-  z-index: 1000;
+  z-index: 0;
+}
+
+.at-loop-range {
+  position: absolute;
+  background: rgba(16, 185, 129, 0.10);
+  border-left: 2px solid rgba(16, 185, 129, 0.45);
+  border-right: 2px solid rgba(16, 185, 129, 0.45);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.at-drag-range-preview {
+  position: absolute;
+  background: rgba(107, 114, 128, 0.08);
+  border: 1.5px dashed rgba(75, 85, 99, 0.75);
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 1100;
 }
 
 /* ─── Edit Cursor (click-to-position rectangle) ───────────────────────────── */
@@ -164,6 +196,27 @@
   pointer-events: none;
   z-index: 1001;
   transition: left 60ms ease, top 60ms ease;
+}
+
+.at-transport-playhead {
+  position: absolute;
+  width: 3px;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.95);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18);
+  pointer-events: none;
+  z-index: 1002;
+  transition: left 60ms ease, top 60ms ease;
+}
+
+.at-transport-mode {
+  cursor: crosshair;
+  box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.35);
+}
+
+.at-transport-mode .at-main {
+  cursor: crosshair;
 }
 
 /* ─── Snap Grid Debug Overlay ────────────────────────────────────────────── */

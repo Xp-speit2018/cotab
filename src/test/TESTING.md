@@ -5,10 +5,15 @@
 | Layer | Name | Scope | Mocking |
 |-------|------|-------|---------|
 | L0 | Schema factories | `createNote`, `createBeat`, etc. | None |
-| L1 | Action unit | Real Y.Doc, mocked AlphaTab (`player-api`, `player-helpers`) | Mock `player-api`, `player-helpers`, `player-store` |
+| L1 | DocumentAction unit | Real Y.Doc, mocked AlphaTab (`player-api`, `player-helpers`) | Mock `player-api`, `player-helpers`, `player-store` |
 | L2 | Integration | Real Y.Doc + real `buildAlphaTabScore` + real AlphaTab classes | Unmock `@/core/converters` and `@coderline/alphatab` |
 | L3 | Converter direct | `buildAlphaTabScore`, `importScoreToYDoc` in isolation | Same as L2 |
 | L4 | React components | Component rendering with mocked stores | Mock stores, use `@testing-library/react` |
+
+Terminology: see `docs/ACTIONS.md`. Existing tests still import from
+`src/core/actions`, which is the current DocumentAction implementation.
+AppAction tests should cover UI/shortcut dispatch behavior and transport/view
+actions above core.
 
 ## Mocking Policy
 
@@ -19,7 +24,7 @@
 
 ## Instrument Coverage Rule
 
-Any action with per-instrument branching (tab / notation / percussion) **must**:
+Any DocumentAction with per-instrument branching (tab / notation / percussion) **must**:
 1. Test all code paths at L1 (guitar tab, piano notation, drumkit percussion).
 2. Test guitar + the relevant variant at L2 (e.g., piano `realValue` round-trip, drumkit `isPercussion` round-trip).
 
@@ -42,7 +47,7 @@ it.each([
 
 - `edit-{domain}.test.ts` — L1 unit tests
 - `edit-{domain}-integration.test.ts` — L2 integration tests
-- Describe blocks match action IDs: `describe("edit.beat.placeNote", ...)`
+- Describe blocks match current action IDs: `describe("edit.beat.placeNote", ...)`
 
 ## No Duplication
 

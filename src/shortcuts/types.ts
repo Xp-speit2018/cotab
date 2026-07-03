@@ -1,5 +1,3 @@
-import type { ActionCategory } from "@/core/actions/types";
-
 /**
  * Platform-agnostic key combo stored as a normalized string.
  * Modifiers always appear in order: mod+alt+shift+<key>.
@@ -23,9 +21,9 @@ export type ShortcutBehavior =
     };
 
 export interface ShortcutBinding {
-  /** Unique ID matching the shortcut — typically mirrors the action ID, with a suffix for variants. */
+  /** Unique ID matching the shortcut, often mirroring the bound action ID. */
   readonly id: string;
-  /** The action to invoke when the shortcut fires. */
+  /** The AppAction ID to invoke when the shortcut fires. */
   readonly actionId: string;
   /** Human-readable i18n key for display in the config panel. */
   readonly i18nKey: string;
@@ -45,6 +43,7 @@ export interface ShortcutBinding {
 
 export type ShortcutCategory =
   | "navigation"
+  | "transport"
   | "editing.beat"
   | "editing.bar"
   | "editing.track"
@@ -53,6 +52,7 @@ export type ShortcutCategory =
 
 export const SHORTCUT_CATEGORY_ORDER: readonly ShortcutCategory[] = [
   "navigation",
+  "transport",
   "editing.beat",
   "editing.bar",
   "editing.track",
@@ -85,24 +85,4 @@ export function buildKeyCombo(mod: boolean, alt: boolean, shift: boolean, key: s
   if (shift) parts.push("shift");
   parts.push(key.toLowerCase());
   return parts.join("+");
-}
-
-/**
- * Maps ShortcutCategory to ActionCategory for looking up action definitions.
- */
-export function shortcutCategoryToActionCategory(cat: ShortcutCategory): ActionCategory | null {
-  switch (cat) {
-    case "navigation":
-      return "navigation";
-    case "editing.beat":
-      return "edit.beat";
-    case "editing.bar":
-      return "edit.bar";
-    case "editing.track":
-      return "edit.track";
-    case "history":
-      return null;
-    case "clipboard":
-      return "edit.clipboard";
-  }
 }

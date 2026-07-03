@@ -26,6 +26,11 @@ p2p collaboration lifecycle. Host targets provide runtime-specific adapters for
 transport, persistence, rendering, and protocol surfaces. These targets should
 not become sync authorities.
 
+Action naming is domain-based. `src/app-actions` is the UI/shortcut action
+entrypoint for AppActions such as `transport.playPause`; existing
+`src/core/actions` are DocumentActions for renderer-independent document
+editing. See [docs/ACTIONS.md](docs/ACTIONS.md) for the action taxonomy.
+
 Current target boundaries:
 
 - `src/core` is the shared logical engine.
@@ -36,6 +41,7 @@ Current target boundaries:
 - `src/adapters/local` is the local headless engine host used by the CLI and MCP
   stdio targets.
 - `src/cli` and `src/mcp` are command/protocol surfaces over the local adapter.
+  In this repo, "command" refers to CLI subcommands, not UI actions.
 
 ## What’s done
 
@@ -44,7 +50,7 @@ Current target boundaries:
 - [x] **Score and track metadata editing** — Edit song title, tempo, artist, etc.; per-track name, tuning (presets + custom), capo, transposition, MIDI program/channel.
 - [x] **Sidebar editor** — Bar, Note, Effects, and Articulations sections (Notes tab); Song and Tracks (Meta tab); debug tools.
 - [x] **Playback** — Load GP/GPX, play/pause, zoom, track volume/mute/solo, SoundFont-based playback.
-- [x] **Collaboration plumbing** — Yjs doc, WebRTC room connection, signaling server, IndexedDB persistence; CRDT schema aligned with the score model (commands for metadata, tempo, tracks, bars, beats, notes).
+- [x] **Collaboration plumbing** — Yjs doc, WebRTC room connection, signaling server, IndexedDB persistence; CRDT schema aligned with the score model (DocumentActions for metadata, tempo, tracks, bars, beats, notes).
 - [x] **Shortcuts system** — Customisable keyboard shortcuts with platform-adaptive modifiers, multi-digit fret input, percussion digit mapping, cycle/toggle behaviours, and browser conflict detection.
 - [x] **CRDT-style p2p coop** — Full real-time collaboration over the Yjs score doc.
 - [x] **Tests** — Unit and integration tests covering CRDT schema, sync, actions, and converters.

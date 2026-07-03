@@ -16,6 +16,7 @@ import { useShortcutStore, SHORTCUT_CATEGORY_ORDER } from "@/shortcuts";
 import type { ShortcutCategory as ShortcutCategoryType } from "@/shortcuts";
 import { ShortcutCategory } from "./ShortcutCategory";
 import { PercussionDigitMapping } from "./PercussionDigitMapping";
+import { TransportModifierSetting } from "./TransportModifierSetting";
 
 export function ShortcutConfigPanel() {
   const { t } = useTranslation();
@@ -23,6 +24,8 @@ export function ShortcutConfigPanel() {
   const setOpen = useShortcutStore((s) => s.setConfigPanelOpen);
   const bindings = useShortcutStore((s) => s.bindings);
   const resetAll = useShortcutStore((s) => s.resetAll);
+  const transportModifier = useShortcutStore((s) => s.transportModifier);
+  const isTransportModifierModified = useShortcutStore((s) => s.isTransportModifierModified);
   const [search, setSearch] = useState("");
 
   const grouped = useMemo(() => {
@@ -45,7 +48,14 @@ export function ShortcutConfigPanel() {
     return groups;
   }, [bindings, search, t]);
 
-  const hasModified = bindings.some((b) => b.keys !== b.defaultKeys);
+  const showTransportModifier =
+    !search ||
+    t("shortcuts.transportModifier.title").toLowerCase().includes(search.toLowerCase()) ||
+    transportModifier.toLowerCase().includes(search.toLowerCase());
+
+  const hasModified =
+    bindings.some((b) => b.keys !== b.defaultKeys) ||
+    isTransportModifierModified();
 
   return (
     <Dialog open={isOpen} onOpenChange={setOpen}>
@@ -67,6 +77,7 @@ export function ShortcutConfigPanel() {
 
         <ScrollArea className="flex-1 -mx-6 px-6 overflow-y-auto max-h-[50vh]">
           <div className="space-y-0.5">
+            {showTransportModifier && <TransportModifierSetting />}
             {Array.from(grouped.entries()).map(([category, items]) => (
               <ShortcutCategory
                 key={category}

@@ -74,6 +74,7 @@ export function Toolbar() {
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
   const loadFile = usePlayerStore((s) => s.loadFile);
+  const selector = usePlayerStore((s) => s.selector);
   const transport = usePlayerStore((s) => s.transport);
   const editorMode = usePlayerStore((s) => s.editorMode);
   const tabConnected = useEditorStore((s) => s.connected);
@@ -85,12 +86,19 @@ export function Toolbar() {
 
   const isPlaying = playerState === "playing";
   const transportModifierLabel = formatShortcut(transportModifierToKeyCombo(transportModifier));
-  const playheadLabel = transport.playhead
-    ? t("toolbar.playheadPosition", {
+  const transportPositionLabel = transport.playhead
+    ? t("toolbar.transportPosition", {
+        modifier: transportModifierLabel,
         bar: transport.playhead.barIndex + 1,
         beat: transport.playhead.beatIndex + 1,
       })
-    : t("toolbar.noPlayhead");
+    : t("toolbar.noTransportPosition", { modifier: transportModifierLabel });
+  const selectorPositionLabel = selector.barIndex !== null && selector.beatIndex !== null
+    ? t("toolbar.selectorPosition", {
+        bar: selector.barIndex + 1,
+        beat: selector.beatIndex + 1,
+      })
+    : t("toolbar.noSelectorPosition");
   const loopLabel = transport.loopRange
     ? t("toolbar.loopRange", {
         start: `${transport.loopRange.start.barIndex + 1}.${transport.loopRange.start.beatIndex + 1}`,
@@ -285,22 +293,36 @@ export function Toolbar() {
           <TooltipContent>{t("toolbar.loop")}</TooltipContent>
         </Tooltip>
 
-        <div className="flex min-w-[150px] flex-col justify-center px-1 leading-tight">
-          <span className="truncate text-xs font-medium tabular-nums">
-            {playheadLabel}
-            {loopLabel ? ` · ${loopLabel}` : ""}
-          </span>
+        <div className="flex min-w-[250px] max-w-[38vw] flex-col justify-center gap-0.5 px-1 leading-tight">
+          <div className="flex min-w-0 items-center gap-1">
+            <span
+              className={cn(
+                "min-w-0 truncate rounded border px-1.5 py-0.5 text-[11px] font-medium tabular-nums transition-colors",
+                transportModifierActive
+                  ? "border-emerald-500/35 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                  : "border-emerald-500/15 text-emerald-700/55 dark:text-emerald-300/55",
+              )}
+            >
+              {transportPositionLabel}
+            </span>
+            <span
+              className={cn(
+                "min-w-0 truncate rounded border px-1.5 py-0.5 text-[11px] font-medium tabular-nums transition-colors",
+                transportModifierActive
+                  ? "border-blue-500/15 text-blue-700/55 dark:text-blue-300/55"
+                  : "border-blue-500/35 bg-blue-500/15 text-blue-700 dark:text-blue-300",
+              )}
+            >
+              {selectorPositionLabel}
+            </span>
+          </div>
           <span className="truncate font-mono text-[11px] text-muted-foreground tabular-nums">
+            {loopLabel ? `${loopLabel} · ` : ""}
             {isPlayerReady
               ? `${formatTime(currentTime)} / ${formatTime(endTime)}`
               : t("toolbar.loading", { percent: Math.floor(soundFontProgress * 100) })}
           </span>
         </div>
-        {transportModifierActive && (
-          <span className="rounded border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
-            {t("toolbar.transportMode", { modifier: transportModifierLabel })}
-          </span>
-        )}
       </div>
 
       <Separator orientation="vertical" className="mx-1 h-6" />

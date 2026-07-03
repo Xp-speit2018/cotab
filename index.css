@@ -158,6 +158,16 @@
   z-index: 0;
 }
 
+.at-main > .at-surface > :not(.cotab-range-background-layer) {
+  position: relative;
+  z-index: 1;
+}
+
+.at-main > .at-surface > .cotab-range-background-layer {
+  position: absolute;
+  z-index: 0;
+}
+
 /* ─── Bar Selection (multi-bar drag selection rectangles) ──────────────────── */
 
 .at-bar-selection {

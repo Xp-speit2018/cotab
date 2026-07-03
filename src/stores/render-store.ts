@@ -509,12 +509,25 @@ function getCursorsWrapper(): Element | null {
   return mainElement?.querySelector(".at-cursors") ?? null;
 }
 
+function normalizeRangeBackgroundLayerStyle(layer: HTMLDivElement): void {
+  layer.style.position = "absolute";
+  layer.style.left = "0";
+  layer.style.top = "0";
+  layer.style.right = "0";
+  layer.style.bottom = "0";
+  layer.style.width = "";
+  layer.style.height = "";
+  layer.style.display = "block";
+  layer.style.zIndex = "0";
+}
+
 function getRangeBackgroundLayer(): HTMLElement | null {
   const mainElement = getMainElement();
   if (!mainElement) return null;
   const surface = mainElement.querySelector(".at-surface");
   const host = surface instanceof HTMLElement ? surface : mainElement;
   if (rangeBackgroundLayer?.isConnected && rangeBackgroundLayer.parentElement === host) {
+    normalizeRangeBackgroundLayerStyle(rangeBackgroundLayer);
     return rangeBackgroundLayer;
   }
 
@@ -522,6 +535,7 @@ function getRangeBackgroundLayer(): HTMLElement | null {
   rangeBackgroundLayer = document.createElement("div");
   rangeBackgroundLayer.classList.add("cotab-range-background-layer");
   host.prepend(rangeBackgroundLayer);
+  normalizeRangeBackgroundLayerStyle(rangeBackgroundLayer);
   return rangeBackgroundLayer;
 }
 

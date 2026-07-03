@@ -340,6 +340,29 @@ test("transport modifier routes score mouse input to transport state", async ({ 
     .first()
     .evaluate((el) => el.parentElement?.parentElement?.className ?? "");
   expect(loopLayerHostClass).toContain("at-surface");
+  const persistentRangeStack = await page.evaluate(() => {
+    const surface = document.querySelector(".at-surface");
+    if (!surface) throw new Error("Expected AlphaTab surface");
+    const rangeLayer = surface.querySelector(".cotab-range-background-layer");
+    if (!rangeLayer) throw new Error("Expected range background layer");
+    const surfaceChildren = Array.from(surface.children);
+    const visibleScoreChildren = surfaceChildren.filter((child) => {
+      if (child === rangeLayer) return false;
+      const rect = child.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    });
+
+    return {
+      rangeLayerIndex: surfaceChildren.indexOf(rangeLayer),
+      rangeLayerZIndex: window.getComputedStyle(rangeLayer).zIndex,
+      scoreChildCount: visibleScoreChildren.length,
+      scoreChildZIndexes: visibleScoreChildren.map((child) => window.getComputedStyle(child).zIndex),
+    };
+  });
+  expect(persistentRangeStack.rangeLayerIndex).toBe(0);
+  expect(persistentRangeStack.rangeLayerZIndex).toBe("0");
+  expect(persistentRangeStack.scoreChildCount).toBeGreaterThan(0);
+  expect(persistentRangeStack.scoreChildZIndexes.every((zIndex) => zIndex === "1")).toBe(true);
   expect(previewZIndex).toBeGreaterThan(loopZIndex);
 
   const singleBeatLoopMetrics = await page.evaluate(() => {

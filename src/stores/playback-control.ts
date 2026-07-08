@@ -95,16 +95,14 @@ export function togglePlayback(
 }
 
 export function resolvePlaybackFinishedState(
-  state: PlaybackFinishedState,
-  api: PlaybackFinishedApi,
+  _state: PlaybackFinishedState,
+  _api: PlaybackFinishedApi,
 ): PlaybackFinishedResult {
-  const pausedAtLoopEnd = state.transport.loopRange !== null && !state.isLooping;
-  const playerState: PlaybackState = pausedAtLoopEnd ? "paused" : "stopped";
   return {
-    playerState,
-    currentTime: pausedAtLoopEnd ? state.currentTime : 0,
-    transportPlayerState: playerState,
-    transportCurrentTime: pausedAtLoopEnd ? state.transport.currentTime : 0,
-    transportTickPosition: pausedAtLoopEnd ? api.tickPosition : 0,
+    playerState: "stopped",
+    currentTime: 0,
+    transportPlayerState: "stopped",
+    transportCurrentTime: 0,
+    transportTickPosition: 0,
   };
 }

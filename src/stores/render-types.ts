@@ -294,6 +294,7 @@ export interface PlayerState {
   loadFile: (data: File | ArrayBuffer | Uint8Array) => void;
   loadUrl: (url: string) => void;
   togglePlayback: () => void;
+  stopTransport: () => void;
   setPlaybackSpeed: (speed: number) => void;
   setMasterVolume: (volume: number) => void;
   toggleLoop: () => void;

@@ -300,7 +300,51 @@ function beatPlaybackStartTick(beat: {
     : null;
 }
 
-function seekApiToBeatPosition(position: SelectedBeat): number | null {
+type TransportPositionSnapshot = {
+  currentTime: number;
+  endTime: number;
+  tickPosition: number;
+};
+
+function readApiTransportPosition(fallbackTickPosition = 0): TransportPositionSnapshot {
+  const api = getApi();
+  const position = (api as unknown as {
+    currentPosition?: {
+      currentTime?: number;
+      endTime?: number;
+      currentTick?: number;
+    };
+  } | null)?.currentPosition;
+  const apiTick = api?.tickPosition;
+  const apiTime = api?.timePosition;
+  return {
+    currentTime: typeof apiTime === "number" && Number.isFinite(apiTime)
+      ? apiTime
+      : typeof position?.currentTime === "number" && Number.isFinite(position.currentTime)
+        ? position.currentTime
+        : 0,
+    endTime: typeof position?.endTime === "number" && Number.isFinite(position.endTime)
+      ? position.endTime
+      : 0,
+    tickPosition: typeof apiTick === "number" && Number.isFinite(apiTick)
+      ? apiTick
+      : typeof position?.currentTick === "number" && Number.isFinite(position.currentTick)
+        ? position.currentTick
+        : fallbackTickPosition,
+  };
+}
+
+function positionSnapshotFromEvent(
+  e: alphaTab.synth.PositionChangedEventArgs,
+): TransportPositionSnapshot {
+  return {
+    currentTime: e.currentTime,
+    endTime: e.endTime,
+    tickPosition: e.currentTick,
+  };
+}
+
+function seekApiToBeatPosition(position: SelectedBeat): TransportPositionSnapshot | null {
   const api = getApi();
   if (!api) return null;
   const beat = resolveBeat(
@@ -314,7 +358,7 @@ function seekApiToBeatPosition(position: SelectedBeat): number | null {
   const tick = beatPlaybackStartTick(beat);
   if (tick === null) return null;
   api.tickPosition = tick;
-  return tick;
+  return readApiTransportPosition(tick);
 }
 
 function resolveBeatAddressTick(address: BeatAddress): number | null {
@@ -410,20 +454,11 @@ function resolveLoopRangeTicks(
   return { startTick, endTick: lastStartTick + duration };
 }
 
-function applyApiPlaybackRange(range: LoopRange | null): void {
+function clearNativePlaybackRange(): void {
   const api = getApi();
   if (!api) return;
-  if (!range) {
-    api.playbackRange = null;
-    return;
-  }
-
-  const ticks = resolveLoopRangeTicks(range);
-  if (!ticks) return;
-  const playbackRange = new alphaTab.synth.PlaybackRange();
-  playbackRange.startTick = ticks.startTick;
-  playbackRange.endTick = ticks.endTick;
-  api.playbackRange = playbackRange;
+  api.isLooping = false;
+  api.playbackRange = null;
 }
 
 function updateCursorRect(
@@ -450,29 +485,64 @@ function updateCursorRect(
   cursorElement.style.height = `${h}px`;
 }
 
-// ─── Transport playhead overlay ──────────────────────────────────────────────
+// ─── Transport playhead cursor ───────────────────────────────────────────────
 
+type TransportCursorBounds = { x: number; y: number; h: number };
 let transportPlayheadElement: HTMLDivElement | null = null;
 
-function updateTransportPlayheadOverlay(playhead: SelectedBeat | null): void {
+function hideAlphaTabPlaybackCursor(): void {
   const mainElement = getMainElement();
-  if (!playhead || !mainElement) {
+  const cursorBar = mainElement?.querySelector(".at-cursor-bar") as HTMLElement | null;
+  const cursorBeat = mainElement?.querySelector(".at-cursor-beat") as HTMLElement | null;
+  if (cursorBar) cursorBar.style.display = "none";
+  if (cursorBeat) cursorBeat.style.display = "none";
+}
+
+function findTransportCursorBoundsForTick(tick: number): TransportCursorBounds | null {
+  const lookup = getApi()?.boundsLookup;
+  if (!lookup) return null;
+  let first: (TransportCursorBounds & { tick: number }) | null = null;
+  let best: (TransportCursorBounds & { tick: number }) | null = null;
+  for (const system of lookup.staffSystems) {
+    for (const masterBarBounds of system.bars) {
+      const vb = masterBarBounds.visualBounds;
+      for (const barBounds of masterBarBounds.bars) {
+        for (const beatBounds of barBounds.beats) {
+          const beatTick = beatPlaybackStartTick(beatBounds.beat);
+          if (beatTick === null) continue;
+          const candidate = {
+            tick: beatTick,
+            x: beatBounds.onNotesX,
+            y: vb.y,
+            h: vb.h,
+          };
+          first ??= candidate;
+          if (beatTick <= tick && (!best || beatTick > best.tick)) {
+            best = candidate;
+          }
+        }
+      }
+    }
+  }
+
+  return best ?? first;
+}
+
+function updateTransportPlayheadOverlay(tickPosition: number | null): void {
+  hideAlphaTabPlaybackCursor();
+  if (tickPosition === null) {
     if (transportPlayheadElement) transportPlayheadElement.style.display = "none";
     return;
   }
 
-  const beatBounds = findBeatBounds(
-    playhead.trackIndex,
-    playhead.staffIndex,
-    playhead.barIndex,
-    playhead.beatIndex,
-  );
-  if (!beatBounds) {
+  const bounds = findTransportCursorBoundsForTick(tickPosition);
+  if (!bounds) {
     if (transportPlayheadElement) transportPlayheadElement.style.display = "none";
     return;
   }
 
-  const cursorsWrapper = mainElement.querySelector(".at-cursors");
+  const mainElement = getMainElement();
+  const cursorsWrapper = mainElement?.querySelector(".at-cursors");
   if (!cursorsWrapper) return;
 
   if (!transportPlayheadElement) {
@@ -481,16 +551,16 @@ function updateTransportPlayheadOverlay(playhead: SelectedBeat | null): void {
     cursorsWrapper.appendChild(transportPlayheadElement);
   }
 
-  const rb = beatBounds.visualBounds;
   transportPlayheadElement.style.display = "";
-  transportPlayheadElement.style.left = `${beatBounds.onNotesX}px`;
-  transportPlayheadElement.style.top = `${rb.y}px`;
-  transportPlayheadElement.style.height = `${rb.h}px`;
+  transportPlayheadElement.style.left = `${bounds.x}px`;
+  transportPlayheadElement.style.top = `${bounds.y}px`;
+  transportPlayheadElement.style.height = `${bounds.h}px`;
 }
 
 function destroyTransportPlayheadOverlay(): void {
   transportPlayheadElement?.remove();
   transportPlayheadElement = null;
+  hideAlphaTabPlaybackCursor();
 }
 
 // ─── Range overlays ─────────────────────────────────────────────────────────
@@ -895,54 +965,6 @@ function destroyRangeOverlays(): void {
   destroyDragRangePreviewOverlay();
 }
 
-// Monkey-patch: AlphaTab mis-positions its built-in bar/beat cursors on
-// overfull bars. We override the CSS transforms using the correct bounds.
-function fixAlphaTabCursors(
-  trackIndex: number,
-  staffIndex: number,
-  barIndex: number,
-  beatBounds: alphaTab.rendering.BeatBounds | null,
-): void {
-  const mainElement = getMainElement();
-  const api = getApi();
-  if (!mainElement) return;
-  const lookup = api?.boundsLookup;
-  if (!lookup) return;
-
-  for (const system of lookup.staffSystems) {
-    for (const masterBarBounds of system.bars) {
-      let found = false;
-      for (const barBounds of masterBarBounds.bars) {
-        if (barBounds.beats.length === 0) continue;
-        const refBar = barBounds.beats[0].beat.voice.bar;
-        if (
-          refBar.staff.track.index === trackIndex &&
-          refBar.staff.index === staffIndex &&
-          refBar.index === barIndex
-        ) {
-          found = true;
-          break;
-        }
-      }
-      if (!found) continue;
-
-      const cursorBar = mainElement.querySelector(".at-cursor-bar") as HTMLElement | null;
-      if (cursorBar) {
-        const vb = masterBarBounds.visualBounds;
-        cursorBar.style.transform =
-          `translate(${vb.x}px, ${vb.y}px) scale(${vb.w / 100}, ${vb.h / 100})`;
-      }
-      const cursorBeat = mainElement.querySelector(".at-cursor-beat") as HTMLElement | null;
-      if (cursorBeat && beatBounds) {
-        const vb = masterBarBounds.visualBounds;
-        cursorBeat.style.transform =
-          `translate(${beatBounds.onNotesX}px, ${vb.y}px) scale(0.01, ${vb.h / 100}) translateX(-50%)`;
-      }
-      return;
-    }
-  }
-}
-
 function readVisibleIndices(): number[] {
   const api = getApi();
   if (!api?.tracks) return [];
@@ -1143,7 +1165,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             loopRange: transport.loopRange,
           },
         }));
-        updateTransportPlayheadOverlay(transport.playhead);
+        updateTransportPlayheadOverlay(get().transport.tickPosition);
         updateTransportLoopOverlay(transport.loopRange);
       },
     });
@@ -1485,15 +1507,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
               ? freshGrid.positions.find((p) => p.string === sel.string) ?? null
               : null;
           updateCursorRect(freshBB, freshSnap, freshGrid);
-          fixAlphaTabCursors(sel.trackIndex, sel.staffIndex, sel.barIndex, freshBB);
         }
       }
 
       // 7. Reposition bar selection overlay after re-render
       updateBarSelectionOverlay(get().selectionRange);
-      updateTransportPlayheadOverlay(get().transport.playhead);
+      updateTransportPlayheadOverlay(get().transport.tickPosition);
       updateTransportLoopOverlay(get().transport.loopRange);
-      applyApiPlaybackRange(get().transport.loopRange);
+      clearNativePlaybackRange();
     });
 
     api.scoreLoaded.on((score: alphaTab.model.Score) => {
@@ -1544,15 +1565,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     api.playerStateChanged.on(
       (e: alphaTab.synth.PlayerStateChangedEventArgs) => {
+        const position = readApiTransportPosition(api.tickPosition);
         if (e.state === alphaTab.synth.PlayerState.Playing) {
           set((state) => ({
             playerState: "playing",
+            currentTime: position.currentTime,
+            endTime: position.endTime,
             transport: {
               ...state.transport,
               playerState: "playing",
-              tickPosition: api.tickPosition,
+              currentTime: position.currentTime,
+              endTime: position.endTime,
+              tickPosition: position.tickPosition,
             },
           }));
+          updateTransportPlayheadOverlay(position.tickPosition);
           return;
         }
 
@@ -1560,35 +1587,93 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           playerState: (state.playerState === "playing"
             ? "paused"
             : state.playerState) as PlaybackState,
+          currentTime: position.currentTime,
+          endTime: position.endTime,
           transport: {
             ...state.transport,
             playerState: state.playerState === "playing"
               ? "paused"
               : state.transport.playerState,
-            tickPosition: api.tickPosition,
+            currentTime: position.currentTime,
+            endTime: position.endTime,
+            tickPosition: position.tickPosition,
           },
         }));
+        updateTransportPlayheadOverlay(position.tickPosition);
       },
     );
 
     api.playerPositionChanged.on(
       (e: alphaTab.synth.PositionChangedEventArgs) => {
+        const position = positionSnapshotFromEvent(e);
+        const stateBeforeUpdate = get();
+        const loopTicks = stateBeforeUpdate.transport.loopRange
+          ? resolveLoopRangeTicks(stateBeforeUpdate.transport.loopRange)
+          : null;
+        if (
+          stateBeforeUpdate.playerState === "playing" &&
+          loopTicks &&
+          stateBeforeUpdate.transport.tickPosition < loopTicks.endTick &&
+          position.tickPosition >= loopTicks.endTick
+        ) {
+          if (stateBeforeUpdate.isLooping) {
+            api.tickPosition = loopTicks.startTick;
+            const loopStartPosition = readApiTransportPosition(loopTicks.startTick);
+            set((state) => ({
+              currentTime: loopStartPosition.currentTime,
+              endTime: loopStartPosition.endTime,
+              transport: {
+                ...state.transport,
+                currentTime: loopStartPosition.currentTime,
+                endTime: loopStartPosition.endTime,
+                tickPosition: loopStartPosition.tickPosition,
+              },
+            }));
+            hideAlphaTabPlaybackCursor();
+            updateTransportPlayheadOverlay(loopStartPosition.tickPosition);
+            return;
+          }
+
+          api.tickPosition = loopTicks.endTick;
+          api.pause();
+          const loopEndPosition = readApiTransportPosition(loopTicks.endTick);
+          set((state) => ({
+            playerState: "paused",
+            currentTime: loopEndPosition.currentTime,
+            endTime: loopEndPosition.endTime,
+            transport: {
+              ...state.transport,
+              playerState: "paused",
+              currentTime: loopEndPosition.currentTime,
+              endTime: loopEndPosition.endTime,
+              tickPosition: loopEndPosition.tickPosition,
+            },
+          }));
+          hideAlphaTabPlaybackCursor();
+          updateTransportPlayheadOverlay(loopEndPosition.tickPosition);
+          return;
+        }
+
         set((state) => ({
-          currentTime: e.currentTime,
-          endTime: e.endTime,
+          currentTime: position.currentTime,
+          endTime: position.endTime,
           transport: {
             ...state.transport,
-            currentTime: e.currentTime,
-            endTime: e.endTime,
-            tickPosition: api.tickPosition,
+            currentTime: position.currentTime,
+            endTime: position.endTime,
+            tickPosition: position.tickPosition,
           },
         }));
+        hideAlphaTabPlaybackCursor();
+        updateTransportPlayheadOverlay(position.tickPosition);
       },
     );
 
     api.playerFinished.on(() => {
+      let finishedTickPosition = 0;
       set((state) => {
         const finished = resolvePlaybackFinishedState(state, api);
+        finishedTickPosition = finished.transportTickPosition;
         return {
           playerState: finished.playerState,
           currentTime: finished.currentTime,
@@ -1600,6 +1685,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           },
         };
       });
+      updateTransportPlayheadOverlay(finishedTickPosition);
     });
 
     // Load the demo file
@@ -1712,20 +1798,51 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     toggleApiPlayback(api, get(), resolveBeat);
   },
 
+  stopTransport: () => {
+    const api = getApi();
+    if (!api) return;
+    api.pause();
+    const playhead = get().transport.playhead;
+    const position = playhead
+      ? seekApiToBeatPosition(playhead)
+      : (() => {
+          api.tickPosition = 0;
+          return readApiTransportPosition(0);
+        })();
+    const nextPosition = position ?? readApiTransportPosition(api.tickPosition);
+    set((state) => ({
+      playerState: "stopped",
+      currentTime: nextPosition.currentTime,
+      endTime: nextPosition.endTime,
+      transport: {
+        ...state.transport,
+        playerState: "stopped",
+        currentTime: nextPosition.currentTime,
+        endTime: nextPosition.endTime,
+        tickPosition: nextPosition.tickPosition,
+      },
+    }));
+    updateTransportPlayheadOverlay(nextPosition.tickPosition);
+  },
+
   setTransportPlayhead: (args) => {
     const playhead = args ? normalizeBeatPosition(args) : null;
     if (playhead) {
-      const tick = seekApiToBeatPosition(playhead);
+      const position = seekApiToBeatPosition(playhead);
       engine.localSetTransportPlayhead(playhead);
       set((state) => ({
+        currentTime: position?.currentTime ?? state.currentTime,
+        endTime: position?.endTime ?? state.endTime,
         transport: {
           ...state.transport,
           playhead,
           playheadBeatUuid: engine.transport.playheadBeatUuid,
-          tickPosition: tick ?? state.transport.tickPosition,
+          currentTime: position?.currentTime ?? state.transport.currentTime,
+          endTime: position?.endTime ?? state.transport.endTime,
+          tickPosition: position?.tickPosition ?? state.transport.tickPosition,
         },
       }));
-      updateTransportPlayheadOverlay(playhead);
+      updateTransportPlayheadOverlay(position?.tickPosition ?? get().transport.tickPosition);
       return;
     }
 
@@ -1737,7 +1854,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         playheadBeatUuid: null,
       },
     }));
-    updateTransportPlayheadOverlay(null);
+    updateTransportPlayheadOverlay(get().transport.tickPosition);
   },
 
   setTransportPlayheadToSelection: () => {
@@ -1786,11 +1903,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   toggleLoop: () => {
-    const api = getApi();
-    if (!api) return;
     const newLooping = !get().isLooping;
-    api.isLooping = newLooping;
-    applyApiPlaybackRange(get().transport.loopRange);
+    clearNativePlaybackRange();
     set({ isLooping: newLooping });
   },
 
@@ -1805,7 +1919,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         loopRange: range,
       },
     }));
-    applyApiPlaybackRange(range);
+    clearNativePlaybackRange();
     updateTransportLoopOverlay(range);
   },
 
@@ -2000,9 +2114,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       // Position the cursor rectangle
       updateCursorRect(bb, snap, grid);
-
-      // Fix AlphaTab's built-in bar/beat cursor for overfull bars
-      fixAlphaTabCursors(trackIndex, staffIndex, barIndex, bb);
 
       const track = beat.voice.bar.staff.track;
       const selectorPointers = {

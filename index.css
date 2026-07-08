@@ -128,12 +128,11 @@
 /* ─── AlphaTab Playback Cursor ─────────────────────────────────────────────── */
 
 .at-cursor-bar {
-  background: rgba(255, 242, 0, 0.25);
+  display: none !important;
 }
 
 .at-cursor-beat {
-  background: rgba(64, 64, 255, 0.75);
-  width: 3px;
+  display: none !important;
 }
 
 .at-selection div {
@@ -210,14 +209,36 @@
 
 .at-transport-playhead {
   position: absolute;
-  width: 3px;
+  width: 18px;
   transform: translateX(-50%);
-  border-radius: 999px;
-  background: rgba(16, 185, 129, 0.95);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18);
+  background: transparent;
   pointer-events: none;
   z-index: 1002;
   transition: left 60ms ease, top 60ms ease;
+}
+
+.at-transport-playhead::before,
+.at-transport-playhead::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+}
+
+.at-transport-playhead::before {
+  top: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid rgba(16, 185, 129, 0.95);
+}
+
+.at-transport-playhead::after {
+  bottom: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 9px solid rgba(16, 185, 129, 0.95);
 }
 
 .at-transport-mode {

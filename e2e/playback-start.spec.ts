@@ -4,6 +4,10 @@ declare global {
   interface Window {
     __ALPHATAB_API__?: {
       tickPosition: number;
+      playbackRange: {
+        startTick: number;
+        endTick: number;
+      } | null;
       score?: {
         tracks: Array<{
           staves: Array<{
@@ -22,10 +26,19 @@ declare global {
     __PLAYER_STORE__?: {
       getState(): {
         isPlayerReady: boolean;
+        isLooping: boolean;
         playerState: "stopped" | "playing" | "paused";
         selectedBeat: unknown;
         transport: {
-          playhead: unknown;
+          playhead: {
+            trackIndex: number;
+            staffIndex: number;
+            voiceIndex: number;
+            barIndex: number;
+            beatIndex: number;
+            string: number | null;
+          } | null;
+          currentTime: number;
           tickPosition: number;
         };
         setSelection(args: {
@@ -37,6 +50,25 @@ declare global {
           string: number | null;
         }): void;
         setTransportPlayheadToSelection(): void;
+        setTransportLoopRange(
+          range: {
+            start: {
+              trackIndex: number;
+              staffIndex: number;
+              voiceIndex: number;
+              barIndex: number;
+              beatIndex: number;
+            };
+            end: {
+              trackIndex: number;
+              staffIndex: number;
+              voiceIndex: number;
+              barIndex: number;
+              beatIndex: number;
+            };
+          } | null,
+        ): void;
+        toggleLoop(): void;
         togglePlayback(): void;
       };
     };
@@ -96,7 +128,7 @@ test("Selection does not change the transport playback start", async ({ page }) 
   expect(beforePlay.playerStateBeforePlay).toBe("stopped");
   expect(beforePlay.transportPlayhead).toBeNull();
 
-  await page.getByRole("button", { name: "Play" }).click();
+  await page.getByRole("button", { name: "Play", exact: true }).click();
 
   await page.waitForFunction(
     () => window.__PLAYER_STORE__!.getState().playerState === "playing",
@@ -109,6 +141,34 @@ test("Selection does not change the transport playback start", async ({ page }) 
 
   expect(afterPlay.playerStateAfterPlay).toBe("playing");
   expect(afterPlay.tickAfterPlay).toBeLessThan(beforePlay.expectedTick);
+
+  const afterLoopActivation = await page.evaluate(() => {
+    const api = window.__ALPHATAB_API__!;
+    const store = window.__PLAYER_STORE__!;
+    const loopAddress = {
+      trackIndex: 0,
+      staffIndex: 0,
+      voiceIndex: 0,
+      barIndex: 8,
+      beatIndex: 0,
+    };
+    const tickBeforeLoopActivation = api.tickPosition;
+    store.getState().setTransportLoopRange({ start: loopAddress, end: loopAddress });
+    store.getState().toggleLoop();
+    return {
+      appLooping: store.getState().isLooping,
+      apiTickAfterLoopActivation: api.tickPosition,
+      tickBeforeLoopActivation,
+      playbackRange: api.playbackRange,
+    };
+  });
+
+  expect(afterLoopActivation.appLooping).toBe(true);
+  expect(afterLoopActivation.playbackRange).toBeNull();
+  expect(afterLoopActivation.apiTickAfterLoopActivation).toBeLessThan(beforePlay.expectedTick);
+  expect(afterLoopActivation.apiTickAfterLoopActivation).toBeGreaterThanOrEqual(
+    afterLoopActivation.tickBeforeLoopActivation,
+  );
 });
 
 test("Explicit transport playhead starts playback from the selector", async ({ page }) => {
@@ -161,7 +221,7 @@ test("Explicit transport playhead starts playback from the selector", async ({ p
   expect(beforePlay.expectedTick).toBeGreaterThan(0);
   expect(beforePlay.tickBeforePlay).toBe(beforePlay.expectedTick);
 
-  await page.getByRole("button", { name: "Play" }).click();
+  await page.getByRole("button", { name: "Play", exact: true }).click();
 
   await page.waitForFunction(
     () => window.__PLAYER_STORE__!.getState().playerState === "playing",
@@ -169,8 +229,40 @@ test("Explicit transport playhead starts playback from the selector", async ({ p
 
   const afterPlay = await page.evaluate(() => ({
     tickAfterPlay: window.__ALPHATAB_API__!.tickPosition,
+    transportTickAfterPlay: window.__PLAYER_STORE__!.getState().transport.tickPosition,
+    transportPlayheadAfterPlay: window.__PLAYER_STORE__!.getState().transport.playhead,
   }));
 
   expect(afterPlay.tickAfterPlay).toBeGreaterThanOrEqual(beforePlay.expectedTick);
   expect(afterPlay.tickAfterPlay).toBeLessThan(beforePlay.expectedTick + 3840);
+  expect(afterPlay.transportTickAfterPlay).toBe(afterPlay.tickAfterPlay);
+  expect(afterPlay.transportPlayheadAfterPlay).toMatchObject({
+    trackIndex: 0,
+    staffIndex: 0,
+    voiceIndex: 0,
+    barIndex: 8,
+    beatIndex: 0,
+  });
+
+  await page.getByRole("button", { name: "Stop and return to playhead" }).click();
+
+  await page.waitForFunction(
+    () => window.__PLAYER_STORE__!.getState().playerState === "stopped",
+  );
+
+  const afterStop = await page.evaluate(() => ({
+    apiTickAfterStop: window.__ALPHATAB_API__!.tickPosition,
+    transportTickAfterStop: window.__PLAYER_STORE__!.getState().transport.tickPosition,
+    transportPlayheadAfterStop: window.__PLAYER_STORE__!.getState().transport.playhead,
+  }));
+
+  expect(afterStop.apiTickAfterStop).toBe(beforePlay.expectedTick);
+  expect(afterStop.transportTickAfterStop).toBe(beforePlay.expectedTick);
+  expect(afterStop.transportPlayheadAfterStop).toMatchObject({
+    trackIndex: 0,
+    staffIndex: 0,
+    voiceIndex: 0,
+    barIndex: 8,
+    beatIndex: 0,
+  });
 });

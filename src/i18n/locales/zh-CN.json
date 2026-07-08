@@ -5,6 +5,8 @@
     "stop": "停止",
     "pause": "暂停",
     "play": "播放",
+    "resume": "继续播放",
+    "stopToPlayhead": "停止并回到播放头",
     "loop": "循环范围",
     "playFromPlayhead": "从播放头播放",
     "noPlayhead": "无播放头",

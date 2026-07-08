@@ -111,7 +111,7 @@ describe("playback-control", () => {
     expect(api.play).toHaveBeenCalledTimes(1);
   });
 
-  it("pauses at the loop range end when looping is disabled", () => {
+  it("stops finished playback without interpreting app loop state", () => {
     const result = resolvePlaybackFinishedState(
       {
         currentTime: 12_500,
@@ -140,15 +140,15 @@ describe("playback-control", () => {
     );
 
     expect(result).toEqual({
-      playerState: "paused",
-      currentTime: 12_500,
-      transportPlayerState: "paused",
-      transportCurrentTime: 12_500,
-      transportTickPosition: 9_600,
+      playerState: "stopped",
+      currentTime: 0,
+      transportPlayerState: "stopped",
+      transportCurrentTime: 0,
+      transportTickPosition: 0,
     });
   });
 
-  it("resets finished playback when loop range looping is enabled", () => {
+  it("stops finished playback when app looping is enabled", () => {
     const result = resolvePlaybackFinishedState(
       {
         currentTime: 12_500,

@@ -66,8 +66,6 @@ export function Toolbar() {
 
   const isPlayerReady = usePlayerStore((s) => s.isPlayerReady);
   const playerState = usePlayerStore((s) => s.playerState);
-  const currentTime = usePlayerStore((s) => s.currentTime);
-  const endTime = usePlayerStore((s) => s.endTime);
   const isLooping = usePlayerStore((s) => s.isLooping);
   const zoom = usePlayerStore((s) => s.zoom);
   const scoreTitle = usePlayerStore((s) => s.scoreTitle);
@@ -85,6 +83,11 @@ export function Toolbar() {
   const transportModifierActive = useTransportModifierActive();
 
   const isPlaying = playerState === "playing";
+  const playButtonLabel = isPlaying
+    ? t("toolbar.pause")
+    : playerState === "paused"
+      ? t("toolbar.resume")
+      : t("toolbar.play");
   const transportModifierLabel = formatShortcut(transportModifierToKeyCombo(transportModifier));
   const transportPositionLabel = transport.playhead
     ? t("toolbar.transportPosition", {
@@ -240,11 +243,12 @@ export function Toolbar() {
               )}
               onClick={() => executeAppAction("transport.stop", undefined, { t })}
               disabled={!isPlayerReady}
+              aria-label={t("toolbar.stopToPlayhead")}
             >
               <Square className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{t("toolbar.stop")}</TooltipContent>
+          <TooltipContent>{t("toolbar.stopToPlayhead")}</TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -256,7 +260,7 @@ export function Toolbar() {
                 "h-8 w-8",
                 transportModifierActive && "hover:bg-emerald-500/15",
               )}
-              aria-label={isPlaying ? t("toolbar.pause") : t("toolbar.playFromPlayhead")}
+              aria-label={playButtonLabel}
               onClick={() => executeAppAction("transport.playPause", undefined, { t })}
               disabled={!isPlayerReady}
             >
@@ -268,7 +272,7 @@ export function Toolbar() {
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {isPlaying ? t("toolbar.pause") : t("toolbar.playFromPlayhead")}
+            {playButtonLabel}
           </TooltipContent>
         </Tooltip>
 
@@ -319,7 +323,7 @@ export function Toolbar() {
           <span className="truncate font-mono text-[11px] text-muted-foreground tabular-nums">
             {loopLabel ? `${loopLabel} · ` : ""}
             {isPlayerReady
-              ? `${formatTime(currentTime)} / ${formatTime(endTime)}`
+              ? `${formatTime(transport.currentTime)} / ${formatTime(transport.endTime)}`
               : t("toolbar.loading", { percent: Math.floor(soundFontProgress * 100) })}
           </span>
         </div>

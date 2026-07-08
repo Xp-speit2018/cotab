@@ -192,7 +192,80 @@ test("transport modifier routes score mouse input to transport state", async ({ 
   expect(afterTransportClick.selectedBeat).toEqual(afterSelectorDrag.selectedBeat);
   expect(afterTransportClick.transportPlayhead).not.toBeNull();
   expect(afterTransportClick.loopRange).toBeNull();
+  await expect(page.locator(".at-cursor-beat")).not.toBeVisible();
   await expect(page.locator(".at-transport-playhead")).toBeVisible();
+  const transportCursorStyle = await page.locator(".at-transport-playhead").evaluate((el) => {
+    const node = el as HTMLElement;
+    const style = window.getComputedStyle(node);
+    const before = window.getComputedStyle(node, "::before");
+    const after = window.getComputedStyle(node, "::after");
+    return {
+      backgroundColor: style.backgroundColor,
+      left: Number.parseFloat(node.style.left),
+      top: Number.parseFloat(node.style.top),
+      width: Number.parseFloat(style.width),
+      height: Number.parseFloat(style.height),
+      beforeBorderTopColor: before.borderTopColor,
+      beforeBorderTopWidth: Number.parseFloat(before.borderTopWidth),
+      afterBorderBottomColor: after.borderBottomColor,
+      afterBorderBottomWidth: Number.parseFloat(after.borderBottomWidth),
+    };
+  });
+  expect(transportCursorStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(transportCursorStyle.width).toBeCloseTo(18, 0);
+  expect(transportCursorStyle.height).toBeGreaterThan(100);
+  expect(transportCursorStyle.beforeBorderTopColor).toBe("rgba(16, 185, 129, 0.95)");
+  expect(transportCursorStyle.beforeBorderTopWidth).toBeCloseTo(9, 0);
+  expect(transportCursorStyle.afterBorderBottomColor).toBe("rgba(16, 185, 129, 0.95)");
+  expect(transportCursorStyle.afterBorderBottomWidth).toBeCloseTo(9, 0);
+  const transportCursorExpectedBounds = await page.evaluate(() => {
+    const api = window.__ALPHATAB_API__!;
+    const tickPosition = window.__PLAYER_STORE__!.getState().transport.tickPosition;
+
+    let first:
+      | {
+          tick: number;
+          left: number;
+          top: number;
+          height: number;
+        }
+      | null = null;
+    let best:
+      | {
+          tick: number;
+          left: number;
+          top: number;
+          height: number;
+        }
+      | null = null;
+    for (const system of api.boundsLookup.staffSystems) {
+      for (const masterBar of system.bars) {
+        for (const barBounds of masterBar.bars) {
+          for (const beatBounds of barBounds.beats) {
+            const beat = beatBounds.beat as { absolutePlaybackStart?: number; playbackStart?: number };
+            const tick = beat.absolutePlaybackStart ?? beat.playbackStart;
+            if (typeof tick !== "number") continue;
+            const candidate = {
+              tick,
+              left: beatBounds.onNotesX,
+              top: masterBar.visualBounds.y,
+              height: masterBar.visualBounds.h,
+            };
+            first ??= candidate;
+            if (tick <= tickPosition && (!best || tick > best.tick)) {
+              best = candidate;
+            }
+          }
+        }
+      }
+    }
+    return best ?? first ?? (() => {
+      throw new Error("Expected transport cursor bounds");
+    })();
+  });
+  expect(Math.abs(transportCursorStyle.left - transportCursorExpectedBounds.left)).toBeLessThan(1);
+  expect(Math.abs(transportCursorStyle.top - transportCursorExpectedBounds.top)).toBeLessThan(1);
+  expect(Math.abs(transportCursorStyle.height - transportCursorExpectedBounds.height)).toBeLessThan(1);
 
   const betweenBeatsAcrossBarline = await page.evaluate(() => {
     const api = window.__ALPHATAB_API__!;
@@ -425,21 +498,28 @@ test("transport modifier routes score mouse input to transport state", async ({ 
   expect(Math.abs(singleBeatLoopRect.left - singleBeatLoopMetrics.expectedLeft)).toBeLessThan(1);
   expect(Math.abs(singleBeatLoopRect.right - singleBeatLoopMetrics.expectedRight)).toBeLessThan(1);
 
-  const playbackRangeBeforeLoop = await page.evaluate(() => window.__ALPHATAB_API__!.playbackRange);
-  expect(playbackRangeBeforeLoop).not.toBeNull();
-  expect(playbackRangeBeforeLoop!.endTick).toBeGreaterThan(playbackRangeBeforeLoop!.startTick);
+  const beforeLoopToggle = await page.evaluate(() => ({
+    apiLooping: window.__ALPHATAB_API__!.isLooping,
+    playbackRange: window.__ALPHATAB_API__!.playbackRange,
+    tickPosition: window.__ALPHATAB_API__!.tickPosition,
+  }));
+  expect(beforeLoopToggle.apiLooping).toBe(false);
+  expect(beforeLoopToggle.playbackRange).toBeNull();
 
   const loopState = await page.evaluate(() => {
     window.__PLAYER_STORE__!.getState().toggleLoop();
     return {
-      isLooping: window.__ALPHATAB_API__!.isLooping,
+      appLooping: window.__PLAYER_STORE__!.getState().isLooping,
+      apiLooping: window.__ALPHATAB_API__!.isLooping,
       playbackRange: window.__ALPHATAB_API__!.playbackRange,
+      tickPosition: window.__ALPHATAB_API__!.tickPosition,
     };
   });
 
-  expect(loopState.isLooping).toBe(true);
-  expect(loopState.playbackRange).not.toBeNull();
-  expect(loopState.playbackRange!.endTick).toBeGreaterThan(loopState.playbackRange!.startTick);
+  expect(loopState.appLooping).toBe(true);
+  expect(loopState.apiLooping).toBe(false);
+  expect(loopState.playbackRange).toBeNull();
+  expect(loopState.tickPosition).toBe(beforeLoopToggle.tickPosition);
 
   await page.keyboard.down("Alt");
   await viewport.click({ position: { x: 420, y: 150 } });

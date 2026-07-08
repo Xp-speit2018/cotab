@@ -5,6 +5,8 @@
     "stop": "Stop",
     "pause": "Pause",
     "play": "Play",
+    "resume": "Resume",
+    "stopToPlayhead": "Stop and return to playhead",
     "loop": "Loop Range",
     "playFromPlayhead": "Play from Playhead",
     "noPlayhead": "No playhead",

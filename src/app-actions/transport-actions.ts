@@ -1,4 +1,4 @@
-import { getApi, usePlayerStore } from "@/stores/render-store";
+import { usePlayerStore } from "@/stores/render-store";
 import { registerAppAction } from "./registry";
 
 declare global {
@@ -27,8 +27,7 @@ export function registerTransportActions(): void {
     i18nKey: "actions.transport.stop",
     category: "transport",
     execute: () => {
-      getApi()?.stop();
-      usePlayerStore.setState({ playerState: "stopped", currentTime: 0 });
+      usePlayerStore.getState().stopTransport();
     },
   });
 

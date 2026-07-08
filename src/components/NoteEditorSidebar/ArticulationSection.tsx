@@ -5,7 +5,7 @@ import {
   Collapsible,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
-import { executeAction } from "@/core/actions";
+import { executeAppAction } from "@/app-actions";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/render-store";
 import {
@@ -121,7 +121,7 @@ export function ArticulationSection({
                             )}
                             title={`ID ${entry.id} — staffLine ${entry.staffLine}`}
                             onClick={() =>
-                              executeAction("edit.beat.togglePercussionArticulation", entry.id, { t })
+                              executeAppAction("edit.beat.togglePercussionArticulation", entry.id, { t })
                             }
                           >
                             {entry.elementType} ({entry.technique})
@@ -170,7 +170,7 @@ export function ArticulationSection({
                             technique: entry.technique,
                           })}
                           onClick={() =>
-                            executeAction("edit.beat.togglePercussionArticulation", entry.id, { t })
+                            executeAppAction("edit.beat.togglePercussionArticulation", entry.id, { t })
                           }
                         >
                           {entry.elementType} ({entry.technique})

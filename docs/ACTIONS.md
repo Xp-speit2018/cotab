@@ -92,6 +92,11 @@ The codebase still has historical IDs such as `edit.beat.placeNote` and
 registers these DocumentActions as AppActions through a proxy, while native
 transport actions use IDs such as `transport.playPause`.
 
-Shortcuts and the transport toolbar already dispatch through AppAction. Some
-editor panels still call DocumentActions directly and can be migrated
-incrementally.
+Production UI, shortcut handling, and local app-state entrypoints dispatch
+through AppAction. Direct DocumentAction execution is reserved for the core
+action implementation, headless target adapters such as CLI/MCP/local engine,
+and focused DocumentAction tests.
+
+The boundary is guarded by `src/core/__tests__/target-boundaries.test.ts`, which
+fails if UI, shortcut, or local app-state code imports `@/core/actions`
+directly.

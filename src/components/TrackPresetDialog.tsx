@@ -7,7 +7,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { executeAction } from "@/core/actions";
+import { executeAppAction } from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
 import { TRACK_PRESETS } from "@/stores/render-types";
 import { cn } from "@/lib/utils";
@@ -28,7 +28,7 @@ export function TrackPresetDialog() {
 
   const handleSelect = (presetId: string) => {
     usePlayerStore.setState({ addTrackDialogOpen: false });
-    executeAction("edit.track.add", presetId, { t });
+    executeAppAction("edit.track.add", presetId, { t });
   };
 
   const handleOpenChange = (value: boolean) => {

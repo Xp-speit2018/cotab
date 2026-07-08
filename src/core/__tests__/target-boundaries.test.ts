@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 const sharedTargetRoots = ["src/core", "src/adapters/local", "src/cli", "src/mcp"];
+const appActionConsumerRoots = ["src/components", "src/shortcuts", "src/stores"];
 
 const forbiddenImports = [
   {
@@ -19,6 +20,11 @@ const forbiddenImports = [
     roots: sharedTargetRoots,
     patterns: [/^y-webrtc$/, /^y-indexeddb$/],
     reason: "shared targets must not depend on concrete Web transport/storage",
+  },
+  {
+    roots: appActionConsumerRoots,
+    patterns: [/^@\/core\/actions(?:\/|$)/],
+    reason: "UI, shortcut, and local app-state code must dispatch through AppAction",
   },
 ];
 
@@ -43,8 +49,9 @@ function importSources(source: string): string[] {
 }
 
 describe("target boundaries", () => {
-  it("keeps production core, local, CLI, and MCP code independent of Web UI and Web adapter imports", () => {
-    const violations = sharedTargetRoots.flatMap((root) => {
+  it("keeps target and action-layer imports inside their allowed boundaries", () => {
+    const roots = [...sharedTargetRoots, ...appActionConsumerRoots];
+    const violations = roots.flatMap((root) => {
       const files = walk(path.join(process.cwd(), root));
       return files.flatMap((filePath) => {
         const source = readFileSync(filePath, "utf8");

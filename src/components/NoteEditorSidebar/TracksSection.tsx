@@ -18,7 +18,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
-import { executeAction } from "@/core/actions";
+import { executeAppAction } from "@/app-actions";
 import { cn } from "@/lib/utils";
 import { usePlayerStore } from "@/stores/render-store";
 import type { TuningPresetInfo } from "@/stores/render-types";
@@ -86,7 +86,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
         <button
           type="button"
           className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
-          onClick={() => executeAction("edit.track.setVisible", { trackIndex, visible: !isVisible }, { t })}
+          onClick={() => executeAppAction("edit.track.setVisible", { trackIndex, visible: !isVisible }, { t })}
         >
           {isVisible ? (
             <Eye className="h-3 w-3" />
@@ -118,13 +118,13 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
             value={track.name}
             placeholder={t("sidebar.tracks.placeholderName")}
             icon={<Guitar className="h-3 w-3" />}
-            onCommit={(v) => executeAction("edit.track.setName", { trackIndex, name: v }, { t })}
+            onCommit={(v) => executeAppAction("edit.track.setName", { trackIndex, name: v }, { t })}
           />
           <EditablePropRow
             label={t("sidebar.tracks.shortName")}
             value={(alphaTabApi?.score?.tracks?.[trackIndex]?.shortName as string) ?? ""}
             placeholder={t("sidebar.tracks.placeholderShortName")}
-            onCommit={(v) => executeAction("edit.track.setShortName", { trackIndex, shortName: v }, { t })}
+            onCommit={(v) => executeAppAction("edit.track.setShortName", { trackIndex, shortName: v }, { t })}
           />
 
           {staffInfo &&
@@ -162,7 +162,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           preset.tunings.join(",") === staffInfo.tuningValues.join(",") && "bg-accent",
                         )}
                         onClick={() => {
-                          executeAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: preset.tunings }, { t });
+                          executeAppAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: preset.tunings }, { t });
                           setTuningOpen(false);
                         }}
                       >
@@ -192,7 +192,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           onClick={() => {
                             const next = [...staffInfo.tuningValues];
                             next[i] = Math.max(0, next[i] - 1);
-                            executeAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: next }, { t });
+                            executeAppAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: next }, { t });
                           }}
                         >
                           <ChevronDown className="h-2.5 w-2.5" />
@@ -206,7 +206,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           onClick={() => {
                             const next = [...staffInfo.tuningValues];
                             next[i] = Math.min(127, next[i] + 1);
-                            executeAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: next }, { t });
+                            executeAppAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: next }, { t });
                           }}
                         >
                           <ChevronUp className="h-2.5 w-2.5" />
@@ -224,7 +224,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                 value={staffInfo.capo}
                 min={0}
                 max={24}
-                onCommit={(v) => executeAction("edit.staff.setCapo", { trackIndex, staffIndex: 0, capo: v }, { t })}
+                onCommit={(v) => executeAppAction("edit.staff.setCapo", { trackIndex, staffIndex: 0, capo: v }, { t })}
               />
             </>
           )}
@@ -236,7 +236,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               suffix={t("sidebar.tracks.semitones")}
               min={-24}
               max={24}
-              onCommit={(v) => executeAction("edit.staff.setTransposition", { trackIndex, staffIndex: 0, semitones: v }, { t })}
+              onCommit={(v) => executeAppAction("edit.staff.setTransposition", { trackIndex, staffIndex: 0, semitones: v }, { t })}
             />
           )}
 
@@ -246,7 +246,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               value={playbackInfo.program}
               min={0}
               max={127}
-              onCommit={(v) => executeAction("edit.track.setProgram", { trackIndex, program: v }, { t })}
+              onCommit={(v) => executeAppAction("edit.track.setProgram", { trackIndex, program: v }, { t })}
             />
           )}
 

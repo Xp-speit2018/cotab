@@ -17,7 +17,7 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
-import { executeAction } from "@/core/actions";
+import { executeAppAction } from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
 import type { ScoreMetadataField } from "@/stores/render-types";
 import { SectionHeader, EditablePropRow, EditableNumberPropRow } from "./primitives";
@@ -40,14 +40,14 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
 
   const handleMeta = useCallback(
     (field: ScoreMetadataField) => (value: string) => {
-      executeAction("edit.score.setMetadata", { field, value }, { t });
+      executeAppAction("edit.score.setMetadata", { field, value }, { t });
     },
     [t],
   );
 
   const handleTempo = useCallback(
     (tempo: number) => {
-      executeAction("edit.score.setTempo", tempo, { t });
+      executeAppAction("edit.score.setTempo", tempo, { t });
     },
     [t],
   );

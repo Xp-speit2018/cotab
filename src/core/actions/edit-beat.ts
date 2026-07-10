@@ -70,11 +70,16 @@ function getStaffMode(sel: SelectedBeat): {
 } | null {
   const yStaff = engine.resolveYStaff(sel.trackIndex, sel.staffIndex);
   if (!yStaff) return null;
-  const tuning = yStaff.get("tuning") as Y.Array<number> | undefined;
+  const yStringTuning = yStaff.get("stringTuning") as
+    | Y.Map<unknown>
+    | undefined;
+  const tunings = yStringTuning?.get("tunings") as
+    | Y.Array<number>
+    | undefined;
   return {
     isPercussion: (yStaff.get("isPercussion") as boolean) ?? false,
     showTablature: (yStaff.get("showTablature") as boolean) ?? true,
-    tuningLength: tuning?.length ?? 0,
+    tuningLength: tunings?.length ?? 0,
   };
 }
 
@@ -83,8 +88,24 @@ function getClef(sel: SelectedBeat): number {
   return (yBar?.get("clef") as number | undefined) ?? 4;
 }
 
-function getPercussionArticulation(staffLine: number): number {
-  return DRUM_STAFFLINE_DEFAULTS[staffLine] ?? STAFF_LINE_FIRST_GP7_ID[staffLine] ?? 42;
+function getPercussionArticulation(
+  trackIndex: number,
+  staffLine: number,
+): number {
+  const gp7Id =
+    DRUM_STAFFLINE_DEFAULTS[staffLine] ??
+    STAFF_LINE_FIRST_GP7_ID[staffLine] ??
+    42;
+  const yTrack = engine.resolveYTrack(trackIndex);
+  const yArticulations = yTrack?.get("percussionArticulations") as
+    | Y.Array<Y.Map<unknown>>
+    | undefined;
+  if (yArticulations && yArticulations.length > 0) {
+    for (let i = 0; i < yArticulations.length; i++) {
+      if ((yArticulations.get(i).get("id") as number) === gp7Id) return i;
+    }
+  }
+  return gp7Id;
 }
 
 function applyBeatUpdates(updates: Record<string, unknown>): void {
@@ -151,7 +172,10 @@ const placeNoteAction: ActionDefinition<number | void> = {
 
     if (staffMode.isPercussion) {
       const yNote = createNote(-1, -1);
-      yNote.set("percussionArticulation", getPercussionArticulation(string));
+      yNote.set(
+        "percussionArticulation",
+        getPercussionArticulation(sel.trackIndex, string),
+      );
 
       transact(() => {
         yNotes.push([yNote]);
@@ -239,7 +263,7 @@ const deleteNoteAction: ActionDefinition<void> = {
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
     const noteIdx = engine.selector.noteIndex;
 
-    if (yNotes.length === 0 || ((yBeat.get("isRest") as boolean) ?? false)) {
+    if (yNotes.length === 0) {
       if (yBeats.length <= 1) return false;
 
       const newBeatIdx = Math.min(sel.beatIndex, yBeats.length - 2);

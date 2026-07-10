@@ -230,7 +230,7 @@ describe("edit.note (violin tab)", () => {
     resetMockState();
     destroyDoc();
     initDoc();
-    seedTrackWithConfig(getScoreMap()!, 1, { name: "Violin", tuning: [55, 62, 69, 76] });
+    seedTrackWithConfig(getScoreMap()!, 1, { name: "Violin", tuning: [76, 69, 62, 55] });
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 2, 2);
     selectBeat({ ...defaultSel, string: 2 as number | null });
     setSelectedNoteIndex(0);
@@ -321,6 +321,26 @@ describe("edit.beat.togglePercussionArticulation", () => {
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
+  });
+
+  it("stores the AlphaTab articulation index for custom track definitions", () => {
+    setupDrumTrack();
+    const tracks = getScoreMap()!.get("tracks") as Y.Array<Y.Map<unknown>>;
+    const articulations = tracks
+      .get(0)
+      .get("percussionArticulations") as Y.Array<Y.Map<unknown>>;
+    const first = new Y.Map<unknown>();
+    first.set("id", 42);
+    const second = new Y.Map<unknown>();
+    second.set("id", 38);
+    articulations.push([first, second]);
+
+    executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
+
+    const notes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get(
+      "notes",
+    ) as Y.Array<Y.Map<unknown>>;
+    expect(notes.get(0).get("percussionArticulation")).toBe(1);
   });
 
   it("does nothing when track.isPercussion is false", () => {

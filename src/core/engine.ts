@@ -255,8 +255,6 @@ export class EditorEngine {
       scoreMap.set("tab", "");
       scoreMap.set("instructions", "");
       scoreMap.set("notices", "");
-      scoreMap.set("tempo", 120);
-      scoreMap.set("tempoLabel", "");
 
       scoreMap.set("masterBars", new Y.Array<Y.Map<unknown>>());
       scoreMap.set("tracks", new Y.Array<Y.Map<unknown>>());

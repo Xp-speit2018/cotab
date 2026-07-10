@@ -65,11 +65,6 @@ export function BarSection({ bar, dragHandleProps }: { bar: SelectedBarInfo; dra
               pressed={bar.isFreeTime}
               icon={<Infinity className="h-3.5 w-3.5" />}
             />
-            <ToggleBtn
-              label={t("sidebar.bar.doubleBar")}
-              pressed={bar.isDoubleBar}
-              textIcon="||"
-            />
           </div>
 
           {bar.hasSection && (

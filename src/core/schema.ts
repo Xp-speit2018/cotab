@@ -221,6 +221,49 @@ export const enum Clef {
   G2 = 4,
 }
 
+export const enum AutomationType {
+  Tempo = 0,
+  Volume = 1,
+  Instrument = 2,
+  Balance = 3,
+  SyncPoint = 4,
+  Bank = 4,
+}
+
+export const enum SimileMark {
+  None = 0,
+  Simple = 1,
+  FirstOfDouble = 2,
+  SecondOfDouble = 3,
+}
+
+export const enum Rasgueado {
+  None = 0,
+  Ii = 1,
+  Mi = 2,
+  MiiTriplet = 3,
+  MiiAnapaest = 4,
+  PmpTriplet = 5,
+  PmpAnapaest = 6,
+  PeiTriplet = 7,
+  PeiAnapaest = 8,
+  PaiTriplet = 9,
+  PaiAnapaest = 10,
+  AmiTriplet = 11,
+  AmiAnapaest = 12,
+  Ppp = 13,
+  Amii = 14,
+  Amip = 15,
+  Eami = 16,
+  Eamii = 17,
+  Peami = 18,
+}
+
+export const enum TremoloPickingStyle {
+  Default = 0,
+  BuzzRoll = 1,
+}
+
 // ─── Sub-schemas ─────────────────────────────────────────────────────────────
 
 export interface BendPointSchema {
@@ -238,12 +281,76 @@ export interface SectionSchema {
   marker: string;
 }
 
+export interface AutomationSchema {
+  isLinear: boolean;
+  type: AutomationType;
+  value: number;
+  ratioPosition: number;
+  text: string;
+  isVisible: boolean;
+}
+
+export interface ChordSchema {
+  name: string;
+  firstFret: number;
+  strings: number[];
+  barreFrets: number[];
+  showName: boolean;
+  showDiagram: boolean;
+  showFingering: boolean;
+}
+
+export interface ColorSchema {
+  raw: number;
+}
+
+export interface InstrumentArticulationSchema {
+  id: number;
+  elementType: string;
+  staffLine: number;
+  noteHeadDefault: number;
+  noteHeadHalf: number;
+  noteHeadWhole: number;
+  techniqueSymbol: number;
+  techniqueSymbolPlacement: number;
+  outputMidiNumber: number;
+}
+
+export interface LyricsSchema {
+  startBar: number;
+  text: string;
+  chunks: string[];
+}
+
+export interface PlaybackInformationSchema {
+  volume: number;
+  balance: number;
+  port: number;
+  program: number;
+  bank: number;
+  primaryChannel: number;
+  secondaryChannel: number;
+  isMute: boolean;
+  isSolo: boolean;
+}
+
+export interface TremoloPickingEffectSchema {
+  marks: number;
+  style: TremoloPickingStyle;
+}
+
+export interface TuningSchema {
+  isStandard: boolean;
+  name: string;
+  tunings: number[];
+}
+
 // ─── Snapshot Interfaces (plain objects for UI / Zustand) ────────────────────
 
 export interface NoteSchema {
   uuid: string;
   fret: number;
-  /** 1-indexed guitar string number (1 = highest pitch string) */
+  /** AlphaTab string number: 1 is the lowest-pitch, bottom tablature line. */
   string: number;
 
   // ── Notation (non-tab) ───────────────────────────────────────────────────
@@ -262,6 +369,7 @@ export interface NoteSchema {
   isTieDestination: boolean;
   isHammerPullOrigin: boolean;
   isLeftHandTapped: boolean;
+  isContinuedBend: boolean;
 
   // ── Enum properties ───────────────────────────────────────────────────────
   accentuated: AccentuationType;
@@ -298,7 +406,6 @@ export interface BeatSchema {
 
   // ── Rhythm modifiers ──────────────────────────────────────────────────────
   dots: number;
-  isRest: boolean;
   tupletNumerator: number;
   tupletDenominator: number;
 
@@ -306,6 +413,7 @@ export interface BeatSchema {
   graceType: GraceType;
   pickStroke: PickStroke;
   brushType: BrushType;
+  brushDuration: number;
   dynamics: DynamicValue;
   crescendo: CrescendoType;
   vibrato: VibratoType;
@@ -315,8 +423,15 @@ export interface BeatSchema {
   wahPedal: WahPedal;
 
   // ── Whammy bar ────────────────────────────────────────────────────────────
+  whammyStyle: BendStyle;
+  isContinuedWhammy: boolean;
   whammyBarType: WhammyType;
   whammyBarPoints: BendPointSchema[];
+
+  automations: AutomationSchema[];
+  lyrics: string[] | null;
+  tremoloPicking: TremoloPickingEffectSchema | null;
+  rasgueado: Rasgueado;
 
   // ── Text / chord ──────────────────────────────────────────────────────────
   text: string | null;
@@ -329,9 +444,6 @@ export interface BeatSchema {
   slashed: boolean;
   deadSlapped: boolean;
   isLegatoOrigin: boolean;
-
-  // ── Fermata ───────────────────────────────────────────────────────────────
-  fermata: FermataSchema | null;
 }
 
 export interface VoiceSchema {
@@ -342,48 +454,48 @@ export interface VoiceSchema {
 export interface BarSchema {
   uuid: string;
   clef: Clef;
+  clefOttava: Ottavia;
   voices: VoiceSchema[];
+  simileMark: SimileMark;
+  keySignature: number;
+  keySignatureType: KeySignatureType;
 }
 
 export interface MasterBarSchema {
   uuid: string;
   timeSignatureNumerator: number;
   timeSignatureDenominator: number;
-  keySignature: number;
-  keySignatureType: KeySignatureType;
   isRepeatStart: boolean;
   repeatCount: number;
   alternateEndings: number;
   tripletFeel: TripletFeel;
   isFreeTime: boolean;
-  isDoubleBar: boolean;
   section: SectionSchema | null;
-  fermata: FermataSchema | null;
-  /** Tempo override for this bar (null = inherit from previous) */
-  tempo: number | null;
+  tempoAutomations: AutomationSchema[];
+  fermata: Map<number, FermataSchema> | null;
 }
 
 export interface StaffSchema {
   uuid: string;
+  bars: BarSchema[];
+  chords: Map<string, ChordSchema> | null;
   capo: number;
   transpositionPitch: number;
+  displayTranspositionPitch: number;
   showTablature: boolean;
   showStandardNotation: boolean;
   isPercussion: boolean;
-  tuning: number[];
-  bars: BarSchema[];
+  stringTuning: TuningSchema;
 }
 
 export interface TrackSchema {
   uuid: string;
+  staves: StaffSchema[];
+  playbackInfo: PlaybackInformationSchema;
+  color: ColorSchema;
   name: string;
   shortName: string;
-  instrument: string;
-  color: { r: number; g: number; b: number; a: number };
-  playbackProgram: number;
-  playbackPrimaryChannel: number;
-  playbackSecondaryChannel: number;
-  staves: StaffSchema[];
+  percussionArticulations: InstrumentArticulationSchema[];
 }
 
 export interface ScoreSchema {
@@ -397,7 +509,9 @@ export interface ScoreSchema {
   tab: string;
   instructions: string;
   notices: string;
+  /** AlphaTab getter derived from the first master bar's first tempo automation. */
   tempo: number;
+  /** AlphaTab getter derived from the first master bar's first tempo automation. */
   tempoLabel: string;
   masterBars: MasterBarSchema[];
   tracks: TrackSchema[];
@@ -413,13 +527,67 @@ export type ScoreMetadataField =
   | "copyright"
   | "tab"
   | "instructions"
-  | "notices"
-  | "tempoLabel";
+  | "notices";
 
 // ─── Factory Functions (create initialized Y.Map instances) ──────────────────
 
-/** Standard guitar tuning in MIDI note numbers (E2 A2 D3 G3 B3 E4). */
-const STANDARD_TUNING = [40, 45, 50, 55, 59, 64];
+/** AlphaTab orders tuning from the top tablature line (highest pitch) down. */
+const STANDARD_TUNING = [64, 59, 55, 50, 45, 40];
+
+export function createAutomation(
+  type: AutomationType = AutomationType.Tempo,
+  value: number = 0,
+  ratioPosition: number = 0,
+): Y.Map<unknown> {
+  const automation = new Y.Map<unknown>();
+  automation.set("isLinear", false);
+  automation.set("type", type);
+  automation.set("value", value);
+  automation.set("ratioPosition", ratioPosition);
+  automation.set("text", "");
+  automation.set("isVisible", true);
+  return automation;
+}
+
+export function createTuning(tunings: readonly number[]): Y.Map<unknown> {
+  const tuning = new Y.Map<unknown>();
+  tuning.set("isStandard", false);
+  tuning.set("name", "");
+  const yTunings = new Y.Array<number>();
+  yTunings.push([...tunings]);
+  tuning.set("tunings", yTunings);
+  return tuning;
+}
+
+export function createPlaybackInformation(
+  program: number = 25,
+  primaryChannel: number = 0,
+  secondaryChannel: number = 1,
+): Y.Map<unknown> {
+  const playbackInfo = new Y.Map<unknown>();
+  playbackInfo.set("volume", 15);
+  playbackInfo.set("balance", 8);
+  playbackInfo.set("port", 1);
+  playbackInfo.set("program", program);
+  playbackInfo.set("bank", 0);
+  playbackInfo.set("primaryChannel", primaryChannel);
+  playbackInfo.set("secondaryChannel", secondaryChannel);
+  playbackInfo.set("isMute", false);
+  playbackInfo.set("isSolo", false);
+  return playbackInfo;
+}
+
+function createColor(r: number, g: number, b: number, a: number): Y.Map<unknown> {
+  const color = new Y.Map<unknown>();
+  color.set(
+    "raw",
+    ((a & 0xff) << 24) |
+      ((r & 0xff) << 16) |
+      ((g & 0xff) << 8) |
+      (b & 0xff),
+  );
+  return color;
+}
 
 export function createNote(fret: number, stringNum: number): Y.Map<unknown> {
   const note = new Y.Map<unknown>();
@@ -439,6 +607,7 @@ export function createNote(fret: number, stringNum: number): Y.Map<unknown> {
   note.set("isTieDestination", false);
   note.set("isHammerPullOrigin", false);
   note.set("isLeftHandTapped", false);
+  note.set("isContinuedBend", false);
 
   note.set("accentuated", AccentuationType.None);
   note.set("vibrato", VibratoType.None);
@@ -451,6 +620,7 @@ export function createNote(fret: number, stringNum: number): Y.Map<unknown> {
   note.set("bendPoints", new Y.Array<Y.Map<unknown>>());
   note.set("leftHandFinger", Fingers.Unknown);
   note.set("rightHandFinger", Fingers.Unknown);
+  note.set("dynamics", DynamicValue.F);
   note.set("ornament", NoteOrnament.None);
   note.set("accidentalMode", NoteAccidentalMode.Default);
 
@@ -471,13 +641,14 @@ export function createBeat(duration: number = 4): Y.Map<unknown> {
   beat.set("isEmpty", true);
 
   beat.set("dots", 0);
-  beat.set("isRest", false);
-  beat.set("tupletNumerator", 0);
-  beat.set("tupletDenominator", 0);
+  beat.set("tupletNumerator", -1);
+  beat.set("tupletDenominator", -1);
 
   beat.set("graceType", GraceType.None);
   beat.set("pickStroke", PickStroke.None);
   beat.set("brushType", BrushType.None);
+  beat.set("brushDuration", 0);
+  beat.set("dynamics", DynamicValue.F);
   beat.set("crescendo", CrescendoType.None);
   beat.set("vibrato", VibratoType.None);
   beat.set("fade", FadeType.None);
@@ -485,8 +656,15 @@ export function createBeat(duration: number = 4): Y.Map<unknown> {
   beat.set("golpe", GolpeType.None);
   beat.set("wahPedal", WahPedal.None);
 
+  beat.set("whammyStyle", BendStyle.Default);
+  beat.set("isContinuedWhammy", false);
   beat.set("whammyBarType", WhammyType.None);
   beat.set("whammyBarPoints", new Y.Array<Y.Map<unknown>>());
+
+  beat.set("automations", new Y.Array<Y.Map<unknown>>());
+  beat.set("lyrics", null);
+  beat.set("tremoloPicking", null);
+  beat.set("rasgueado", Rasgueado.None);
 
   beat.set("text", null);
   beat.set("chordId", null);
@@ -497,8 +675,6 @@ export function createBeat(duration: number = 4): Y.Map<unknown> {
   beat.set("slashed", false);
   beat.set("deadSlapped", false);
   beat.set("isLegatoOrigin", false);
-
-  beat.set("fermata", null);
 
   return beat;
 }
@@ -514,7 +690,11 @@ export function createBar(clef: number = Clef.G2): Y.Map<unknown> {
   const bar = new Y.Map<unknown>();
   bar.set("uuid", uuidv4());
   bar.set("clef", clef);
+  bar.set("clefOttava", Ottavia.Regular);
   bar.set("voices", new Y.Array<Y.Map<unknown>>());
+  bar.set("simileMark", SimileMark.None);
+  bar.set("keySignature", 0);
+  bar.set("keySignatureType", KeySignatureType.Major);
   return bar;
 }
 
@@ -526,50 +706,42 @@ export function createMasterBar(
   mb.set("uuid", uuidv4());
   mb.set("timeSignatureNumerator", numerator);
   mb.set("timeSignatureDenominator", denominator);
-  mb.set("keySignature", 0);
-  mb.set("keySignatureType", KeySignatureType.Major);
   mb.set("isRepeatStart", false);
   mb.set("repeatCount", 0);
   mb.set("alternateEndings", 0);
   mb.set("tripletFeel", TripletFeel.NoTripletFeel);
   mb.set("isFreeTime", false);
-  mb.set("isDoubleBar", false);
   mb.set("section", null);
+  mb.set("tempoAutomations", new Y.Array<Y.Map<unknown>>());
   mb.set("fermata", null);
-  mb.set("tempo", null);
   return mb;
 }
 
 export function createStaff(tuning: number[] = STANDARD_TUNING): Y.Map<unknown> {
   const staff = new Y.Map<unknown>();
   staff.set("uuid", uuidv4());
+  staff.set("bars", new Y.Array<Y.Map<unknown>>());
+  staff.set("chords", null);
   staff.set("capo", 0);
   staff.set("transpositionPitch", 0);
+  staff.set("displayTranspositionPitch", 0);
   staff.set("showTablature", true);
   staff.set("showStandardNotation", true);
+  staff.set("isPercussion", false);
 
-  const yTuning = new Y.Array<number>();
-  yTuning.push(tuning);
-  staff.set("tuning", yTuning);
-
-  staff.set("bars", new Y.Array<Y.Map<unknown>>());
+  staff.set("stringTuning", createTuning(tuning));
   return staff;
 }
 
 export function createTrack(name: string = "Track 1"): Y.Map<unknown> {
   const track = new Y.Map<unknown>();
   track.set("uuid", uuidv4());
+  track.set("staves", new Y.Array<Y.Map<unknown>>());
+  track.set("playbackInfo", createPlaybackInformation());
+  track.set("color", createColor(255, 99, 71, 255));
   track.set("name", name);
   track.set("shortName", "");
-  track.set("instrument", "acoustic-guitar");
-  track.set("colorR", 255);
-  track.set("colorG", 99);
-  track.set("colorB", 71);
-  track.set("colorA", 255);
-  track.set("playbackProgram", 25);
-  track.set("playbackPrimaryChannel", 0);
-  track.set("playbackSecondaryChannel", 1);
-  track.set("staves", new Y.Array<Y.Map<unknown>>());
+  track.set("percussionArticulations", new Y.Array<Y.Map<unknown>>());
   return track;
 }
 
@@ -594,8 +766,6 @@ export function initializeScore(doc: Y.Doc): Y.Map<unknown> {
       score.set("tab", "");
       score.set("instructions", "");
       score.set("notices", "");
-      score.set("tempo", 120);
-      score.set("tempoLabel", "");
       score.set("masterBars", new Y.Array<Y.Map<unknown>>());
       score.set("tracks", new Y.Array<Y.Map<unknown>>());
     });
@@ -614,6 +784,95 @@ function snapshotBendPoints(
     offset: (p.get("offset") as number) ?? 0,
     value: (p.get("value") as number) ?? 0,
   }));
+}
+
+function snapshotAutomation(yAutomation: Y.Map<unknown>): AutomationSchema {
+  return {
+    isLinear: (yAutomation.get("isLinear") as boolean) ?? false,
+    type:
+      (yAutomation.get("type") as AutomationType) ?? AutomationType.Tempo,
+    value: (yAutomation.get("value") as number) ?? 0,
+    ratioPosition: (yAutomation.get("ratioPosition") as number) ?? 0,
+    text: (yAutomation.get("text") as string) ?? "",
+    isVisible: (yAutomation.get("isVisible") as boolean) ?? true,
+  };
+}
+
+function snapshotAutomations(
+  yAutomations: Y.Array<Y.Map<unknown>> | null | undefined,
+): AutomationSchema[] {
+  return yAutomations?.map(snapshotAutomation) ?? [];
+}
+
+function snapshotTuning(
+  yTuning: Y.Map<unknown> | null | undefined,
+): TuningSchema {
+  const yTunings = yTuning?.get("tunings") as Y.Array<number> | undefined;
+  return {
+    isStandard: (yTuning?.get("isStandard") as boolean) ?? false,
+    name: (yTuning?.get("name") as string) ?? "",
+    tunings: yTunings?.toArray() ?? [],
+  };
+}
+
+function snapshotPlaybackInformation(
+  yPlaybackInfo: Y.Map<unknown> | null | undefined,
+): PlaybackInformationSchema {
+  return {
+    volume: (yPlaybackInfo?.get("volume") as number) ?? 15,
+    balance: (yPlaybackInfo?.get("balance") as number) ?? 8,
+    port: (yPlaybackInfo?.get("port") as number) ?? 1,
+    program: (yPlaybackInfo?.get("program") as number) ?? 25,
+    bank: (yPlaybackInfo?.get("bank") as number) ?? 0,
+    primaryChannel:
+      (yPlaybackInfo?.get("primaryChannel") as number) ?? 0,
+    secondaryChannel:
+      (yPlaybackInfo?.get("secondaryChannel") as number) ?? 1,
+    isMute: (yPlaybackInfo?.get("isMute") as boolean) ?? false,
+    isSolo: (yPlaybackInfo?.get("isSolo") as boolean) ?? false,
+  };
+}
+
+function snapshotChord(yChord: Y.Map<unknown>): ChordSchema {
+  return {
+    name: (yChord.get("name") as string) ?? "",
+    firstFret: (yChord.get("firstFret") as number) ?? 1,
+    strings:
+      (yChord.get("strings") as Y.Array<number> | undefined)?.toArray() ?? [],
+    barreFrets:
+      (yChord.get("barreFrets") as Y.Array<number> | undefined)?.toArray() ??
+      [],
+    showName: (yChord.get("showName") as boolean) ?? true,
+    showDiagram: (yChord.get("showDiagram") as boolean) ?? true,
+    showFingering: (yChord.get("showFingering") as boolean) ?? true,
+  };
+}
+
+function snapshotChords(
+  yChords: Y.Map<Y.Map<unknown>> | null | undefined,
+): Map<string, ChordSchema> | null {
+  if (!yChords) return null;
+  return new Map(
+    [...yChords.entries()].map(([id, yChord]) => [id, snapshotChord(yChord)]),
+  );
+}
+
+function snapshotInstrumentArticulation(
+  yArticulation: Y.Map<unknown>,
+): InstrumentArticulationSchema {
+  return {
+    id: (yArticulation.get("id") as number) ?? 0,
+    elementType: (yArticulation.get("elementType") as string) ?? "",
+    staffLine: (yArticulation.get("staffLine") as number) ?? 0,
+    noteHeadDefault: (yArticulation.get("noteHeadDefault") as number) ?? 0,
+    noteHeadHalf: (yArticulation.get("noteHeadHalf") as number) ?? 0,
+    noteHeadWhole: (yArticulation.get("noteHeadWhole") as number) ?? 0,
+    techniqueSymbol: (yArticulation.get("techniqueSymbol") as number) ?? 0,
+    techniqueSymbolPlacement:
+      (yArticulation.get("techniqueSymbolPlacement") as number) ?? 0,
+    outputMidiNumber:
+      (yArticulation.get("outputMidiNumber") as number) ?? 0,
+  };
 }
 
 function snapshotSection(
@@ -654,6 +913,7 @@ export function snapshotNote(yNote: Y.Map<unknown>): NoteSchema {
     isTieDestination: (yNote.get("isTieDestination") as boolean) ?? false,
     isHammerPullOrigin: (yNote.get("isHammerPullOrigin") as boolean) ?? false,
     isLeftHandTapped: (yNote.get("isLeftHandTapped") as boolean) ?? false,
+    isContinuedBend: (yNote.get("isContinuedBend") as boolean) ?? false,
 
     accentuated:
       (yNote.get("accentuated") as AccentuationType) ?? AccentuationType.None,
@@ -688,6 +948,11 @@ export function snapshotNote(yNote: Y.Map<unknown>): NoteSchema {
 
 export function snapshotBeat(yBeat: Y.Map<unknown>): BeatSchema {
   const notes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+  const yLyrics = yBeat.get("lyrics") as Y.Array<string> | null | undefined;
+  const yTremolo = yBeat.get("tremoloPicking") as
+    | Y.Map<unknown>
+    | null
+    | undefined;
   return {
     uuid: yBeat.get("uuid") as string,
     duration: (yBeat.get("duration") as Duration) ?? Duration.Quarter,
@@ -696,13 +961,13 @@ export function snapshotBeat(yBeat: Y.Map<unknown>): BeatSchema {
     isEmpty: (yBeat.get("isEmpty") as boolean) ?? true,
 
     dots: (yBeat.get("dots") as number) ?? 0,
-    isRest: (yBeat.get("isRest") as boolean) ?? false,
-    tupletNumerator: (yBeat.get("tupletNumerator") as number) ?? 0,
-    tupletDenominator: (yBeat.get("tupletDenominator") as number) ?? 0,
+    tupletNumerator: (yBeat.get("tupletNumerator") as number) ?? -1,
+    tupletDenominator: (yBeat.get("tupletDenominator") as number) ?? -1,
 
     graceType: (yBeat.get("graceType") as GraceType) ?? GraceType.None,
     pickStroke: (yBeat.get("pickStroke") as PickStroke) ?? PickStroke.None,
     brushType: (yBeat.get("brushType") as BrushType) ?? BrushType.None,
+    brushDuration: (yBeat.get("brushDuration") as number) ?? 0,
     dynamics: (yBeat.get("dynamics") as DynamicValue) ?? DynamicValue.F,
     crescendo:
       (yBeat.get("crescendo") as CrescendoType) ?? CrescendoType.None,
@@ -712,11 +977,29 @@ export function snapshotBeat(yBeat: Y.Map<unknown>): BeatSchema {
     golpe: (yBeat.get("golpe") as GolpeType) ?? GolpeType.None,
     wahPedal: (yBeat.get("wahPedal") as WahPedal) ?? WahPedal.None,
 
+    whammyStyle:
+      (yBeat.get("whammyStyle") as BendStyle) ?? BendStyle.Default,
+    isContinuedWhammy:
+      (yBeat.get("isContinuedWhammy") as boolean) ?? false,
     whammyBarType:
       (yBeat.get("whammyBarType") as WhammyType) ?? WhammyType.None,
     whammyBarPoints: snapshotBendPoints(
       yBeat.get("whammyBarPoints") as Y.Array<Y.Map<unknown>> | undefined,
     ),
+
+    automations: snapshotAutomations(
+      yBeat.get("automations") as Y.Array<Y.Map<unknown>> | undefined,
+    ),
+    lyrics: yLyrics?.toArray() ?? null,
+    tremoloPicking: yTremolo
+      ? {
+          marks: (yTremolo.get("marks") as number) ?? 0,
+          style:
+            (yTremolo.get("style") as TremoloPickingStyle) ??
+            TremoloPickingStyle.Default,
+        }
+      : null,
+    rasgueado: (yBeat.get("rasgueado") as Rasgueado) ?? Rasgueado.None,
 
     text: (yBeat.get("text") as string) ?? null,
     chordId: (yBeat.get("chordId") as string) ?? null,
@@ -727,10 +1010,6 @@ export function snapshotBeat(yBeat: Y.Map<unknown>): BeatSchema {
     slashed: (yBeat.get("slashed") as boolean) ?? false,
     deadSlapped: (yBeat.get("deadSlapped") as boolean) ?? false,
     isLegatoOrigin: (yBeat.get("isLegatoOrigin") as boolean) ?? false,
-
-    fermata: snapshotFermata(
-      yBeat.get("fermata") as Y.Map<unknown> | null | undefined,
-    ),
   };
 }
 
@@ -747,78 +1026,102 @@ export function snapshotBar(yBar: Y.Map<unknown>): BarSchema {
   return {
     uuid: yBar.get("uuid") as string,
     clef: (yBar.get("clef") as Clef) ?? Clef.G2,
+    clefOttava:
+      (yBar.get("clefOttava") as Ottavia) ?? Ottavia.Regular,
     voices: voices.map((v) => snapshotVoice(v)),
+    simileMark:
+      (yBar.get("simileMark") as SimileMark) ?? SimileMark.None,
+    keySignature: (yBar.get("keySignature") as number) ?? 0,
+    keySignatureType:
+      (yBar.get("keySignatureType") as KeySignatureType) ??
+      KeySignatureType.Major,
   };
 }
 
 export function snapshotMasterBar(yMb: Y.Map<unknown>): MasterBarSchema {
+  const yFermatas = yMb.get("fermata") as
+    | Y.Map<Y.Map<unknown>>
+    | null
+    | undefined;
+  const fermata = yFermatas
+    ? new Map(
+        [...yFermatas.entries()].map(([offset, yFermata]) => [
+          Number(offset),
+          snapshotFermata(yFermata)!,
+        ]),
+      )
+    : null;
   return {
     uuid: yMb.get("uuid") as string,
     timeSignatureNumerator: (yMb.get("timeSignatureNumerator") as number) ?? 4,
     timeSignatureDenominator:
       (yMb.get("timeSignatureDenominator") as number) ?? 4,
-    keySignature: (yMb.get("keySignature") as number) ?? 0,
-    keySignatureType:
-      (yMb.get("keySignatureType") as KeySignatureType) ??
-      KeySignatureType.Major,
     isRepeatStart: (yMb.get("isRepeatStart") as boolean) ?? false,
     repeatCount: (yMb.get("repeatCount") as number) ?? 0,
     alternateEndings: (yMb.get("alternateEndings") as number) ?? 0,
     tripletFeel:
       (yMb.get("tripletFeel") as TripletFeel) ?? TripletFeel.NoTripletFeel,
     isFreeTime: (yMb.get("isFreeTime") as boolean) ?? false,
-    isDoubleBar: (yMb.get("isDoubleBar") as boolean) ?? false,
     section: snapshotSection(
       yMb.get("section") as Y.Map<unknown> | null | undefined,
     ),
-    fermata: snapshotFermata(
-      yMb.get("fermata") as Y.Map<unknown> | null | undefined,
+    tempoAutomations: snapshotAutomations(
+      yMb.get("tempoAutomations") as Y.Array<Y.Map<unknown>> | undefined,
     ),
-    tempo: (yMb.get("tempo") as number) ?? null,
+    fermata,
   };
 }
 
 export function snapshotStaff(yStaff: Y.Map<unknown>): StaffSchema {
   const bars = yStaff.get("bars") as Y.Array<Y.Map<unknown>>;
-  const tuning = yStaff.get("tuning") as Y.Array<number> | undefined;
   return {
     uuid: yStaff.get("uuid") as string,
+    bars: bars.map((b) => snapshotBar(b)),
+    chords: snapshotChords(
+      yStaff.get("chords") as Y.Map<Y.Map<unknown>> | null | undefined,
+    ),
     capo: (yStaff.get("capo") as number) ?? 0,
     transpositionPitch: (yStaff.get("transpositionPitch") as number) ?? 0,
+    displayTranspositionPitch:
+      (yStaff.get("displayTranspositionPitch") as number) ?? 0,
     showTablature: (yStaff.get("showTablature") as boolean) ?? true,
     showStandardNotation:
       (yStaff.get("showStandardNotation") as boolean) ?? true,
     isPercussion: (yStaff.get("isPercussion") as boolean) ?? false,
-    tuning: tuning ? tuning.toArray() : [],
-    bars: bars.map((b) => snapshotBar(b)),
+    stringTuning: snapshotTuning(
+      yStaff.get("stringTuning") as Y.Map<unknown> | undefined,
+    ),
   };
 }
 
 export function snapshotTrack(yTrack: Y.Map<unknown>): TrackSchema {
   const staves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
+  const yColor = yTrack.get("color") as Y.Map<unknown> | undefined;
+  const yArticulations = yTrack.get("percussionArticulations") as
+    | Y.Array<Y.Map<unknown>>
+    | undefined;
   return {
     uuid: yTrack.get("uuid") as string,
+    staves: staves.map((s) => snapshotStaff(s)),
+    playbackInfo: snapshotPlaybackInformation(
+      yTrack.get("playbackInfo") as Y.Map<unknown> | undefined,
+    ),
+    color: { raw: (yColor?.get("raw") as number) ?? -40121 },
     name: (yTrack.get("name") as string) ?? "",
     shortName: (yTrack.get("shortName") as string) ?? "",
-    instrument: (yTrack.get("instrument") as string) ?? "",
-    color: {
-      r: (yTrack.get("colorR") as number) ?? 255,
-      g: (yTrack.get("colorG") as number) ?? 99,
-      b: (yTrack.get("colorB") as number) ?? 71,
-      a: (yTrack.get("colorA") as number) ?? 255,
-    },
-    playbackProgram: (yTrack.get("playbackProgram") as number) ?? 25,
-    playbackPrimaryChannel:
-      (yTrack.get("playbackPrimaryChannel") as number) ?? 0,
-    playbackSecondaryChannel:
-      (yTrack.get("playbackSecondaryChannel") as number) ?? 1,
-    staves: staves.map((s) => snapshotStaff(s)),
+    percussionArticulations:
+      yArticulations?.map(snapshotInstrumentArticulation) ?? [],
   };
 }
 
 export function snapshotScore(yScore: Y.Map<unknown>): ScoreSchema {
   const masterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
   const tracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
+  const firstTempoAutomation = (
+    masterBars?.get(0)?.get("tempoAutomations") as
+      | Y.Array<Y.Map<unknown>>
+      | undefined
+  )?.get(0);
   return {
     title: (yScore.get("title") as string) ?? "",
     subTitle: (yScore.get("subTitle") as string) ?? "",
@@ -830,8 +1133,8 @@ export function snapshotScore(yScore: Y.Map<unknown>): ScoreSchema {
     tab: (yScore.get("tab") as string) ?? "",
     instructions: (yScore.get("instructions") as string) ?? "",
     notices: (yScore.get("notices") as string) ?? "",
-    tempo: (yScore.get("tempo") as number) ?? 120,
-    tempoLabel: (yScore.get("tempoLabel") as string) ?? "",
+    tempo: (firstTempoAutomation?.get("value") as number) ?? 120,
+    tempoLabel: (firstTempoAutomation?.get("text") as string) ?? "",
     masterBars: masterBars ? masterBars.map((mb) => snapshotMasterBar(mb)) : [],
     tracks: tracks ? tracks.map((t) => snapshotTrack(t)) : [],
   };

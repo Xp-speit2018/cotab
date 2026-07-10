@@ -19,6 +19,7 @@ import {
   AccentuationType,
   VibratoType,
   DynamicValue,
+  AutomationType,
 } from "../schema";
 
 /**
@@ -57,13 +58,14 @@ describe("createNote", () => {
     expect(note.get("isTieDestination")).toBe(false);
     expect(note.get("isHammerPullOrigin")).toBe(false);
     expect(note.get("isLeftHandTapped")).toBe(false);
+    expect(note.get("isContinuedBend")).toBe(false);
   });
 
   it("has correct enum defaults", () => {
     const note = integrate(createNote(0, 1));
     expect(note.get("accentuated")).toBe(AccentuationType.None);
     expect(note.get("vibrato")).toBe(VibratoType.None);
-    expect(note.get("dynamics")).toBeUndefined();
+    expect(note.get("dynamics")).toBe(DynamicValue.F);
   });
 
   it("generates unique uuids", () => {
@@ -97,9 +99,10 @@ describe("createBeat", () => {
   it("has correct defaults for rhythm modifiers", () => {
     const beat = integrate(createBeat());
     expect(beat.get("dots")).toBe(0);
-    expect(beat.get("isRest")).toBe(false);
-    expect(beat.get("tupletNumerator")).toBe(0);
-    expect(beat.get("tupletDenominator")).toBe(0);
+    expect(beat.has("isRest")).toBe(false);
+    expect(beat.get("tupletNumerator")).toBe(-1);
+    expect(beat.get("tupletDenominator")).toBe(-1);
+    expect(beat.get("automations")).toBeInstanceOf(Y.Array);
   });
 });
 
@@ -128,6 +131,12 @@ describe("createBar", () => {
     const voices = bar.get("voices") as Y.Array<unknown>;
     expect(voices.length).toBe(0);
   });
+
+  it("stores key signature on Bar rather than MasterBar", () => {
+    const bar = integrate(createBar());
+    expect(bar.get("keySignature")).toBe(0);
+    expect(bar.get("keySignatureType")).toBe(0);
+  });
 });
 
 describe("createMasterBar", () => {
@@ -149,26 +158,33 @@ describe("createMasterBar", () => {
     expect(mb.get("repeatCount")).toBe(0);
     expect(mb.get("section")).toBeNull();
     expect(mb.get("fermata")).toBeNull();
-    expect(mb.get("tempo")).toBeNull();
+    expect(mb.has("tempo")).toBe(false);
+    expect(mb.has("keySignature")).toBe(false);
+    expect(mb.get("tempoAutomations")).toBeInstanceOf(Y.Array);
   });
 });
 
 describe("createStaff", () => {
   it("includes standard guitar tuning", () => {
     const staff = integrate(createStaff());
-    const tuning = staff.get("tuning") as Y.Array<number>;
-    expect(tuning.toArray()).toEqual([40, 45, 50, 55, 59, 64]);
+    const stringTuning = staff.get("stringTuning") as Y.Map<unknown>;
+    const tunings = stringTuning.get("tunings") as Y.Array<number>;
+    expect(tunings.toArray()).toEqual([64, 59, 55, 50, 45, 40]);
+    expect(staff.has("tuning")).toBe(false);
   });
 
   it("defaults to showing tab and standard notation", () => {
     const staff = integrate(createStaff());
     expect(staff.get("showTablature")).toBe(true);
     expect(staff.get("showStandardNotation")).toBe(true);
+    expect(staff.get("isPercussion")).toBe(false);
   });
 
   it("defaults capo to 0", () => {
     const staff = integrate(createStaff());
     expect(staff.get("capo")).toBe(0);
+    expect(staff.get("transpositionPitch")).toBe(0);
+    expect(staff.get("displayTranspositionPitch")).toBe(0);
   });
 });
 
@@ -180,9 +196,9 @@ describe("createTrack", () => {
 
   it("has default color", () => {
     const track = integrate(createTrack());
-    expect(track.get("colorR")).toBe(255);
-    expect(track.get("colorG")).toBe(99);
-    expect(track.get("colorB")).toBe(71);
+    const color = track.get("color") as Y.Map<unknown>;
+    expect(color.get("raw")).toBe(-40121);
+    expect(track.has("colorR")).toBe(false);
   });
 
   it("has empty staves array", () => {
@@ -193,7 +209,9 @@ describe("createTrack", () => {
 
   it("has default playback program", () => {
     const track = integrate(createTrack());
-    expect(track.get("playbackProgram")).toBe(25);
+    const playbackInfo = track.get("playbackInfo") as Y.Map<unknown>;
+    expect(playbackInfo.get("program")).toBe(25);
+    expect(track.has("playbackProgram")).toBe(false);
   });
 });
 
@@ -279,6 +297,10 @@ describe("snapshotScore", () => {
     expect(snap.masterBars[0].timeSignatureNumerator).toBe(3);
     expect(snap.tracks).toHaveLength(1);
     expect(snap.tracks[0].name).toBe("Guitar");
+    expect(snap.tracks[0].playbackInfo.program).toBe(25);
+    expect(snap.tracks[0].staves[0].stringTuning.tunings).toEqual([
+      64, 59, 55, 50, 45, 40,
+    ]);
     expect(snap.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0].fret).toBe(5);
   });
 });
@@ -332,10 +354,36 @@ describe("initializeScore", () => {
     const scoreMap = initializeScore(doc);
 
     expect(scoreMap.get("title")).toBe("Untitled");
-    expect(scoreMap.get("tempo")).toBe(120);
+    expect(scoreMap.has("tempo")).toBe(false);
+    expect(scoreMap.has("tempoLabel")).toBe(false);
     expect(scoreMap.get("artist")).toBe("");
     expect(scoreMap.get("masterBars")).toBeInstanceOf(Y.Array);
     expect(scoreMap.get("tracks")).toBeInstanceOf(Y.Array);
+  });
+
+  it("derives score tempo from the first tempo automation", () => {
+    const doc = new Y.Doc();
+    const scoreMap = initializeScore(doc);
+    doc.transact(() => {
+      const masterBar = createMasterBar();
+      (scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>).push([
+        masterBar,
+      ]);
+      const automation = new Y.Map<unknown>();
+      automation.set("isLinear", false);
+      automation.set("type", AutomationType.Tempo);
+      automation.set("value", 144);
+      automation.set("ratioPosition", 0);
+      automation.set("text", "Allegro");
+      automation.set("isVisible", true);
+      (
+        masterBar.get("tempoAutomations") as Y.Array<Y.Map<unknown>>
+      ).push([automation]);
+    });
+
+    const snapshot = snapshotScore(scoreMap);
+    expect(snapshot.tempo).toBe(144);
+    expect(snapshot.tempoLabel).toBe("Allegro");
   });
 
   it("is idempotent", () => {

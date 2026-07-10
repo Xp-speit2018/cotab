@@ -41,11 +41,14 @@ describe("CLI target adapter", () => {
     ]);
     const snapshot = result.snapshot as {
       title: string;
-      tracks: Array<{ name: string; playbackPrimaryChannel: number }>;
+      tracks: Array<{
+        name: string;
+        playbackInfo: { primaryChannel: number };
+      }>;
     };
 
     expect(snapshot.title).toBe("Batch Song");
     expect(snapshot.tracks.map((track) => track.name)).toEqual(["Acoustic Guitar", "Drums"]);
-    expect(snapshot.tracks[1].playbackPrimaryChannel).toBe(9);
+    expect(snapshot.tracks[1].playbackInfo.primaryChannel).toBe(9);
   });
 });

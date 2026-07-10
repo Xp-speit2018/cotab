@@ -76,22 +76,28 @@ describe("edit.staff.setTransposition", () => {
     executeAction("edit.staff.setTransposition", { trackIndex: 0, staffIndex: 0, semitones: -2 }, ctx);
     const staff = resolveYStaffHelper(0, 0)!;
     expect(staff.get("transpositionPitch")).toBe(-2);
+    expect(staff.get("displayTranspositionPitch")).toBe(-2);
   });
 });
 
 describe("edit.staff.setTuning", () => {
   it("replaces tuning array", () => {
-    const dropD = [38, 45, 50, 55, 59, 64];
+    const dropD = [64, 59, 55, 50, 45, 38];
     executeAction("edit.staff.setTuning", { trackIndex: 0, staffIndex: 0, tuningValues: dropD }, ctx);
     const staff = resolveYStaffHelper(0, 0)!;
-    const tuning = staff.get("tuning") as Y.Array<number>;
-    expect(tuning.toArray()).toEqual(dropD);
+    const stringTuning = staff.get("stringTuning") as Y.Map<unknown>;
+    const tunings = stringTuning.get("tunings") as Y.Array<number>;
+    expect(tunings.toArray()).toEqual(dropD);
+    expect(staff.has("tuning")).toBe(false);
   });
 
   it("can set 7-string tuning", () => {
-    const sevenString = [35, 40, 45, 50, 55, 59, 64];
+    const sevenString = [64, 59, 55, 50, 45, 40, 35];
     executeAction("edit.staff.setTuning", { trackIndex: 0, staffIndex: 0, tuningValues: sevenString }, ctx);
-    const tuning = resolveYStaffHelper(0, 0)!.get("tuning") as Y.Array<number>;
-    expect(tuning.toArray()).toEqual(sevenString);
+    const stringTuning = resolveYStaffHelper(0, 0)!.get(
+      "stringTuning",
+    ) as Y.Map<unknown>;
+    const tunings = stringTuning.get("tunings") as Y.Array<number>;
+    expect(tunings.toArray()).toEqual(sevenString);
   });
 });

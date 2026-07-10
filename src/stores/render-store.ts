@@ -33,6 +33,9 @@ import type {
   WahPedal,
   FermataType,
   Ottavia,
+  AutomationType,
+  TremoloPickingStyle,
+  Rasgueado,
 } from "@/core/schema";
 
 import {
@@ -997,6 +1000,7 @@ function extractNoteInfo(note: alphaTab.model.Note): SelectedNoteInfo {
     isTieDestination: note.isTieDestination,
     isHammerPullOrigin: note.isHammerPullOrigin,
     isLeftHandTapped: note.isLeftHandTapped,
+    isContinuedBend: note.isContinuedBend,
     accentuated: note.accentuated as unknown as AccentuationType,
     vibrato: note.vibrato as unknown as VibratoType,
     slideInType: note.slideInType as unknown as SlideInType,
@@ -1036,6 +1040,7 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
     graceType: beat.graceType as unknown as GraceType,
     pickStroke: beat.pickStroke as unknown as PickStroke,
     brushType: beat.brushType as unknown as BrushType,
+    brushDuration: beat.brushDuration,
     dynamics: beat.dynamics as unknown as DynamicValue,
     crescendo: beat.crescendo as unknown as CrescendoType,
     vibrato: beat.vibrato as unknown as VibratoType,
@@ -1043,10 +1048,28 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
     ottava: beat.ottava as unknown as Ottavia,
     golpe: beat.golpe as unknown as GolpeType,
     wahPedal: beat.wahPedal as unknown as WahPedal,
+    whammyStyle: beat.whammyStyle as unknown as BendStyle,
+    isContinuedWhammy: beat.isContinuedWhammy,
     whammyBarType: beat.whammyBarType as unknown as WhammyType,
     whammyBarPoints: beat.whammyBarPoints
       ? beat.whammyBarPoints.map((p) => ({ offset: p.offset, value: p.value }))
       : [],
+    automations: beat.automations.map((automation) => ({
+      isLinear: automation.isLinear,
+      type: automation.type as unknown as AutomationType,
+      value: automation.value,
+      ratioPosition: automation.ratioPosition,
+      text: automation.text,
+      isVisible: automation.isVisible,
+    })),
+    lyrics: beat.lyrics ? [...beat.lyrics] : null,
+    tremoloPicking: beat.tremoloPicking
+      ? {
+          marks: beat.tremoloPicking.marks,
+          style: beat.tremoloPicking.style as unknown as TremoloPickingStyle,
+        }
+      : null,
+    rasgueado: beat.rasgueado as unknown as Rasgueado,
     text: beat.text ?? null,
     chordId: beat.chordId ?? null,
     tap: beat.tap,
@@ -1055,8 +1078,8 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
     slashed: beat.slashed,
     hasFermata: fermata !== null,
     fermataType: fermata ? (fermata.type as unknown as FermataType) : null,
-    deadSlapped: (beat as unknown as Record<string, boolean>).deadSlapped ?? false,
-    isLegatoOrigin: (beat as unknown as Record<string, boolean>).isLegatoOrigin ?? false,
+    deadSlapped: beat.deadSlapped,
+    isLegatoOrigin: beat.isLegatoOrigin,
     notes: beat.notes.map(extractNoteInfo),
   };
 }

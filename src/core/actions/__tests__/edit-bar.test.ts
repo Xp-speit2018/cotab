@@ -30,7 +30,6 @@ const _createBeat = (duration?: number) => {
   const beat = _createYMap();
   beat.set("duration", duration ?? 4);
   beat.set("isEmpty", true);
-  beat.set("isRest", false);
   beat.set("notes", new Y.Array<Y.Map<unknown>>());
   return beat;
 };

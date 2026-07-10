@@ -47,8 +47,13 @@ export function getStavesLength(trackIndex: number): number {
 export function getStringCount(trackIndex: number, staffIndex: number): number {
   const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
   if (!yStaff) return 0;
-  const tuning = yStaff.get("tuning") as Y.Array<number> | undefined;
-  return tuning ? tuning.length : 0;
+  const yStringTuning = yStaff.get("stringTuning") as
+    | Y.Map<unknown>
+    | undefined;
+  const yTunings = yStringTuning?.get("tunings") as
+    | Y.Array<number>
+    | undefined;
+  return yTunings?.length ?? 0;
 }
 
 /** Check if a staff is percussion. */

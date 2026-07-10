@@ -45,6 +45,7 @@ const setStaffTranspositionAction: ActionDefinition<{
     if (!yStaff) return;
     transact(() => {
       yStaff.set("transpositionPitch", semitones);
+      yStaff.set("displayTranspositionPitch", semitones);
     });
   },
 };
@@ -66,9 +67,15 @@ const setStaffTuningAction: ActionDefinition<{
     const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
-      const yTuning = new Y.Array<number>();
-      yTuning.push(tuningValues);
-      yStaff.set("tuning", yTuning);
+      const yStringTuning = yStaff.get("stringTuning") as
+        | Y.Map<unknown>
+        | undefined;
+      if (!yStringTuning) return;
+      const yTunings = new Y.Array<number>();
+      yTunings.push(tuningValues);
+      yStringTuning.set("tunings", yTunings);
+      yStringTuning.set("name", "");
+      yStringTuning.set("isStandard", false);
     });
   },
 };

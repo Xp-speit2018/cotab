@@ -146,7 +146,7 @@ describe("GP7 export round-trip", () => {
   it("preserves staff tuning", () => {
     const scoreMap = getScoreMap()!;
     // Drop D tuning: D2-A2-D3-G3-B3-E4
-    const dropD = [38, 45, 50, 55, 59, 64];
+    const dropD = [64, 59, 55, 50, 45, 38];
     seedTrackWithConfig(scoreMap, 1, { name: "Drop D", tuning: dropD });
 
     const original = buildAlphaTabScore(scoreMap, createSettings());

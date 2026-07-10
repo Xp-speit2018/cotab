@@ -1,7 +1,9 @@
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
 import type { ScoreMetadataField } from "@/core/schema";
+import { AutomationType, createAutomation } from "@/core/schema";
 import { engine } from "@/core/engine";
+import * as Y from "yjs";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
@@ -12,6 +14,30 @@ function setScoreField(field: ScoreMetadataField, value: string): void {
   transact(() => {
     yScore.set(field, value);
   });
+}
+
+function getOrCreateInitialTempoAutomation(
+  yScore: Y.Map<unknown>,
+): Y.Map<unknown> | null {
+  const yMasterBars = yScore.get("masterBars") as
+    | Y.Array<Y.Map<unknown>>
+    | undefined;
+  const yFirstMasterBar = yMasterBars?.get(0);
+  if (!yFirstMasterBar) return null;
+
+  let yAutomations = yFirstMasterBar.get("tempoAutomations") as
+    | Y.Array<Y.Map<unknown>>
+    | undefined;
+  if (!yAutomations) {
+    yAutomations = new Y.Array<Y.Map<unknown>>();
+    yFirstMasterBar.set("tempoAutomations", yAutomations);
+  }
+  if (yAutomations.length === 0) {
+    yAutomations.push([
+      createAutomation(AutomationType.Tempo, 120, 0),
+    ]);
+  }
+  return yAutomations.get(0);
 }
 
 const setMetadataAction: ActionDefinition<{ field: ScoreMetadataField; value: string }> = {
@@ -64,7 +90,27 @@ const setTempoAction: ActionDefinition<number> = {
     const yScore = getScoreMap();
     if (!yScore || tempo <= 0) return;
     transact(() => {
-      yScore.set("tempo", tempo);
+      getOrCreateInitialTempoAutomation(yScore)?.set("value", tempo);
+    });
+  },
+};
+
+const setTempoLabelAction: ActionDefinition<string> = {
+  id: "edit.score.setTempoLabel",
+  i18nKey: "actions.edit.score.setTempoLabel",
+  category: "edit.score",
+  params: [
+    {
+      name: "label",
+      type: "string",
+      i18nKey: "actions.edit.score.setTempoLabel.params.label",
+    },
+  ],
+  execute: (label, _context) => {
+    const yScore = getScoreMap();
+    if (!yScore) return;
+    transact(() => {
+      getOrCreateInitialTempoAutomation(yScore)?.set("text", label);
     });
   },
 };
@@ -72,6 +118,7 @@ const setTempoAction: ActionDefinition<number> = {
 actionRegistry.register(setTitleAction);
 actionRegistry.register(setArtistAction);
 actionRegistry.register(setTempoAction);
+actionRegistry.register(setTempoLabelAction);
 
 declare global {
   interface ActionMap {
@@ -82,6 +129,7 @@ declare global {
     "edit.score.setTitle": { args: string; result: void };
     "edit.score.setArtist": { args: string; result: void };
     "edit.score.setTempo": { args: number; result: void };
+    "edit.score.setTempoLabel": { args: string; result: void };
   }
 }
 

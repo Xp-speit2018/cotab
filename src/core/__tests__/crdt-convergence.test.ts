@@ -17,6 +17,8 @@ import {
   createBeat,
   createNote,
   createMasterBar,
+  createAutomation,
+  AutomationType,
   snapshotScore,
   type ScoreSchema,
 } from "@/core/schema";
@@ -187,7 +189,12 @@ describe("CRDT convergence", () => {
     placeNote(peerA.scoreMap, 0, 0, 7, 2);
     placeNote(peerA.scoreMap, 1, 0, 12, 1);
     peerA.scoreMap.set("title", "My Song");
-    peerA.scoreMap.set("tempo", 140);
+    const masterBars = peerA.scoreMap.get("masterBars") as Y.Array<
+      Y.Map<unknown>
+    >;
+    (
+      masterBars.get(0).get("tempoAutomations") as Y.Array<Y.Map<unknown>>
+    ).push([createAutomation(AutomationType.Tempo, 140, 0)]);
 
     // B joins later — one-way sync from A
     const peerB = createSyncedPeer(peerA);
@@ -210,7 +217,12 @@ describe("CRDT convergence", () => {
       peerA.scoreMap.set("title", "A Title");
     });
     peerB.doc.transact(() => {
-      peerB.scoreMap.set("tempo", 200);
+      const masterBars = peerB.scoreMap.get("masterBars") as Y.Array<
+        Y.Map<unknown>
+      >;
+      (
+        masterBars.get(0).get("tempoAutomations") as Y.Array<Y.Map<unknown>>
+      ).push([createAutomation(AutomationType.Tempo, 200, 0)]);
     });
 
     syncDocs(peerA.doc, peerB.doc);

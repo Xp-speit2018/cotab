@@ -19,7 +19,14 @@ import {
   addBeatsDirectly,
   createTestDoc,
 } from "@/test/setup";
-import { Duration } from "@/core/schema";
+import {
+  AutomationType,
+  Duration,
+  createAutomation,
+  createBeat,
+  createNote,
+  snapshotScore,
+} from "@/core/schema";
 // Import directly from relative path to bypass the mock in setup.ts
 import {
   buildAlphaTabScore,
@@ -43,7 +50,14 @@ describe("buildAlphaTabScore (Y → AlphaTab)", () => {
       transact(() => {
         scoreMap.set("title", "My Song");
         scoreMap.set("artist", "Test Artist");
-        scoreMap.set("tempo", 140);
+        const masterBars = scoreMap.get("masterBars") as Y.Array<
+          Y.Map<unknown>
+        >;
+        (
+          masterBars.get(0).get("tempoAutomations") as Y.Array<
+            Y.Map<unknown>
+          >
+        ).push([createAutomation(AutomationType.Tempo, 140, 0)]);
       });
 
       const settings = createAlphaTabSettings();
@@ -52,7 +66,7 @@ describe("buildAlphaTabScore (Y → AlphaTab)", () => {
       expect(score.title).toBe("My Song");
       expect(score.artist).toBe("Test Artist");
       expect(score.tempo).toBe(140);
-      expect(score.masterBars[0].tempoAutomation?.value).toBe(140);
+      expect(score.masterBars[0].tempoAutomations[0]?.value).toBe(140);
     });
 
     it("defaults to Untitled and 120 tempo when empty", () => {
@@ -115,17 +129,25 @@ describe("buildAlphaTabScore (Y → AlphaTab)", () => {
 
       const yMasterBars = scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>;
       transact(() => {
-        yMasterBars.get(0).set("tempo", 100);
-        yMasterBars.get(2).set("tempo", 132);
+        (
+          yMasterBars.get(0).get("tempoAutomations") as Y.Array<
+            Y.Map<unknown>
+          >
+        ).push([createAutomation(AutomationType.Tempo, 100, 0)]);
+        (
+          yMasterBars.get(2).get("tempoAutomations") as Y.Array<
+            Y.Map<unknown>
+          >
+        ).push([createAutomation(AutomationType.Tempo, 132, 0)]);
       });
 
       const settings = createAlphaTabSettings();
       const score = buildAlphaTabScore(scoreMap, settings);
 
       expect(score.tempo).toBe(100);
-      expect(score.masterBars[0].tempoAutomation?.value).toBe(100);
-      expect(score.masterBars[1].tempoAutomation).toBeNull();
-      expect(score.masterBars[2].tempoAutomation?.value).toBe(132);
+      expect(score.masterBars[0].tempoAutomations[0]?.value).toBe(100);
+      expect(score.masterBars[1].tempoAutomations).toHaveLength(0);
+      expect(score.masterBars[2].tempoAutomations[0]?.value).toBe(132);
     });
   });
 
@@ -155,7 +177,7 @@ describe("buildAlphaTabScore (Y → AlphaTab)", () => {
       const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
       const yBeat = yBeats.get(0);
       yBeat.set("duration", Duration.Eighth);
-      yBeat.set("isRest", true);
+      yBeat.set("isEmpty", false);
       yBeat.set("dots", 1);
 
       const settings = createAlphaTabSettings();
@@ -190,7 +212,7 @@ describe("importScoreToYDoc (AlphaTab → Y)", () => {
     const staff = new alphaTab.model.Staff();
     staff.stringTuning = new alphaTab.model.Tuning(
       undefined,
-      [40, 45, 50, 55, 59, 64],
+      [64, 59, 55, 50, 45, 40],
       false,
     );
     track.addStaff(staff);
@@ -218,8 +240,8 @@ describe("importScoreToYDoc (AlphaTab → Y)", () => {
     const yScore = doc.getMap("score");
     expect(yScore.get("title")).toBe("Imported");
     expect(yScore.get("artist")).toBe("Importer");
-    // AlphaTab Score.tempo is readonly; import uses default 120 when no automation
-    expect(yScore.get("tempo")).toBe(120);
+    expect(yScore.has("tempo")).toBe(false);
+    expect(snapshotScore(yScore).tempo).toBe(120);
 
     const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
     expect(yTracks.length).toBe(1);
@@ -325,16 +347,217 @@ describe("buildAlphaTabScore — drumkit track", () => {
   });
 });
 
+describe("direct AlphaTab model field round-trip", () => {
+  it("preserves nested core fields without flattened aliases", () => {
+    const scoreMap = getScoreMap()!;
+    seedOneTrackScore(scoreMap, 1);
+
+    transact(() => {
+      const masterBars = scoreMap.get("masterBars") as Y.Array<
+        Y.Map<unknown>
+      >;
+      const masterBar = masterBars.get(0);
+      (
+        masterBar.get("tempoAutomations") as Y.Array<Y.Map<unknown>>
+      ).push([createAutomation(AutomationType.Tempo, 150, 0)]);
+
+      const tracks = scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>;
+      const track = tracks.get(0);
+      (track.get("playbackInfo") as Y.Map<unknown>).set("program", 30);
+
+      const articulation = new Y.Map<unknown>();
+      articulation.set("id", 38);
+      articulation.set("elementType", "Snare");
+      articulation.set("staffLine", 3);
+      articulation.set("noteHeadDefault", 0);
+      articulation.set("noteHeadHalf", 0);
+      articulation.set("noteHeadWhole", 0);
+      articulation.set("techniqueSymbol", 0);
+      articulation.set("techniqueSymbolPlacement", 0);
+      articulation.set("outputMidiNumber", 38);
+      (
+        track.get("percussionArticulations") as Y.Array<Y.Map<unknown>>
+      ).push([articulation]);
+
+      const staff = (track.get("staves") as Y.Array<Y.Map<unknown>>).get(0);
+      staff.set("transpositionPitch", -2);
+      staff.set("displayTranspositionPitch", 3);
+      const stringTuning = staff.get("stringTuning") as Y.Map<unknown>;
+      const tunings = stringTuning.get("tunings") as Y.Array<number>;
+      tunings.delete(0, tunings.length);
+      tunings.push([64, 59, 55, 50, 45, 38]);
+
+      const chord = new Y.Map<unknown>();
+      chord.set("name", "D");
+      chord.set("firstFret", 1);
+      const strings = new Y.Array<number>();
+      strings.push([2, 3, 2, 0, -1, -1]);
+      chord.set("strings", strings);
+      chord.set("barreFrets", new Y.Array<number>());
+      chord.set("showName", true);
+      chord.set("showDiagram", true);
+      chord.set("showFingering", true);
+      const chords = new Y.Map<Y.Map<unknown>>();
+      chords.set("d-major", chord);
+      staff.set("chords", chords);
+
+      const bar = (staff.get("bars") as Y.Array<Y.Map<unknown>>).get(0);
+      bar.set("clefOttava", 1);
+      bar.set("simileMark", 1);
+      bar.set("keySignature", -2);
+      bar.set("keySignatureType", 1);
+
+      const voice = (bar.get("voices") as Y.Array<Y.Map<unknown>>).get(0);
+      const beats = voice.get("beats") as Y.Array<Y.Map<unknown>>;
+      const originBeat = beats.get(0);
+      originBeat.set("isEmpty", false);
+      originBeat.set("whammyBarType", 1);
+      const whammyPoints = originBeat.get(
+        "whammyBarPoints",
+      ) as Y.Array<Y.Map<unknown>>;
+      for (const [offset, value] of [
+        [0, 0],
+        [60, 4],
+      ]) {
+        const point = new Y.Map<unknown>();
+        point.set("offset", offset);
+        point.set("value", value);
+        whammyPoints.push([point]);
+      }
+      const originNote = createNote(5, 3);
+      (originBeat.get("notes") as Y.Array<Y.Map<unknown>>).push([
+        originNote,
+      ]);
+      const integratedOriginNote = (
+        originBeat.get("notes") as Y.Array<Y.Map<unknown>>
+      ).get(0);
+      integratedOriginNote.set("bendType", 1);
+      const bendPoints = integratedOriginNote.get(
+        "bendPoints",
+      ) as Y.Array<Y.Map<unknown>>;
+      for (const [offset, value] of [
+        [0, 0],
+        [60, 4],
+      ]) {
+        const point = new Y.Map<unknown>();
+        point.set("offset", offset);
+        point.set("value", value);
+        bendPoints.push([point]);
+      }
+
+      beats.push([createBeat()]);
+      const beat = beats.get(1);
+      beat.set("isEmpty", false);
+      beat.set("whammyStyle", 1);
+      beat.set("brushType", 1);
+      beat.set("brushDuration", 120);
+      beat.set("dynamics", 6);
+      beat.set("isContinuedWhammy", true);
+      beat.set("rasgueado", 3);
+      beat.set("chordId", "d-major");
+      (
+        beat.get("automations") as Y.Array<Y.Map<unknown>>
+      ).push([createAutomation(AutomationType.Instrument, 27, 0.5)]);
+      const lyrics = new Y.Array<string>();
+      lyrics.push(["la"]);
+      beat.set("lyrics", lyrics);
+      const tremolo = new Y.Map<unknown>();
+      tremolo.set("marks", 2);
+      tremolo.set("style", 0);
+      beat.set("tremoloPicking", tremolo);
+
+      const note = createNote(5, 3);
+      (beat.get("notes") as Y.Array<Y.Map<unknown>>).push([note]);
+      const integratedNote = (
+        beat.get("notes") as Y.Array<Y.Map<unknown>>
+      ).get(0);
+      integratedNote.set("isContinuedBend", true);
+      integratedNote.set("dynamics", 6);
+    });
+
+    const settings = createAlphaTabSettings();
+    const score = buildAlphaTabScore(scoreMap, settings);
+    const track = score.tracks[0];
+    const staff = track.staves[0];
+    const bar = staff.bars[0];
+    const beat = bar.voices[0].beats[1];
+    const note = beat.notes[0];
+
+    expect(score.masterBars[0].tempoAutomations[0].value).toBe(150);
+    expect(track.playbackInfo.program).toBe(30);
+    expect(track.percussionArticulations[0].outputMidiNumber).toBe(38);
+    expect(staff.stringTuning.tunings).toEqual([64, 59, 55, 50, 45, 38]);
+    expect(staff.transpositionPitch).toBe(-2);
+    expect(staff.displayTranspositionPitch).toBe(3);
+    expect(staff.chords?.get("d-major")?.name).toBe("D");
+    expect(bar.clefOttava).toBe(1);
+    expect(bar.simileMark).toBe(1);
+    expect(bar.keySignature).toBe(-2);
+    expect(bar.keySignatureType).toBe(1);
+    expect(beat.whammyStyle).toBe(1);
+    expect(beat.brushDuration).toBe(120);
+    expect(beat.isContinuedWhammy).toBe(true);
+    expect(beat.automations[0].type).toBe(AutomationType.Instrument);
+    expect(beat.automations[0].ratioPosition).toBe(0.5);
+    expect(beat.lyrics).toEqual(["la"]);
+    expect(beat.tremoloPicking?.marks).toBe(2);
+    expect(beat.rasgueado).toBe(3);
+    expect(note.isContinuedBend).toBe(true);
+    expect(note.dynamics).toBe(6);
+
+    const importedDoc = new Y.Doc();
+    importScoreToYDoc(score, importedDoc);
+    const importedScore = importedDoc.getMap("score");
+    const importedTrack = (
+      importedScore.get("tracks") as Y.Array<Y.Map<unknown>>
+    ).get(0);
+    const importedStaff = (
+      importedTrack.get("staves") as Y.Array<Y.Map<unknown>>
+    ).get(0);
+    const importedBar = (
+      importedStaff.get("bars") as Y.Array<Y.Map<unknown>>
+    ).get(0);
+    const importedBeat = (
+      (
+        importedBar.get("voices") as Y.Array<Y.Map<unknown>>
+      ).get(0).get("beats") as Y.Array<Y.Map<unknown>>
+    ).get(1);
+
+    expect(importedScore.has("tempo")).toBe(false);
+    expect(importedTrack.has("playbackProgram")).toBe(false);
+    expect(importedStaff.has("tuning")).toBe(false);
+    expect(importedStaff.get("transpositionPitch")).toBe(-2);
+    expect(importedStaff.get("displayTranspositionPitch")).toBe(3);
+    expect(importedBar.get("keySignature")).toBe(-2);
+    expect(importedBeat.get("brushDuration")).toBe(120);
+    expect(
+      (importedBeat.get("tremoloPicking") as Y.Map<unknown>).get("marks"),
+    ).toBe(2);
+    expect(
+      (
+        importedBeat.get("notes") as Y.Array<Y.Map<unknown>>
+      ).get(0).get("isContinuedBend"),
+    ).toBe(true);
+  });
+});
+
 describe("round-trip (Y → AlphaTab → Y)", () => {
   it("preserves content across Y → buildAlphaTabScore → importScoreToYDoc → Y", () => {
     const scoreMap = getScoreMap()!;
 
+    seedOneTrackScore(scoreMap, 2, [3, 4]);
     transact(() => {
       scoreMap.set("title", "Round Trip Song");
       scoreMap.set("artist", "Round Trip Artist");
-      scoreMap.set("tempo", 90);
+      const masterBars = scoreMap.get("masterBars") as Y.Array<
+        Y.Map<unknown>
+      >;
+      (
+        masterBars.get(0).get("tempoAutomations") as Y.Array<
+          Y.Map<unknown>
+        >
+      ).push([createAutomation(AutomationType.Tempo, 90, 0)]);
     });
-    seedOneTrackScore(scoreMap, 2, [3, 4]);
     addBeatsDirectly(scoreMap, 0, 0, 2);
     placeNoteDirectly(scoreMap, 0, 0, 0, 5, 3);
     placeNoteDirectly(scoreMap, 0, 0, 1, 0, 1);
@@ -348,11 +571,15 @@ describe("round-trip (Y → AlphaTab → Y)", () => {
     const newYScore = newDoc.getMap("score");
     expect(newYScore.get("title")).toBe("Round Trip Song");
     expect(newYScore.get("artist")).toBe("Round Trip Artist");
-    expect(newYScore.get("tempo")).toBe(90);
+    expect(newYScore.has("tempo")).toBe(false);
+    expect(snapshotScore(newYScore).tempo).toBe(90);
 
     const newMasterBars = newYScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
     expect(newMasterBars.length).toBe(2);
-    expect(newMasterBars.get(0).get("tempo")).toBe(90);
+    const newTempoAutomations = newMasterBars
+      .get(0)
+      .get("tempoAutomations") as Y.Array<Y.Map<unknown>>;
+    expect(newTempoAutomations.get(0).get("value")).toBe(90);
     expect(newMasterBars.get(0).get("timeSignatureNumerator")).toBe(3);
     expect(newMasterBars.get(0).get("timeSignatureDenominator")).toBe(4);
 
@@ -388,7 +615,12 @@ describe("round-trip (Y → AlphaTab → Y)", () => {
     const yScore = doc.getMap("score");
     const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
     const yTempos = yMasterBars
-      .map((mb, index) => [index, mb.get("tempo")] as const)
+      .map((mb, index) => {
+        const automations = mb.get("tempoAutomations") as Y.Array<
+          Y.Map<unknown>
+        >;
+        return [index, automations.get(0)?.get("value") ?? null] as const;
+      })
       .filter(([, tempo]) => tempo !== null);
 
     expect(yTempos).toEqual([
@@ -403,7 +635,10 @@ describe("round-trip (Y → AlphaTab → Y)", () => {
 
     const rebuilt = buildAlphaTabScore(yScore, settings);
     const rebuiltTempos = rebuilt.masterBars
-      .map((mb, index) => [index, mb.tempoAutomation?.value ?? null] as const)
+      .map(
+        (mb, index) =>
+          [index, mb.tempoAutomations[0]?.value ?? null] as const,
+      )
       .filter(([, tempo]) => tempo !== null);
 
     expect(rebuiltTempos).toEqual(yTempos);

@@ -85,12 +85,11 @@ beforeEach(() => {
   selectBeat(defaultSel);
 });
 
-function configureBeat(opts?: { duration?: number; isEmpty?: boolean; isRest?: boolean }) {
+function configureBeat(opts?: { duration?: number; isEmpty?: boolean }) {
   const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0);
   if (!yBeat) return;
   if (opts?.duration !== undefined) yBeat.set("duration", opts.duration);
   if (opts?.isEmpty !== undefined) yBeat.set("isEmpty", opts.isEmpty);
-  if (opts?.isRest !== undefined) yBeat.set("isRest", opts.isRest);
 }
 
 // ─── setDuration ──────────────────────────────────────────────────────────────
@@ -189,7 +188,7 @@ describe("edit.beat.deleteNote", () => {
 
   it("removes beat from voice when beat is rest", () => {
     addBeatsDirectly(getScoreMap()!, 0, 0, 1);
-    configureBeat({ isRest: true });
+    configureBeat({ isEmpty: false });
 
     const yVoiceBefore = resolveYVoiceHelper(0, 0, 0, 0)!;
     const beatsBefore = (yVoiceBefore.get("beats") as Y.Array<unknown>).length;
@@ -203,7 +202,7 @@ describe("edit.beat.deleteNote", () => {
   });
 
   it("blocks when voice has only 1 beat and beat is rest", () => {
-    configureBeat({ isRest: true });
+    configureBeat({ isEmpty: false });
     const result = executeAction("edit.beat.deleteNote", undefined, ctx);
     expect(result).toBe(false);
   });
@@ -412,6 +411,25 @@ describe("edit.beat (drumkit percussion)", () => {
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
     expectPercussionNote(yNotes.get(0), 48);
+  });
+
+  it("placeNote uses a custom track articulation index", () => {
+    const tracks = getScoreMap()!.get("tracks") as Y.Array<Y.Map<unknown>>;
+    const articulations = tracks
+      .get(0)
+      .get("percussionArticulations") as Y.Array<Y.Map<unknown>>;
+    const first = new Y.Map<unknown>();
+    first.set("id", 42);
+    const second = new Y.Map<unknown>();
+    second.set("id", 48);
+    articulations.push([first, second]);
+
+    executeAction("edit.beat.placeNote", undefined, ctx);
+
+    const notes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get(
+      "notes",
+    ) as Y.Array<Y.Map<unknown>>;
+    expect(notes.get(0).get("percussionArticulation")).toBe(1);
   });
 
   it("deleteNote removes percussion note", () => {

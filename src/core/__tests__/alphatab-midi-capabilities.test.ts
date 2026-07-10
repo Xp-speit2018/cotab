@@ -42,7 +42,7 @@ function createFixture(): ScoreFixture {
   const staff = new alphaTab.model.Staff();
   staff.stringTuning = new alphaTab.model.Tuning(
     undefined,
-    [40, 45, 50, 55, 59, 64],
+    [64, 59, 55, 50, 45, 40],
     false,
   );
   track.addStaff(staff);

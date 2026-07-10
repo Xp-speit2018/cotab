@@ -692,7 +692,7 @@ export function buildMockAlphaTabScore(opts: {
       staves: t.staves.map((s) => ({
         showTablature: s.showTablature ?? true,
         showStandardNotation: true,
-        tuning: s.tuning ?? [40, 45, 50, 55, 59, 64],
+        tuning: s.tuning ?? [64, 59, 55, 50, 45, 40],
         bars: (s.bars ?? []).map((b) => ({
           clef: b.clef ?? 4,
           voices: (b.voices ?? []).map((v) => ({
@@ -743,8 +743,8 @@ export function seedOneTrackScore(
   });
 }
 
-/** Violin GDAE tuning (G3 D4 A4 E5) in MIDI note numbers. */
-export const VIOLIN_TUNING = [55, 62, 69, 76];
+/** Violin EADG tuning from top line to bottom, matching AlphaTab. */
+export const VIOLIN_TUNING = [76, 69, 62, 55];
 
 export interface TrackSeedConfig {
   name?: string;
@@ -764,19 +764,20 @@ export function seedTrackWithConfig(
 ): void {
   const doc = scoreMap.doc!;
   const name = config.name ?? "Test Track";
-  const tuning = config.tuning ?? [40, 45, 50, 55, 59, 64];
+  const tuning = config.tuning ?? [64, 59, 55, 50, 45, 40];
 
   doc.transact(() => {
     const yMasterBars = scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>;
     const yTracks = scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>;
 
     const track = createTrack(name);
-    if (config.isPercussion) {
-      track.set("playbackProgram", 0);
-      track.set("playbackPrimaryChannel", 9);
-    }
     yTracks.push([track]);
     const intTrack = yTracks.get(yTracks.length - 1);
+    if (config.isPercussion) {
+      const playbackInfo = intTrack.get("playbackInfo") as Y.Map<unknown>;
+      playbackInfo.set("program", 0);
+      playbackInfo.set("primaryChannel", 9);
+    }
 
     const staff = createStaff(tuning);
     if (config.showTablature === false) {

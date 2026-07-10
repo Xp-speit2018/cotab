@@ -30,12 +30,12 @@ interface ClipboardData {
 function populateBeatFromSnapshot(yBeat: Y.Map<unknown>, schema: BeatSchema): void {
   yBeat.set("isEmpty", schema.isEmpty);
   yBeat.set("dots", schema.dots);
-  yBeat.set("isRest", schema.isRest);
   yBeat.set("tupletNumerator", schema.tupletNumerator);
   yBeat.set("tupletDenominator", schema.tupletDenominator);
   yBeat.set("graceType", schema.graceType);
   yBeat.set("pickStroke", schema.pickStroke);
   yBeat.set("brushType", schema.brushType);
+  yBeat.set("brushDuration", schema.brushDuration);
   yBeat.set("dynamics", schema.dynamics);
   yBeat.set("crescendo", schema.crescendo);
   yBeat.set("vibrato", schema.vibrato);
@@ -43,7 +43,10 @@ function populateBeatFromSnapshot(yBeat: Y.Map<unknown>, schema: BeatSchema): vo
   yBeat.set("ottava", schema.ottava);
   yBeat.set("golpe", schema.golpe);
   yBeat.set("wahPedal", schema.wahPedal);
+  yBeat.set("whammyStyle", schema.whammyStyle);
+  yBeat.set("isContinuedWhammy", schema.isContinuedWhammy);
   yBeat.set("whammyBarType", schema.whammyBarType);
+  yBeat.set("rasgueado", schema.rasgueado);
   yBeat.set("text", schema.text);
   yBeat.set("chordId", schema.chordId);
   yBeat.set("tap", schema.tap);
@@ -52,6 +55,30 @@ function populateBeatFromSnapshot(yBeat: Y.Map<unknown>, schema: BeatSchema): vo
   yBeat.set("slashed", schema.slashed);
   yBeat.set("deadSlapped", schema.deadSlapped);
   yBeat.set("isLegatoOrigin", schema.isLegatoOrigin);
+
+  const yAutomations = yBeat.get("automations") as Y.Array<Y.Map<unknown>>;
+  for (const automation of schema.automations) {
+    const yAutomation = new Y.Map<unknown>();
+    yAutomation.set("isLinear", automation.isLinear);
+    yAutomation.set("type", automation.type);
+    yAutomation.set("value", automation.value);
+    yAutomation.set("ratioPosition", automation.ratioPosition);
+    yAutomation.set("text", automation.text);
+    yAutomation.set("isVisible", automation.isVisible);
+    yAutomations.push([yAutomation]);
+  }
+
+  if (schema.lyrics) {
+    const yLyrics = new Y.Array<string>();
+    yLyrics.push(schema.lyrics);
+    yBeat.set("lyrics", yLyrics);
+  }
+  if (schema.tremoloPicking) {
+    const yTremolo = new Y.Map<unknown>();
+    yTremolo.set("marks", schema.tremoloPicking.marks);
+    yTremolo.set("style", schema.tremoloPicking.style);
+    yBeat.set("tremoloPicking", yTremolo);
+  }
 
   // Whammy bar points
   if (schema.whammyBarPoints.length > 0) {
@@ -83,6 +110,7 @@ function populateBeatFromSnapshot(yBeat: Y.Map<unknown>, schema: BeatSchema): vo
     intNote.set("isTieDestination", noteSchema.isTieDestination);
     intNote.set("isHammerPullOrigin", noteSchema.isHammerPullOrigin);
     intNote.set("isLeftHandTapped", noteSchema.isLeftHandTapped);
+    intNote.set("isContinuedBend", noteSchema.isContinuedBend);
     intNote.set("accentuated", noteSchema.accentuated);
     intNote.set("vibrato", noteSchema.vibrato);
     intNote.set("slideInType", noteSchema.slideInType);

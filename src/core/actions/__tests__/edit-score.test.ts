@@ -8,6 +8,7 @@ import {
   initDoc,
   destroyDoc,
   getScoreMap as syncGetScoreMap,
+  seedOneTrackScore,
 } from "@/test/setup";
 
 vi.mock("@/core/engine", () => {
@@ -32,6 +33,7 @@ beforeEach(() => {
   resetMockState();
   destroyDoc();
   initDoc();
+  seedOneTrackScore(syncGetScoreMap()!, 1);
 });
 
 const ctx = testContext();
@@ -59,19 +61,52 @@ describe("edit.score.setArtist", () => {
 describe("edit.score.setTempo", () => {
   it("updates tempo in Y.Doc", () => {
     executeAction("edit.score.setTempo", 140, ctx);
-    expect(syncGetScoreMap()!.get("tempo")).toBe(140);
+    const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
+      Y.Map<unknown>
+    >;
+    const automations = masterBars
+      .get(0)
+      .get("tempoAutomations") as Y.Array<Y.Map<unknown>>;
+    expect(automations.get(0).get("value")).toBe(140);
+    expect(syncGetScoreMap()!.has("tempo")).toBe(false);
   });
 
   it("rejects tempo <= 0", () => {
     executeAction("edit.score.setTempo", 120, ctx);
     executeAction("edit.score.setTempo", 0, ctx);
-    expect(syncGetScoreMap()!.get("tempo")).toBe(120);
+    const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
+      Y.Map<unknown>
+    >;
+    const automations = masterBars
+      .get(0)
+      .get("tempoAutomations") as Y.Array<Y.Map<unknown>>;
+    expect(automations.get(0).get("value")).toBe(120);
   });
 
   it("rejects negative tempo", () => {
     executeAction("edit.score.setTempo", 100, ctx);
     executeAction("edit.score.setTempo", -10, ctx);
-    expect(syncGetScoreMap()!.get("tempo")).toBe(100);
+    const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
+      Y.Map<unknown>
+    >;
+    const automations = masterBars
+      .get(0)
+      .get("tempoAutomations") as Y.Array<Y.Map<unknown>>;
+    expect(automations.get(0).get("value")).toBe(100);
+  });
+});
+
+describe("edit.score.setTempoLabel", () => {
+  it("writes the initial tempo automation text", () => {
+    executeAction("edit.score.setTempoLabel", "Allegro", ctx);
+    const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
+      Y.Map<unknown>
+    >;
+    const automations = masterBars
+      .get(0)
+      .get("tempoAutomations") as Y.Array<Y.Map<unknown>>;
+    expect(automations.get(0).get("text")).toBe("Allegro");
+    expect(syncGetScoreMap()!.has("tempoLabel")).toBe(false);
   });
 });
 

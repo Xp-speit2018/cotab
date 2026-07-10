@@ -11,11 +11,11 @@ export interface TrackPreset {
 }
 
 export const TRACK_PRESETS: readonly TrackPreset[] = [
-  { id: "acousticGuitar", nameKey: "sidebar.selector.presets.acousticGuitar", defaultName: "Acoustic Guitar", program: 25, channel: 0, clef: 4, isPercussion: false, stringCount: 6, tuning: [40, 45, 50, 55, 59, 64] },
-  { id: "electricGuitarClean", nameKey: "sidebar.selector.presets.electricGuitarClean", defaultName: "Electric Guitar (Clean)", program: 27, channel: 0, clef: 4, isPercussion: false, stringCount: 6, tuning: [40, 45, 50, 55, 59, 64] },
-  { id: "electricGuitarDistortion", nameKey: "sidebar.selector.presets.electricGuitarDistortion", defaultName: "Electric Guitar (Distortion)", program: 30, channel: 0, clef: 4, isPercussion: false, stringCount: 6, tuning: [40, 45, 50, 55, 59, 64] },
-  { id: "bassGuitar", nameKey: "sidebar.selector.presets.bassGuitar", defaultName: "Bass Guitar", program: 33, channel: 0, clef: 3, isPercussion: false, stringCount: 4, tuning: [28, 33, 38, 43] },
-  { id: "violin", nameKey: "sidebar.selector.presets.violin", defaultName: "Violin", program: 40, channel: 0, clef: 4, isPercussion: false, stringCount: 4, tuning: [55, 62, 69, 76] },
+  { id: "acousticGuitar", nameKey: "sidebar.selector.presets.acousticGuitar", defaultName: "Acoustic Guitar", program: 25, channel: 0, clef: 4, isPercussion: false, stringCount: 6, tuning: [64, 59, 55, 50, 45, 40] },
+  { id: "electricGuitarClean", nameKey: "sidebar.selector.presets.electricGuitarClean", defaultName: "Electric Guitar (Clean)", program: 27, channel: 0, clef: 4, isPercussion: false, stringCount: 6, tuning: [64, 59, 55, 50, 45, 40] },
+  { id: "electricGuitarDistortion", nameKey: "sidebar.selector.presets.electricGuitarDistortion", defaultName: "Electric Guitar (Distortion)", program: 30, channel: 0, clef: 4, isPercussion: false, stringCount: 6, tuning: [64, 59, 55, 50, 45, 40] },
+  { id: "bassGuitar", nameKey: "sidebar.selector.presets.bassGuitar", defaultName: "Bass Guitar", program: 33, channel: 0, clef: 3, isPercussion: false, stringCount: 4, tuning: [43, 38, 33, 28] },
+  { id: "violin", nameKey: "sidebar.selector.presets.violin", defaultName: "Violin", program: 40, channel: 0, clef: 4, isPercussion: false, stringCount: 4, tuning: [76, 69, 62, 55] },
   { id: "acousticPiano", nameKey: "sidebar.selector.presets.acousticPiano", defaultName: "Acoustic Piano", program: 0, channel: 0, clef: 4, isPercussion: false, stringCount: 0 },
   { id: "drumkit", nameKey: "sidebar.selector.presets.drumkit", defaultName: "Drums", program: 0, channel: 9, clef: 0, isPercussion: true, stringCount: 0 },
 ] as const;

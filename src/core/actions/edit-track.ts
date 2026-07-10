@@ -21,7 +21,11 @@ function getNextChannel(yTracks: Y.Array<Y.Map<unknown>>, preset: TrackPreset): 
 
   let maxChannel = -1;
   for (let i = 0; i < yTracks.length; i++) {
-    const channel = (yTracks.get(i).get("playbackPrimaryChannel") as number) ?? -1;
+    const yPlaybackInfo = yTracks.get(i).get("playbackInfo") as
+      | Y.Map<unknown>
+      | undefined;
+    const channel =
+      (yPlaybackInfo?.get("primaryChannel") as number | undefined) ?? -1;
     if (channel !== 9) {
       maxChannel = Math.max(maxChannel, channel);
     }
@@ -87,10 +91,10 @@ function appendTrackFromPresetY(
   yTracks.push([createTrack(preset.defaultName)]);
   const yTrack = yTracks.get(yTracks.length - 1);
   yTrack.set("shortName", preset.defaultName.slice(0, 20));
-  yTrack.set("instrument", preset.id);
-  yTrack.set("playbackProgram", preset.program);
-  yTrack.set("playbackPrimaryChannel", channel);
-  yTrack.set("playbackSecondaryChannel", channel);
+  const yPlaybackInfo = yTrack.get("playbackInfo") as Y.Map<unknown>;
+  yPlaybackInfo.set("program", preset.program);
+  yPlaybackInfo.set("primaryChannel", channel);
+  yPlaybackInfo.set("secondaryChannel", channel);
 
   const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
 
@@ -290,7 +294,10 @@ const setTrackProgramAction: ActionDefinition<{ trackIndex: number; program: num
     const yTrack = engine.resolveYTrack(trackIndex);
     if (!yTrack) return;
     transact(() => {
-      yTrack.set("playbackProgram", program);
+      const yPlaybackInfo = yTrack.get("playbackInfo") as
+        | Y.Map<unknown>
+        | undefined;
+      yPlaybackInfo?.set("program", program);
     });
   },
 };

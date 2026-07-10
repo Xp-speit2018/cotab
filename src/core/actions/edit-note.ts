@@ -248,10 +248,27 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
     );
     if (!yBeat) return;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
+    const yTrack = engine.resolveYTrack(trackIndex);
+    const yArticulations = yTrack?.get("percussionArticulations") as
+      | Y.Array<Y.Map<unknown>>
+      | undefined;
+    let percussionArticulation = gp7Id;
+    if (yArticulations && yArticulations.length > 0) {
+      for (let i = 0; i < yArticulations.length; i++) {
+        if ((yArticulations.get(i).get("id") as number) === gp7Id) {
+          percussionArticulation = i;
+          break;
+        }
+      }
+    }
 
     let existingIdx = -1;
     for (let i = 0; i < yNotes.length; i++) {
-      if (((yNotes.get(i).get("percussionArticulation") as number | undefined) ?? -1) === gp7Id) {
+      if (
+        ((yNotes.get(i).get("percussionArticulation") as
+          | number
+          | undefined) ?? -1) === percussionArticulation
+      ) {
         existingIdx = i;
         break;
       }
@@ -262,7 +279,7 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
         yNotes.delete(existingIdx, 1);
       } else {
         const yNote = createNote(-1, -1);
-        yNote.set("percussionArticulation", gp7Id);
+        yNote.set("percussionArticulation", percussionArticulation);
         yNotes.push([yNote]);
         yBeat.set("isEmpty", false);
       }

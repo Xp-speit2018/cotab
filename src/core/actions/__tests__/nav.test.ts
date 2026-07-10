@@ -295,7 +295,7 @@ describe("computeMoveUp", () => {
     initDoc();
     seedTrackWithConfig(getScoreMap()!, 1, {
       name: "Violin",
-      tuning: [55, 62, 69, 76],
+      tuning: [76, 69, 62, 55],
     });
     const sel = { ...defaultSel, string: 3 };
 
@@ -359,7 +359,7 @@ describe("computeMoveDown", () => {
     initDoc();
     seedTrackWithConfig(getScoreMap()!, 1, {
       name: "Violin",
-      tuning: [55, 62, 69, 76],
+      tuning: [76, 69, 62, 55],
     });
     const sel = { ...defaultSel, string: 2 };
 
@@ -503,16 +503,7 @@ describe("computePrevStaff", () => {
       const track = tracks.get(0);
       const staves = track.get("staves") as Y.Array<Y.Map<unknown>>;
 
-      const staff = new Y.Map<unknown>();
-      staff.set("uuid", `staff-${Math.random().toString(36).slice(2)}`);
-      staff.set("bars", new Y.Array<Y.Map<unknown>>());
-      const tuning = new Y.Array<number>();
-      tuning.push([40, 45, 50, 55, 59, 64]);
-      staff.set("tuning", tuning);
-      staff.set("showStandardNotation", true);
-      staff.set("showTablature", true);
-
-      staves.push([staff]);
+      staves.push([createStaff()]);
 
       const newStaff = staves.get(1);
       const newStaffBars = newStaff.get("bars") as Y.Array<Y.Map<unknown>>;
@@ -530,12 +521,7 @@ describe("computePrevStaff", () => {
       intVoice.set("beats", new Y.Array<Y.Map<unknown>>());
 
       const beats = intVoice.get("beats") as Y.Array<Y.Map<unknown>>;
-      const newBeat = new Y.Map<unknown>();
-      newBeat.set("duration", 4);
-      newBeat.set("isEmpty", true);
-      newBeat.set("isRest", false);
-      newBeat.set("notes", new Y.Array<Y.Map<unknown>>());
-      beats.push([newBeat]);
+      beats.push([createBeat()]);
     });
   });
 

@@ -29,6 +29,9 @@ import type {
   TripletFeel,
   KeySignatureType,
   BendPointSchema,
+  AutomationSchema,
+  TremoloPickingEffectSchema,
+  Rasgueado,
   ScoreMetadataField,
 } from "@/core/schema";
 export { TRACK_PRESETS } from "@/core/presets";
@@ -111,6 +114,7 @@ export interface SelectedNoteInfo {
   isTieDestination: boolean;
   isHammerPullOrigin: boolean;
   isLeftHandTapped: boolean;
+  isContinuedBend: boolean;
   accentuated: AccentuationType;
   vibrato: VibratoType;
   slideInType: SlideInType;
@@ -145,6 +149,7 @@ export interface SelectedBeatInfo {
   graceType: GraceType;
   pickStroke: PickStroke;
   brushType: BrushType;
+  brushDuration: number;
   dynamics: DynamicValue;
   crescendo: CrescendoType;
   vibrato: VibratoType;
@@ -152,8 +157,14 @@ export interface SelectedBeatInfo {
   ottava: Ottavia;
   golpe: GolpeType;
   wahPedal: WahPedal;
+  whammyStyle: BendStyle;
+  isContinuedWhammy: boolean;
   whammyBarType: WhammyType;
   whammyBarPoints: BendPointSchema[];
+  automations: AutomationSchema[];
+  lyrics: string[] | null;
+  tremoloPicking: TremoloPickingEffectSchema | null;
+  rasgueado: Rasgueado;
   text: string | null;
   chordId: string | null;
   tap: boolean;
@@ -178,7 +189,6 @@ export interface SelectedBarInfo {
   alternateEndings: number;
   tripletFeel: TripletFeel;
   isFreeTime: boolean;
-  isDoubleBar: boolean;
   hasSection: boolean;
   sectionText: string;
   sectionMarker: string;
@@ -326,7 +336,6 @@ export const SCORE_FIELD_TO_STATE: Record<ScoreMetadataField, keyof PlayerState>
   tab: "scoreTab",
   instructions: "scoreInstructions",
   notices: "scoreNotices",
-  tempoLabel: "scoreTempoLabel",
 };
 
 /** Quarter-note tick constant (AlphaTab uses 960 ticks per quarter). */

@@ -11,7 +11,6 @@ function initRealDoc(): void {
   _realDoc = new Y.Doc();
   _realScoreMap = _realDoc.getMap("score");
   _realScoreMap.set("title", "Untitled");
-  _realScoreMap.set("tempo", 120);
   _realScoreMap.set("masterBars", new Y.Array());
   _realScoreMap.set("tracks", new Y.Array());
   _realUndoManager = new Y.UndoManager([_realScoreMap], {

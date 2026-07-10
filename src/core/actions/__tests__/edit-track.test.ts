@@ -31,7 +31,6 @@ const _createBeat = (duration?: number) => {
   const beat = _createYMap();
   beat.set("duration", duration ?? 4);
   beat.set("isEmpty", true);
-  beat.set("isRest", false);
   beat.set("notes", new Y.Array<Y.Map<unknown>>());
   return beat;
 };
@@ -39,7 +38,9 @@ const _createTrack = (name?: string) => {
   const track = _createYMap();
   track.set("name", name ?? "Track");
   track.set("staves", new Y.Array<Y.Map<unknown>>());
-  track.set("playbackProgram", 24);
+  const playbackInfo = _createYMap();
+  playbackInfo.set("program", 24);
+  track.set("playbackInfo", playbackInfo);
   return track;
 };
 
@@ -128,9 +129,13 @@ describe("edit.track.setShortName", () => {
 });
 
 describe("edit.track.setProgram", () => {
-  it("updates playbackProgram in Y.Doc", () => {
+  it("updates playbackInfo.program in Y.Doc", () => {
     executeAction("edit.track.setProgram", { trackIndex: 0, program: 30 }, ctx);
-    expect(resolveYTrackHelper(0)!.get("playbackProgram")).toBe(30);
+    const playbackInfo = resolveYTrackHelper(0)!.get(
+      "playbackInfo",
+    ) as Y.Map<unknown>;
+    expect(playbackInfo.get("program")).toBe(30);
+    expect(resolveYTrackHelper(0)!.has("playbackProgram")).toBe(false);
   });
 });
 
@@ -180,7 +185,7 @@ describe("edit.track.setName (all track types)", () => {
     resetMockState();
     destroyDoc();
     initDoc();
-    seedTrackWithConfig(getScoreMap()!, 1, { name: "Violin", tuning: [55, 62, 69, 76] });
+    seedTrackWithConfig(getScoreMap()!, 1, { name: "Violin", tuning: [76, 69, 62, 55] });
     selectBeat({ ...defaultSel, string: 2 as number | null });
 
     executeAction("edit.track.setName", { trackIndex: 0, name: "Solo Violin" }, ctx);
@@ -219,7 +224,8 @@ describe("edit.track.add", () => {
     expect(trackCount()).toBe(tracksBefore + 1);
     const yTrack = resolveYTrackHelper(tracksBefore)!;
     expect(yTrack.get("name")).toBe("Acoustic Piano");
-    expect(yTrack.get("playbackProgram")).toBe(0);
+    const yPlaybackInfo = yTrack.get("playbackInfo") as Y.Map<unknown>;
+    expect(yPlaybackInfo.get("program")).toBe(0);
     const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
     expect(yStaves.length).toBe(2);
     expect(yStaves.get(0).get("showTablature")).toBe(false);
@@ -240,7 +246,8 @@ describe("edit.track.add", () => {
 
     const yTrack = resolveYTrackHelper(0)!;
     expect(yTrack.get("name")).toBe("Drums");
-    expect(yTrack.get("playbackPrimaryChannel")).toBe(9);
+    const yPlaybackInfo = yTrack.get("playbackInfo") as Y.Map<unknown>;
+    expect(yPlaybackInfo.get("primaryChannel")).toBe(9);
     const yStaff = (yTrack.get("staves") as Y.Array<Y.Map<unknown>>).get(0);
     expect(yStaff.get("isPercussion")).toBe(true);
   });

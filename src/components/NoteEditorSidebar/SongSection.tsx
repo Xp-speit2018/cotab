@@ -52,6 +52,13 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
     [t],
   );
 
+  const handleTempoLabel = useCallback(
+    (label: string) => {
+      executeAppAction("edit.score.setTempoLabel", label, { t });
+    },
+    [t],
+  );
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <SectionHeader
@@ -146,7 +153,7 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
             value={scoreTempoLabel}
             placeholder={t("sidebar.song.placeholderTempoLabel")}
             icon={<Gauge className="h-3.5 w-3.5" />}
-            onCommit={handleMeta("tempoLabel")}
+            onCommit={handleTempoLabel}
           />
         </div>
         <Separator />

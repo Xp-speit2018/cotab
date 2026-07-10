@@ -308,7 +308,7 @@ export function createTrackFromPreset(
       const tuning = alphaTab.model.Tuning.getDefaultTuningFor(opts.stringCount);
       s.stringTuning =
         tuning ??
-        new alphaTab.model.Tuning(undefined, [40, 45, 50, 55, 59, 64], true);
+        new alphaTab.model.Tuning(undefined, [64, 59, 55, 50, 45, 40], true);
     }
     s.showTablature = opts.showTablature;
     s.showStandardNotation = opts.showStandardNotation;
@@ -500,19 +500,18 @@ export function extractVoiceInfo(voice: alphaTab.model.Voice): SelectedVoiceInfo
 
 export function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
   const mb = bar.masterBar;
-  const tempoAuto = mb.tempoAutomation;
+  const tempoAuto = mb.tempoAutomations[0] ?? null;
   return {
     index: bar.index,
     timeSignatureNumerator: mb.timeSignatureNumerator,
     timeSignatureDenominator: mb.timeSignatureDenominator,
-    keySignature: mb.keySignature as unknown as number,
-    keySignatureType: mb.keySignatureType as unknown as KeySignatureType,
+    keySignature: bar.keySignature as unknown as number,
+    keySignatureType: bar.keySignatureType as unknown as KeySignatureType,
     isRepeatStart: mb.isRepeatStart,
     repeatCount: mb.repeatCount,
     alternateEndings: mb.alternateEndings,
     tripletFeel: mb.tripletFeel as unknown as TripletFeel,
     isFreeTime: mb.isFreeTime,
-    isDoubleBar: mb.isDoubleBar,
     hasSection: mb.section !== null,
     sectionText: mb.section?.text ?? "",
     sectionMarker: mb.section?.marker ?? "",

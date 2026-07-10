@@ -39,7 +39,7 @@ describe("initDoc / destroyDoc lifecycle", () => {
   it("getScoreMap returns a map with initialized keys", () => {
     const scoreMap = getScoreMap()!;
     expect(scoreMap.get("title")).toBe("Untitled");
-    expect(scoreMap.get("tempo")).toBe(120);
+    expect(scoreMap.has("tempo")).toBe(false);
     expect(scoreMap.get("masterBars")).toBeInstanceOf(Y.Array);
     expect(scoreMap.get("tracks")).toBeInstanceOf(Y.Array);
   });
@@ -167,11 +167,11 @@ describe("transact", () => {
     transact(() => {
       scoreMap.set("title", "Batch");
       scoreMap.set("artist", "Batch Artist");
-      scoreMap.set("tempo", 200);
+      scoreMap.set("album", "Batch Album");
     });
     expect(scoreMap.get("title")).toBe("Batch");
     expect(scoreMap.get("artist")).toBe("Batch Artist");
-    expect(scoreMap.get("tempo")).toBe(200);
+    expect(scoreMap.get("album")).toBe("Batch Album");
   });
 });
 

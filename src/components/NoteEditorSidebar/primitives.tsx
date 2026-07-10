@@ -14,6 +14,13 @@ import {
 } from "@/components/ui/collapsible";
 import { Toggle } from "@/components/ui/toggle";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -172,6 +179,55 @@ export function PropRow({
       )}
       <span className="text-[11px] text-muted-foreground">{label}</span>
       <span className="ml-auto text-[11px] font-medium tabular-nums">{value}</span>
+    </div>
+  );
+}
+
+export function SelectPropRow({
+  label,
+  value,
+  options,
+  icon,
+  onValueChange,
+}: {
+  label: string;
+  value: number;
+  options: readonly { value: number; label: string }[];
+  icon?: React.ReactNode;
+  onValueChange: (value: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-0.5">
+      {icon && (
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+          {icon}
+        </span>
+      )}
+      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+        {label}
+      </span>
+      <Select
+        value={String(value)}
+        onValueChange={(next) => onValueChange(Number(next))}
+      >
+        <SelectTrigger
+          size="sm"
+          className="ml-auto h-6 min-w-24 max-w-36 border-0 px-1.5 text-[11px] shadow-none"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="end">
+          {options.map((option) => (
+            <SelectItem
+              key={option.value}
+              value={String(option.value)}
+              className="text-[11px]"
+            >
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -350,7 +406,7 @@ export function EditableNumberPropRow({
         />
       ) : (
         <span className="ml-auto text-[11px] font-medium tabular-nums group-hover:text-primary transition-colors">
-          {value > 0 ? `${value}${suffix ? ` ${suffix}` : ""}` : ""}
+          {`${value}${suffix ? ` ${suffix}` : ""}`}
           <Pencil className="ml-1 inline-block h-2.5 w-2.5 opacity-0 group-hover:opacity-50 transition-opacity" />
         </span>
       )}

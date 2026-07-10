@@ -28,6 +28,8 @@ import type {
   Ottavia,
   TripletFeel,
   KeySignatureType,
+  Clef,
+  SimileMark,
   BendPointSchema,
   AutomationSchema,
   TremoloPickingEffectSchema,
@@ -106,6 +108,9 @@ export interface SelectedNoteInfo {
   index: number;
   fret: number;
   string: number;
+  stringCount: number;
+  octave: number;
+  tone: number;
   isDead: boolean;
   isGhost: boolean;
   isStaccato: boolean;
@@ -123,7 +128,7 @@ export interface SelectedNoteInfo {
   harmonicValue: number;
   bendType: BendType;
   bendStyle: BendStyle;
-  bendPoints: BendPointSchema[];
+  bendPoints: BendPointSchema[] | null;
   leftHandFinger: Fingers;
   rightHandFinger: Fingers;
   dynamics: DynamicValue;
@@ -160,7 +165,7 @@ export interface SelectedBeatInfo {
   whammyStyle: BendStyle;
   isContinuedWhammy: boolean;
   whammyBarType: WhammyType;
-  whammyBarPoints: BendPointSchema[];
+  whammyBarPoints: BendPointSchema[] | null;
   automations: AutomationSchema[];
   lyrics: string[] | null;
   tremoloPicking: TremoloPickingEffectSchema | null;
@@ -180,6 +185,9 @@ export interface SelectedBeatInfo {
 
 export interface SelectedBarInfo {
   index: number;
+  clef: Clef;
+  clefOttava: Ottavia;
+  simileMark: SimileMark;
   timeSignatureNumerator: number;
   timeSignatureDenominator: number;
   keySignature: number;
@@ -292,13 +300,10 @@ export interface PlayerState {
   selectedNoteIndex: number;
   selectedString: number | null;
   zoom: number;
-  editorMode: "essentials" | "advanced";
   sidebarVisible: boolean;
   roomDialogOpen: boolean;
-  drumIconStyle: "notation" | "instrument";
   showSnapGrid: boolean;
   addTrackDialogOpen: boolean;
-  setDrumIconStyle: (style: "notation" | "instrument") => void;
   initialize: (mainEl: HTMLElement, viewportEl: HTMLElement) => void;
   destroy: () => void;
   loadFile: (data: File | ArrayBuffer | Uint8Array) => void;
@@ -320,7 +325,10 @@ export interface PlayerState {
   setShowSnapGrid: (show: boolean) => void;
   setTransportPlayhead: (args: BeatPositionArgs | null) => void;
   setTransportPlayheadToSelection: () => void;
-  setSelection: (args: BeatPositionArgs & { noteIndex?: number }) => void;
+  setSelection: (args: BeatPositionArgs & {
+    noteIndex?: number;
+    preserveSelectionRange?: boolean;
+  }) => void;
   clearSelection: () => void;
   clearSelectionRange: () => void;
 }

@@ -128,14 +128,37 @@ describe("edit.track.setShortName", () => {
   });
 });
 
-describe("edit.track.setProgram", () => {
+describe("edit.track.setPlaybackInfoProgram", () => {
   it("updates playbackInfo.program in Y.Doc", () => {
-    executeAction("edit.track.setProgram", { trackIndex: 0, program: 30 }, ctx);
+    executeAction("edit.track.setPlaybackInfoProgram", { trackIndex: 0, program: 30 }, ctx);
     const playbackInfo = resolveYTrackHelper(0)!.get(
       "playbackInfo",
     ) as Y.Map<unknown>;
     expect(playbackInfo.get("program")).toBe(30);
     expect(resolveYTrackHelper(0)!.has("playbackProgram")).toBe(false);
+  });
+});
+
+describe("edit.track.setPercussionArticulationOutputMidiNumber", () => {
+  it("updates the selected AlphaTab articulation entry", () => {
+    const track = resolveYTrackHelper(0)!;
+    const articulations = track.get(
+      "percussionArticulations",
+    ) as Y.Array<Y.Map<unknown>>;
+    const articulation = new Y.Map<unknown>();
+    articulation.set("id", 38);
+    articulation.set("outputMidiNumber", 38);
+    getScoreMap()!.doc!.transact(() => {
+      articulations.push([articulation]);
+    });
+
+    executeAction("edit.track.setPercussionArticulationOutputMidiNumber", {
+      trackIndex: 0,
+      articulationIndex: 0,
+      outputMidiNumber: 40,
+    }, ctx);
+
+    expect(articulations.get(0).get("outputMidiNumber")).toBe(40);
   });
 });
 

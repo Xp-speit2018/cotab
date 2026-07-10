@@ -71,33 +71,101 @@ describe("edit.staff.setCapo", () => {
   });
 });
 
-describe("edit.staff.setTransposition", () => {
-  it("updates transpositionPitch on the Y.Map", () => {
-    executeAction("edit.staff.setTransposition", { trackIndex: 0, staffIndex: 0, semitones: -2 }, ctx);
+describe("edit.staff.setTranspositionPitch", () => {
+  it("updates only transpositionPitch on the Y.Map", () => {
+    executeAction("edit.staff.setTranspositionPitch", {
+      trackIndex: 0,
+      staffIndex: 0,
+      transpositionPitch: -2,
+    }, ctx);
     const staff = resolveYStaffHelper(0, 0)!;
     expect(staff.get("transpositionPitch")).toBe(-2);
-    expect(staff.get("displayTranspositionPitch")).toBe(-2);
+    expect(staff.get("displayTranspositionPitch")).toBe(0);
   });
 });
 
-describe("edit.staff.setTuning", () => {
-  it("replaces tuning array", () => {
+describe("edit.staff.setStringTuning", () => {
+  it("replaces the complete stringTuning object", () => {
     const dropD = [64, 59, 55, 50, 45, 38];
-    executeAction("edit.staff.setTuning", { trackIndex: 0, staffIndex: 0, tuningValues: dropD }, ctx);
+    executeAction("edit.staff.setStringTuning", {
+      trackIndex: 0,
+      staffIndex: 0,
+      stringTuning: {
+        tunings: dropD,
+        name: "Drop D",
+        isStandard: false,
+      },
+    }, ctx);
     const staff = resolveYStaffHelper(0, 0)!;
     const stringTuning = staff.get("stringTuning") as Y.Map<unknown>;
     const tunings = stringTuning.get("tunings") as Y.Array<number>;
     expect(tunings.toArray()).toEqual(dropD);
+    expect(stringTuning.get("name")).toBe("Drop D");
+    expect(stringTuning.get("isStandard")).toBe(false);
     expect(staff.has("tuning")).toBe(false);
   });
 
   it("can set 7-string tuning", () => {
     const sevenString = [64, 59, 55, 50, 45, 40, 35];
-    executeAction("edit.staff.setTuning", { trackIndex: 0, staffIndex: 0, tuningValues: sevenString }, ctx);
+    executeAction("edit.staff.setStringTuning", {
+      trackIndex: 0,
+      staffIndex: 0,
+      stringTuning: {
+        tunings: sevenString,
+        name: "Standard 7-string",
+        isStandard: true,
+      },
+    }, ctx);
     const stringTuning = resolveYStaffHelper(0, 0)!.get(
       "stringTuning",
     ) as Y.Map<unknown>;
     const tunings = stringTuning.get("tunings") as Y.Array<number>;
     expect(tunings.toArray()).toEqual(sevenString);
+  });
+});
+
+describe("edit.staff.setIsPercussion", () => {
+  it("updates isPercussion directly", () => {
+    executeAction("edit.staff.setIsPercussion", {
+      trackIndex: 0,
+      staffIndex: 0,
+      isPercussion: true,
+    }, ctx);
+
+    expect(resolveYStaffHelper(0, 0)!.get("isPercussion")).toBe(true);
+  });
+});
+
+describe("edit.staff.setChord", () => {
+  it("sets and removes a chord by id", () => {
+    executeAction("edit.staff.setChord", {
+      trackIndex: 0,
+      staffIndex: 0,
+      id: "c-major",
+      chord: {
+        name: "C",
+        firstFret: 1,
+        strings: [-1, 3, 2, 0, 1, 0],
+        barreFrets: [],
+        showName: true,
+        showDiagram: true,
+        showFingering: true,
+      },
+    }, ctx);
+
+    const staff = resolveYStaffHelper(0, 0)!;
+    const chords = staff.get("chords") as Y.Map<Y.Map<unknown>>;
+    expect(chords.get("c-major")?.get("name")).toBe("C");
+    expect(
+      (chords.get("c-major")?.get("strings") as Y.Array<number>).toArray(),
+    ).toEqual([-1, 3, 2, 0, 1, 0]);
+
+    executeAction("edit.staff.setChord", {
+      trackIndex: 0,
+      staffIndex: 0,
+      id: "c-major",
+      chord: null,
+    }, ctx);
+    expect(staff.get("chords")).toBeNull();
   });
 });

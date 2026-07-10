@@ -8,6 +8,18 @@ import { createMasterBar } from "@/core/schema";
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
 
+function applyBarUpdates(updates: Record<string, unknown>): void {
+  const { trackIndex, staffIndex, barIndex } = engine.selector;
+  if (trackIndex === null || staffIndex === null || barIndex === null) return;
+  const yBar = engine.resolveYBar(trackIndex, staffIndex, barIndex);
+  if (!yBar) return;
+  transact(() => {
+    for (const [field, value] of Object.entries(updates)) {
+      yBar.set(field, value);
+    }
+  });
+}
+
 function isBarEmptyAllTracksY(yScore: Y.Map<unknown>, barIndex: number): boolean {
   const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
   if (!yTracks) return false;
@@ -156,15 +168,75 @@ const deleteBarAction: ActionDefinition<void> = {
   },
 };
 
+const setClefAction: ActionDefinition<number> = {
+  id: "edit.bar.setClef",
+  i18nKey: "actions.edit.bar.setClef",
+  category: "edit.bar",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setClef.params.value" }],
+  execute: (value, _context) => {
+    applyBarUpdates({ clef: value });
+  },
+};
+
+const setClefOttavaAction: ActionDefinition<number> = {
+  id: "edit.bar.setClefOttava",
+  i18nKey: "actions.edit.bar.setClefOttava",
+  category: "edit.bar",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setClefOttava.params.value" }],
+  execute: (value, _context) => {
+    applyBarUpdates({ clefOttava: value });
+  },
+};
+
+const setSimileMarkAction: ActionDefinition<number> = {
+  id: "edit.bar.setSimileMark",
+  i18nKey: "actions.edit.bar.setSimileMark",
+  category: "edit.bar",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setSimileMark.params.value" }],
+  execute: (value, _context) => {
+    applyBarUpdates({ simileMark: value });
+  },
+};
+
+const setKeySignatureAction: ActionDefinition<number> = {
+  id: "edit.bar.setKeySignature",
+  i18nKey: "actions.edit.bar.setKeySignature",
+  category: "edit.bar",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setKeySignature.params.value" }],
+  execute: (value, _context) => {
+    applyBarUpdates({ keySignature: value });
+  },
+};
+
+const setKeySignatureTypeAction: ActionDefinition<number> = {
+  id: "edit.bar.setKeySignatureType",
+  i18nKey: "actions.edit.bar.setKeySignatureType",
+  category: "edit.bar",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setKeySignatureType.params.value" }],
+  execute: (value, _context) => {
+    applyBarUpdates({ keySignatureType: value });
+  },
+};
+
 actionRegistry.register(insertBarBeforeAction);
 actionRegistry.register(insertBarAfterAction);
 actionRegistry.register(deleteBarAction);
+actionRegistry.register(setClefAction);
+actionRegistry.register(setClefOttavaAction);
+actionRegistry.register(setSimileMarkAction);
+actionRegistry.register(setKeySignatureAction);
+actionRegistry.register(setKeySignatureTypeAction);
 
 declare global {
   interface ActionMap {
     "edit.bar.insertBefore": { args: void; result: void };
     "edit.bar.insertAfter": { args: void; result: void };
     "edit.bar.delete": { args: void; result: boolean };
+    "edit.bar.setClef": { args: number; result: void };
+    "edit.bar.setClefOttava": { args: number; result: void };
+    "edit.bar.setSimileMark": { args: number; result: void };
+    "edit.bar.setKeySignature": { args: number; result: void };
+    "edit.bar.setKeySignatureType": { args: number; result: void };
   }
 }
 

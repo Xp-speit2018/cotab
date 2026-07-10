@@ -380,7 +380,7 @@ export interface NoteSchema {
   harmonicValue: number;
   bendType: BendType;
   bendStyle: BendStyle;
-  bendPoints: BendPointSchema[];
+  bendPoints: BendPointSchema[] | null;
   leftHandFinger: Fingers;
   rightHandFinger: Fingers;
   dynamics: DynamicValue;
@@ -426,7 +426,7 @@ export interface BeatSchema {
   whammyStyle: BendStyle;
   isContinuedWhammy: boolean;
   whammyBarType: WhammyType;
-  whammyBarPoints: BendPointSchema[];
+  whammyBarPoints: BendPointSchema[] | null;
 
   automations: AutomationSchema[];
   lyrics: string[] | null;
@@ -617,7 +617,7 @@ export function createNote(fret: number, stringNum: number): Y.Map<unknown> {
   note.set("harmonicValue", 0);
   note.set("bendType", BendType.None);
   note.set("bendStyle", BendStyle.Default);
-  note.set("bendPoints", new Y.Array<Y.Map<unknown>>());
+  note.set("bendPoints", null);
   note.set("leftHandFinger", Fingers.Unknown);
   note.set("rightHandFinger", Fingers.Unknown);
   note.set("dynamics", DynamicValue.F);
@@ -659,7 +659,7 @@ export function createBeat(duration: number = 4): Y.Map<unknown> {
   beat.set("whammyStyle", BendStyle.Default);
   beat.set("isContinuedWhammy", false);
   beat.set("whammyBarType", WhammyType.None);
-  beat.set("whammyBarPoints", new Y.Array<Y.Map<unknown>>());
+  beat.set("whammyBarPoints", null);
 
   beat.set("automations", new Y.Array<Y.Map<unknown>>());
   beat.set("lyrics", null);
@@ -778,8 +778,8 @@ export function initializeScore(doc: Y.Doc): Y.Map<unknown> {
 
 function snapshotBendPoints(
   yPoints: Y.Array<Y.Map<unknown>> | null | undefined,
-): BendPointSchema[] {
-  if (!yPoints) return [];
+): BendPointSchema[] | null {
+  if (!yPoints) return null;
   return yPoints.map((p) => ({
     offset: (p.get("offset") as number) ?? 0,
     value: (p.get("value") as number) ?? 0,
@@ -927,7 +927,10 @@ export function snapshotNote(yNote: Y.Map<unknown>): NoteSchema {
     bendType: (yNote.get("bendType") as BendType) ?? BendType.None,
     bendStyle: (yNote.get("bendStyle") as BendStyle) ?? BendStyle.Default,
     bendPoints: snapshotBendPoints(
-      yNote.get("bendPoints") as Y.Array<Y.Map<unknown>> | undefined,
+      yNote.get("bendPoints") as
+        | Y.Array<Y.Map<unknown>>
+        | null
+        | undefined,
     ),
     leftHandFinger:
       (yNote.get("leftHandFinger") as Fingers) ?? Fingers.Unknown,
@@ -984,7 +987,10 @@ export function snapshotBeat(yBeat: Y.Map<unknown>): BeatSchema {
     whammyBarType:
       (yBeat.get("whammyBarType") as WhammyType) ?? WhammyType.None,
     whammyBarPoints: snapshotBendPoints(
-      yBeat.get("whammyBarPoints") as Y.Array<Y.Map<unknown>> | undefined,
+      yBeat.get("whammyBarPoints") as
+        | Y.Array<Y.Map<unknown>>
+        | null
+        | undefined,
     ),
 
     automations: snapshotAutomations(

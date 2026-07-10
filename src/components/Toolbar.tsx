@@ -9,7 +9,6 @@ import {
   Square,
   Globe,
   Check,
-  Layers,
   Keyboard,
   Users,
   Undo2,
@@ -40,8 +39,6 @@ import {
 } from "@/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import { cn } from "@/lib/utils";
-
-const EDITOR_MODE_STORAGE_KEY = "cotab:editorMode";
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim() || "untitled";
@@ -74,7 +71,6 @@ export function Toolbar() {
   const loadFile = usePlayerStore((s) => s.loadFile);
   const selector = usePlayerStore((s) => s.selector);
   const transport = usePlayerStore((s) => s.transport);
-  const editorMode = usePlayerStore((s) => s.editorMode);
   const tabConnected = useEditorStore((s) => s.connected);
   const tabRoomCode = useEditorStore((s) => s.roomCode);
   const canUndo = useEditorStore((s) => s.canUndo);
@@ -108,14 +104,6 @@ export function Toolbar() {
         end: `${transport.loopRange.end.barIndex + 1}.${transport.loopRange.end.beatIndex + 1}`,
       })
     : null;
-
-  const cycleEditorMode = () => {
-    const nextMode = editorMode === "essentials" ? "advanced" : "essentials";
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(EDITOR_MODE_STORAGE_KEY, nextMode);
-    }
-    usePlayerStore.setState({ editorMode: nextMode });
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -331,34 +319,8 @@ export function Toolbar() {
 
       <Separator orientation="vertical" className="mx-1 h-6" />
 
-      {/* ── Right: Editor mode, Zoom, Language ──────────────────────────── */}
+      {/* ── Right: Zoom, Language ───────────────────────────────────────── */}
       <div className="flex items-center gap-1">
-        {/* Editor palette mode: Essentials / Advanced */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground"
-              onClick={cycleEditorMode}
-              title={t("toolbar.editorMode")}
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span className="text-xs">
-                {editorMode === "essentials"
-                  ? t("toolbar.essentials")
-                  : t("toolbar.advanced")}
-              </span>
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            {t("toolbar.editorMode")}:{" "}
-            {editorMode === "essentials"
-              ? t("toolbar.essentials")
-              : t("toolbar.advanced")}
-          </TooltipContent>
-        </Tooltip>
-
         {/* Zoom */}
         <select
           value={zoom}

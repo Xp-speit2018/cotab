@@ -1,8 +1,10 @@
 import { registerDocumentAppActions } from "./document-actions";
 import { registerTransportActions } from "./transport-actions";
+import { registerViewActions } from "./view-actions";
 
 registerDocumentAppActions();
 registerTransportActions();
+registerViewActions();
 
 export {
   appActionRegistry,

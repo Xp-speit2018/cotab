@@ -15,6 +15,7 @@ import "./edit-staff";
 import "./edit-history";
 import "./edit-clipboard";
 import "./edit-bar";
+import "./edit-master-bar";
 import "./edit-beat";
 import "./edit-note";
 import "./edit-track";

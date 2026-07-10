@@ -302,16 +302,18 @@ function importBeat(beat: alphaTab.model.Beat): Y.Map<unknown> {
   y.set("whammyStyle", beat.whammyStyle as unknown as number);
   y.set("isContinuedWhammy", beat.isContinuedWhammy);
   y.set("whammyBarType", beat.whammyBarType as unknown as number);
-  const yWhammyPoints = new Y.Array<Y.Map<unknown>>();
   if (beat.whammyBarPoints) {
+    const yWhammyPoints = new Y.Array<Y.Map<unknown>>();
     for (const pt of beat.whammyBarPoints) {
       const yPt = new Y.Map<unknown>();
       yPt.set("offset", pt.offset);
       yPt.set("value", pt.value);
       yWhammyPoints.push([yPt]);
     }
+    y.set("whammyBarPoints", yWhammyPoints);
+  } else {
+    y.set("whammyBarPoints", null);
   }
-  y.set("whammyBarPoints", yWhammyPoints);
 
   const yAutomations = new Y.Array<Y.Map<unknown>>();
   for (const automation of beat.automations) {
@@ -378,16 +380,18 @@ function importNote(note: alphaTab.model.Note): Y.Map<unknown> {
   y.set("bendType", note.bendType as unknown as number);
   y.set("bendStyle", note.bendStyle as unknown as number);
 
-  const yBendPoints = new Y.Array<Y.Map<unknown>>();
   if (note.bendPoints) {
+    const yBendPoints = new Y.Array<Y.Map<unknown>>();
     for (const pt of note.bendPoints) {
       const yPt = new Y.Map<unknown>();
       yPt.set("offset", pt.offset);
       yPt.set("value", pt.value);
       yBendPoints.push([yPt]);
     }
+    y.set("bendPoints", yBendPoints);
+  } else {
+    y.set("bendPoints", null);
   }
-  y.set("bendPoints", yBendPoints);
 
   y.set("leftHandFinger", note.leftHandFinger as unknown as number);
   y.set("rightHandFinger", note.rightHandFinger as unknown as number);
@@ -736,6 +740,7 @@ function buildBeat(yBeat: Y.Map<unknown>): alphaTab.model.Beat {
     ((yBeat.get("whammyBarType") as number) ?? 0) as unknown as alphaTab.model.WhammyType;
   const yWhammyPoints = yBeat.get("whammyBarPoints") as
     | Y.Array<Y.Map<unknown>>
+    | null
     | undefined;
   if (yWhammyPoints && yWhammyPoints.length > 0) {
     for (const yPt of yWhammyPoints) {
@@ -841,6 +846,7 @@ function buildNote(yNote: Y.Map<unknown>): alphaTab.model.Note {
 
   const yBendPoints = yNote.get("bendPoints") as
     | Y.Array<Y.Map<unknown>>
+    | null
     | undefined;
   if (yBendPoints && yBendPoints.length > 0) {
     for (const yPt of yBendPoints) {

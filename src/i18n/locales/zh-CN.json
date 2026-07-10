@@ -21,9 +21,6 @@
     "zoom": "缩放",
     "fpsMonitor": "帧率监视器 (Shift+F)",
     "language": "语言",
-    "editorMode": "编辑面板模式",
-    "essentials": "常用",
-    "advanced": "高级",
     "undo": "撤销",
     "redo": "重做",
     "exportFile": "导出 GP 文件"
@@ -208,16 +205,13 @@
 
     "articulation": {
       "title": "奏法",
-      "help": "切换选中节拍上的打击乐奏法。在「常用」模式下，常见鼓组奏法以图标显示。",
+      "help": "切换选中节拍上的任意 AlphaTab 打击乐奏法。",
       "category": {
         "cymbals": "镲片",
         "snare": "军鼓",
         "toms": "通鼓",
         "kick": "底鼓"
       },
-      "drumIconStyle": "鼓图标样式",
-      "notationSymbols": "记谱",
-      "instrumentIcons": "乐器",
       "entryTitle": "{{element}}（{{technique}}）"
     },
 
@@ -257,6 +251,8 @@
       "help": "点击音轨展开编辑属性。使用眼睛图标切换可见性。",
       "visible": "可见",
       "hidden": "隐藏",
+      "hideTrack": "隐藏 {{name}}",
+      "showTrack": "显示 {{name}}",
       "name": "名称",
       "shortName": "缩写",
       "placeholderName": "音轨名称",
@@ -278,15 +274,31 @@
       "title": "小节",
       "help": "当前小节的拍号、调号、速度和反复设置。",
       "timeSig": "拍号",
+      "numerator": "分子",
+      "denominator": "分母",
+      "clef": "谱号",
+      "clefOttava": "谱号八度",
+      "simileMark": "重复记号",
+      "none": "无",
+      "neutral": "中性",
+      "regular": "原位",
       "key": "调号",
+      "keyType": "调式",
+      "major": "大调",
+      "minor": "小调",
       "tempo": "速度",
+      "tempoMarker": "速度标记",
       "bpm": "{{value}} BPM",
       "tripletFeel": "三连音感觉",
       "repeatStart": "反复开始",
       "freeTime": "自由节拍",
       "doubleBar": "双小节线",
       "section": "段落",
+      "sectionPlaceholder": "段落名称",
+      "sectionMarker": "段落标记",
+      "sectionMarkerPlaceholder": "如：A、Verse",
       "altEndings": "替代结尾",
+      "repeatCountLabel": "反复次数",
       "repeatCount": "x{{count}}"
     },
 
@@ -303,8 +315,14 @@
       "durationSixtyFourth": "六十四分音符",
 
       "noteProperties": "音符属性",
+      "fret": "品位",
+      "string": "琴弦",
+      "octave": "八度",
+      "tone": "音级",
       "dotted": "附点",
       "doubleDot": "复附点",
+      "triplet": "三连音 3:2",
+      "quintuplet": "五连音 5:4",
       "rest": "休止符",
       "tie": "连音线",
       "ghostNote": "幽灵音",
@@ -369,6 +387,7 @@
       "trillDetail": "品位 {{fret}} ({{speed}})",
       "harmonics": "泛音",
       "harmonic": "泛音",
+      "harmonicValue": "泛音值",
       "ornament": "装饰音",
 
       "beatEffects": "节拍效果",
@@ -380,6 +399,8 @@
       "brushDown": "下扫",
       "graceNote": "装饰音符",
       "tremoloPicking": "震音拨弦",
+      "rasgueado": "轮扫",
+      "none": "无",
       "fermata": "延长记号",
 
       "dynamics": "力度",
@@ -410,7 +431,9 @@
 
       "ottava": "八度记号",
       "text": "文本",
-      "chord": "和弦"
+      "textPlaceholder": "节拍文本",
+      "chord": "和弦",
+      "chordPlaceholder": "和弦 ID"
     },
 
     "bendTypes": {

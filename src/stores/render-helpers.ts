@@ -6,7 +6,10 @@
 
 import * as alphaTab from "@coderline/alphatab";
 import type {
+  Clef,
   KeySignatureType,
+  Ottavia,
+  SimileMark,
   TripletFeel,
 } from "@/core/schema";
 import { debugLog } from "@/core/editor/action-log";
@@ -503,6 +506,9 @@ export function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
   const tempoAuto = mb.tempoAutomations[0] ?? null;
   return {
     index: bar.index,
+    clef: bar.clef as unknown as Clef,
+    clefOttava: bar.clefOttava as unknown as Ottavia,
+    simileMark: bar.simileMark as unknown as SimileMark,
     timeSignatureNumerator: mb.timeSignatureNumerator,
     timeSignatureDenominator: mb.timeSignatureDenominator,
     keySignature: bar.keySignature as unknown as number,

@@ -59,10 +59,12 @@ import {
   AccentuationType,
   VibratoType,
   BendType,
+  BendStyle,
   SlideOutType,
   SlideInType,
   HarmonicType,
   Duration,
+  DynamicValue,
   NoteOrnament,
 } from "@/core/schema";
 import { executeAction } from "@/core/actions/registry";
@@ -92,64 +94,64 @@ function getNote() {
   return resolveYNoteHelper(0, 0, 0, 0, 0, 0)!;
 }
 
-describe("edit.note.setTie", () => {
+describe("edit.note.setIsTieDestination", () => {
   it("sets isTieDestination on note Y.Map", () => {
-    executeAction("edit.note.setTie", true, ctx);
+    executeAction("edit.note.setIsTieDestination", true, ctx);
     expect(getNote().get("isTieDestination")).toBe(true);
   });
 
   it("unsets tie", () => {
-    executeAction("edit.note.setTie", true, ctx);
-    executeAction("edit.note.setTie", false, ctx);
+    executeAction("edit.note.setIsTieDestination", true, ctx);
+    executeAction("edit.note.setIsTieDestination", false, ctx);
     expect(getNote().get("isTieDestination")).toBe(false);
   });
 });
 
-describe("edit.note.setGhost", () => {
+describe("edit.note.setIsGhost", () => {
   it("toggles isGhost", () => {
-    executeAction("edit.note.setGhost", true, ctx);
+    executeAction("edit.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(true);
   });
 });
 
-describe("edit.note.setDead", () => {
+describe("edit.note.setIsDead", () => {
   it("toggles isDead", () => {
-    executeAction("edit.note.setDead", true, ctx);
+    executeAction("edit.note.setIsDead", true, ctx);
     expect(getNote().get("isDead")).toBe(true);
   });
 });
 
-describe("edit.note.setAccent", () => {
+describe("edit.note.setAccentuated", () => {
   it("sets accentuated field", () => {
-    executeAction("edit.note.setAccent", AccentuationType.Heavy, ctx);
+    executeAction("edit.note.setAccentuated", AccentuationType.Heavy, ctx);
     expect(getNote().get("accentuated")).toBe(AccentuationType.Heavy);
   });
 });
 
-describe("edit.note.setStaccato", () => {
+describe("edit.note.setIsStaccato", () => {
   it("toggles isStaccato", () => {
-    executeAction("edit.note.setStaccato", true, ctx);
+    executeAction("edit.note.setIsStaccato", true, ctx);
     expect(getNote().get("isStaccato")).toBe(true);
   });
 });
 
-describe("edit.note.setLetRing", () => {
+describe("edit.note.setIsLetRing", () => {
   it("toggles isLetRing", () => {
-    executeAction("edit.note.setLetRing", true, ctx);
+    executeAction("edit.note.setIsLetRing", true, ctx);
     expect(getNote().get("isLetRing")).toBe(true);
   });
 });
 
-describe("edit.note.setPalmMute", () => {
+describe("edit.note.setIsPalmMute", () => {
   it("toggles isPalmMute", () => {
-    executeAction("edit.note.setPalmMute", true, ctx);
+    executeAction("edit.note.setIsPalmMute", true, ctx);
     expect(getNote().get("isPalmMute")).toBe(true);
   });
 });
 
-describe("edit.note.setHammerPull", () => {
+describe("edit.note.setIsHammerPullOrigin", () => {
   it("toggles isHammerPullOrigin", () => {
-    executeAction("edit.note.setHammerPull", true, ctx);
+    executeAction("edit.note.setIsHammerPullOrigin", true, ctx);
     expect(getNote().get("isHammerPullOrigin")).toBe(true);
   });
 });
@@ -168,9 +170,56 @@ describe("edit.note.setBendType", () => {
   });
 });
 
-describe("edit.note.setSlideOut", () => {
+describe("edit.note bend data", () => {
+  it("sets bend style and continuation independently", () => {
+    executeAction("edit.note.setBendStyle", BendStyle.Gradual, ctx);
+    executeAction("edit.note.setIsContinuedBend", true, ctx);
+
+    expect(getNote().get("bendStyle")).toBe(BendStyle.Gradual);
+    expect(getNote().get("isContinuedBend")).toBe(true);
+  });
+
+  it("replaces bend points using the schema field names", () => {
+    executeAction("edit.note.setBendPoints", [
+      { offset: 0, value: 0 },
+      { offset: 30, value: 4 },
+      { offset: 60, value: 2 },
+    ], ctx);
+
+    const yPoints = getNote().get("bendPoints") as Y.Array<Y.Map<unknown>>;
+    expect(yPoints.toArray().map((point) => point.toJSON())).toEqual([
+      { offset: 0, value: 0 },
+      { offset: 30, value: 4 },
+      { offset: 60, value: 2 },
+    ]);
+
+    executeAction("edit.note.setBendPoints", null, ctx);
+    expect(getNote().get("bendPoints")).toBeNull();
+  });
+
+  it("sets a complete bend atomically", () => {
+    executeAction("edit.note.setBend", {
+      bendType: BendType.BendRelease,
+      bendStyle: BendStyle.Fast,
+      isContinuedBend: true,
+      bendPoints: [
+        { offset: 0, value: 0 },
+        { offset: 30, value: 4 },
+        { offset: 60, value: 0 },
+      ],
+    }, ctx);
+
+    expect(getNote().get("bendType")).toBe(BendType.BendRelease);
+    expect(getNote().get("bendStyle")).toBe(BendStyle.Fast);
+    expect(getNote().get("isContinuedBend")).toBe(true);
+    const points = getNote().get("bendPoints") as Y.Array<Y.Map<unknown>>;
+    expect(points.length).toBe(3);
+  });
+});
+
+describe("edit.note.setSlideOutType", () => {
   it("sets slideOutType enum", () => {
-    executeAction("edit.note.setSlideOut", SlideOutType.Shift, ctx);
+    executeAction("edit.note.setSlideOutType", SlideOutType.Shift, ctx);
     expect(getNote().get("slideOutType")).toBe(SlideOutType.Shift);
   });
 });
@@ -189,6 +238,31 @@ describe("edit.note.setHarmonicType", () => {
   });
 });
 
+describe("edit.note scalar playback fields", () => {
+  it("sets harmonicValue and note dynamics", () => {
+    executeAction("edit.note.setHarmonicValue", 12, ctx);
+    executeAction("edit.note.setDynamics", DynamicValue.PP, ctx);
+
+    expect(getNote().get("harmonicValue")).toBe(12);
+    expect(getNote().get("dynamics")).toBe(DynamicValue.PP);
+  });
+
+  it.each([
+    ["edit.note.setFret", "fret", 9],
+    ["edit.note.setOctave", "octave", 5],
+    ["edit.note.setTone", "tone", 7],
+    ["edit.note.setPercussionArticulation", "percussionArticulation", 42],
+  ] as const)("%s writes %s directly", (actionId, field, value) => {
+    executeAction(actionId, value, ctx);
+    expect(getNote().get(field)).toBe(value);
+  });
+
+  it("sets string directly", () => {
+    executeAction("edit.note.setString", 4, ctx);
+    expect(getNote().get("string")).toBe(4);
+  });
+});
+
 describe("edit.note.setTrill", () => {
   it("sets trillValue and trillSpeed", () => {
     executeAction("edit.note.setTrill", { trillValue: 7, trillSpeed: Duration.Sixteenth }, ctx);
@@ -204,9 +278,9 @@ describe("edit.note.setOrnament", () => {
   });
 });
 
-describe("edit.note.setLeftHandTapped", () => {
+describe("edit.note.setIsLeftHandTapped", () => {
   it("toggles isLeftHandTapped", () => {
-    executeAction("edit.note.setLeftHandTapped", true, ctx);
+    executeAction("edit.note.setIsLeftHandTapped", true, ctx);
     expect(getNote().get("isLeftHandTapped")).toBe(true);
   });
 });
@@ -214,13 +288,13 @@ describe("edit.note.setLeftHandTapped", () => {
 describe("applyNoteUpdates guards", () => {
   it("does nothing without selection", () => {
     selectBeat(null);
-    executeAction("edit.note.setGhost", true, ctx);
+    executeAction("edit.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(false);
   });
 
   it("does nothing with negative note index", () => {
     setSelectedNoteIndex(-1);
-    executeAction("edit.note.setGhost", true, ctx);
+    executeAction("edit.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(false);
   });
 });
@@ -237,7 +311,7 @@ describe("edit.note (violin tab)", () => {
   });
 
   it("setGhost applies to violin note", () => {
-    executeAction("edit.note.setGhost", true, ctx);
+    executeAction("edit.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(true);
   });
 });
@@ -268,7 +342,7 @@ describe("edit.note (piano notation)", () => {
   });
 
   it("setGhost applies to piano note", () => {
-    executeAction("edit.note.setGhost", true, ctx);
+    executeAction("edit.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(true);
   });
 });
@@ -285,7 +359,7 @@ describe("edit.note (drumkit percussion)", () => {
   });
 
   it("setGhost applies to percussion note", () => {
-    executeAction("edit.note.setGhost", true, ctx);
+    executeAction("edit.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(true);
   });
 });
@@ -374,7 +448,7 @@ describe("edit.note edge cases", () => {
     // Set selection with invalid note index
     setSelectedNoteIndex(999);
 
-    const result = executeAction("edit.note.setTie", true, ctx);
+    const result = executeAction("edit.note.setIsTieDestination", true, ctx);
 
     // Should not throw, should just return without doing anything
     expect(result).toBeUndefined();

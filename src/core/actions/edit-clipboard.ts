@@ -81,8 +81,9 @@ function populateBeatFromSnapshot(yBeat: Y.Map<unknown>, schema: BeatSchema): vo
   }
 
   // Whammy bar points
-  if (schema.whammyBarPoints.length > 0) {
-    const yPoints = yBeat.get("whammyBarPoints") as Y.Array<Y.Map<unknown>>;
+  if (schema.whammyBarPoints) {
+    const yPoints = new Y.Array<Y.Map<unknown>>();
+    yBeat.set("whammyBarPoints", yPoints);
     for (const pt of schema.whammyBarPoints) {
       const yPt = new Y.Map<unknown>();
       yPt.set("offset", pt.offset);
@@ -129,8 +130,9 @@ function populateBeatFromSnapshot(yBeat: Y.Map<unknown>, schema: BeatSchema): vo
     intNote.set("durationPercent", noteSchema.durationPercent);
 
     // Bend points
-    if (noteSchema.bendPoints.length > 0) {
-      const yBendPoints = intNote.get("bendPoints") as Y.Array<Y.Map<unknown>>;
+    if (noteSchema.bendPoints) {
+      const yBendPoints = new Y.Array<Y.Map<unknown>>();
+      intNote.set("bendPoints", yBendPoints);
       for (const bp of noteSchema.bendPoints) {
         const yBp = new Y.Map<unknown>();
         yBp.set("offset", bp.offset);

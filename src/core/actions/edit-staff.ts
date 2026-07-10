@@ -2,6 +2,7 @@ import * as Y from "yjs";
 import { actionRegistry } from "./registry";
 import type { ActionDefinition } from "./types";
 import { engine } from "@/core/engine";
+import type { ChordSchema, TuningSchema } from "@/core/schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
@@ -27,62 +28,126 @@ const setStaffCapoAction: ActionDefinition<{
   },
 };
 
-const setStaffTranspositionAction: ActionDefinition<{
+const setStaffTranspositionPitchAction: ActionDefinition<{
   trackIndex: number;
   staffIndex: number;
-  semitones: number;
+  transpositionPitch: number;
 }> = {
-  id: "edit.staff.setTransposition",
-  i18nKey: "actions.edit.staff.setTransposition",
+  id: "edit.staff.setTranspositionPitch",
+  i18nKey: "actions.edit.staff.setTranspositionPitch",
   category: "edit.staff",
   params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.staff.setTransposition.params.trackIndex" },
-    { name: "staffIndex", type: "number", i18nKey: "actions.edit.staff.setTransposition.params.staffIndex" },
-    { name: "semitones", type: "number", i18nKey: "actions.edit.staff.setTransposition.params.semitones" },
+    { name: "trackIndex", type: "number", i18nKey: "actions.edit.staff.setTranspositionPitch.params.trackIndex" },
+    { name: "staffIndex", type: "number", i18nKey: "actions.edit.staff.setTranspositionPitch.params.staffIndex" },
+    { name: "transpositionPitch", type: "number", i18nKey: "actions.edit.staff.setTranspositionPitch.params.transpositionPitch" },
   ],
-  execute: ({ trackIndex, staffIndex, semitones }, _context) => {
+  execute: ({ trackIndex, staffIndex, transpositionPitch }, _context) => {
     const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
-      yStaff.set("transpositionPitch", semitones);
-      yStaff.set("displayTranspositionPitch", semitones);
+      yStaff.set("transpositionPitch", transpositionPitch);
     });
   },
 };
 
-const setStaffTuningAction: ActionDefinition<{
+const setStaffStringTuningAction: ActionDefinition<{
   trackIndex: number;
   staffIndex: number;
-  tuningValues: number[];
+  stringTuning: TuningSchema;
 }> = {
-  id: "edit.staff.setTuning",
-  i18nKey: "actions.edit.staff.setTuning",
+  id: "edit.staff.setStringTuning",
+  i18nKey: "actions.edit.staff.setStringTuning",
   category: "edit.staff",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.staff.setTuning.params.trackIndex" },
-    { name: "staffIndex", type: "number", i18nKey: "actions.edit.staff.setTuning.params.staffIndex" },
-    { name: "tuningValues", type: "string", i18nKey: "actions.edit.staff.setTuning.params.tuningValues" },
-  ],
-  execute: ({ trackIndex, staffIndex, tuningValues }, _context) => {
+  execute: ({ trackIndex, staffIndex, stringTuning }, _context) => {
     const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
-      const yStringTuning = yStaff.get("stringTuning") as
+      let yStringTuning = yStaff.get("stringTuning") as
         | Y.Map<unknown>
         | undefined;
-      if (!yStringTuning) return;
+      if (!yStringTuning) {
+        yStringTuning = new Y.Map<unknown>();
+        yStaff.set("stringTuning", yStringTuning);
+      }
       const yTunings = new Y.Array<number>();
-      yTunings.push(tuningValues);
+      yTunings.push(stringTuning.tunings);
       yStringTuning.set("tunings", yTunings);
-      yStringTuning.set("name", "");
-      yStringTuning.set("isStandard", false);
+      yStringTuning.set("name", stringTuning.name);
+      yStringTuning.set("isStandard", stringTuning.isStandard);
+    });
+  },
+};
+
+const setStaffIsPercussionAction: ActionDefinition<{
+  trackIndex: number;
+  staffIndex: number;
+  isPercussion: boolean;
+}> = {
+  id: "edit.staff.setIsPercussion",
+  i18nKey: "actions.edit.staff.setIsPercussion",
+  category: "edit.staff",
+  params: [
+    { name: "trackIndex", type: "number", i18nKey: "actions.edit.staff.setIsPercussion.params.trackIndex" },
+    { name: "staffIndex", type: "number", i18nKey: "actions.edit.staff.setIsPercussion.params.staffIndex" },
+    { name: "isPercussion", type: "boolean", i18nKey: "actions.edit.staff.setIsPercussion.params.isPercussion" },
+  ],
+  execute: ({ trackIndex, staffIndex, isPercussion }, _context) => {
+    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
+    if (!yStaff) return;
+    transact(() => {
+      yStaff.set("isPercussion", isPercussion);
+    });
+  },
+};
+
+const setStaffChordAction: ActionDefinition<{
+  trackIndex: number;
+  staffIndex: number;
+  id: string;
+  chord: ChordSchema | null;
+}> = {
+  id: "edit.staff.setChord",
+  i18nKey: "actions.edit.staff.setChord",
+  category: "edit.staff",
+  execute: ({ trackIndex, staffIndex, id, chord }, _context) => {
+    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
+    if (!yStaff) return;
+    transact(() => {
+      let yChords = yStaff.get("chords") as
+        | Y.Map<Y.Map<unknown>>
+        | null
+        | undefined;
+      if (chord === null) {
+        yChords?.delete(id);
+        if (yChords?.size === 0) yStaff.set("chords", null);
+        return;
+      }
+      if (!yChords) {
+        yChords = new Y.Map<Y.Map<unknown>>();
+        yStaff.set("chords", yChords);
+      }
+      const yChord = new Y.Map<unknown>();
+      yChord.set("name", chord.name);
+      yChord.set("firstFret", chord.firstFret);
+      const yStrings = new Y.Array<number>();
+      yStrings.push(chord.strings);
+      yChord.set("strings", yStrings);
+      const yBarreFrets = new Y.Array<number>();
+      yBarreFrets.push(chord.barreFrets);
+      yChord.set("barreFrets", yBarreFrets);
+      yChord.set("showName", chord.showName);
+      yChord.set("showDiagram", chord.showDiagram);
+      yChord.set("showFingering", chord.showFingering);
+      yChords.set(id, yChord);
     });
   },
 };
 
 actionRegistry.register(setStaffCapoAction);
-actionRegistry.register(setStaffTranspositionAction);
-actionRegistry.register(setStaffTuningAction);
+actionRegistry.register(setStaffTranspositionPitchAction);
+actionRegistry.register(setStaffStringTuningAction);
+actionRegistry.register(setStaffIsPercussionAction);
+actionRegistry.register(setStaffChordAction);
 
 declare global {
   interface ActionMap {
@@ -90,12 +155,33 @@ declare global {
       args: { trackIndex: number; staffIndex: number; capo: number };
       result: void;
     };
-    "edit.staff.setTransposition": {
-      args: { trackIndex: number; staffIndex: number; semitones: number };
+    "edit.staff.setTranspositionPitch": {
+      args: {
+        trackIndex: number;
+        staffIndex: number;
+        transpositionPitch: number;
+      };
       result: void;
     };
-    "edit.staff.setTuning": {
-      args: { trackIndex: number; staffIndex: number; tuningValues: number[] };
+    "edit.staff.setStringTuning": {
+      args: {
+        trackIndex: number;
+        staffIndex: number;
+        stringTuning: TuningSchema;
+      };
+      result: void;
+    };
+    "edit.staff.setIsPercussion": {
+      args: { trackIndex: number; staffIndex: number; isPercussion: boolean };
+      result: void;
+    };
+    "edit.staff.setChord": {
+      args: {
+        trackIndex: number;
+        staffIndex: number;
+        id: string;
+        chord: ChordSchema | null;
+      };
       result: void;
     };
   }

@@ -21,9 +21,6 @@
     "zoom": "Zoom",
     "fpsMonitor": "FPS Monitor (Shift+F)",
     "language": "Language",
-    "editorMode": "Editor palette mode",
-    "essentials": "Essentials",
-    "advanced": "Advanced",
     "undo": "Undo",
     "redo": "Redo",
     "exportFile": "Export GP file"
@@ -208,16 +205,13 @@
 
     "articulation": {
       "title": "Articulations",
-      "help": "Toggle percussion articulations on the selected beat. In Essentials mode, common drumkit articulations are shown with icons.",
+      "help": "Toggle any AlphaTab percussion articulation on the selected beat.",
       "category": {
         "cymbals": "Cymbals",
         "snare": "Snare",
         "toms": "Toms",
         "kick": "Kick"
       },
-      "drumIconStyle": "Drum icon style",
-      "notationSymbols": "Notation",
-      "instrumentIcons": "Instrument",
       "entryTitle": "{{element}} ({{technique}})"
     },
 
@@ -257,6 +251,8 @@
       "help": "Click a track to expand and edit its properties. Toggle visibility with the eye icon.",
       "visible": "visible",
       "hidden": "hidden",
+      "hideTrack": "Hide {{name}}",
+      "showTrack": "Show {{name}}",
       "name": "Name",
       "shortName": "Abbreviation",
       "placeholderName": "Track name",
@@ -278,15 +274,31 @@
       "title": "Bar",
       "help": "Time signature, key, tempo, and repeat settings for the current bar.",
       "timeSig": "Time Sig",
+      "numerator": "Numerator",
+      "denominator": "Denominator",
+      "clef": "Clef",
+      "clefOttava": "Clef Ottava",
+      "simileMark": "Simile",
+      "none": "None",
+      "neutral": "Neutral",
+      "regular": "Regular",
       "key": "Key",
+      "keyType": "Mode",
+      "major": "Major",
+      "minor": "Minor",
       "tempo": "Tempo",
+      "tempoMarker": "Tempo Marker",
       "bpm": "{{value}} BPM",
       "tripletFeel": "Triplet Feel",
       "repeatStart": "Repeat Start",
       "freeTime": "Free Time",
       "doubleBar": "Double Bar",
       "section": "Section",
+      "sectionPlaceholder": "Section name",
+      "sectionMarker": "Marker",
+      "sectionMarkerPlaceholder": "e.g. A, Verse",
       "altEndings": "Alt. Endings",
+      "repeatCountLabel": "Repeat Count",
       "repeatCount": "x{{count}}"
     },
 
@@ -303,8 +315,14 @@
       "durationSixtyFourth": "Sixty-fourth Note",
 
       "noteProperties": "Note Properties",
+      "fret": "Fret",
+      "string": "String",
+      "octave": "Octave",
+      "tone": "Tone",
       "dotted": "Dotted",
       "doubleDot": "Double Dot",
+      "triplet": "Triplet 3:2",
+      "quintuplet": "Quintuplet 5:4",
       "rest": "Rest",
       "tie": "Tie",
       "ghostNote": "Ghost Note",
@@ -369,6 +387,7 @@
       "trillDetail": "Fret {{fret}} ({{speed}})",
       "harmonics": "Harmonics",
       "harmonic": "Harmonic",
+      "harmonicValue": "Harmonic Value",
       "ornament": "Ornament",
 
       "beatEffects": "Beat Effects",
@@ -380,6 +399,8 @@
       "brushDown": "Brush Down",
       "graceNote": "Grace Note",
       "tremoloPicking": "Tremolo Picking",
+      "rasgueado": "Rasgueado",
+      "none": "None",
       "fermata": "Fermata",
 
       "dynamics": "Dynamics",
@@ -410,7 +431,9 @@
 
       "ottava": "Ottava",
       "text": "Text",
-      "chord": "Chord"
+      "textPlaceholder": "Beat text",
+      "chord": "Chord",
+      "chordPlaceholder": "Chord ID"
     },
 
     "bendTypes": {

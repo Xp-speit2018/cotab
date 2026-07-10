@@ -6,6 +6,7 @@ export type ActionCategory =
   | "edit.track"
   | "edit.staff"
   | "edit.bar"
+  | "edit.masterBar"
   | "edit.beat"
   | "edit.note"
   | "edit.history"

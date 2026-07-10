@@ -66,6 +66,7 @@ describe("createNote", () => {
     expect(note.get("accentuated")).toBe(AccentuationType.None);
     expect(note.get("vibrato")).toBe(VibratoType.None);
     expect(note.get("dynamics")).toBe(DynamicValue.F);
+    expect(note.get("bendPoints")).toBeNull();
   });
 
   it("generates unique uuids", () => {
@@ -103,6 +104,7 @@ describe("createBeat", () => {
     expect(beat.get("tupletNumerator")).toBe(-1);
     expect(beat.get("tupletDenominator")).toBe(-1);
     expect(beat.get("automations")).toBeInstanceOf(Y.Array);
+    expect(beat.get("whammyBarPoints")).toBeNull();
   });
 });
 
@@ -230,6 +232,7 @@ describe("snapshotNote", () => {
     expect(snap.dynamics).toBe(DynamicValue.F);
     expect(snap.durationPercent).toBe(1);
     expect(snap.trillValue).toBe(-1);
+    expect(snap.bendPoints).toBeNull();
   });
 });
 
@@ -253,6 +256,7 @@ describe("snapshotBeat", () => {
     expect(snap.notes).toHaveLength(1);
     expect(snap.notes[0].fret).toBe(3);
     expect(snap.notes[0].string).toBe(2);
+    expect(snap.whammyBarPoints).toBeNull();
   });
 });
 

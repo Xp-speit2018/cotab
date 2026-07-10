@@ -470,7 +470,6 @@ vi.mock("@/stores/render-store", () => {
     if ("zoom" in partial) s.storeOverrides.zoom = partial.zoom;
     if ("showSnapGrid" in partial) s.storeOverrides.showSnapGrid = partial.showSnapGrid;
     if ("sidebarVisible" in partial) s.storeOverrides.sidebarVisible = partial.sidebarVisible;
-    if ("editorMode" in partial) s.storeOverrides.editorMode = partial.editorMode;
     Object.assign(s.storeOverrides, partial);
   });
   const mockGetState = vi.fn(() => {
@@ -482,7 +481,6 @@ vi.mock("@/stores/render-store", () => {
       selectionRange: s.selectionRange,
       selectedNoteIndex: s.selectedNoteIndex,
       visibleTrackIndices: s.visibleTrackIndices,
-      editorMode: s.storeOverrides.editorMode ?? "essentials",
       roomDialogOpen: false,
       addTrackDialogOpen: s.addTrackDialogOpen,
       zoom: s.storeOverrides.zoom ?? 1.0,

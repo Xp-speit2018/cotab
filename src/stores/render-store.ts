@@ -992,6 +992,9 @@ function extractNoteInfo(note: alphaTab.model.Note): SelectedNoteInfo {
     index: note.index,
     fret: note.fret,
     string: note.string,
+    stringCount: note.beat.voice.bar.staff.tuning.length,
+    octave: note.octave,
+    tone: note.tone,
     isDead: note.isDead,
     isGhost: note.isGhost,
     isStaccato: note.isStaccato,
@@ -1011,7 +1014,7 @@ function extractNoteInfo(note: alphaTab.model.Note): SelectedNoteInfo {
     bendStyle: note.bendStyle as unknown as BendStyle,
     bendPoints: note.bendPoints
       ? note.bendPoints.map((p) => ({ offset: p.offset, value: p.value }))
-      : [],
+      : null,
     leftHandFinger: note.leftHandFinger as unknown as Fingers,
     rightHandFinger: note.rightHandFinger as unknown as Fingers,
     dynamics: note.dynamics as unknown as DynamicValue,
@@ -1053,7 +1056,7 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
     whammyBarType: beat.whammyBarType as unknown as WhammyType,
     whammyBarPoints: beat.whammyBarPoints
       ? beat.whammyBarPoints.map((p) => ({ offset: p.offset, value: p.value }))
-      : [],
+      : null,
     automations: beat.automations.map((automation) => ({
       isLinear: automation.isLinear,
       type: automation.type as unknown as AutomationType,
@@ -1083,24 +1086,6 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
     notes: beat.notes.map(extractNoteInfo),
   };
 }
-
-const EDITOR_MODE_STORAGE_KEY = "cotab:editorMode";
-const DRUM_ICON_STYLE_STORAGE_KEY = "cotab:drumIconStyle";
-
-function getInitialEditorMode(): "essentials" | "advanced" {
-  if (typeof localStorage === "undefined") return "essentials";
-  const raw = localStorage.getItem(EDITOR_MODE_STORAGE_KEY);
-  if (raw === "essentials" || raw === "advanced") return raw;
-  return "essentials";
-}
-
-function getInitialDrumIconStyle(): "notation" | "instrument" {
-  if (typeof localStorage === "undefined") return "notation";
-  const raw = localStorage.getItem(DRUM_ICON_STYLE_STORAGE_KEY);
-  if (raw === "notation" || raw === "instrument") return raw;
-  return "notation";
-}
-
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   // Initial state
@@ -1140,19 +1125,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedNoteIndex: -1,
   selectedString: null,
   zoom: 1,
-  editorMode: getInitialEditorMode(),
   sidebarVisible: true,
   roomDialogOpen: false,
-  drumIconStyle: getInitialDrumIconStyle(),
   showSnapGrid: false,
   addTrackDialogOpen: false,
-
-  setDrumIconStyle: (style) => {
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem(DRUM_ICON_STYLE_STORAGE_KEY, style);
-    }
-    set({ drumIconStyle: style });
-  },
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -1517,19 +1493,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       } else {
         const sel = get().selectedBeat;
         if (sel) {
-          const freshBB = findBeatBounds(
-            sel.trackIndex,
-            sel.staffIndex,
-            sel.barIndex,
-            sel.beatIndex,
-          );
-          const gridKey = `${sel.trackIndex}:${sel.staffIndex}`;
-          const freshGrid = getSnapGrids().get(gridKey) ?? null;
-          const freshSnap =
-            freshGrid && sel.string !== null
-              ? freshGrid.positions.find((p) => p.string === sel.string) ?? null
-              : null;
-          updateCursorRect(freshBB, freshSnap, freshGrid);
+          get().setSelection({
+            ...sel,
+            noteIndex: get().selectedNoteIndex,
+            preserveSelectionRange: true,
+          });
         }
       }
 
@@ -1543,11 +1511,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     api.scoreLoaded.on((score: alphaTab.model.Score) => {
       // Import into Y.Doc for CRDT sync (skipped when the load
       // originated from a Y.Doc rebuild to prevent infinite loops).
-      if (!isRebuildingFromYDoc()) {
+      const rebuildingFromYDoc = isRebuildingFromYDoc();
+      if (!rebuildingFromYDoc) {
         importFromAlphaTab(score);
       }
 
       const existing = get().tracks;
+      const allTrackIndices = score.tracks.map((track) => track.index);
+      const retainedVisibleIndices = rebuildingFromYDoc
+        ? get().visibleTrackIndices.filter((index) => index < score.tracks.length)
+        : [];
+      if (rebuildingFromYDoc && score.tracks.length > existing.length) {
+        for (let index = existing.length; index < score.tracks.length; index++) {
+          retainedVisibleIndices.push(index);
+        }
+      }
+      const visibleTrackIndices = retainedVisibleIndices.length > 0
+        ? [...new Set(retainedVisibleIndices)].sort((left, right) => left - right)
+        : allTrackIndices;
       const tracks: TrackInfo[] = score.tracks.map((t, i) => ({
         index: i,
         name: t.name,
@@ -1571,10 +1552,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         scoreTempo: score.tempo,
         scoreTempoLabel: score.tempoLabel || "",
         tracks,
+        visibleTrackIndices,
       });
 
       applyBarWarningStyles();
-      api!.renderTracks(score.tracks);
+      api!.renderTracks(
+        visibleTrackIndices.map((index) => score.tracks[index]),
+      );
     });
 
     api.playerReady.on(() => {
@@ -2056,6 +2040,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     voiceIndex = 0,
     noteIndex,
     string: stringArg,
+    preserveSelectionRange = false,
   }) => {
     try {
       const beat = resolveBeat(
@@ -2149,10 +2134,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       };
 
       // Clear selection range when not actively dragging
-      const rangeUpdate = getDragState() === null
-        ? { selectionRange: null as SelectionRange | null }
-        : {};
-      if (!getDragState()) hideBarSelectionOverlay();
+      const retainedSelectionRange = preserveSelectionRange
+        ? get().selectionRange
+        : null;
+      const rangeUpdate = preserveSelectionRange
+        ? {}
+        : getDragState() === null
+          ? { selectionRange: null as SelectionRange | null }
+          : {};
+      if (!preserveSelectionRange && !getDragState()) {
+        hideBarSelectionOverlay();
+      }
 
       const newBeat = {
         trackIndex,
@@ -2166,13 +2158,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // Selector and transport are separate local states. Selection updates the
       // edit cursor only; playback starts from transport.playhead.
       if (!_processingHook) {
-        engine.localSetSelection(newBeat, resolvedNoteIndex, selectorPointers);
+        engine.localSetSelection(
+          newBeat,
+          resolvedNoteIndex,
+          selectorPointers,
+          preserveSelectionRange,
+        );
       } else {
         engine.localSetSelectorPointers(selectorPointers);
       }
-      const nextSelectionRange = getDragState() === null
-        ? null
-        : get().selector.selectionRange;
+      const nextSelectionRange = preserveSelectionRange
+        ? retainedSelectionRange
+        : getDragState() === null
+          ? null
+          : get().selector.selectionRange;
       const nextSelector: RenderSelectorState = {
         ...selectorPointers,
         trackIndex,

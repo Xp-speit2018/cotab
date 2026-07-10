@@ -44,8 +44,10 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
     const staff = alphaTabApi?.score?.tracks?.[trackIndex]?.staves?.[staffIndex ?? 0];
     if (!staff) return null;
     return {
-      tuningValues: [...staff.tuning] as number[],
-      tuningName: staff.tuningName as string,
+      staffIndex: staffIndex ?? 0,
+      tuningValues: [...staff.stringTuning.tunings] as number[],
+      tuningName: staff.stringTuning.name as string,
+      tuningIsStandard: staff.stringTuning.isStandard as boolean,
       capo: staff.capo as number,
       transposition: staff.transpositionPitch as number,
       showTablature: staff.showTablature as boolean,
@@ -86,7 +88,11 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
         <button
           type="button"
           className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
-          onClick={() => executeAppAction("edit.track.setVisible", { trackIndex, visible: !isVisible }, { t })}
+          aria-label={t(
+            isVisible ? "sidebar.tracks.hideTrack" : "sidebar.tracks.showTrack",
+            { name: track.name },
+          )}
+          onClick={() => executeAppAction("view.setTrackVisible", { trackIndex, visible: !isVisible }, { t })}
         >
           {isVisible ? (
             <Eye className="h-3 w-3" />
@@ -162,7 +168,11 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           preset.tunings.join(",") === staffInfo.tuningValues.join(",") && "bg-accent",
                         )}
                         onClick={() => {
-                          executeAppAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: preset.tunings }, { t });
+                          executeAppAction("edit.staff.setStringTuning", {
+                            trackIndex,
+                            staffIndex: staffInfo.staffIndex,
+                            stringTuning: preset,
+                          }, { t });
                           setTuningOpen(false);
                         }}
                       >
@@ -192,7 +202,15 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           onClick={() => {
                             const next = [...staffInfo.tuningValues];
                             next[i] = Math.max(0, next[i] - 1);
-                            executeAppAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: next }, { t });
+                            executeAppAction("edit.staff.setStringTuning", {
+                              trackIndex,
+                              staffIndex: staffInfo.staffIndex,
+                              stringTuning: {
+                                tunings: next,
+                                name: "",
+                                isStandard: false,
+                              },
+                            }, { t });
                           }}
                         >
                           <ChevronDown className="h-2.5 w-2.5" />
@@ -206,7 +224,15 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           onClick={() => {
                             const next = [...staffInfo.tuningValues];
                             next[i] = Math.min(127, next[i] + 1);
-                            executeAppAction("edit.staff.setTuning", { trackIndex, staffIndex: 0, tuningValues: next }, { t });
+                            executeAppAction("edit.staff.setStringTuning", {
+                              trackIndex,
+                              staffIndex: staffInfo.staffIndex,
+                              stringTuning: {
+                                tunings: next,
+                                name: "",
+                                isStandard: false,
+                              },
+                            }, { t });
                           }}
                         >
                           <ChevronUp className="h-2.5 w-2.5" />
@@ -224,7 +250,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                 value={staffInfo.capo}
                 min={0}
                 max={24}
-                onCommit={(v) => executeAppAction("edit.staff.setCapo", { trackIndex, staffIndex: 0, capo: v }, { t })}
+                onCommit={(v) => executeAppAction("edit.staff.setCapo", { trackIndex, staffIndex: staffInfo.staffIndex, capo: v }, { t })}
               />
             </>
           )}
@@ -236,7 +262,11 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               suffix={t("sidebar.tracks.semitones")}
               min={-24}
               max={24}
-              onCommit={(v) => executeAppAction("edit.staff.setTransposition", { trackIndex, staffIndex: 0, semitones: v }, { t })}
+              onCommit={(v) => executeAppAction("edit.staff.setTranspositionPitch", {
+                trackIndex,
+                staffIndex: staffInfo.staffIndex,
+                transpositionPitch: v,
+              }, { t })}
             />
           )}
 
@@ -246,7 +276,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               value={playbackInfo.program}
               min={0}
               max={127}
-              onCommit={(v) => executeAppAction("edit.track.setProgram", { trackIndex, program: v }, { t })}
+              onCommit={(v) => executeAppAction("edit.track.setPlaybackInfoProgram", { trackIndex, program: v }, { t })}
             />
           )}
 

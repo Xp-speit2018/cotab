@@ -34,7 +34,7 @@ Use `it.each` for property setters that share `applyBeatUpdates` / `applyNoteUpd
 
 ```ts
 it.each([
-  ["edit.beat.setSlashed", "slashed", true],
+  ["edit.beat.setVibrato", "vibrato", 1],
   ["edit.beat.setDynamics", "dynamics", 5],
   // ...
 ])("%s sets %s on Y.Map", (actionId, field, value) => {

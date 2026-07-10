@@ -303,6 +303,7 @@ export class EditorEngine {
     sel: SelectedBeat,
     selectedNoteIndex: number = -1,
     pointers: Partial<SelectorPointers> = {},
+    preserveSelectionRange: boolean = false,
   ): void {
     const sameSelection =
       this.selector.trackIndex === sel.trackIndex &&
@@ -334,7 +335,9 @@ export class EditorEngine {
       string: sel.string,
       beatUuid,
       noteIndex: selectedNoteIndex,
-      selectionRange: null,
+      selectionRange: preserveSelectionRange
+        ? this.selector.selectionRange
+        : null,
     };
     this._hookRegistry.emitSelector("onLocalSelectorChange", this.selector);
     if (!sameSelection) {

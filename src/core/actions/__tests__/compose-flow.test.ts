@@ -320,8 +320,8 @@ describe("compose Happy Birthday", () => {
     executeAction("edit.beat.placeNote", 1, ctx);
 
     setSelectedNoteIndex(0);
-    executeAction("edit.note.setGhost", true, ctx);
-    executeAction("edit.note.setStaccato", true, ctx);
+    executeAction("edit.note.setIsGhost", true, ctx);
+    executeAction("edit.note.setIsStaccato", true, ctx);
     executeAction("edit.note.setVibrato", 2, ctx);
 
     const note = resolveYNoteHelper(0, 0, 0, 0, 0, 0)!;

@@ -243,52 +243,13 @@ const setTrackShortNameAction: ActionDefinition<{ trackIndex: number; shortName:
   },
 };
 
-const setTrackVisibleAction: ActionDefinition<{ trackIndex: number; visible: boolean }> = {
-  id: "edit.track.setVisible",
-  i18nKey: "actions.edit.track.setVisible",
+const setTrackPlaybackInfoProgramAction: ActionDefinition<{ trackIndex: number; program: number }> = {
+  id: "edit.track.setPlaybackInfoProgram",
+  i18nKey: "actions.edit.track.setPlaybackInfoProgram",
   category: "edit.track",
   params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.setVisible.params.trackIndex" },
-    { name: "visible", type: "boolean", i18nKey: "actions.edit.track.setVisible.params.visible" },
-  ],
-  execute: ({ trackIndex, visible }, _context) => {
-    const yScore = getScoreMap();
-    if (!yScore) return;
-
-    // Store visible track indices in Y.Doc so renderer can react to changes
-    transact(() => {
-      let visibleIndices = yScore.get("visibleTrackIndices") as Y.Array<number> | undefined;
-      if (!visibleIndices) {
-        visibleIndices = new Y.Array<number>();
-        yScore.set("visibleTrackIndices", visibleIndices);
-      }
-
-      const current = visibleIndices.toArray();
-      const set = new Set(current);
-
-      if (visible) {
-        set.add(trackIndex);
-      } else {
-        set.delete(trackIndex);
-      }
-
-      // Prevent hiding all tracks
-      if (set.size === 0) return;
-
-      const sorted = [...set].sort((a, b) => a - b);
-      visibleIndices.delete(0, visibleIndices.length);
-      visibleIndices.push(sorted);
-    });
-  },
-};
-
-const setTrackProgramAction: ActionDefinition<{ trackIndex: number; program: number }> = {
-  id: "edit.track.setProgram",
-  i18nKey: "actions.edit.track.setProgram",
-  category: "edit.track",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.setProgram.params.trackIndex" },
-    { name: "program", type: "number", i18nKey: "actions.edit.track.setProgram.params.program" },
+    { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.setPlaybackInfoProgram.params.trackIndex" },
+    { name: "program", type: "number", i18nKey: "actions.edit.track.setPlaybackInfoProgram.params.program" },
   ],
   execute: ({ trackIndex, program }, _context) => {
     const yTrack = engine.resolveYTrack(trackIndex);
@@ -302,12 +263,43 @@ const setTrackProgramAction: ActionDefinition<{ trackIndex: number; program: num
   },
 };
 
+const setPercussionArticulationOutputMidiNumberAction: ActionDefinition<{
+  trackIndex: number;
+  articulationIndex: number;
+  outputMidiNumber: number;
+}> = {
+  id: "edit.track.setPercussionArticulationOutputMidiNumber",
+  i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber",
+  category: "edit.track",
+  params: [
+    { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber.params.trackIndex" },
+    { name: "articulationIndex", type: "number", i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber.params.articulationIndex" },
+    { name: "outputMidiNumber", type: "number", i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber.params.outputMidiNumber" },
+  ],
+  execute: ({ trackIndex, articulationIndex, outputMidiNumber }, _context) => {
+    const yTrack = engine.resolveYTrack(trackIndex);
+    const yArticulations = yTrack?.get("percussionArticulations") as
+      | Y.Array<Y.Map<unknown>>
+      | undefined;
+    if (
+      !yArticulations ||
+      articulationIndex < 0 ||
+      articulationIndex >= yArticulations.length
+    ) return;
+    transact(() => {
+      yArticulations
+        .get(articulationIndex)
+        .set("outputMidiNumber", outputMidiNumber);
+    });
+  },
+};
+
 actionRegistry.register(addTrackAction);
 actionRegistry.register(deleteTrackAction);
 actionRegistry.register(setTrackNameAction);
 actionRegistry.register(setTrackShortNameAction);
-actionRegistry.register(setTrackVisibleAction);
-actionRegistry.register(setTrackProgramAction);
+actionRegistry.register(setTrackPlaybackInfoProgramAction);
+actionRegistry.register(setPercussionArticulationOutputMidiNumberAction);
 
 declare global {
   interface ActionMap {
@@ -318,12 +310,16 @@ declare global {
       args: { trackIndex: number; shortName: string };
       result: void;
     };
-    "edit.track.setVisible": {
-      args: { trackIndex: number; visible: boolean };
+    "edit.track.setPlaybackInfoProgram": {
+      args: { trackIndex: number; program: number };
       result: void;
     };
-    "edit.track.setProgram": {
-      args: { trackIndex: number; program: number };
+    "edit.track.setPercussionArticulationOutputMidiNumber": {
+      args: {
+        trackIndex: number;
+        articulationIndex: number;
+        outputMidiNumber: number;
+      };
       result: void;
     };
   }

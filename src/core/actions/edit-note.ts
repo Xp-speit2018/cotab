@@ -3,7 +3,7 @@ import { actionRegistry } from "@/core/actions/registry";
 import type { ActionDefinition } from "@/core/actions/types";
 import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
-import { createNote } from "@/core/schema";
+import { createNote, type BendPointSchema } from "@/core/schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
@@ -58,81 +58,105 @@ function applyNoteUpdates(updates: Record<string, unknown>): void {
   });
 }
 
-const setTieAction: ActionDefinition<boolean> = {
-  id: "edit.note.setTie",
-  i18nKey: "actions.edit.note.setTie",
+function replaceBendPoints(
+  yNote: Y.Map<unknown>,
+  points: readonly BendPointSchema[] | null,
+): void {
+  if (points === null) {
+    yNote.set("bendPoints", null);
+    return;
+  }
+  let yPoints = yNote.get("bendPoints") as
+    | Y.Array<Y.Map<unknown>>
+    | undefined;
+  if (!yPoints) {
+    yPoints = new Y.Array<Y.Map<unknown>>();
+    yNote.set("bendPoints", yPoints);
+  }
+  yPoints.delete(0, yPoints.length);
+  for (const point of points) {
+    const yPoint = new Y.Map<unknown>();
+    yPoint.set("offset", point.offset);
+    yPoint.set("value", point.value);
+    yPoints.push([yPoint]);
+  }
+}
+
+const setIsTieDestinationAction: ActionDefinition<boolean> = {
+  id: "edit.note.setIsTieDestination",
+  i18nKey: "actions.edit.note.setIsTieDestination",
   category: "edit.note",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setTie.params.value" }],
+  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setIsTieDestination.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ isTieDestination: value });
   },
 };
 
-const setGhostAction: ActionDefinition<boolean> = {
-  id: "edit.note.setGhost",
-  i18nKey: "actions.edit.note.setGhost",
+const setIsGhostAction: ActionDefinition<boolean> = {
+  id: "edit.note.setIsGhost",
+  i18nKey: "actions.edit.note.setIsGhost",
   category: "edit.note",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setGhost.params.value" }],
+  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setIsGhost.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ isGhost: value });
   },
 };
 
-const setDeadAction: ActionDefinition<boolean> = {
-  id: "edit.note.setDead",
-  i18nKey: "actions.edit.note.setDead",
+const setIsDeadAction: ActionDefinition<boolean> = {
+  id: "edit.note.setIsDead",
+  i18nKey: "actions.edit.note.setIsDead",
   category: "edit.note",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setDead.params.value" }],
+  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setIsDead.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ isDead: value });
   },
 };
 
-const setAccentAction: ActionDefinition<number> = {
-  id: "edit.note.setAccent",
-  i18nKey: "actions.edit.note.setAccent",
+const setAccentuatedAction: ActionDefinition<number> = {
+  id: "edit.note.setAccentuated",
+  i18nKey: "actions.edit.note.setAccentuated",
   category: "edit.note",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setAccent.params.value" }],
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setAccentuated.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ accentuated: value });
   },
 };
 
-const setStaccatoAction: ActionDefinition<boolean> = {
-  id: "edit.note.setStaccato",
-  i18nKey: "actions.edit.note.setStaccato",
+const setIsStaccatoAction: ActionDefinition<boolean> = {
+  id: "edit.note.setIsStaccato",
+  i18nKey: "actions.edit.note.setIsStaccato",
   category: "edit.note",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setStaccato.params.value" }],
+  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setIsStaccato.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ isStaccato: value });
   },
 };
 
-const setLetRingAction: ActionDefinition<boolean> = {
-  id: "edit.note.setLetRing",
-  i18nKey: "actions.edit.note.setLetRing",
+const setIsLetRingAction: ActionDefinition<boolean> = {
+  id: "edit.note.setIsLetRing",
+  i18nKey: "actions.edit.note.setIsLetRing",
   category: "edit.note",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setLetRing.params.value" }],
+  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setIsLetRing.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ isLetRing: value });
   },
 };
 
-const setPalmMuteAction: ActionDefinition<boolean> = {
-  id: "edit.note.setPalmMute",
-  i18nKey: "actions.edit.note.setPalmMute",
+const setIsPalmMuteAction: ActionDefinition<boolean> = {
+  id: "edit.note.setIsPalmMute",
+  i18nKey: "actions.edit.note.setIsPalmMute",
   category: "edit.note",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setPalmMute.params.value" }],
+  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setIsPalmMute.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ isPalmMute: value });
   },
 };
 
-const setHammerPullAction: ActionDefinition<boolean> = {
-  id: "edit.note.setHammerPull",
-  i18nKey: "actions.edit.note.setHammerPull",
+const setIsHammerPullOriginAction: ActionDefinition<boolean> = {
+  id: "edit.note.setIsHammerPullOrigin",
+  i18nKey: "actions.edit.note.setIsHammerPullOrigin",
   category: "edit.note",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setHammerPull.params.value" }],
+  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setIsHammerPullOrigin.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ isHammerPullOrigin: value });
   },
@@ -158,11 +182,113 @@ const setBendTypeAction: ActionDefinition<number> = {
   },
 };
 
-const setSlideOutAction: ActionDefinition<number> = {
-  id: "edit.note.setSlideOut",
-  i18nKey: "actions.edit.note.setSlideOut",
+const setBendStyleAction: ActionDefinition<number> = {
+  id: "edit.note.setBendStyle",
+  i18nKey: "actions.edit.note.setBendStyle",
   category: "edit.note",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setSlideOut.params.value" }],
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setBendStyle.params.value" }],
+  execute: (value, _context) => {
+    applyNoteUpdates({ bendStyle: value });
+  },
+};
+
+const setIsContinuedBendAction: ActionDefinition<boolean> = {
+  id: "edit.note.setIsContinuedBend",
+  i18nKey: "actions.edit.note.setIsContinuedBend",
+  category: "edit.note",
+  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setIsContinuedBend.params.value" }],
+  execute: (value, _context) => {
+    applyNoteUpdates({ isContinuedBend: value });
+  },
+};
+
+const setBendPointsAction: ActionDefinition<BendPointSchema[] | null> = {
+  id: "edit.note.setBendPoints",
+  i18nKey: "actions.edit.note.setBendPoints",
+  category: "edit.note",
+  execute: (points, _context) => {
+    const {
+      trackIndex,
+      staffIndex,
+      barIndex,
+      voiceIndex,
+      beatIndex,
+      noteIndex,
+    } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null ||
+      noteIndex < 0
+    ) return;
+
+    const yNote = engine.resolveYNote(
+      trackIndex,
+      staffIndex,
+      barIndex,
+      voiceIndex,
+      beatIndex,
+      noteIndex,
+    );
+    if (!yNote) return;
+
+    transact(() => {
+      replaceBendPoints(yNote, points);
+    });
+  },
+};
+
+const setBendAction: ActionDefinition<{
+  bendType: number;
+  bendStyle: number;
+  isContinuedBend: boolean;
+  bendPoints: BendPointSchema[] | null;
+}> = {
+  id: "edit.note.setBend",
+  i18nKey: "actions.edit.note.setBend",
+  category: "edit.note",
+  execute: ({ bendType, bendStyle, isContinuedBend, bendPoints }, _context) => {
+    const {
+      trackIndex,
+      staffIndex,
+      barIndex,
+      voiceIndex,
+      beatIndex,
+      noteIndex,
+    } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null ||
+      noteIndex < 0
+    ) return;
+    const yNote = engine.resolveYNote(
+      trackIndex,
+      staffIndex,
+      barIndex,
+      voiceIndex,
+      beatIndex,
+      noteIndex,
+    );
+    if (!yNote) return;
+    transact(() => {
+      yNote.set("bendType", bendType);
+      yNote.set("bendStyle", bendStyle);
+      yNote.set("isContinuedBend", isContinuedBend);
+      replaceBendPoints(yNote, bendPoints);
+    });
+  },
+};
+
+const setSlideOutTypeAction: ActionDefinition<number> = {
+  id: "edit.note.setSlideOutType",
+  i18nKey: "actions.edit.note.setSlideOutType",
+  category: "edit.note",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setSlideOutType.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ slideOutType: value });
   },
@@ -175,6 +301,110 @@ const setHarmonicTypeAction: ActionDefinition<number> = {
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setHarmonicType.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ harmonicType: value });
+  },
+};
+
+const setHarmonicValueAction: ActionDefinition<number> = {
+  id: "edit.note.setHarmonicValue",
+  i18nKey: "actions.edit.note.setHarmonicValue",
+  category: "edit.note",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setHarmonicValue.params.value" }],
+  execute: (value, _context) => {
+    applyNoteUpdates({ harmonicValue: value });
+  },
+};
+
+const setDynamicsAction: ActionDefinition<number> = {
+  id: "edit.note.setDynamics",
+  i18nKey: "actions.edit.note.setDynamics",
+  category: "edit.note",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setDynamics.params.value" }],
+  execute: (value, _context) => {
+    applyNoteUpdates({ dynamics: value });
+  },
+};
+
+const setFretAction: ActionDefinition<number> = {
+  id: "edit.note.setFret",
+  i18nKey: "actions.edit.note.setFret",
+  category: "edit.note",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setFret.params.value" }],
+  execute: (value, _context) => {
+    applyNoteUpdates({ fret: value });
+  },
+};
+
+const setStringAction: ActionDefinition<number> = {
+  id: "edit.note.setString",
+  i18nKey: "actions.edit.note.setString",
+  category: "edit.note",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setString.params.value" }],
+  execute: (value, _context) => {
+    const {
+      trackIndex,
+      staffIndex,
+      barIndex,
+      voiceIndex,
+      beatIndex,
+      noteIndex,
+    } = engine.selector;
+    if (
+      trackIndex === null ||
+      staffIndex === null ||
+      barIndex === null ||
+      voiceIndex === null ||
+      beatIndex === null ||
+      noteIndex < 0
+    ) return;
+    const yNote = engine.resolveYNote(
+      trackIndex,
+      staffIndex,
+      barIndex,
+      voiceIndex,
+      beatIndex,
+      noteIndex,
+    );
+    if (!yNote) return;
+    engine.localEditYDoc(() => {
+      yNote.set("string", value);
+    }, {
+      trackIndex,
+      staffIndex,
+      barIndex,
+      voiceIndex,
+      beatIndex,
+      string: value,
+    });
+  },
+};
+
+const setOctaveAction: ActionDefinition<number> = {
+  id: "edit.note.setOctave",
+  i18nKey: "actions.edit.note.setOctave",
+  category: "edit.note",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setOctave.params.value" }],
+  execute: (value, _context) => {
+    applyNoteUpdates({ octave: value });
+  },
+};
+
+const setToneAction: ActionDefinition<number> = {
+  id: "edit.note.setTone",
+  i18nKey: "actions.edit.note.setTone",
+  category: "edit.note",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setTone.params.value" }],
+  execute: (value, _context) => {
+    applyNoteUpdates({ tone: value });
+  },
+};
+
+const setPercussionArticulationAction: ActionDefinition<number> = {
+  id: "edit.note.setPercussionArticulation",
+  i18nKey: "actions.edit.note.setPercussionArticulation",
+  category: "edit.note",
+  params: [{ name: "value", type: "number", i18nKey: "actions.edit.note.setPercussionArticulation.params.value" }],
+  execute: (value, _context) => {
+    applyNoteUpdates({ percussionArticulation: value });
   },
 };
 
@@ -211,11 +441,11 @@ const setOrnamentAction: ActionDefinition<number> = {
   },
 };
 
-const setLeftHandTappedAction: ActionDefinition<boolean> = {
-  id: "edit.note.setLeftHandTapped",
-  i18nKey: "actions.edit.note.setLeftHandTapped",
+const setIsLeftHandTappedAction: ActionDefinition<boolean> = {
+  id: "edit.note.setIsLeftHandTapped",
+  i18nKey: "actions.edit.note.setIsLeftHandTapped",
   category: "edit.note",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setLeftHandTapped.params.value" }],
+  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.note.setIsLeftHandTapped.params.value" }],
   execute: (value, _context) => {
     applyNoteUpdates({ isLeftHandTapped: value });
   },
@@ -287,45 +517,78 @@ const togglePercussionArticulationAction: ActionDefinition<number> = {
   },
 };
 
-actionRegistry.register(setTieAction);
-actionRegistry.register(setGhostAction);
-actionRegistry.register(setDeadAction);
-actionRegistry.register(setAccentAction);
-actionRegistry.register(setStaccatoAction);
-actionRegistry.register(setLetRingAction);
-actionRegistry.register(setPalmMuteAction);
-actionRegistry.register(setHammerPullAction);
+actionRegistry.register(setIsTieDestinationAction);
+actionRegistry.register(setIsGhostAction);
+actionRegistry.register(setIsDeadAction);
+actionRegistry.register(setAccentuatedAction);
+actionRegistry.register(setIsStaccatoAction);
+actionRegistry.register(setIsLetRingAction);
+actionRegistry.register(setIsPalmMuteAction);
+actionRegistry.register(setIsHammerPullOriginAction);
 actionRegistry.register(setVibratoAction);
 actionRegistry.register(setBendTypeAction);
-actionRegistry.register(setSlideOutAction);
+actionRegistry.register(setBendStyleAction);
+actionRegistry.register(setIsContinuedBendAction);
+actionRegistry.register(setBendPointsAction);
+actionRegistry.register(setBendAction);
+actionRegistry.register(setSlideOutTypeAction);
 actionRegistry.register(setHarmonicTypeAction);
+actionRegistry.register(setHarmonicValueAction);
+actionRegistry.register(setDynamicsAction);
+actionRegistry.register(setFretAction);
+actionRegistry.register(setStringAction);
+actionRegistry.register(setOctaveAction);
+actionRegistry.register(setToneAction);
+actionRegistry.register(setPercussionArticulationAction);
 actionRegistry.register(setSlideInTypeAction);
 actionRegistry.register(setTrillAction);
 actionRegistry.register(setOrnamentAction);
-actionRegistry.register(setLeftHandTappedAction);
+actionRegistry.register(setIsLeftHandTappedAction);
 actionRegistry.register(togglePercussionArticulationAction);
 
 declare global {
   interface ActionMap {
-    "edit.note.setTie": { args: boolean; result: void };
-    "edit.note.setGhost": { args: boolean; result: void };
-    "edit.note.setDead": { args: boolean; result: void };
-    "edit.note.setAccent": { args: number; result: void };
-    "edit.note.setStaccato": { args: boolean; result: void };
-    "edit.note.setLetRing": { args: boolean; result: void };
-    "edit.note.setPalmMute": { args: boolean; result: void };
-    "edit.note.setHammerPull": { args: boolean; result: void };
+    "edit.note.setIsTieDestination": { args: boolean; result: void };
+    "edit.note.setIsGhost": { args: boolean; result: void };
+    "edit.note.setIsDead": { args: boolean; result: void };
+    "edit.note.setAccentuated": { args: number; result: void };
+    "edit.note.setIsStaccato": { args: boolean; result: void };
+    "edit.note.setIsLetRing": { args: boolean; result: void };
+    "edit.note.setIsPalmMute": { args: boolean; result: void };
+    "edit.note.setIsHammerPullOrigin": { args: boolean; result: void };
     "edit.note.setVibrato": { args: number; result: void };
     "edit.note.setBendType": { args: number; result: void };
-    "edit.note.setSlideOut": { args: number; result: void };
+    "edit.note.setBendStyle": { args: number; result: void };
+    "edit.note.setIsContinuedBend": { args: boolean; result: void };
+    "edit.note.setBendPoints": {
+      args: BendPointSchema[] | null;
+      result: void;
+    };
+    "edit.note.setBend": {
+      args: {
+        bendType: number;
+        bendStyle: number;
+        isContinuedBend: boolean;
+        bendPoints: BendPointSchema[] | null;
+      };
+      result: void;
+    };
+    "edit.note.setSlideOutType": { args: number; result: void };
     "edit.note.setHarmonicType": { args: number; result: void };
+    "edit.note.setHarmonicValue": { args: number; result: void };
+    "edit.note.setDynamics": { args: number; result: void };
+    "edit.note.setFret": { args: number; result: void };
+    "edit.note.setString": { args: number; result: void };
+    "edit.note.setOctave": { args: number; result: void };
+    "edit.note.setTone": { args: number; result: void };
+    "edit.note.setPercussionArticulation": { args: number; result: void };
     "edit.note.setSlideInType": { args: number; result: void };
     "edit.note.setTrill": {
       args: { trillValue: number; trillSpeed: number };
       result: void;
     };
     "edit.note.setOrnament": { args: number; result: void };
-    "edit.note.setLeftHandTapped": { args: boolean; result: void };
+    "edit.note.setIsLeftHandTapped": { args: boolean; result: void };
     "edit.beat.togglePercussionArticulation": { args: number; result: void };
   }
 }

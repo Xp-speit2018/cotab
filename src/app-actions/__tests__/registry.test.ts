@@ -23,6 +23,14 @@ describe("AppAction registry", () => {
     expect(action?.domain).toBe("transport");
   });
 
+  it("registers local track visibility as a ViewAction", () => {
+    const action = getAllAppActions().find(
+      (candidate) => candidate.id === "view.setTrackVisible",
+    );
+
+    expect(action?.domain).toBe("view");
+  });
+
   it("dispatches transport actions through the player store", () => {
     const originalTogglePlayback = usePlayerStore.getState().togglePlayback;
     const togglePlayback = vi.fn();

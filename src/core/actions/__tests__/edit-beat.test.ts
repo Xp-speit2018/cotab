@@ -63,7 +63,14 @@ vi.mock("@/core/engine", () => {
   };
 });
 
-import { Duration } from "@/core/schema";
+import {
+  AutomationType,
+  BendStyle,
+  Duration,
+  GraceType,
+  Rasgueado,
+  TremoloPickingStyle,
+} from "@/core/schema";
 import { executeAction } from "@/core/actions/registry";
 import "@/core/actions/edit-beat";
 
@@ -106,22 +113,6 @@ describe("edit.beat.setDuration", () => {
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("duration")).toBe(Duration.Sixteenth);
     executeAction("edit.beat.setDuration", Duration.Half, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("duration")).toBe(Duration.Half);
-  });
-});
-
-// ─── toggleEmpty ──────────────────────────────────────────────────────────────
-
-describe("edit.beat.toggleEmpty", () => {
-  it("flips isEmpty flag from true to false", () => {
-    expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("isEmpty")).toBe(true);
-    executeAction("edit.beat.toggleEmpty", undefined, ctx);
-    expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("isEmpty")).toBe(false);
-  });
-
-  it("flips isEmpty flag from false to true", () => {
-    executeAction("edit.beat.toggleEmpty", undefined, ctx);
-    executeAction("edit.beat.toggleEmpty", undefined, ctx);
-    expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("isEmpty")).toBe(true);
   });
 });
 
@@ -311,31 +302,156 @@ describe("edit.beat (piano notation)", () => {
 
 describe("applyBeatUpdates property setters", () => {
   it.each([
-    ["edit.beat.setSlashed",       "slashed",        true],
+    ["edit.beat.setIsEmpty",          "isEmpty",          false],
+    ["edit.beat.setTupletNumerator",  "tupletNumerator",  3],
+    ["edit.beat.setTupletDenominator","tupletDenominator",2],
+    ["edit.beat.setGraceType",        "graceType",        GraceType.BeforeBeat],
     ["edit.beat.setDynamics",      "dynamics",       5],
     ["edit.beat.setVibrato",       "vibrato",        1],
     ["edit.beat.setDeadSlapped",   "deadSlapped",    true],
-    ["edit.beat.setLegatoOrigin",  "isLegatoOrigin", true],
-    ["edit.beat.setTap",           "tap",            true],
-    ["edit.beat.setSlap",          "slap",           true],
-    ["edit.beat.setPop",           "pop",            true],
-    ["edit.beat.setPickStroke",    "pickStroke",     1],
     ["edit.beat.setWhammyBarType", "whammyBarType",  1],
+    ["edit.beat.setWhammyStyle",   "whammyStyle",    BendStyle.Fast],
+    ["edit.beat.setIsContinuedWhammy", "isContinuedWhammy", true],
     ["edit.beat.setBrushType",     "brushType",      1],
-    ["edit.beat.setCrescendo",     "crescendo",      1],
+    ["edit.beat.setBrushDuration", "brushDuration",  120],
     ["edit.beat.setFade",          "fade",           1],
-    ["edit.beat.setGolpe",         "golpe",          1],
-    ["edit.beat.setWahPedal",      "wahPedal",       1],
+    ["edit.beat.setRasgueado",     "rasgueado",      Rasgueado.PmpTriplet],
   ] as const)("%s sets %s on Y.Map", (actionId, field, value) => {
     executeAction(actionId, value, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get(field)).toBe(value);
   });
 
   it("does nothing without selection", () => {
-    const before = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("slashed");
+    const before = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("vibrato");
     selectBeat(null);
-    executeAction("edit.beat.setSlashed", true, ctx);
-    expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("slashed")).toBe(before);
+    executeAction("edit.beat.setVibrato", 1, ctx);
+    expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("vibrato")).toBe(before);
+  });
+});
+
+describe("edit.beat nested playback fields", () => {
+  it("sets brush type and duration together", () => {
+    executeAction("edit.beat.setBrush", {
+      brushType: 1,
+      brushDuration: 120,
+    }, ctx);
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    expect(beat.get("brushType")).toBe(1);
+    expect(beat.get("brushDuration")).toBe(120);
+  });
+
+  it("sets a tuplet pair in one action", () => {
+    executeAction("edit.beat.setTuplet", {
+      numerator: 5,
+      denominator: 4,
+    }, ctx);
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    expect(beat.get("tupletNumerator")).toBe(5);
+    expect(beat.get("tupletDenominator")).toBe(4);
+  });
+
+  it("replaces whammyBarPoints", () => {
+    executeAction("edit.beat.setWhammyBarPoints", [
+      { offset: 0, value: 0 },
+      { offset: 60, value: -4 },
+    ], ctx);
+
+    const yPoints = resolveYBeatHelper(0, 0, 0, 0, 0)!.get(
+      "whammyBarPoints",
+    ) as Y.Array<Y.Map<unknown>>;
+    expect(yPoints.toArray().map((point) => point.toJSON())).toEqual([
+      { offset: 0, value: 0 },
+      { offset: 60, value: -4 },
+    ]);
+
+    executeAction("edit.beat.setWhammyBarPoints", null, ctx);
+    expect(
+      resolveYBeatHelper(0, 0, 0, 0, 0)!.get("whammyBarPoints"),
+    ).toBeNull();
+  });
+
+  it("sets a complete whammy bar effect atomically", () => {
+    executeAction("edit.beat.setWhammyBar", {
+      whammyBarType: 2,
+      whammyStyle: BendStyle.Gradual,
+      isContinuedWhammy: true,
+      whammyBarPoints: [
+        { offset: 0, value: 0 },
+        { offset: 60, value: -4 },
+      ],
+    }, ctx);
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    expect(beat.get("whammyBarType")).toBe(2);
+    expect(beat.get("whammyStyle")).toBe(BendStyle.Gradual);
+    expect(beat.get("isContinuedWhammy")).toBe(true);
+    expect(
+      (beat.get("whammyBarPoints") as Y.Array<Y.Map<unknown>>).length,
+    ).toBe(2);
+  });
+
+  it("replaces automations without renaming fields", () => {
+    executeAction("edit.beat.setAutomations", [
+      {
+        isLinear: true,
+        type: AutomationType.Tempo,
+        value: 144,
+        ratioPosition: 0.5,
+        text: "rit.",
+        isVisible: true,
+      },
+    ], ctx);
+
+    const yAutomations = resolveYBeatHelper(0, 0, 0, 0, 0)!.get(
+      "automations",
+    ) as Y.Array<Y.Map<unknown>>;
+    expect(yAutomations.get(0).toJSON()).toEqual({
+      isLinear: true,
+      type: AutomationType.Tempo,
+      value: 144,
+      ratioPosition: 0.5,
+      text: "rit.",
+      isVisible: true,
+    });
+  });
+
+  it("sets and clears lyrics", () => {
+    executeAction("edit.beat.setLyrics", ["hel", "lo"], ctx);
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    expect((beat.get("lyrics") as Y.Array<string>).toArray()).toEqual([
+      "hel",
+      "lo",
+    ]);
+
+    executeAction("edit.beat.setLyrics", null, ctx);
+    expect(beat.get("lyrics")).toBeNull();
+  });
+
+  it("sets nullable text and chordId", () => {
+    executeAction("edit.beat.setText", "let ring", ctx);
+    executeAction("edit.beat.setChordId", "Cmaj7", ctx);
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    expect(beat.get("text")).toBe("let ring");
+    expect(beat.get("chordId")).toBe("Cmaj7");
+
+    executeAction("edit.beat.setText", null, ctx);
+    executeAction("edit.beat.setChordId", null, ctx);
+    expect(beat.get("text")).toBeNull();
+    expect(beat.get("chordId")).toBeNull();
+  });
+
+  it("sets and clears tremoloPicking", () => {
+    executeAction("edit.beat.setTremoloPicking", {
+      marks: 3,
+      style: TremoloPickingStyle.Default,
+    }, ctx);
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    expect((beat.get("tremoloPicking") as Y.Map<unknown>).toJSON()).toEqual({
+      marks: 3,
+      style: TremoloPickingStyle.Default,
+    });
+
+    executeAction("edit.beat.setTremoloPicking", null, ctx);
+    expect(beat.get("tremoloPicking")).toBeNull();
   });
 });
 

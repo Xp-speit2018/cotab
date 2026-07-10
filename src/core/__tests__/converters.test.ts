@@ -412,9 +412,8 @@ describe("direct AlphaTab model field round-trip", () => {
       const originBeat = beats.get(0);
       originBeat.set("isEmpty", false);
       originBeat.set("whammyBarType", 1);
-      const whammyPoints = originBeat.get(
-        "whammyBarPoints",
-      ) as Y.Array<Y.Map<unknown>>;
+      const whammyPoints = new Y.Array<Y.Map<unknown>>();
+      originBeat.set("whammyBarPoints", whammyPoints);
       for (const [offset, value] of [
         [0, 0],
         [60, 4],
@@ -432,9 +431,8 @@ describe("direct AlphaTab model field round-trip", () => {
         originBeat.get("notes") as Y.Array<Y.Map<unknown>>
       ).get(0);
       integratedOriginNote.set("bendType", 1);
-      const bendPoints = integratedOriginNote.get(
-        "bendPoints",
-      ) as Y.Array<Y.Map<unknown>>;
+      const bendPoints = new Y.Array<Y.Map<unknown>>();
+      integratedOriginNote.set("bendPoints", bendPoints);
       for (const [offset, value] of [
         [0, 0],
         [60, 4],

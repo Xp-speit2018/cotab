@@ -1,27 +1,20 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  TrendingUp,
-  Waves,
+  AudioWaveform,
+  ChevronsDown,
+  ChevronsUp as BrushUp,
   CornerRightDown,
   CornerRightUp,
-  MoveRight,
-  Sparkles,
-  AudioWaveform,
-  Zap,
-  ArrowUp,
-  ArrowDown,
-  ChevronsUp as AccentHeavy,
-  ChevronsDown,
-  Music,
-  CircleDot,
-  SunMedium,
   Hand,
-  Pointer,
-  Target,
-  ToggleLeft,
-  ToggleRight,
+  MoveRight,
+  Music,
   RotateCcw,
+  Sparkles,
+  SunMedium,
+  TrendingUp,
+  Waves,
+  Zap,
 } from "lucide-react";
 import {
   Collapsible,
@@ -29,36 +22,62 @@ import {
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
-import { usePlayerStore } from "@/stores/render-store";
 import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/render-types";
 import {
+  BendStyle,
   BendType,
-  VibratoType,
+  BrushType,
+  Duration,
+  DynamicValue,
+  FadeType,
+  GraceType,
+  HarmonicType,
+  NoteOrnament,
+  Rasgueado,
   SlideInType,
   SlideOutType,
-  HarmonicType,
-  GraceType,
-  PickStroke,
-  BrushType,
-  DynamicValue,
-  CrescendoType,
-  FadeType,
+  TremoloPickingStyle,
+  VibratoType,
   WhammyType,
-  GolpeType,
-  WahPedal,
-  NoteOrnament,
-  Ottavia,
-  Duration,
 } from "@/core/schema";
-import { SectionHeader, ToggleBtn, PropRow } from "./primitives";
 import {
+  EditableNumberPropRow,
+  EditablePropRow,
+  PropRow,
+  SectionHeader,
+  SelectPropRow,
+  ToggleBtn,
+} from "./primitives";
+import {
+  bendTypeLabel,
   durationLabel,
   dynamicLabel,
   dynamicTooltip,
-  bendTypeLabel,
   harmonicTypeLabel,
   slideOutTypeLabel,
 } from "./labels";
+
+const RASGUEADO_OPTIONS = [
+  { value: Rasgueado.None, label: "None" },
+  { value: Rasgueado.Ii, label: "ii" },
+  { value: Rasgueado.Mi, label: "mi" },
+  { value: Rasgueado.MiiTriplet, label: "mii (3)" },
+  { value: Rasgueado.MiiAnapaest, label: "mii" },
+  { value: Rasgueado.PmpTriplet, label: "pmp (3)" },
+  { value: Rasgueado.PmpAnapaest, label: "pmp" },
+  { value: Rasgueado.PeiTriplet, label: "pei (3)" },
+  { value: Rasgueado.PeiAnapaest, label: "pei" },
+  { value: Rasgueado.PaiTriplet, label: "pai (3)" },
+  { value: Rasgueado.PaiAnapaest, label: "pai" },
+  { value: Rasgueado.AmiTriplet, label: "ami (3)" },
+  { value: Rasgueado.AmiAnapaest, label: "ami" },
+  { value: Rasgueado.Ppp, label: "ppp" },
+  { value: Rasgueado.Amii, label: "amii" },
+  { value: Rasgueado.Amip, label: "amip" },
+  { value: Rasgueado.Eami, label: "eami" },
+  { value: Rasgueado.Eamii, label: "eamii" },
+  { value: Rasgueado.Peami, label: "peami" },
+] as const;
 
 export function EffectsSection({
   beat,
@@ -71,16 +90,21 @@ export function EffectsSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
-  const isAdvanced = usePlayerStore((s) => s.editorMode === "advanced");
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <SectionHeader title={t("sidebar.effects.title")} helpText={t("sidebar.effects.help")} isOpen={isOpen} dragHandleProps={dragHandleProps} />
+      <SectionHeader
+        title={t("sidebar.effects.title")}
+        helpText={t("sidebar.effects.help")}
+        isOpen={isOpen}
+        dragHandleProps={dragHandleProps}
+      />
       <CollapsibleContent>
         <div className="space-y-1 py-1">
           {note && !note.isPercussion && (
             <>
               <div className="px-2">
-                <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
+                <div className="mb-0.5 px-1 text-[10px] font-medium text-muted-foreground">
                   {t("sidebar.effects.noteEffects")}
                 </div>
                 <div className="flex flex-wrap gap-0.5">
@@ -88,7 +112,22 @@ export function EffectsSection({
                     label={t("sidebar.effects.bend")}
                     pressed={note.bendType !== BendType.None}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setBendType", pressed ? BendType.Bend : BendType.None, { t })
+                      executeAppAction("edit.note.setBend", pressed
+                        ? {
+                            bendType: BendType.Bend,
+                            bendStyle: BendStyle.Default,
+                            isContinuedBend: false,
+                            bendPoints: [
+                              { offset: 0, value: 0 },
+                              { offset: 60, value: 4 },
+                            ],
+                          }
+                        : {
+                            bendType: BendType.None,
+                            bendStyle: BendStyle.Default,
+                            isContinuedBend: false,
+                            bendPoints: null,
+                          }, { t })
                     }
                     icon={<TrendingUp className="h-3.5 w-3.5" />}
                   />
@@ -106,9 +145,7 @@ export function EffectsSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("edit.note.setVibrato", pressed ? VibratoType.Wide : VibratoType.None, { t })
                     }
-                    icon={
-                      <Waves className="h-3.5 w-3.5" strokeWidth={3} />
-                    }
+                    icon={<Waves className="h-3.5 w-3.5" strokeWidth={3} />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.slideInBelow")}
@@ -130,7 +167,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.slideOut")}
                     pressed={note.slideOutType !== SlideOutType.None}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setSlideOut", pressed ? SlideOutType.Shift : SlideOutType.None, { t })
+                      executeAppAction("edit.note.setSlideOutType", pressed ? SlideOutType.Shift : SlideOutType.None, { t })
                     }
                     icon={<MoveRight className="h-3.5 w-3.5" />}
                   />
@@ -138,49 +175,45 @@ export function EffectsSection({
                     label={t("sidebar.effects.hammerPullOff")}
                     pressed={note.isHammerPullOrigin}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setHammerPull", pressed, { t })
+                      executeAppAction("edit.note.setIsHammerPullOrigin", pressed, { t })
                     }
                     textIcon="H/P"
                   />
-                  {isAdvanced && (
-                    <>
-                      <ToggleBtn
-                        label={t("sidebar.effects.leftHandTap")}
-                        pressed={note.isLeftHandTapped}
-                      onPressedChange={(pressed) =>
-                        executeAppAction("edit.note.setLeftHandTapped", pressed, { t })
-                      }
-                        textIcon="T+"
-                      />
-                      <ToggleBtn
-                        label={t("sidebar.effects.trill")}
-                        pressed={note.trillValue >= 0}
-                        onPressedChange={(pressed) =>
-                          executeAppAction("edit.note.setTrill", {
-                            trillValue: pressed ? 0 : -1,
-                            trillSpeed: pressed ? Duration.Sixteenth : Duration.Quarter,
-                          }, { t })
-                        }
-                        textIcon="tr"
-                      />
-                      <ToggleBtn
-                        label={t("sidebar.effects.harmonics")}
-                        pressed={note.harmonicType !== HarmonicType.None}
-                        onPressedChange={(pressed) =>
-                          executeAppAction("edit.note.setHarmonicType", pressed ? HarmonicType.Natural : HarmonicType.None, { t })
-                        }
-                        icon={<Sparkles className="h-3.5 w-3.5" />}
-                      />
-                      <ToggleBtn
-                        label={t("sidebar.effects.ornament")}
-                        pressed={note.ornament !== NoteOrnament.None}
-                        onPressedChange={(pressed) =>
-                          executeAppAction("edit.note.setOrnament", pressed ? NoteOrnament.Turn : NoteOrnament.None, { t })
-                        }
-                        icon={<RotateCcw className="h-3.5 w-3.5" />}
-                      />
-                    </>
-                  )}
+                  <ToggleBtn
+                    label={t("sidebar.effects.leftHandTap")}
+                    pressed={note.isLeftHandTapped}
+                    onPressedChange={(pressed) =>
+                      executeAppAction("edit.note.setIsLeftHandTapped", pressed, { t })
+                    }
+                    textIcon="T+"
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.trill")}
+                    pressed={note.trillValue >= 0}
+                    onPressedChange={(pressed) =>
+                      executeAppAction("edit.note.setTrill", {
+                        trillValue: pressed ? Math.max(0, note.fret + 2) : -1,
+                        trillSpeed: Duration.Sixteenth,
+                      }, { t })
+                    }
+                    textIcon="tr"
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.harmonics")}
+                    pressed={note.harmonicType !== HarmonicType.None}
+                    onPressedChange={(pressed) =>
+                      executeAppAction("edit.note.setHarmonicType", pressed ? HarmonicType.Natural : HarmonicType.None, { t })
+                    }
+                    icon={<Sparkles className="h-3.5 w-3.5" />}
+                  />
+                  <ToggleBtn
+                    label={t("sidebar.effects.ornament")}
+                    pressed={note.ornament !== NoteOrnament.None}
+                    onPressedChange={(pressed) =>
+                      executeAppAction("edit.note.setOrnament", pressed ? NoteOrnament.Turn : NoteOrnament.None, { t })
+                    }
+                    icon={<RotateCcw className="h-3.5 w-3.5" />}
+                  />
                 </div>
               </div>
 
@@ -192,11 +225,22 @@ export function EffectsSection({
                 />
               )}
               {note.harmonicType !== HarmonicType.None && (
-                <PropRow
-                  label={t("sidebar.effects.harmonic")}
-                  value={harmonicTypeLabel(note.harmonicType, t)}
-                  icon={<Sparkles className="h-3 w-3" />}
-                />
+                <>
+                  <PropRow
+                    label={t("sidebar.effects.harmonic")}
+                    value={harmonicTypeLabel(note.harmonicType, t)}
+                    icon={<Sparkles className="h-3 w-3" />}
+                  />
+                  <EditableNumberPropRow
+                    label={t("sidebar.effects.harmonicValue")}
+                    value={note.harmonicValue}
+                    min={0}
+                    max={24}
+                    onCommit={(value) =>
+                      executeAppAction("edit.note.setHarmonicValue", value, { t })
+                    }
+                  />
+                </>
               )}
               {note.slideOutType !== SlideOutType.None && (
                 <PropRow
@@ -220,7 +264,7 @@ export function EffectsSection({
           )}
 
           <div className="px-2">
-            <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
+            <div className="mb-0.5 px-1 text-[10px] font-medium text-muted-foreground">
               {t("sidebar.effects.beatEffects")}
             </div>
             <div className="flex flex-wrap gap-0.5">
@@ -235,98 +279,108 @@ export function EffectsSection({
               <ToggleBtn
                 label={t("sidebar.effects.graceNote")}
                 pressed={beat.graceType !== GraceType.None}
+                onPressedChange={(pressed) =>
+                  executeAppAction("edit.beat.setGraceType", pressed ? GraceType.BeforeBeat : GraceType.None, { t })
+                }
                 icon={<Music className="h-3.5 w-3.5" />}
               />
               <ToggleBtn
-                label={t("sidebar.effects.pickStrokeUp")}
-                pressed={beat.pickStroke === PickStroke.Up}
+                label={t("sidebar.effects.whammyBar")}
+                pressed={beat.whammyBarType !== WhammyType.None}
                 onPressedChange={(pressed) =>
-                  executeAppAction("edit.beat.setPickStroke", pressed ? PickStroke.Up : PickStroke.None, { t })
+                  executeAppAction("edit.beat.setWhammyBar", pressed
+                    ? {
+                        whammyBarType: WhammyType.Dive,
+                        whammyStyle: BendStyle.Default,
+                        isContinuedWhammy: false,
+                        whammyBarPoints: [
+                          { offset: 0, value: 0 },
+                          { offset: 60, value: -4 },
+                        ],
+                      }
+                    : {
+                        whammyBarType: WhammyType.None,
+                        whammyStyle: BendStyle.Default,
+                        isContinuedWhammy: false,
+                        whammyBarPoints: null,
+                      }, { t })
                 }
-                icon={<ArrowUp className="h-3.5 w-3.5" />}
+                icon={<AudioWaveform className="h-3.5 w-3.5" />}
               />
               <ToggleBtn
-                label={t("sidebar.effects.pickStrokeDown")}
-                pressed={beat.pickStroke === PickStroke.Down}
+                label={t("sidebar.effects.brushUp")}
+                pressed={beat.brushType === BrushType.BrushUp}
                 onPressedChange={(pressed) =>
-                  executeAppAction("edit.beat.setPickStroke", pressed ? PickStroke.Down : PickStroke.None, { t })
+                  executeAppAction("edit.beat.setBrush", pressed
+                    ? { brushType: BrushType.BrushUp, brushDuration: 120 }
+                    : { brushType: BrushType.None, brushDuration: 0 }, { t })
                 }
-                icon={<ArrowDown className="h-3.5 w-3.5" />}
+                icon={<BrushUp className="h-3.5 w-3.5" />}
               />
-              {isAdvanced && (
-                <>
-                  <ToggleBtn
-                    label={t("sidebar.effects.whammyBar")}
-                    pressed={beat.whammyBarType !== WhammyType.None}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setWhammyBarType", pressed ? WhammyType.Hold : WhammyType.None, { t })
-                    }
-                    icon={<AudioWaveform className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.brushUp")}
-                    pressed={
-                      beat.brushType === BrushType.BrushUp ||
-                      beat.brushType === BrushType.ArpeggioUp
-                    }
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setBrushType", pressed ? BrushType.BrushUp : BrushType.None, { t })
-                    }
-                    icon={<AccentHeavy className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.brushDown")}
-                    pressed={
-                      beat.brushType === BrushType.BrushDown ||
-                      beat.brushType === BrushType.ArpeggioDown
-                    }
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setBrushType", pressed ? BrushType.BrushDown : BrushType.None, { t })
-                    }
-                    icon={<ChevronsDown className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.tremoloPicking")}
-                    pressed={false}
-                    icon={<Zap className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.fermata")}
-                    pressed={beat.hasFermata}
-                    textIcon="𝄐"
-                  />
-                </>
-              )}
+              <ToggleBtn
+                label={t("sidebar.effects.brushDown")}
+                pressed={beat.brushType === BrushType.BrushDown}
+                onPressedChange={(pressed) =>
+                  executeAppAction("edit.beat.setBrush", pressed
+                    ? { brushType: BrushType.BrushDown, brushDuration: 120 }
+                    : { brushType: BrushType.None, brushDuration: 0 }, { t })
+                }
+                icon={<ChevronsDown className="h-3.5 w-3.5" />}
+              />
+              <ToggleBtn
+                label={t("sidebar.effects.tremoloPicking")}
+                pressed={beat.tremoloPicking !== null}
+                onPressedChange={(pressed) =>
+                  executeAppAction("edit.beat.setTremoloPicking", pressed
+                    ? { marks: 3, style: TremoloPickingStyle.Default }
+                    : null, { t })
+                }
+                icon={<Zap className="h-3.5 w-3.5" />}
+              />
             </div>
           </div>
+
+          <SelectPropRow
+            label={t("sidebar.effects.rasgueado")}
+            value={beat.rasgueado}
+            options={RASGUEADO_OPTIONS.map((option) =>
+              option.value === Rasgueado.None
+                ? { ...option, label: t("sidebar.effects.none") }
+                : option,
+            )}
+            icon={<Hand className="h-3.5 w-3.5" />}
+            onValueChange={(value) =>
+              executeAppAction("edit.beat.setRasgueado", value, { t })
+            }
+          />
 
           <Separator className="my-0.5" />
 
           <div className="px-2">
-            <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
+            <div className="mb-0.5 px-1 text-[10px] font-medium text-muted-foreground">
               {t("sidebar.effects.dynamics")}
             </div>
             <div className="flex flex-wrap gap-0.5">
-              {(
-                [
-                  DynamicValue.PPP,
-                  DynamicValue.PP,
-                  DynamicValue.P,
-                  DynamicValue.MP,
-                  DynamicValue.MF,
-                  DynamicValue.F,
-                  DynamicValue.FF,
-                  DynamicValue.FFF,
-                ] as const
-              ).map((d) => (
+              {([
+                DynamicValue.PPP,
+                DynamicValue.PP,
+                DynamicValue.P,
+                DynamicValue.MP,
+                DynamicValue.MF,
+                DynamicValue.F,
+                DynamicValue.FF,
+                DynamicValue.FFF,
+              ] as const).map((dynamic) => (
                 <ToggleBtn
-                  key={d}
-                  label={dynamicTooltip(d, t)}
-                  pressed={beat.dynamics === d}
+                  key={dynamic}
+                  label={dynamicTooltip(dynamic, t)}
+                  pressed={beat.dynamics === dynamic}
                   onPressedChange={(pressed) => {
-                    if (pressed) executeAppAction("edit.beat.setDynamics", d, { t });
+                    if (pressed) {
+                      executeAppAction("edit.beat.setDynamics", dynamic, { t });
+                    }
                   }}
-                  textIcon={dynamicLabel(d)}
+                  textIcon={dynamicLabel(dynamic)}
                   className="text-[9px]"
                 />
               ))}
@@ -335,150 +389,49 @@ export function EffectsSection({
 
           <div className="flex flex-wrap gap-0.5 px-2">
             <ToggleBtn
-              label={t("sidebar.effects.crescendo")}
-              pressed={beat.crescendo === CrescendoType.Crescendo}
+              label={t("sidebar.effects.fadeIn")}
+              pressed={beat.fade === FadeType.FadeIn}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setCrescendo", pressed ? CrescendoType.Crescendo : CrescendoType.None, { t })
+                executeAppAction("edit.beat.setFade", pressed ? FadeType.FadeIn : FadeType.None, { t })
               }
-              textIcon="<"
+              icon={<SunMedium className="h-3.5 w-3.5" />}
             />
             <ToggleBtn
-              label={t("sidebar.effects.decrescendo")}
-              pressed={beat.crescendo === CrescendoType.Decrescendo}
+              label={t("sidebar.effects.fadeOut")}
+              pressed={beat.fade === FadeType.FadeOut}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setCrescendo", pressed ? CrescendoType.Decrescendo : CrescendoType.None, { t })
+                executeAppAction("edit.beat.setFade", pressed ? FadeType.FadeOut : FadeType.None, { t })
               }
-              textIcon=">"
+              textIcon="FO"
+            />
+            <ToggleBtn
+              label={t("sidebar.effects.volumeSwell")}
+              pressed={beat.fade === FadeType.VolumeSwell}
+              onPressedChange={(pressed) =>
+                executeAppAction("edit.beat.setFade", pressed ? FadeType.VolumeSwell : FadeType.None, { t })
+              }
+              textIcon="VS"
             />
           </div>
 
-          {isAdvanced && (
-            <>
-              <Separator className="my-0.5" />
+          <Separator className="my-0.5" />
 
-              <div className="px-2">
-                <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
-                  {t("sidebar.effects.techniques")}
-                </div>
-                <div className="flex flex-wrap gap-0.5">
-                  <ToggleBtn
-                    label={t("sidebar.effects.tap")}
-                    pressed={beat.tap}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setTap", pressed, { t })
-                    }
-                    icon={<Pointer className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.slap")}
-                    pressed={beat.slap}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setSlap", pressed, { t })
-                    }
-                    icon={<Hand className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.pop")}
-                    pressed={beat.pop}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setPop", pressed, { t })
-                    }
-                    icon={<CircleDot className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.fadeIn")}
-                    pressed={beat.fade === FadeType.FadeIn}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setFade", pressed ? FadeType.FadeIn : FadeType.None, { t })
-                    }
-                    icon={<SunMedium className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.fadeOut")}
-                    pressed={beat.fade === FadeType.FadeOut}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setFade", pressed ? FadeType.FadeOut : FadeType.None, { t })
-                    }
-                    textIcon="FO"
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.volumeSwell")}
-                    pressed={beat.fade === FadeType.VolumeSwell}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setFade", pressed ? FadeType.VolumeSwell : FadeType.None, { t })
-                    }
-                    textIcon="VS"
-                  />
-                </div>
-              </div>
-
-              <Separator className="my-0.5" />
-
-              <div className="px-2">
-                <div className="mb-0.5 text-[10px] font-medium text-muted-foreground px-1">
-                  {t("sidebar.effects.other")}
-                </div>
-                <div className="flex flex-wrap gap-0.5">
-                  <ToggleBtn
-                    label={t("sidebar.effects.golpeThumb")}
-                    pressed={beat.golpe === GolpeType.Thumb}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setGolpe", pressed ? GolpeType.Thumb : GolpeType.None, { t })
-                    }
-                    icon={<Target className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.golpeFinger")}
-                    pressed={beat.golpe === GolpeType.Finger}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setGolpe", pressed ? GolpeType.Finger : GolpeType.None, { t })
-                    }
-                    textIcon="GF"
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.wahOpen")}
-                    pressed={beat.wahPedal === WahPedal.Open}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setWahPedal", pressed ? WahPedal.Open : WahPedal.None, { t })
-                    }
-                    icon={<ToggleLeft className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.wahClosed")}
-                    pressed={beat.wahPedal === WahPedal.Closed}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("edit.beat.setWahPedal", pressed ? WahPedal.Closed : WahPedal.None, { t })
-                    }
-                    icon={<ToggleRight className="h-3.5 w-3.5" />}
-                  />
-                </div>
-              </div>
-
-              {beat.ottava !== Ottavia.Regular && (
-                <PropRow
-                  label={t("sidebar.effects.ottava")}
-                  value={
-                    beat.ottava === Ottavia._8va
-                      ? "8va"
-                      : beat.ottava === Ottavia._8vb
-                        ? "8vb"
-                        : beat.ottava === Ottavia._15ma
-                          ? "15ma"
-                          : beat.ottava === Ottavia._15mb
-                            ? "15mb"
-                            : "Regular"
-                  }
-                />
-              )}
-
-              {beat.text && (
-                <PropRow label={t("sidebar.effects.text")} value={beat.text} />
-              )}
-              {beat.chordId && (
-                <PropRow label={t("sidebar.effects.chord")} value={beat.chordId} />
-              )}
-            </>
-          )}
+          <EditablePropRow
+            label={t("sidebar.effects.text")}
+            value={beat.text ?? ""}
+            placeholder={t("sidebar.effects.textPlaceholder")}
+            onCommit={(value) =>
+              executeAppAction("edit.beat.setText", value || null, { t })
+            }
+          />
+          <EditablePropRow
+            label={t("sidebar.effects.chord")}
+            value={beat.chordId ?? ""}
+            placeholder={t("sidebar.effects.chordPlaceholder")}
+            onCommit={(value) =>
+              executeAppAction("edit.beat.setChordId", value || null, { t })
+            }
+          />
         </div>
         <Separator />
       </CollapsibleContent>

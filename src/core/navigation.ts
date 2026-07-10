@@ -74,12 +74,6 @@ function getVisibleTrackIndices(options: NavigationOptions): readonly number[] {
     return options.visibleTrackIndices;
   }
 
-  const yScore = engine.getScoreMap();
-  const yVisible = yScore?.get("visibleTrackIndices") as Y.Array<number> | undefined;
-  if (yVisible) {
-    return yVisible.toArray();
-  }
-
   return Array.from({ length: getTrackCount() }, (_value, index) => index);
 }
 

@@ -97,7 +97,16 @@ vi.mock("@/core/engine", () => {
 });
 
 import { executeAction } from "@/core/actions/registry";
+import {
+  AutomationType,
+  Clef,
+  KeySignatureType,
+  Ottavia,
+  SimileMark,
+  TripletFeel,
+} from "@/core/schema";
 import "@/core/actions/edit-bar";
+import "@/core/actions/edit-master-bar";
 
 const defaultSel = {
   trackIndex: 0,
@@ -224,5 +233,107 @@ describe("edit.bar.delete", () => {
     const result = executeAction("edit.bar.delete", undefined, ctx);
     expect(result).toBe(false);
     expect(masterBarCount()).toBe(2);
+  });
+});
+
+describe("edit.bar field actions", () => {
+  it.each([
+    ["edit.bar.setClef", "clef", Clef.F4],
+    ["edit.bar.setClefOttava", "clefOttava", Ottavia._8vb],
+    ["edit.bar.setSimileMark", "simileMark", SimileMark.Simple],
+    ["edit.bar.setKeySignature", "keySignature", -3],
+    ["edit.bar.setKeySignatureType", "keySignatureType", KeySignatureType.Minor],
+  ] as const)("%s updates %s", (actionId, field, value) => {
+    executeAction(actionId, value, ctx);
+    expect(resolveYBarHelper(0, 0, 0)!.get(field)).toBe(value);
+  });
+});
+
+describe("edit.masterBar field actions", () => {
+  function masterBar(): Y.Map<unknown> {
+    return (getScoreMap()!.get("masterBars") as Y.Array<Y.Map<unknown>>).get(0);
+  }
+
+  it.each([
+    ["edit.masterBar.setTimeSignatureNumerator", "timeSignatureNumerator", 7],
+    ["edit.masterBar.setTimeSignatureDenominator", "timeSignatureDenominator", 8],
+    ["edit.masterBar.setIsRepeatStart", "isRepeatStart", true],
+    ["edit.masterBar.setRepeatCount", "repeatCount", 3],
+    ["edit.masterBar.setAlternateEndings", "alternateEndings", 5],
+    ["edit.masterBar.setTripletFeel", "tripletFeel", TripletFeel.Triplet8th],
+    ["edit.masterBar.setIsFreeTime", "isFreeTime", true],
+  ] as const)("%s updates %s", (actionId, field, value) => {
+    executeAction(actionId, value, ctx);
+    expect(masterBar().get(field)).toBe(value);
+  });
+
+  it("sets and clears section", () => {
+    executeAction("edit.masterBar.setSection", {
+      text: "Verse",
+      marker: "A",
+    }, ctx);
+    expect((masterBar().get("section") as Y.Map<unknown>).toJSON()).toEqual({
+      text: "Verse",
+      marker: "A",
+    });
+
+    executeAction("edit.masterBar.setSection", null, ctx);
+    expect(masterBar().get("section")).toBeNull();
+  });
+
+  it("replaces tempoAutomations", () => {
+    executeAction("edit.masterBar.setTempoAutomations", [
+      {
+        isLinear: false,
+        type: AutomationType.Tempo,
+        value: 96,
+        ratioPosition: 0.25,
+        text: "Andante",
+        isVisible: true,
+      },
+    ], ctx);
+
+    const automations = masterBar().get(
+      "tempoAutomations",
+    ) as Y.Array<Y.Map<unknown>>;
+    expect(automations.get(0).toJSON()).toEqual({
+      isLinear: false,
+      type: AutomationType.Tempo,
+      value: 96,
+      ratioPosition: 0.25,
+      text: "Andante",
+      isVisible: true,
+    });
+  });
+
+  it("updates and removes only the tempo automation", () => {
+    executeAction("edit.masterBar.setTempoAutomations", [
+      {
+        isLinear: false,
+        type: AutomationType.Volume,
+        value: 12,
+        ratioPosition: 0,
+        text: "",
+        isVisible: true,
+      },
+    ], ctx);
+
+    executeAction("edit.masterBar.setTempo", 132, ctx);
+    const automations = masterBar().get(
+      "tempoAutomations",
+    ) as Y.Array<Y.Map<unknown>>;
+    expect(automations.length).toBe(2);
+    expect(automations.get(0).get("type")).toBe(AutomationType.Volume);
+    expect(automations.get(1).get("value")).toBe(132);
+
+    executeAction("edit.masterBar.setTempo", null, ctx);
+    expect(automations.length).toBe(1);
+    expect(automations.get(0).get("type")).toBe(AutomationType.Volume);
+  });
+
+  it("does nothing without a selected bar", () => {
+    selectBeat(null);
+    executeAction("edit.masterBar.setRepeatCount", 4, ctx);
+    expect(masterBar().get("repeatCount")).toBe(0);
   });
 });

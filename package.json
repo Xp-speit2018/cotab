@@ -23,6 +23,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "audit:alphatab-fields": "tsx scripts/audit-alphatab-fields.ts --audit > docs/ALPHATAB-FIELD-AUDIT.tmp.md && tsx scripts/audit-alphatab-fields.ts --selection > docs/CORE-FIELD-SELECTION.tmp.md",
     "mcp:dev": "tsx src/mcp/cli.ts",
     "cotab:cli": "tsx src/cli/cli.ts"
   },

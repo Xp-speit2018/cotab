@@ -1,0 +1,18 @@
+{
+  "alphaTabVersion": "1.8.1",
+  "identicalMidiFields": [
+    "Automation.isLinear",
+    "Bar.sustainPedals",
+    "Beat.pop",
+    "Beat.slap",
+    "Beat.tap",
+    "Beat.crescendo",
+    "Beat.golpe",
+    "Beat.wahPedal",
+    "Fermata.type",
+    "Fermata.length",
+    "MasterBar.fermata",
+    "SustainPedalMarker.ratioPosition",
+    "SustainPedalMarker.pedalType"
+  ]
+}

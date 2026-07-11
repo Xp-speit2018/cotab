@@ -56,6 +56,12 @@ export interface CodexModelOption {
 
 export type CodexCollaborationMode = "default" | "plan";
 
+export interface AgentResourcePermissions {
+  readonly localResources: boolean;
+  readonly webResources: boolean;
+  readonly localWriteRoots: readonly string[];
+}
+
 export interface AgentSessionSnapshot {
   readonly phase: CodexConnectionPhase | "working";
   readonly installed: boolean;
@@ -69,6 +75,7 @@ export interface AgentSessionSnapshot {
   readonly model: string | null;
   readonly reasoningEffort: string | null;
   readonly collaborationMode: CodexCollaborationMode;
+  readonly resources: AgentResourcePermissions;
   readonly modelsLoading: boolean;
   readonly error: string | null;
 }
@@ -257,6 +264,11 @@ class AgentSession {
     model: null,
     reasoningEffort: null,
     collaborationMode: "default",
+    resources: {
+      localResources: false,
+      webResources: false,
+      localWriteRoots: [],
+    },
     modelsLoading: false,
     error: null,
   };
@@ -290,7 +302,7 @@ class AgentSession {
   async connect(): Promise<void> {
     this.setSnapshot({ ...this.snapshot, error: null });
     try {
-      await codexConnection.connect();
+      await codexConnection.connect(this.snapshot.resources.localResources);
       await this.loadModels();
       await this.loadHistory();
     } catch (error) {
@@ -315,7 +327,10 @@ class AgentSession {
       "thread/start",
       {
         approvalPolicy: "never",
-        sandbox: "read-only",
+        sandbox: this.snapshot.resources.localWriteRoots.length > 0
+          ? "workspace-write"
+          : "read-only",
+        cwd: this.snapshot.resources.localWriteRoots[0] ?? null,
         ephemeral: false,
         developerInstructions: CODEX_DEVELOPER_INSTRUCTIONS,
         dynamicTools: dynamicTools(),
@@ -342,6 +357,7 @@ class AgentSession {
     });
     await this.updateThreadSettings({ effort: this.snapshot.reasoningEffort });
     await this.setCollaborationMode(this.snapshot.collaborationMode);
+    await this.applyResourceSandbox(this.snapshot.resources);
     await this.loadHistory();
   }
 
@@ -360,7 +376,10 @@ class AgentSession {
       {
         threadId,
         approvalPolicy: "never",
-        sandbox: "read-only",
+        sandbox: this.snapshot.resources.localWriteRoots.length > 0
+          ? "workspace-write"
+          : "read-only",
+        cwd: this.snapshot.resources.localWriteRoots[0] ?? null,
         developerInstructions: CODEX_DEVELOPER_INSTRUCTIONS,
       dynamicTools: dynamicTools(),
       },
@@ -573,6 +592,44 @@ class AgentSession {
     });
   }
 
+  async setLocalResources(enabled: boolean): Promise<void> {
+    if (enabled === this.snapshot.resources.localResources) return;
+    const previous = this.snapshot.resources;
+    const activeThreadId = this.snapshot.threadId;
+    this.setSnapshot({
+      ...this.snapshot,
+      resources: { ...previous, localResources: enabled },
+    });
+    try {
+      await codexConnection.reconnect(enabled);
+      if (activeThreadId) await this.openThread(activeThreadId);
+    } catch (error) {
+      this.setSnapshot({ ...this.snapshot, resources: previous });
+      throw error;
+    }
+  }
+
+  async setWebResources(enabled: boolean): Promise<void> {
+    const resources = { ...this.snapshot.resources, webResources: enabled };
+    await this.applyResourceSandbox(resources);
+  }
+
+  async addLocalWriteRoot(): Promise<void> {
+    const root = await codexConnection.pickWriteRoot();
+    if (!root || this.snapshot.resources.localWriteRoots.includes(root)) return;
+    await this.setLocalWriteRoots([...this.snapshot.resources.localWriteRoots, root]);
+  }
+
+  async removeLocalWriteRoot(root: string): Promise<void> {
+    await this.setLocalWriteRoots(
+      this.snapshot.resources.localWriteRoots.filter((candidate) => candidate !== root),
+    );
+  }
+
+  async clearLocalWriteRoots(): Promise<void> {
+    await this.setLocalWriteRoots([]);
+  }
+
   private async ensureConnected(): Promise<void> {
     if (codexConnection.getSnapshot().phase !== "connected") {
       await this.connect();
@@ -591,6 +648,13 @@ class AgentSession {
           readonly developer_instructions: string;
         };
       };
+      readonly sandboxPolicy?:
+        | { readonly type: "readOnly"; readonly networkAccess: boolean }
+        | {
+            readonly type: "workspaceWrite";
+            readonly networkAccess: boolean;
+            readonly writableRoots: readonly string[];
+          };
     },
   ): Promise<void> {
     if (this.snapshot.threadId) {
@@ -606,6 +670,25 @@ class AgentSession {
       collaborationMode: settings.collaborationMode?.mode ?? this.snapshot.collaborationMode,
       error: null,
     });
+  }
+
+  private async setLocalWriteRoots(localWriteRoots: readonly string[]): Promise<void> {
+    await this.applyResourceSandbox({ ...this.snapshot.resources, localWriteRoots });
+  }
+
+  private async applyResourceSandbox(resources: AgentResourcePermissions): Promise<void> {
+    const sandboxPolicy = resources.localWriteRoots.length > 0
+      ? {
+          type: "workspaceWrite" as const,
+          networkAccess: resources.webResources,
+          writableRoots: resources.localWriteRoots,
+        }
+      : {
+          type: "readOnly" as const,
+          networkAccess: resources.webResources,
+        };
+    await this.updateThreadSettings({ sandboxPolicy });
+    this.setSnapshot({ ...this.snapshot, resources, error: null });
   }
 
   private historyEntryFromBinding(binding: AgentThreadBinding): AgentHistoryEntry {
@@ -688,10 +771,19 @@ class AgentSession {
       if (!item || !turnId) return;
       const entry = timelineEntryFromItem(item, turnId);
       if (!entry) return;
+      if (entry.kind === "message" && entry.role === "user") {
+        this.reconcileUserMessage(entry);
+        return;
+      }
       const completed = method === "item/completed";
       this.upsertTimelineEntry(
         entry.kind === "activity"
-          ? { ...entry, status: completed ? activityStatus(item.status ?? "completed") : "running" }
+          ? {
+              ...entry,
+              status: completed
+                ? item.status === "failed" ? "failed" : "completed"
+                : "running",
+            }
           : entry,
       );
       return;
@@ -758,6 +850,24 @@ class AgentSession {
     const timeline = [...this.snapshot.timeline];
     if (index === -1) timeline.push(entry);
     else timeline[index] = entry;
+    this.setSnapshot({ ...this.snapshot, timeline });
+  }
+
+  private reconcileUserMessage(entry: AgentMessageEntry): void {
+    const index = this.snapshot.timeline.findIndex((candidate) =>
+      candidate.kind === "message"
+      && candidate.role === "user"
+      && candidate.text === entry.text
+      && (candidate.turnId === entry.turnId || candidate.turnId?.startsWith("pending:")),
+    );
+    if (index === -1) {
+      this.upsertTimelineEntry(entry);
+      return;
+    }
+    const timeline = [...this.snapshot.timeline];
+    const current = timeline[index];
+    if (current.kind !== "message") return;
+    timeline[index] = { ...current, turnId: entry.turnId };
     this.setSnapshot({ ...this.snapshot, timeline });
   }
 

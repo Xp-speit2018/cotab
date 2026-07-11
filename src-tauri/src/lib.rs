@@ -313,6 +313,7 @@ fn get_codex_status(state: tauri::State<'_, CodexState>) -> Result<CodexStatus, 
 fn connect_local_codex(
     state: tauri::State<'_, CodexState>,
     on_event: Channel<CodexEvent>,
+    local_resources: bool,
 ) -> Result<CodexStatus, String> {
     let mut slot = state
         .process
@@ -328,6 +329,12 @@ fn connect_local_codex(
     let mut command = Command::new(&executable);
     command
         .args(["app-server", "--stdio"])
+        .arg("-c")
+        .arg(if local_resources {
+            "sandbox_permissions=[\"disk-full-read-access\"]"
+        } else {
+            "sandbox_permissions=[]"
+        })
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -361,6 +368,13 @@ fn connect_local_codex(
     let status = status_from_process(&process);
     *slot = Some(process);
     Ok(status)
+}
+
+#[tauri::command]
+fn pick_agent_write_root() -> Option<String> {
+    rfd::FileDialog::new()
+        .pick_folder()
+        .map(|path| path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -415,6 +429,7 @@ pub fn run() {
             save_agent_history,
             get_codex_status,
             connect_local_codex,
+            pick_agent_write_root,
             send_codex_message,
             disconnect_local_codex
         ])

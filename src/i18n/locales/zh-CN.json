@@ -659,7 +659,16 @@
     "reasoningEffort": "推理强度",
     "modelSettings": "模型与推理强度",
     "planMode": "计划模式",
+    "resources": {
+      "title": "外部资源",
+      "local": "本机资源",
+      "web": "Web 资源",
+      "write": "本机写入",
+      "addFolder": "添加可写文件夹",
+      "removeFolder": "移除可写文件夹"
+    },
     "activity": {
+      "thinking": "正在思考",
       "working": "正在处理",
       "completed": "{{count}} 项工作记录",
       "reasoning": "推理摘要",

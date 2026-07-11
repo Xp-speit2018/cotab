@@ -6,6 +6,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useTranslation } from "react-i18next";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import {
   Archive,
   Bot,
@@ -15,15 +17,20 @@ import {
   CircleStop,
   Clock3,
   FileMusic,
+  FolderPlus,
+  Globe2,
+  HardDrive,
   History,
   ListTree,
   Loader2,
   Plus,
   Search,
   Send,
+  ShieldCheck,
   SlidersHorizontal,
   Unplug,
   Wrench,
+  X,
   XCircle,
 } from "lucide-react";
 import {
@@ -116,18 +123,63 @@ function ToolArguments({ value }: { value: unknown }) {
   );
 }
 
+function MarkdownContent({
+  children,
+  compact = false,
+}: {
+  children: string;
+  compact?: boolean;
+}) {
+  const textSize = compact ? "text-xs leading-5" : "text-sm leading-6";
+  return (
+    <div className={textSize}>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+        h1: ({ children: content }) => <h1 className="mb-2 text-base font-semibold last:mb-0">{content}</h1>,
+        h2: ({ children: content }) => <h2 className="mb-2 text-sm font-semibold last:mb-0">{content}</h2>,
+        h3: ({ children: content }) => <h3 className="mb-1 text-sm font-medium last:mb-0">{content}</h3>,
+        p: ({ children: content }) => <p className="mb-2 last:mb-0">{content}</p>,
+        ul: ({ children: content }) => <ul className="mb-2 list-disc space-y-1 pl-5 last:mb-0">{content}</ul>,
+        ol: ({ children: content }) => <ol className="mb-2 list-decimal space-y-1 pl-5 last:mb-0">{content}</ol>,
+        li: ({ children: content }) => <li>{content}</li>,
+        blockquote: ({ children: content }) => <blockquote className="mb-2 border-l-2 border-muted-foreground/40 pl-3 text-muted-foreground last:mb-0">{content}</blockquote>,
+        code: ({ children: content, className }) => (
+          <code className={cn(
+            "rounded bg-background/70 px-1 py-0.5 font-mono text-[0.9em]",
+            className,
+          )}>
+            {content}
+          </code>
+        ),
+        pre: ({ children: content }) => <pre className="mb-2 overflow-x-auto rounded bg-background/70 p-2 last:mb-0">{content}</pre>,
+        a: ({ children: content, href }) => (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary underline underline-offset-2"
+          >
+            {content}
+          </a>
+        ),
+        table: ({ children: content }) => <div className="mb-2 overflow-x-auto last:mb-0"><table className="w-full border-collapse text-left">{content}</table></div>,
+        th: ({ children: content }) => <th className="border px-2 py-1 font-medium">{content}</th>,
+        td: ({ children: content }) => <td className="border px-2 py-1 align-top">{content}</td>,
+        img: () => null,
+        }}
+      >
+        {children}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
 function ActivityGroup({ activities }: { activities: AgentActivityEntry[] }) {
   const { t } = useTranslation();
   const running = activities.some((activity) => activity.status === "running");
   const failed = activities.some((activity) => activity.status === "failed");
   const [open, setOpen] = useState(running);
-  const wasRunning = useRef(running);
-
-  useEffect(() => {
-    if (running) setOpen(true);
-    else if (wasRunning.current) setOpen(false);
-    wasRunning.current = running;
-  }, [running]);
 
   const toolLabel = (tool: string | undefined) => {
     if (!tool) return t("agent.activity.tool");
@@ -184,8 +236,8 @@ function ActivityGroup({ activities }: { activities: AgentActivityEntry[] }) {
                   )}
                 </div>
                 {activity.detail && (
-                  <div className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">
-                    {activity.detail}
+                  <div className="mt-1 break-words text-muted-foreground">
+                    <MarkdownContent compact>{activity.detail}</MarkdownContent>
                   </div>
                 )}
                 {activity.activityType === "tool" && (
@@ -200,9 +252,19 @@ function ActivityGroup({ activities }: { activities: AgentActivityEntry[] }) {
   );
 }
 
-function ConversationTimeline({ timeline }: { timeline: readonly AgentTimelineEntry[] }) {
+function ConversationTimeline({
+  timeline,
+  working,
+}: {
+  timeline: readonly AgentTimelineEntry[];
+  working: boolean;
+}) {
   const endRef = useRef<HTMLDivElement>(null);
   const blocks = useMemo(() => groupTimeline(timeline), [timeline]);
+  const hasRunningActivity = timeline.some(
+    (entry) => entry.kind === "activity" && entry.status === "running",
+  );
+  const { t } = useTranslation();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -217,20 +279,44 @@ function ConversationTimeline({ timeline }: { timeline: readonly AgentTimelineEn
           }
           const entry = block.entry;
           if (entry.kind !== "message") return null;
+          const isUser = entry.role === "user";
           return (
             <div
               key={entry.id}
               className={cn(
-                "mx-3 mb-3 whitespace-pre-wrap break-words text-sm leading-6",
-                entry.role === "user"
-                  ? "ml-10 rounded-md bg-muted px-3 py-2"
-                  : "mr-2",
+                "mx-3 mb-3 flex gap-2",
+                isUser ? "justify-end" : "justify-start",
               )}
             >
-              {entry.text}
+              {!isUser && (
+                <div className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
+                  <Bot className="h-3 w-3" />
+                </div>
+              )}
+              <div
+                className={cn(
+                  "max-w-[88%] whitespace-pre-wrap break-words rounded-md px-3 py-2 text-sm leading-6",
+                  isUser
+                    ? "bg-primary text-primary-foreground"
+                    : "border bg-muted/45",
+                )}
+              >
+                <MarkdownContent>{entry.text}</MarkdownContent>
+              </div>
             </div>
           );
         })}
+        {working && !hasRunningActivity && (
+          <div className="mx-3 mb-3 flex gap-2">
+            <div className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded bg-muted text-muted-foreground">
+              <Bot className="h-3 w-3" />
+            </div>
+            <div className="flex items-center gap-2 rounded-md border bg-muted/45 px-3 py-2 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />
+              <span>{t("agent.activity.thinking")}</span>
+            </div>
+          </div>
+        )}
         <div ref={endRef} />
       </div>
     </ScrollArea>
@@ -380,6 +466,7 @@ function Composer() {
   const [prompt, setPrompt] = useState("");
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
   const working = session.phase === "working";
   const connected = session.phase === "connected" || working;
   const selectedModel = session.models.find((model) => model.model === session.model);
@@ -468,6 +555,91 @@ function Composer() {
                     >
                       {option.reasoningEffort}
                     </Button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Popover open={resourcesOpen} onOpenChange={setResourcesOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={t("agent.resources.title")}
+                  disabled={!connected || working}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-72 p-2">
+                <div className="px-1 pb-1.5 text-[10px] font-medium text-muted-foreground">
+                  {t("agent.resources.title")}
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-2 hover:bg-accent">
+                  <input
+                    type="checkbox"
+                    checked={session.resources.localResources}
+                    className="h-3.5 w-3.5 accent-primary"
+                    onChange={(event) => void updateSetting(() =>
+                      agentSession.setLocalResources(event.target.checked),
+                    )}
+                  />
+                  <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs">{t("agent.resources.local")}</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-2 hover:bg-accent">
+                  <input
+                    type="checkbox"
+                    checked={session.resources.webResources}
+                    className="h-3.5 w-3.5 accent-primary"
+                    onChange={(event) => void updateSetting(() =>
+                      agentSession.setWebResources(event.target.checked),
+                    )}
+                  />
+                  <Globe2 className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs">{t("agent.resources.web")}</span>
+                </label>
+                <div className="mt-1 border-t pt-1">
+                  <div className="flex items-center gap-2 rounded px-1.5 py-2">
+                    <input
+                      type="checkbox"
+                      checked={session.resources.localWriteRoots.length > 0}
+                      className="h-3.5 w-3.5 accent-primary"
+                      aria-label={t("agent.resources.write")}
+                      onChange={(event) => void updateSetting(() =>
+                        event.target.checked
+                          ? agentSession.addLocalWriteRoot()
+                          : agentSession.clearLocalWriteRoots(),
+                      )}
+                    />
+                    <HardDrive className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="min-w-0 flex-1 text-xs">{t("agent.resources.write")}</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="icon-xs"
+                          variant="ghost"
+                          aria-label={t("agent.resources.addFolder")}
+                          onClick={() => void updateSetting(() => agentSession.addLocalWriteRoot())}
+                        >
+                          <FolderPlus className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{t("agent.resources.addFolder")}</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {session.resources.localWriteRoots.map((root) => (
+                    <div key={root} className="group flex items-center gap-1 px-1.5 py-1 text-[11px] text-muted-foreground">
+                      <span className="min-w-0 flex-1 truncate font-mono" title={root}>{root}</span>
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        className="opacity-0 group-hover:opacity-100 focus:opacity-100"
+                        aria-label={t("agent.resources.removeFolder")}
+                        onClick={() => void updateSetting(() => agentSession.removeLocalWriteRoot(root))}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   ))}
                 </div>
               </PopoverContent>
@@ -677,7 +849,10 @@ export function AgentTab() {
               <span className="text-xs">{t("agent.emptyConversation")}</span>
             </div>
           ) : (
-            <ConversationTimeline timeline={session.timeline} />
+            <ConversationTimeline
+              timeline={session.timeline}
+              working={session.phase === "working"}
+            />
           )}
           {session.error && (
             <div className="border-t px-3 py-2 text-xs text-destructive">

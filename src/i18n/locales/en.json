@@ -659,7 +659,16 @@
     "reasoningEffort": "Reasoning effort",
     "modelSettings": "Model and reasoning effort",
     "planMode": "Plan mode",
+    "resources": {
+      "title": "External resources",
+      "local": "Local resources",
+      "web": "Web resources",
+      "write": "Local write",
+      "addFolder": "Add writable folder",
+      "removeFolder": "Remove writable folder"
+    },
     "activity": {
+      "thinking": "Thinking",
       "working": "Working",
       "completed": "{{count}} activities",
       "reasoning": "Reasoning summary",

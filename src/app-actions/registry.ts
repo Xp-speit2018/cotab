@@ -1,4 +1,9 @@
 import { debugLog } from "@/core/editor/action-log";
+import {
+  documentActionRegistry,
+  getAllDocumentActions,
+} from "@/core/actions/registry";
+import type { DocumentActionDefinition } from "@/core/actions/types";
 import type {
   AppActionArgs,
   AppActionDefinition,
@@ -35,6 +40,30 @@ class AppActionRegistry {
 
 export const appActionRegistry = new AppActionRegistry();
 
+function documentActionAsAppAction<TArgs = void, TResult = void | boolean>(
+  definition: DocumentActionDefinition<TArgs, TResult>,
+): AppActionDefinition<TArgs, TResult> {
+  return {
+    id: definition.id,
+    domain: "document",
+    i18nKey: definition.i18nKey,
+    category: definition.category,
+    execute: (args, context) => definition.execute(args, context),
+    ...(definition.isEnabled
+      ? { isEnabled: () => definition.isEnabled?.() ?? true }
+      : {}),
+  };
+}
+
+function resolveAppAction<TArgs = void, TResult = void | boolean>(
+  id: string,
+): AppActionDefinition<TArgs, TResult> | undefined {
+  const native = appActionRegistry.get<TArgs, TResult>(id);
+  if (native) return native;
+  const document = documentActionRegistry.get<TArgs, TResult>(id);
+  return document ? documentActionAsAppAction(document) : undefined;
+}
+
 export function registerAppAction<TArgs = void, TResult = void | boolean>(
   definition: AppActionDefinition<TArgs, TResult>,
 ): void {
@@ -46,7 +75,7 @@ export function executeAppAction<Id extends AppActionId>(
   args: AppActionArgs<Id>,
   context: AppActionExecutionContext,
 ): AppActionResult<Id> | undefined {
-  const definition = appActionRegistry.get<AppActionArgs<Id>, AppActionResult<Id>>(String(id));
+  const definition = resolveAppAction<AppActionArgs<Id>, AppActionResult<Id>>(String(id));
   if (!definition) {
     debugLog("warn", "app-action", "unknown", { id: String(id) });
     return undefined;
@@ -87,7 +116,7 @@ export function executeAppActionUnsafe<TArgs = void, TResult = void | boolean>(
   args: TArgs,
   context: AppActionExecutionContext,
 ): TResult | undefined {
-  const definition = appActionRegistry.get<TArgs, TResult>(id);
+  const definition = resolveAppAction<TArgs, TResult>(id);
   if (!definition) {
     debugLog("warn", "app-action", "unknown-unsafe", { id });
     return undefined;
@@ -124,5 +153,8 @@ export function executeAppActionUnsafe<TArgs = void, TResult = void | boolean>(
 }
 
 export function getAllAppActions(): readonly AppActionDefinition<unknown, unknown>[] {
-  return appActionRegistry.getAll();
+  return [
+    ...getAllDocumentActions().map((action) => documentActionAsAppAction(action)),
+    ...appActionRegistry.getAll(),
+  ];
 }

@@ -133,7 +133,7 @@ function handleKeyDown(e: KeyboardEvent): void {
 
       const target = computeNavigationTarget(behavior.direction, current);
       if (target) {
-        executeAppActionUnsafe("nav.setSelection", target, context);
+        executeAppActionUnsafe("selector.set", target, context);
       }
       break;
     }

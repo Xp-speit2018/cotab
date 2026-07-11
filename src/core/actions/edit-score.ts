@@ -1,5 +1,5 @@
-import { actionRegistry } from "./registry";
-import type { ActionDefinition } from "./types";
+import { documentActionRegistry } from "./registry";
+import type { DocumentActionDefinition } from "./types";
 import type { ScoreMetadataField } from "@/core/schema";
 import { AutomationType, createAutomation } from "@/core/schema";
 import { engine } from "@/core/engine";
@@ -40,10 +40,10 @@ function getOrCreateInitialTempoAutomation(
   return yAutomations.get(0);
 }
 
-const setMetadataAction: ActionDefinition<{ field: ScoreMetadataField; value: string }> = {
-  id: "edit.score.setMetadata",
+const setMetadataAction: DocumentActionDefinition<{ field: ScoreMetadataField; value: string }> = {
+  id: "document.score.setMetadata",
   i18nKey: "actions.edit.score.setMetadata",
-  category: "edit.score",
+  category: "document.score",
   params: [
     { name: "field", type: "string", i18nKey: "actions.edit.score.setMetadata.params.field" },
     { name: "value", type: "string", i18nKey: "actions.edit.score.setMetadata.params.value" },
@@ -53,12 +53,12 @@ const setMetadataAction: ActionDefinition<{ field: ScoreMetadataField; value: st
   },
 };
 
-actionRegistry.register(setMetadataAction);
+documentActionRegistry.register(setMetadataAction);
 
-const setTitleAction: ActionDefinition<string> = {
-  id: "edit.score.setTitle",
+const setTitleAction: DocumentActionDefinition<string> = {
+  id: "document.score.setTitle",
   i18nKey: "actions.edit.score.setTitle",
-  category: "edit.score",
+  category: "document.score",
   params: [
     { name: "value", type: "string", i18nKey: "actions.edit.score.setTitle.params.value" },
   ],
@@ -67,10 +67,10 @@ const setTitleAction: ActionDefinition<string> = {
   },
 };
 
-const setArtistAction: ActionDefinition<string> = {
-  id: "edit.score.setArtist",
+const setArtistAction: DocumentActionDefinition<string> = {
+  id: "document.score.setArtist",
   i18nKey: "actions.edit.score.setArtist",
-  category: "edit.score",
+  category: "document.score",
   params: [
     { name: "value", type: "string", i18nKey: "actions.edit.score.setArtist.params.value" },
   ],
@@ -79,10 +79,10 @@ const setArtistAction: ActionDefinition<string> = {
   },
 };
 
-const setTempoAction: ActionDefinition<number> = {
-  id: "edit.score.setTempo",
+const setTempoAction: DocumentActionDefinition<number> = {
+  id: "document.score.setTempo",
   i18nKey: "actions.edit.score.setTempo",
-  category: "edit.score",
+  category: "document.score",
   params: [
     { name: "tempo", type: "number", i18nKey: "actions.edit.score.setTempo.params.tempo" },
   ],
@@ -95,10 +95,10 @@ const setTempoAction: ActionDefinition<number> = {
   },
 };
 
-const setTempoLabelAction: ActionDefinition<string> = {
-  id: "edit.score.setTempoLabel",
+const setTempoLabelAction: DocumentActionDefinition<string> = {
+  id: "document.score.setTempoLabel",
   i18nKey: "actions.edit.score.setTempoLabel",
-  category: "edit.score",
+  category: "document.score",
   params: [
     {
       name: "label",
@@ -115,21 +115,21 @@ const setTempoLabelAction: ActionDefinition<string> = {
   },
 };
 
-actionRegistry.register(setTitleAction);
-actionRegistry.register(setArtistAction);
-actionRegistry.register(setTempoAction);
-actionRegistry.register(setTempoLabelAction);
+documentActionRegistry.register(setTitleAction);
+documentActionRegistry.register(setArtistAction);
+documentActionRegistry.register(setTempoAction);
+documentActionRegistry.register(setTempoLabelAction);
 
 declare global {
-  interface ActionMap {
-    "edit.score.setMetadata": {
+  interface DocumentActionMap {
+    "document.score.setMetadata": {
       args: { field: ScoreMetadataField; value: string };
       result: void;
     };
-    "edit.score.setTitle": { args: string; result: void };
-    "edit.score.setArtist": { args: string; result: void };
-    "edit.score.setTempo": { args: number; result: void };
-    "edit.score.setTempoLabel": { args: string; result: void };
+    "document.score.setTitle": { args: string; result: void };
+    "document.score.setArtist": { args: string; result: void };
+    "document.score.setTempo": { args: number; result: void };
+    "document.score.setTempoLabel": { args: string; result: void };
   }
 }
 

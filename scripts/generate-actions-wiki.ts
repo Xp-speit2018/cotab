@@ -114,7 +114,7 @@ function extractActionsFromFile(sourceFile: ts.SourceFile): ActionInfo[] {
   const actions: ActionInfo[] = [];
 
   function visit(node: ts.Node): void {
-    // Match: const fooAction: ActionDefinition<...> = { id: "...", ... };
+    // Match: const fooAction: DocumentActionDefinition<...> = { id: "...", ... };
     if (
       ts.isVariableStatement(node) &&
       node.declarationList.declarations.length > 0
@@ -177,10 +177,10 @@ function generateMarkdown(actions: ActionInfo[], i18n: Record<string, unknown>):
     byCategory.set(a.category, list);
   }
 
-  // Sort categories: edit.* first (alphabetically), then others
+  // Sort DocumentAction categories first (alphabetically), then others
   const sortedCategories = [...byCategory.keys()].sort((a, b) => {
-    const aEdit = a.startsWith("edit.");
-    const bEdit = b.startsWith("edit.");
+    const aEdit = a.startsWith("document.");
+    const bEdit = b.startsWith("document.");
     if (aEdit && !bEdit) return -1;
     if (!aEdit && bEdit) return 1;
     return a.localeCompare(b);
@@ -193,7 +193,7 @@ function generateMarkdown(actions: ActionInfo[], i18n: Record<string, unknown>):
   lines.push("|----------|--------:|-----------|");
   for (const cat of sortedCategories) {
     const count = byCategory.get(cat)!.length;
-    const crdt = cat.startsWith("edit.") ? "Yes" : "No";
+    const crdt = cat.startsWith("document.") ? "Yes" : "No";
     lines.push(`| \`${cat}\` | ${count} | ${crdt} |`);
   }
   const total = actions.length;
@@ -203,7 +203,7 @@ function generateMarkdown(actions: ActionInfo[], i18n: Record<string, unknown>):
   // Per-category sections
   for (const cat of sortedCategories) {
     const catActions = byCategory.get(cat)!;
-    const crdt = cat.startsWith("edit.") ? " (CRDT)" : "";
+    const crdt = cat.startsWith("document.") ? " (CRDT)" : "";
     lines.push(`## \`${cat}\`${crdt}`);
     lines.push("");
     lines.push("| Action ID | Name | Description | Parameters |");

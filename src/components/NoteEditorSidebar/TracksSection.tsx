@@ -124,13 +124,13 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
             value={track.name}
             placeholder={t("sidebar.tracks.placeholderName")}
             icon={<Guitar className="h-3 w-3" />}
-            onCommit={(v) => executeAppAction("edit.track.setName", { trackIndex, name: v }, { t })}
+            onCommit={(v) => executeAppAction("document.track.setName", { trackIndex, name: v }, { t })}
           />
           <EditablePropRow
             label={t("sidebar.tracks.shortName")}
             value={(alphaTabApi?.score?.tracks?.[trackIndex]?.shortName as string) ?? ""}
             placeholder={t("sidebar.tracks.placeholderShortName")}
-            onCommit={(v) => executeAppAction("edit.track.setShortName", { trackIndex, shortName: v }, { t })}
+            onCommit={(v) => executeAppAction("document.track.setShortName", { trackIndex, shortName: v }, { t })}
           />
 
           {staffInfo &&
@@ -168,7 +168,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           preset.tunings.join(",") === staffInfo.tuningValues.join(",") && "bg-accent",
                         )}
                         onClick={() => {
-                          executeAppAction("edit.staff.setStringTuning", {
+                          executeAppAction("document.staff.setStringTuning", {
                             trackIndex,
                             staffIndex: staffInfo.staffIndex,
                             stringTuning: preset,
@@ -202,7 +202,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           onClick={() => {
                             const next = [...staffInfo.tuningValues];
                             next[i] = Math.max(0, next[i] - 1);
-                            executeAppAction("edit.staff.setStringTuning", {
+                            executeAppAction("document.staff.setStringTuning", {
                               trackIndex,
                               staffIndex: staffInfo.staffIndex,
                               stringTuning: {
@@ -224,7 +224,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                           onClick={() => {
                             const next = [...staffInfo.tuningValues];
                             next[i] = Math.min(127, next[i] + 1);
-                            executeAppAction("edit.staff.setStringTuning", {
+                            executeAppAction("document.staff.setStringTuning", {
                               trackIndex,
                               staffIndex: staffInfo.staffIndex,
                               stringTuning: {
@@ -250,7 +250,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                 value={staffInfo.capo}
                 min={0}
                 max={24}
-                onCommit={(v) => executeAppAction("edit.staff.setCapo", { trackIndex, staffIndex: staffInfo.staffIndex, capo: v }, { t })}
+                onCommit={(v) => executeAppAction("document.staff.setCapo", { trackIndex, staffIndex: staffInfo.staffIndex, capo: v }, { t })}
               />
             </>
           )}
@@ -262,7 +262,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               suffix={t("sidebar.tracks.semitones")}
               min={-24}
               max={24}
-              onCommit={(v) => executeAppAction("edit.staff.setTranspositionPitch", {
+              onCommit={(v) => executeAppAction("document.staff.setTranspositionPitch", {
                 trackIndex,
                 staffIndex: staffInfo.staffIndex,
                 transpositionPitch: v,
@@ -276,7 +276,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               value={playbackInfo.program}
               min={0}
               max={127}
-              onCommit={(v) => executeAppAction("edit.track.setPlaybackInfoProgram", { trackIndex, program: v }, { t })}
+              onCommit={(v) => executeAppAction("document.track.setPlaybackInfoProgram", { trackIndex, program: v }, { t })}
             />
           )}
 

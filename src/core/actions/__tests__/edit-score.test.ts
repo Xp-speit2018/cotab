@@ -26,7 +26,7 @@ vi.mock("@/core/engine", () => {
   };
 });
 
-import { executeAction } from "@/core/actions/registry";
+import { executeDocumentAction } from "@/core/actions/registry";
 import "@/core/actions/edit-score";
 
 beforeEach(() => {
@@ -38,29 +38,29 @@ beforeEach(() => {
 
 const ctx = testContext();
 
-describe("edit.score.setTitle", () => {
+describe("document.score.setTitle", () => {
   it("updates title in Y.Doc", () => {
-    executeAction("edit.score.setTitle", "My Song", ctx);
+    executeDocumentAction("document.score.setTitle", "My Song", ctx);
     expect(syncGetScoreMap()!.get("title")).toBe("My Song");
   });
 
   it("overwrites previous title", () => {
-    executeAction("edit.score.setTitle", "First", ctx);
-    executeAction("edit.score.setTitle", "Second", ctx);
+    executeDocumentAction("document.score.setTitle", "First", ctx);
+    executeDocumentAction("document.score.setTitle", "Second", ctx);
     expect(syncGetScoreMap()!.get("title")).toBe("Second");
   });
 });
 
-describe("edit.score.setArtist", () => {
+describe("document.score.setArtist", () => {
   it("updates artist in Y.Doc", () => {
-    executeAction("edit.score.setArtist", "Bach", ctx);
+    executeDocumentAction("document.score.setArtist", "Bach", ctx);
     expect(syncGetScoreMap()!.get("artist")).toBe("Bach");
   });
 });
 
-describe("edit.score.setTempo", () => {
+describe("document.score.setTempo", () => {
   it("updates tempo in Y.Doc", () => {
-    executeAction("edit.score.setTempo", 140, ctx);
+    executeDocumentAction("document.score.setTempo", 140, ctx);
     const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
       Y.Map<unknown>
     >;
@@ -72,8 +72,8 @@ describe("edit.score.setTempo", () => {
   });
 
   it("rejects tempo <= 0", () => {
-    executeAction("edit.score.setTempo", 120, ctx);
-    executeAction("edit.score.setTempo", 0, ctx);
+    executeDocumentAction("document.score.setTempo", 120, ctx);
+    executeDocumentAction("document.score.setTempo", 0, ctx);
     const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
       Y.Map<unknown>
     >;
@@ -84,8 +84,8 @@ describe("edit.score.setTempo", () => {
   });
 
   it("rejects negative tempo", () => {
-    executeAction("edit.score.setTempo", 100, ctx);
-    executeAction("edit.score.setTempo", -10, ctx);
+    executeDocumentAction("document.score.setTempo", 100, ctx);
+    executeDocumentAction("document.score.setTempo", -10, ctx);
     const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
       Y.Map<unknown>
     >;
@@ -96,9 +96,9 @@ describe("edit.score.setTempo", () => {
   });
 });
 
-describe("edit.score.setTempoLabel", () => {
+describe("document.score.setTempoLabel", () => {
   it("writes the initial tempo automation text", () => {
-    executeAction("edit.score.setTempoLabel", "Allegro", ctx);
+    executeDocumentAction("document.score.setTempoLabel", "Allegro", ctx);
     const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
       Y.Map<unknown>
     >;
@@ -110,19 +110,19 @@ describe("edit.score.setTempoLabel", () => {
   });
 });
 
-describe("edit.score.setMetadata", () => {
+describe("document.score.setMetadata", () => {
   it("sets album field", () => {
-    executeAction("edit.score.setMetadata", { field: "album", value: "Greatest Hits" }, ctx);
+    executeDocumentAction("document.score.setMetadata", { field: "album", value: "Greatest Hits" }, ctx);
     expect(syncGetScoreMap()!.get("album")).toBe("Greatest Hits");
   });
 
   it("sets copyright field", () => {
-    executeAction("edit.score.setMetadata", { field: "copyright", value: "2024" }, ctx);
+    executeDocumentAction("document.score.setMetadata", { field: "copyright", value: "2024" }, ctx);
     expect(syncGetScoreMap()!.get("copyright")).toBe("2024");
   });
 
   it("sets subTitle field", () => {
-    executeAction("edit.score.setMetadata", { field: "subTitle", value: "Opus 1" }, ctx);
+    executeDocumentAction("document.score.setMetadata", { field: "subTitle", value: "Opus 1" }, ctx);
     expect(syncGetScoreMap()!.get("subTitle")).toBe("Opus 1");
   });
 });

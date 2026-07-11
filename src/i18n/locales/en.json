@@ -35,10 +35,12 @@
     "emptyState": "Click on a beat in the score to inspect its properties.",
     "reorderSection": "Drag to reorder",
     "dropHereHint": "Drop section here",
+    "dropTabHereHint": "Drop a tab here",
     "tabNames": {
-      "0": "Notes",
-      "1": "Meta",
-      "2": "Debug"
+      "notes": "Notes",
+      "meta": "Meta",
+      "debug": "Debug",
+      "agent": "Agent"
     },
 
     "selector": {
@@ -640,6 +642,55 @@
   "trackPresetDialog": {
     "title": "Add Track",
     "description": "Choose an instrument preset for the new track."
+  },
+
+  "agent": {
+    "title": "Agents",
+    "localCodex": "Local Codex",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "send": "Send",
+    "stop": "Stop",
+    "newConversation": "New conversation",
+    "untitledScore": "Untitled score",
+    "emptyConversation": "No conversation for this score",
+    "promptPlaceholder": "Edit the current score...",
+    "model": "Model",
+    "reasoningEffort": "Reasoning effort",
+    "modelSettings": "Model and reasoning effort",
+    "planMode": "Plan mode",
+    "activity": {
+      "working": "Working",
+      "completed": "{{count}} activities",
+      "reasoning": "Reasoning summary",
+      "plan": "Plan",
+      "tool": "Tool call",
+      "arguments": "Arguments"
+    },
+    "tools": {
+      "get_score": "Read score",
+      "set_selection": "Set selection",
+      "execute_action": "Edit score"
+    },
+    "history": {
+      "title": "Conversation history",
+      "currentScore": "Current Score",
+      "all": "All History",
+      "search": "Search conversations",
+      "empty": "No conversations",
+      "archive": "Archive conversation"
+    },
+    "codexStatus": {
+      "unknown": "Not checked",
+      "installed": "Installed",
+      "notFound": "Codex CLI not found",
+      "unavailable": "Desktop only",
+      "disconnected": "Disconnected",
+      "connecting": "Connecting",
+      "connected": "Connected",
+      "working": "Working",
+      "error": "Connection error"
+    }
   },
 
   "room": {

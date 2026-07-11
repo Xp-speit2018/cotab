@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
-const sharedTargetRoots = ["src/core", "src/adapters/local", "src/cli", "src/mcp"];
+const sharedTargetRoots = [
+  "src/core",
+  "src/protocol",
+  "src/adapters/local",
+  "src/cli",
+  "src/mcp",
+];
 const appActionConsumerRoots = ["src/components", "src/shortcuts", "src/stores"];
 
 const forbiddenImports = [

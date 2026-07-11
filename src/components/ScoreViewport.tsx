@@ -198,7 +198,7 @@ export function ScoreViewport() {
   }, [headerWidth]);
 
   return (
-    <div className="relative flex flex-1 overflow-hidden">
+    <div data-score-viewport className="relative flex min-w-0 flex-1 overflow-hidden">
       {/* Loading Overlay */}
       {isLoading && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">

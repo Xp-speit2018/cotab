@@ -1,6 +1,6 @@
 import * as Y from "yjs";
-import { actionRegistry } from "@/core/actions/registry";
-import type { ActionDefinition } from "@/core/actions/types";
+import { documentActionRegistry } from "@/core/actions/registry";
+import type { DocumentActionDefinition } from "@/core/actions/types";
 import { debugLog } from "@/core/editor/action-log";
 import { engine, type PendingSelection, type SelectedBeat } from "@/core/engine";
 import {
@@ -123,7 +123,7 @@ function applyBeatUpdates(updates: Record<string, unknown>): void {
     voiceIndex === null ||
     beatIndex === null
   ) {
-    debugLog("debug", "edit.beat.applyBeatUpdates", "no selection", { updates });
+    debugLog("debug", "document.beat.applyBeatUpdates", "no selection", { updates });
     return;
   }
   const sel: SelectedBeat = { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
@@ -135,7 +135,7 @@ function applyBeatUpdates(updates: Record<string, unknown>): void {
     sel.beatIndex,
   );
   if (!yBeat) {
-    debugLog("debug", "edit.beat.applyBeatUpdates", "no Y.Beat resolved", { updates, sel });
+    debugLog("debug", "document.beat.applyBeatUpdates", "no Y.Beat resolved", { updates, sel });
     return;
   }
   transact(() => {
@@ -169,10 +169,10 @@ function replaceWhammyBarPoints(
   }
 }
 
-const placeNoteAction: ActionDefinition<number | void> = {
-  id: "edit.beat.placeNote",
+const placeNoteAction: DocumentActionDefinition<number | void> = {
+  id: "document.beat.placeNote",
   i18nKey: "actions.edit.beat.placeNote",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "targetValue", type: "number", i18nKey: "actions.edit.beat.placeNote.params.targetValue" }],
   execute: (targetValue, _context) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
@@ -239,7 +239,7 @@ const placeNoteAction: ActionDefinition<number | void> = {
       yNote.set("octave", pitch.octave);
       yNote.set("tone", pitch.tone);
 
-      debugLog("info", "edit.beat.placeNote", "piano note", {
+      debugLog("info", "document.beat.placeNote", "piano note", {
         trackIndex: sel.trackIndex,
         staffIndex: sel.staffIndex,
         barIndex: sel.barIndex,
@@ -259,10 +259,10 @@ const placeNoteAction: ActionDefinition<number | void> = {
   },
 };
 
-const deleteNoteAction: ActionDefinition<void> = {
-  id: "edit.beat.deleteNote",
+const deleteNoteAction: DocumentActionDefinition<void> = {
+  id: "document.beat.deleteNote",
   i18nKey: "actions.edit.beat.deleteNote",
-  category: "edit.beat",
+  category: "document.beat",
   execute: (_args, _context): boolean => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
@@ -343,10 +343,10 @@ const deleteNoteAction: ActionDefinition<void> = {
   },
 };
 
-const insertRestBeforeAction: ActionDefinition<number | void> = {
-  id: "edit.beat.insertRestBefore",
+const insertRestBeforeAction: DocumentActionDefinition<number | void> = {
+  id: "document.beat.insertRestBefore",
   i18nKey: "actions.edit.beat.insertRestBefore",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestBefore.params.duration" }],
   execute: (duration, _context) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
@@ -387,10 +387,10 @@ const insertRestBeforeAction: ActionDefinition<number | void> = {
   },
 };
 
-const insertRestAfterAction: ActionDefinition<number | void> = {
-  id: "edit.beat.insertRestAfter",
+const insertRestAfterAction: DocumentActionDefinition<number | void> = {
+  id: "document.beat.insertRestAfter",
   i18nKey: "actions.edit.beat.insertRestAfter",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestAfter.params.duration" }],
   execute: (duration, _context) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
@@ -440,10 +440,10 @@ const insertRestAfterAction: ActionDefinition<number | void> = {
   },
 };
 
-const setRestAction: ActionDefinition<boolean> = {
-  id: "edit.beat.setRest",
+const setRestAction: DocumentActionDefinition<boolean> = {
+  id: "document.beat.setRest",
   i18nKey: "actions.edit.beat.setRest",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setRest.params.value" }],
   execute: (value, _context) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
@@ -490,63 +490,63 @@ const setRestAction: ActionDefinition<boolean> = {
   },
 };
 
-const setDurationAction: ActionDefinition<number> = {
-  id: "edit.beat.setDuration",
+const setDurationAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setDuration",
   i18nKey: "actions.edit.beat.setDuration",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setDuration.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ duration: value });
   },
 };
 
-const setDotsAction: ActionDefinition<number> = {
-  id: "edit.beat.setDots",
+const setDotsAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setDots",
   i18nKey: "actions.edit.beat.setDots",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setDots.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ dots: value });
   },
 };
 
-const setIsEmptyAction: ActionDefinition<boolean> = {
-  id: "edit.beat.setIsEmpty",
+const setIsEmptyAction: DocumentActionDefinition<boolean> = {
+  id: "document.beat.setIsEmpty",
   i18nKey: "actions.edit.beat.setIsEmpty",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setIsEmpty.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ isEmpty: value });
   },
 };
 
-const setTupletNumeratorAction: ActionDefinition<number> = {
-  id: "edit.beat.setTupletNumerator",
+const setTupletNumeratorAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setTupletNumerator",
   i18nKey: "actions.edit.beat.setTupletNumerator",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setTupletNumerator.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ tupletNumerator: value });
   },
 };
 
-const setTupletDenominatorAction: ActionDefinition<number> = {
-  id: "edit.beat.setTupletDenominator",
+const setTupletDenominatorAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setTupletDenominator",
   i18nKey: "actions.edit.beat.setTupletDenominator",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setTupletDenominator.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ tupletDenominator: value });
   },
 };
 
-const setTupletAction: ActionDefinition<{
+const setTupletAction: DocumentActionDefinition<{
   numerator: number;
   denominator: number;
 }> = {
-  id: "edit.beat.setTuplet",
+  id: "document.beat.setTuplet",
   i18nKey: "actions.edit.beat.setTuplet",
-  category: "edit.beat",
+  category: "document.beat",
   params: [
     { name: "numerator", type: "number", i18nKey: "actions.edit.beat.setTuplet.params.numerator" },
     { name: "denominator", type: "number", i18nKey: "actions.edit.beat.setTuplet.params.denominator" },
@@ -559,80 +559,80 @@ const setTupletAction: ActionDefinition<{
   },
 };
 
-const setGraceTypeAction: ActionDefinition<number> = {
-  id: "edit.beat.setGraceType",
+const setGraceTypeAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setGraceType",
   i18nKey: "actions.edit.beat.setGraceType",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setGraceType.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ graceType: value });
   },
 };
 
-const setDynamicsAction: ActionDefinition<number> = {
-  id: "edit.beat.setDynamics",
+const setDynamicsAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setDynamics",
   i18nKey: "actions.edit.beat.setDynamics",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setDynamics.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ dynamics: value });
   },
 };
 
-const setVibratoAction: ActionDefinition<number> = {
-  id: "edit.beat.setVibrato",
+const setVibratoAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setVibrato",
   i18nKey: "actions.edit.beat.setVibrato",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setVibrato.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ vibrato: value });
   },
 };
 
-const setDeadSlappedAction: ActionDefinition<boolean> = {
-  id: "edit.beat.setDeadSlapped",
+const setDeadSlappedAction: DocumentActionDefinition<boolean> = {
+  id: "document.beat.setDeadSlapped",
   i18nKey: "actions.edit.beat.setDeadSlapped",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setDeadSlapped.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ deadSlapped: value });
   },
 };
 
-const setWhammyBarTypeAction: ActionDefinition<number> = {
-  id: "edit.beat.setWhammyBarType",
+const setWhammyBarTypeAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setWhammyBarType",
   i18nKey: "actions.edit.beat.setWhammyBarType",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setWhammyBarType.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ whammyBarType: value });
   },
 };
 
-const setWhammyStyleAction: ActionDefinition<number> = {
-  id: "edit.beat.setWhammyStyle",
+const setWhammyStyleAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setWhammyStyle",
   i18nKey: "actions.edit.beat.setWhammyStyle",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setWhammyStyle.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ whammyStyle: value });
   },
 };
 
-const setIsContinuedWhammyAction: ActionDefinition<boolean> = {
-  id: "edit.beat.setIsContinuedWhammy",
+const setIsContinuedWhammyAction: DocumentActionDefinition<boolean> = {
+  id: "document.beat.setIsContinuedWhammy",
   i18nKey: "actions.edit.beat.setIsContinuedWhammy",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setIsContinuedWhammy.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ isContinuedWhammy: value });
   },
 };
 
-const setWhammyBarPointsAction: ActionDefinition<BendPointSchema[] | null> = {
-  id: "edit.beat.setWhammyBarPoints",
+const setWhammyBarPointsAction: DocumentActionDefinition<BendPointSchema[] | null> = {
+  id: "document.beat.setWhammyBarPoints",
   i18nKey: "actions.edit.beat.setWhammyBarPoints",
-  category: "edit.beat",
+  category: "document.beat",
   execute: (points, _context) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
@@ -665,15 +665,15 @@ const setWhammyBarPointsAction: ActionDefinition<BendPointSchema[] | null> = {
   },
 };
 
-const setWhammyBarAction: ActionDefinition<{
+const setWhammyBarAction: DocumentActionDefinition<{
   whammyBarType: number;
   whammyStyle: number;
   isContinuedWhammy: boolean;
   whammyBarPoints: BendPointSchema[] | null;
 }> = {
-  id: "edit.beat.setWhammyBar",
+  id: "document.beat.setWhammyBar",
   i18nKey: "actions.edit.beat.setWhammyBar",
-  category: "edit.beat",
+  category: "document.beat",
   execute: ({
     whammyBarType,
     whammyStyle,
@@ -713,33 +713,33 @@ const setWhammyBarAction: ActionDefinition<{
   },
 };
 
-const setBrushTypeAction: ActionDefinition<number> = {
-  id: "edit.beat.setBrushType",
+const setBrushTypeAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setBrushType",
   i18nKey: "actions.edit.beat.setBrushType",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setBrushType.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ brushType: value });
   },
 };
 
-const setBrushDurationAction: ActionDefinition<number> = {
-  id: "edit.beat.setBrushDuration",
+const setBrushDurationAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setBrushDuration",
   i18nKey: "actions.edit.beat.setBrushDuration",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setBrushDuration.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ brushDuration: value });
   },
 };
 
-const setBrushAction: ActionDefinition<{
+const setBrushAction: DocumentActionDefinition<{
   brushType: number;
   brushDuration: number;
 }> = {
-  id: "edit.beat.setBrush",
+  id: "document.beat.setBrush",
   i18nKey: "actions.edit.beat.setBrush",
-  category: "edit.beat",
+  category: "document.beat",
   params: [
     { name: "brushType", type: "number", i18nKey: "actions.edit.beat.setBrush.params.brushType" },
     { name: "brushDuration", type: "number", i18nKey: "actions.edit.beat.setBrush.params.brushDuration" },
@@ -749,20 +749,20 @@ const setBrushAction: ActionDefinition<{
   },
 };
 
-const setFadeAction: ActionDefinition<number> = {
-  id: "edit.beat.setFade",
+const setFadeAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setFade",
   i18nKey: "actions.edit.beat.setFade",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setFade.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ fade: value });
   },
 };
 
-const setAutomationsAction: ActionDefinition<AutomationSchema[]> = {
-  id: "edit.beat.setAutomations",
+const setAutomationsAction: DocumentActionDefinition<AutomationSchema[]> = {
+  id: "document.beat.setAutomations",
   i18nKey: "actions.edit.beat.setAutomations",
-  category: "edit.beat",
+  category: "document.beat",
   execute: (automations, _context) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
@@ -809,10 +809,10 @@ const setAutomationsAction: ActionDefinition<AutomationSchema[]> = {
   },
 };
 
-const setLyricsAction: ActionDefinition<string[] | null> = {
-  id: "edit.beat.setLyrics",
+const setLyricsAction: DocumentActionDefinition<string[] | null> = {
+  id: "document.beat.setLyrics",
   i18nKey: "actions.edit.beat.setLyrics",
-  category: "edit.beat",
+  category: "document.beat",
   execute: (lyrics, _context) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
@@ -851,28 +851,28 @@ const setLyricsAction: ActionDefinition<string[] | null> = {
   },
 };
 
-const setTextAction: ActionDefinition<string | null> = {
-  id: "edit.beat.setText",
+const setTextAction: DocumentActionDefinition<string | null> = {
+  id: "document.beat.setText",
   i18nKey: "actions.edit.beat.setText",
-  category: "edit.beat",
+  category: "document.beat",
   execute: (value, _context) => {
     applyBeatUpdates({ text: value });
   },
 };
 
-const setChordIdAction: ActionDefinition<string | null> = {
-  id: "edit.beat.setChordId",
+const setChordIdAction: DocumentActionDefinition<string | null> = {
+  id: "document.beat.setChordId",
   i18nKey: "actions.edit.beat.setChordId",
-  category: "edit.beat",
+  category: "document.beat",
   execute: (value, _context) => {
     applyBeatUpdates({ chordId: value });
   },
 };
 
-const setTremoloPickingAction: ActionDefinition<TremoloPickingEffectSchema | null> = {
-  id: "edit.beat.setTremoloPicking",
+const setTremoloPickingAction: DocumentActionDefinition<TremoloPickingEffectSchema | null> = {
+  id: "document.beat.setTremoloPicking",
   i18nKey: "actions.edit.beat.setTremoloPicking",
-  category: "edit.beat",
+  category: "document.beat",
   execute: (effect, _context) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
@@ -912,75 +912,75 @@ const setTremoloPickingAction: ActionDefinition<TremoloPickingEffectSchema | nul
   },
 };
 
-const setRasgueadoAction: ActionDefinition<number> = {
-  id: "edit.beat.setRasgueado",
+const setRasgueadoAction: DocumentActionDefinition<number> = {
+  id: "document.beat.setRasgueado",
   i18nKey: "actions.edit.beat.setRasgueado",
-  category: "edit.beat",
+  category: "document.beat",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setRasgueado.params.value" }],
   execute: (value, _context) => {
     applyBeatUpdates({ rasgueado: value });
   },
 };
 
-actionRegistry.register(placeNoteAction);
-actionRegistry.register(deleteNoteAction);
-actionRegistry.register(insertRestBeforeAction);
-actionRegistry.register(insertRestAfterAction);
-actionRegistry.register(setRestAction);
-actionRegistry.register(setDurationAction);
-actionRegistry.register(setDotsAction);
-actionRegistry.register(setIsEmptyAction);
-actionRegistry.register(setTupletNumeratorAction);
-actionRegistry.register(setTupletDenominatorAction);
-actionRegistry.register(setTupletAction);
-actionRegistry.register(setGraceTypeAction);
-actionRegistry.register(setDynamicsAction);
-actionRegistry.register(setVibratoAction);
-actionRegistry.register(setDeadSlappedAction);
-actionRegistry.register(setWhammyBarTypeAction);
-actionRegistry.register(setWhammyStyleAction);
-actionRegistry.register(setIsContinuedWhammyAction);
-actionRegistry.register(setWhammyBarPointsAction);
-actionRegistry.register(setWhammyBarAction);
-actionRegistry.register(setBrushTypeAction);
-actionRegistry.register(setBrushDurationAction);
-actionRegistry.register(setBrushAction);
-actionRegistry.register(setFadeAction);
-actionRegistry.register(setAutomationsAction);
-actionRegistry.register(setLyricsAction);
-actionRegistry.register(setTextAction);
-actionRegistry.register(setChordIdAction);
-actionRegistry.register(setTremoloPickingAction);
-actionRegistry.register(setRasgueadoAction);
+documentActionRegistry.register(placeNoteAction);
+documentActionRegistry.register(deleteNoteAction);
+documentActionRegistry.register(insertRestBeforeAction);
+documentActionRegistry.register(insertRestAfterAction);
+documentActionRegistry.register(setRestAction);
+documentActionRegistry.register(setDurationAction);
+documentActionRegistry.register(setDotsAction);
+documentActionRegistry.register(setIsEmptyAction);
+documentActionRegistry.register(setTupletNumeratorAction);
+documentActionRegistry.register(setTupletDenominatorAction);
+documentActionRegistry.register(setTupletAction);
+documentActionRegistry.register(setGraceTypeAction);
+documentActionRegistry.register(setDynamicsAction);
+documentActionRegistry.register(setVibratoAction);
+documentActionRegistry.register(setDeadSlappedAction);
+documentActionRegistry.register(setWhammyBarTypeAction);
+documentActionRegistry.register(setWhammyStyleAction);
+documentActionRegistry.register(setIsContinuedWhammyAction);
+documentActionRegistry.register(setWhammyBarPointsAction);
+documentActionRegistry.register(setWhammyBarAction);
+documentActionRegistry.register(setBrushTypeAction);
+documentActionRegistry.register(setBrushDurationAction);
+documentActionRegistry.register(setBrushAction);
+documentActionRegistry.register(setFadeAction);
+documentActionRegistry.register(setAutomationsAction);
+documentActionRegistry.register(setLyricsAction);
+documentActionRegistry.register(setTextAction);
+documentActionRegistry.register(setChordIdAction);
+documentActionRegistry.register(setTremoloPickingAction);
+documentActionRegistry.register(setRasgueadoAction);
 
 declare global {
-  interface ActionMap {
-    "edit.beat.placeNote": { args: number | void; result: void };
-    "edit.beat.deleteNote": { args: void; result: boolean };
-    "edit.beat.insertRestBefore": { args: number | void; result: void };
-    "edit.beat.insertRestAfter": { args: number | void; result: void };
-    "edit.beat.setRest": { args: boolean; result: void };
-    "edit.beat.setDuration": { args: number; result: void };
-    "edit.beat.setDots": { args: number; result: void };
-    "edit.beat.setIsEmpty": { args: boolean; result: void };
-    "edit.beat.setTupletNumerator": { args: number; result: void };
-    "edit.beat.setTupletDenominator": { args: number; result: void };
-    "edit.beat.setTuplet": {
+  interface DocumentActionMap {
+    "document.beat.placeNote": { args: number | void; result: void };
+    "document.beat.deleteNote": { args: void; result: boolean };
+    "document.beat.insertRestBefore": { args: number | void; result: void };
+    "document.beat.insertRestAfter": { args: number | void; result: void };
+    "document.beat.setRest": { args: boolean; result: void };
+    "document.beat.setDuration": { args: number; result: void };
+    "document.beat.setDots": { args: number; result: void };
+    "document.beat.setIsEmpty": { args: boolean; result: void };
+    "document.beat.setTupletNumerator": { args: number; result: void };
+    "document.beat.setTupletDenominator": { args: number; result: void };
+    "document.beat.setTuplet": {
       args: { numerator: number; denominator: number };
       result: void;
     };
-    "edit.beat.setGraceType": { args: number; result: void };
-    "edit.beat.setDynamics": { args: number; result: void };
-    "edit.beat.setVibrato": { args: number; result: void };
-    "edit.beat.setDeadSlapped": { args: boolean; result: void };
-    "edit.beat.setWhammyBarType": { args: number; result: void };
-    "edit.beat.setWhammyStyle": { args: number; result: void };
-    "edit.beat.setIsContinuedWhammy": { args: boolean; result: void };
-    "edit.beat.setWhammyBarPoints": {
+    "document.beat.setGraceType": { args: number; result: void };
+    "document.beat.setDynamics": { args: number; result: void };
+    "document.beat.setVibrato": { args: number; result: void };
+    "document.beat.setDeadSlapped": { args: boolean; result: void };
+    "document.beat.setWhammyBarType": { args: number; result: void };
+    "document.beat.setWhammyStyle": { args: number; result: void };
+    "document.beat.setIsContinuedWhammy": { args: boolean; result: void };
+    "document.beat.setWhammyBarPoints": {
       args: BendPointSchema[] | null;
       result: void;
     };
-    "edit.beat.setWhammyBar": {
+    "document.beat.setWhammyBar": {
       args: {
         whammyBarType: number;
         whammyStyle: number;
@@ -989,22 +989,22 @@ declare global {
       };
       result: void;
     };
-    "edit.beat.setBrushType": { args: number; result: void };
-    "edit.beat.setBrushDuration": { args: number; result: void };
-    "edit.beat.setBrush": {
+    "document.beat.setBrushType": { args: number; result: void };
+    "document.beat.setBrushDuration": { args: number; result: void };
+    "document.beat.setBrush": {
       args: { brushType: number; brushDuration: number };
       result: void;
     };
-    "edit.beat.setFade": { args: number; result: void };
-    "edit.beat.setAutomations": { args: AutomationSchema[]; result: void };
-    "edit.beat.setLyrics": { args: string[] | null; result: void };
-    "edit.beat.setText": { args: string | null; result: void };
-    "edit.beat.setChordId": { args: string | null; result: void };
-    "edit.beat.setTremoloPicking": {
+    "document.beat.setFade": { args: number; result: void };
+    "document.beat.setAutomations": { args: AutomationSchema[]; result: void };
+    "document.beat.setLyrics": { args: string[] | null; result: void };
+    "document.beat.setText": { args: string | null; result: void };
+    "document.beat.setChordId": { args: string | null; result: void };
+    "document.beat.setTremoloPicking": {
       args: TremoloPickingEffectSchema | null;
       result: void;
     };
-    "edit.beat.setRasgueado": { args: number; result: void };
+    "document.beat.setRasgueado": { args: number; result: void };
   }
 }
 

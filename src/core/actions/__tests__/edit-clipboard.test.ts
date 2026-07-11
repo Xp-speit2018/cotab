@@ -83,7 +83,7 @@ vi.mock("@/core/engine", () => {
 });
 
 import { createNote } from "@/core/schema";
-import { executeAction } from "@/core/actions/registry";
+import { executeDocumentAction } from "@/core/actions/registry";
 import { engine } from "@/core/engine";
 import "@/core/actions/edit-clipboard";
 import "@/core/actions/edit-history";
@@ -148,14 +148,14 @@ beforeEach(() => {
 
 // ─── Basic operations ────────────────────────────────────────────────────────
 
-describe("edit.copy", () => {
+describe("document.copy", () => {
   it("stores all beats from bar's voice", () => {
     const scoreMap = getScoreMap()!;
     seedOneTrackScore(scoreMap, 1);
     placeNoteDirectly(scoreMap, 0, 0, 0, 5, 1);
 
     selectBeat(sel());
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     const buf = getClipboardBuffer();
     expect(buf).not.toBeNull();
@@ -170,7 +170,7 @@ describe("edit.copy", () => {
     seedOneTrackScore(scoreMap, 1);
 
     selectBeat(null);
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     expect(getClipboardBuffer()).toBeNull();
   });
@@ -182,13 +182,13 @@ describe("edit.copy", () => {
     um.clear();
 
     selectBeat(sel());
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     expect(um.undoStack.length).toBe(0);
   });
 });
 
-describe("edit.cut", () => {
+describe("document.cut", () => {
   it("copies then clears bar (leaves single empty beat)", () => {
     const scoreMap = getScoreMap()!;
     seedOneTrackScore(scoreMap, 1);
@@ -198,7 +198,7 @@ describe("edit.cut", () => {
     um.clear();
 
     selectBeat(sel());
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     // Buffer has original beat with note
     const buf = getClipboardBuffer();
@@ -218,7 +218,7 @@ describe("edit.cut", () => {
     seedOneTrackScore(scoreMap, 1);
 
     selectBeat(null);
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     expect(getClipboardBuffer()).toBeNull();
   });
@@ -232,13 +232,13 @@ describe("edit.cut", () => {
     um.clear();
 
     selectBeat(sel());
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     expect(um.undoStack.length).toBe(1);
   });
 });
 
-describe("edit.paste", () => {
+describe("document.paste", () => {
   it("replaces target bar's voice with buffer beats", () => {
     const scoreMap = getScoreMap()!;
     seedOneTrackScore(scoreMap, 2);
@@ -249,11 +249,11 @@ describe("edit.paste", () => {
 
     // Copy from bar 0
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     // Paste into bar 1
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     const yBeats = getVoiceBeats(scoreMap, 0, 1);
     expect(yBeats.length).toBe(1);
@@ -267,7 +267,7 @@ describe("edit.paste", () => {
     seedOneTrackScore(scoreMap, 1);
 
     selectBeat(sel());
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Bar unchanged — still one empty beat
     const yBeats = getVoiceBeats(scoreMap, 0, 0);
@@ -280,10 +280,10 @@ describe("edit.paste", () => {
 
     // Put something in the buffer
     selectBeat(sel());
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     selectBeat(null);
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Should not crash
     expect(getClipboardBuffer()).not.toBeNull();
@@ -294,7 +294,7 @@ describe("edit.paste", () => {
     seedOneTrackScore(scoreMap, 1);
 
     selectBeat(sel());
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     const buf = getClipboardBuffer()!;
     // Modify buffer UUIDs to simulate different track
@@ -307,7 +307,7 @@ describe("edit.paste", () => {
     const um = getUndoManager()!;
     um.clear();
 
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // No undo entry = paste was blocked
     expect(um.undoStack.length).toBe(0);
@@ -326,10 +326,10 @@ describe("edit.paste", () => {
     um.clear();
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     expect(um.undoStack.length).toBe(1);
   });
@@ -347,10 +347,10 @@ describe("edit.paste", () => {
       .get("uuid") as string;
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     const pastedBeats = getVoiceBeats(scoreMap, 0, 1);
     const pastedBeatUuid = pastedBeats.get(0).get("uuid") as string;
@@ -376,10 +376,10 @@ describe("bar content integrity", () => {
     placeNoteDirectly(scoreMap, 0, 0, 2, 9, 3);
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     const yBeats = getVoiceBeats(scoreMap, 0, 1);
     expect(yBeats.length).toBe(4);
@@ -416,10 +416,10 @@ describe("bar content integrity", () => {
     }, doc.clientID);
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     const yBeats = getVoiceBeats(scoreMap, 0, 1);
     const pastedNote = (yBeats.get(0).get("notes") as Y.Array<Y.Map<unknown>>).get(0);
@@ -449,10 +449,10 @@ describe("bar content integrity", () => {
     }, doc.clientID);
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     const yBeats = getVoiceBeats(scoreMap, 0, 1);
     const pastedBeat = yBeats.get(0);
@@ -470,11 +470,11 @@ describe("bar content integrity", () => {
 
     // Copy empty bar 0
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     // Paste into bar 1 which has a note
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Bar 1 should now have single empty beat
     const yBeats = getVoiceBeats(scoreMap, 0, 1);
@@ -490,10 +490,10 @@ describe("bar content integrity", () => {
     placeNoteDirectly(scoreMap, 0, 0, 0, 7, 2);
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     const yBeats = getVoiceBeats(scoreMap, 0, 1);
     const notes = yBeats.get(0).get("notes") as Y.Array<Y.Map<unknown>>;
@@ -521,7 +521,7 @@ describe("multi-bar copy/cut/paste", () => {
       startBarIndex: 0,
       endBarIndex: 2,
     });
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     const buf = getClipboardBuffer();
     expect(buf).not.toBeNull();
@@ -547,12 +547,12 @@ describe("multi-bar copy/cut/paste", () => {
       startBarIndex: 0,
       endBarIndex: 2,
     });
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     // Clear range, paste at bar 1
     setSelectionRange(null);
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Bars 1, 2, 3 should now have frets 5, 7, 9
     const notes1 = getVoiceBeats(scoreMap, 0, 1).get(0).get("notes") as Y.Array<Y.Map<unknown>>;
@@ -577,7 +577,7 @@ describe("multi-bar copy/cut/paste", () => {
       startBarIndex: 0,
       endBarIndex: 1,
     });
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     // Buffer has 2 bars
     const buf = getClipboardBuffer();
@@ -607,7 +607,7 @@ describe("multi-bar copy/cut/paste", () => {
       startBarIndex: 0,
       endBarIndex: 1,
     });
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     const um = getUndoManager()!;
     um.clear();
@@ -615,7 +615,7 @@ describe("multi-bar copy/cut/paste", () => {
     // Paste at bar 2
     setSelectionRange(null);
     selectBeat(sel({ barIndex: 2 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Bars 2-3 should have notes
     expect(
@@ -651,12 +651,12 @@ describe("multi-bar copy/cut/paste", () => {
       startBarIndex: 0,
       endBarIndex: 2,
     });
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     // Paste at bar 2 — only 1 bar fits (bar 2), bars 3 and 4 don't exist
     setSelectionRange(null);
     selectBeat(sel({ barIndex: 2 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Bar 2 should have the first copied bar's note (fret 5)
     const notes2 = getVoiceBeats(scoreMap, 0, 2).get(0).get("notes") as Y.Array<Y.Map<unknown>>;
@@ -680,10 +680,10 @@ describe("undo/redo interactions", () => {
     um.clear();
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Bar 1 has pasted note
     let yBeats = getVoiceBeats(scoreMap, 0, 1);
@@ -706,10 +706,10 @@ describe("undo/redo interactions", () => {
     um.clear();
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     um.undo();
     um.redo();
@@ -729,7 +729,7 @@ describe("undo/redo interactions", () => {
     um.clear();
 
     selectBeat(sel());
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     // Bar cleared
     let yBeats = getVoiceBeats(scoreMap, 0, 0);
@@ -754,7 +754,7 @@ describe("undo/redo interactions", () => {
     um.clear();
 
     selectBeat(sel());
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     um.undo();
     um.redo();
@@ -776,11 +776,11 @@ describe("undo/redo interactions", () => {
 
     // Cut bar 0
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     // Paste into bar 1
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Undo paste
     um.undo();
@@ -807,7 +807,7 @@ describe("undo/redo interactions", () => {
     um.clear();
 
     selectBeat(sel());
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     um.undo();
 
@@ -825,11 +825,11 @@ describe("undo/redo interactions", () => {
     um.clear();
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     // Paste into bar 1
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Verify bar 1 has pasted content
     const yBeats1Before = getVoiceBeats(scoreMap, 0, 1);
@@ -841,7 +841,7 @@ describe("undo/redo interactions", () => {
 
     // Paste into bar 2
     selectBeat(sel({ barIndex: 2 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     expect(um.undoStack.length).toBe(2);
 
@@ -875,7 +875,7 @@ describe("undo/redo interactions", () => {
 
     // Copy (should not create undo entry)
     selectBeat(sel());
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     // Undo should revert the title change, not the copy
     um.undo();
@@ -892,11 +892,11 @@ describe("undo/redo interactions", () => {
 
     // Cut bar 0
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     // Paste into bar 1
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Snapshot final state
     const bar0BeatCount = getVoiceBeats(scoreMap, 0, 0).length;
@@ -929,7 +929,7 @@ describe("edge cases", () => {
     um.clear();
 
     selectBeat(sel());
-    executeAction("edit.cut", undefined, ctx);
+    executeDocumentAction("document.cut", undefined, ctx);
 
     expect(getClipboardBuffer()).not.toBeNull();
 
@@ -947,13 +947,13 @@ describe("edge cases", () => {
     placeNoteDirectly(scoreMap, 0, 0, 0, 5, 1);
 
     selectBeat(sel({ barIndex: 0 }));
-    executeAction("edit.copy", undefined, ctx);
+    executeDocumentAction("document.copy", undefined, ctx);
 
     // Bar 1 has 4 beats
     expect(getVoiceBeats(scoreMap, 0, 1).length).toBe(4);
 
     selectBeat(sel({ barIndex: 1 }));
-    executeAction("edit.paste", undefined, ctx);
+    executeDocumentAction("document.paste", undefined, ctx);
 
     // Now bar 1 has 1 beat (from source bar 0)
     const yBeats = getVoiceBeats(scoreMap, 0, 1);

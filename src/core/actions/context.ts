@@ -1,8 +1,8 @@
 import type { TFunction } from "i18next";
-import type { ActionExecutionContext } from "./types";
+import type { DocumentActionExecutionContext } from "./types";
 
 const identityT = ((key: string) => key) as unknown as TFunction;
 
-export function createIdentityActionContext(): ActionExecutionContext {
+export function createIdentityDocumentActionContext(): DocumentActionExecutionContext {
   return { t: identityT };
 }

@@ -40,7 +40,7 @@ vi.mock("@/core/engine", () => ({
   FILE_IMPORT_ORIGIN: "file-import",
 }));
 
-import { executeAction } from "@/core/actions/registry";
+import { executeDocumentAction } from "@/core/actions/registry";
 import "@/core/actions/edit-staff";
 
 beforeEach(() => {
@@ -52,28 +52,28 @@ beforeEach(() => {
 
 const ctx = testContext();
 
-describe("edit.staff.setCapo", () => {
+describe("document.staff.setCapo", () => {
   it("updates capo on the Y.Map", () => {
-    executeAction("edit.staff.setCapo", { trackIndex: 0, staffIndex: 0, capo: 3 }, ctx);
+    executeDocumentAction("document.staff.setCapo", { trackIndex: 0, staffIndex: 0, capo: 3 }, ctx);
     const staff = resolveYStaffHelper(0, 0)!;
     expect(staff.get("capo")).toBe(3);
   });
 
   it("sets capo to 0", () => {
-    executeAction("edit.staff.setCapo", { trackIndex: 0, staffIndex: 0, capo: 5 }, ctx);
-    executeAction("edit.staff.setCapo", { trackIndex: 0, staffIndex: 0, capo: 0 }, ctx);
+    executeDocumentAction("document.staff.setCapo", { trackIndex: 0, staffIndex: 0, capo: 5 }, ctx);
+    executeDocumentAction("document.staff.setCapo", { trackIndex: 0, staffIndex: 0, capo: 0 }, ctx);
     expect(resolveYStaffHelper(0, 0)!.get("capo")).toBe(0);
   });
 
   it("does nothing for invalid track index", () => {
-    executeAction("edit.staff.setCapo", { trackIndex: 99, staffIndex: 0, capo: 3 }, ctx);
+    executeDocumentAction("document.staff.setCapo", { trackIndex: 99, staffIndex: 0, capo: 3 }, ctx);
     expect(resolveYStaffHelper(0, 0)!.get("capo")).toBe(0);
   });
 });
 
-describe("edit.staff.setTranspositionPitch", () => {
+describe("document.staff.setTranspositionPitch", () => {
   it("updates only transpositionPitch on the Y.Map", () => {
-    executeAction("edit.staff.setTranspositionPitch", {
+    executeDocumentAction("document.staff.setTranspositionPitch", {
       trackIndex: 0,
       staffIndex: 0,
       transpositionPitch: -2,
@@ -84,10 +84,10 @@ describe("edit.staff.setTranspositionPitch", () => {
   });
 });
 
-describe("edit.staff.setStringTuning", () => {
+describe("document.staff.setStringTuning", () => {
   it("replaces the complete stringTuning object", () => {
     const dropD = [64, 59, 55, 50, 45, 38];
-    executeAction("edit.staff.setStringTuning", {
+    executeDocumentAction("document.staff.setStringTuning", {
       trackIndex: 0,
       staffIndex: 0,
       stringTuning: {
@@ -107,7 +107,7 @@ describe("edit.staff.setStringTuning", () => {
 
   it("can set 7-string tuning", () => {
     const sevenString = [64, 59, 55, 50, 45, 40, 35];
-    executeAction("edit.staff.setStringTuning", {
+    executeDocumentAction("document.staff.setStringTuning", {
       trackIndex: 0,
       staffIndex: 0,
       stringTuning: {
@@ -124,9 +124,9 @@ describe("edit.staff.setStringTuning", () => {
   });
 });
 
-describe("edit.staff.setIsPercussion", () => {
+describe("document.staff.setIsPercussion", () => {
   it("updates isPercussion directly", () => {
-    executeAction("edit.staff.setIsPercussion", {
+    executeDocumentAction("document.staff.setIsPercussion", {
       trackIndex: 0,
       staffIndex: 0,
       isPercussion: true,
@@ -136,9 +136,9 @@ describe("edit.staff.setIsPercussion", () => {
   });
 });
 
-describe("edit.staff.setChord", () => {
+describe("document.staff.setChord", () => {
   it("sets and removes a chord by id", () => {
-    executeAction("edit.staff.setChord", {
+    executeDocumentAction("document.staff.setChord", {
       trackIndex: 0,
       staffIndex: 0,
       id: "c-major",
@@ -160,7 +160,7 @@ describe("edit.staff.setChord", () => {
       (chords.get("c-major")?.get("strings") as Y.Array<number>).toArray(),
     ).toEqual([-1, 3, 2, 0, 1, 0]);
 
-    executeAction("edit.staff.setChord", {
+    executeDocumentAction("document.staff.setChord", {
       trackIndex: 0,
       staffIndex: 0,
       id: "c-major",

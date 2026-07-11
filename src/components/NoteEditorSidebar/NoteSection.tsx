@@ -70,7 +70,7 @@ export function NoteSection({
                     durationDisabled
                       ? undefined
                       : (pressed) => {
-                          if (pressed) executeAppAction("edit.beat.setDuration", d, { t });
+                          if (pressed) executeAppAction("document.beat.setDuration", d, { t });
                         }
                   }
                   textIcon={durationLabel(d)}
@@ -84,7 +84,7 @@ export function NoteSection({
               label={t("sidebar.note.dotted")}
               pressed={beat.dots >= 1}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setDots", pressed ? Math.max(1, beat.dots) : 0, { t })
+                executeAppAction("document.beat.setDots", pressed ? Math.max(1, beat.dots) : 0, { t })
               }
               icon={<CircleDot className="h-3.5 w-3.5" />}
             />
@@ -92,7 +92,7 @@ export function NoteSection({
               label={t("sidebar.note.doubleDot")}
               pressed={beat.dots >= 2}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setDots", pressed ? 2 : 1, { t })
+                executeAppAction("document.beat.setDots", pressed ? 2 : 1, { t })
               }
               textIcon=".."
             />
@@ -100,7 +100,7 @@ export function NoteSection({
               label={t("sidebar.note.rest")}
               pressed={beat.isRest}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setRest", pressed, { t })
+                executeAppAction("document.beat.setRest", pressed, { t })
               }
               icon={<Pause className="h-3.5 w-3.5" />}
             />
@@ -108,7 +108,7 @@ export function NoteSection({
               label={t("sidebar.note.triplet")}
               pressed={beat.tupletNumerator === 3 && beat.tupletDenominator === 2}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setTuplet", pressed
+                executeAppAction("document.beat.setTuplet", pressed
                   ? { numerator: 3, denominator: 2 }
                   : { numerator: -1, denominator: -1 }, { t })
               }
@@ -118,7 +118,7 @@ export function NoteSection({
               label={t("sidebar.note.quintuplet")}
               pressed={beat.tupletNumerator === 5 && beat.tupletDenominator === 4}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setTuplet", pressed
+                executeAppAction("document.beat.setTuplet", pressed
                   ? { numerator: 5, denominator: 4 }
                   : { numerator: -1, denominator: -1 }, { t })
               }
@@ -146,7 +146,7 @@ export function NoteSection({
                     min={0}
                     max={36}
                     onCommit={(value) =>
-                      executeAppAction("edit.note.setFret", value, { t })
+                      executeAppAction("document.note.setFret", value, { t })
                     }
                   />
                   <EditableNumberPropRow
@@ -155,7 +155,7 @@ export function NoteSection({
                     min={1}
                     max={Math.max(1, note.stringCount)}
                     onCommit={(value) =>
-                      executeAppAction("edit.note.setString", value, { t })
+                      executeAppAction("document.note.setString", value, { t })
                     }
                   />
                 </div>
@@ -169,7 +169,7 @@ export function NoteSection({
                     min={0}
                     max={9}
                     onCommit={(value) =>
-                      executeAppAction("edit.note.setOctave", value, { t })
+                      executeAppAction("document.note.setOctave", value, { t })
                     }
                   />
                   <EditableNumberPropRow
@@ -178,7 +178,7 @@ export function NoteSection({
                     min={0}
                     max={11}
                     onCommit={(value) =>
-                      executeAppAction("edit.note.setTone", value, { t })
+                      executeAppAction("document.note.setTone", value, { t })
                     }
                   />
                 </div>
@@ -194,7 +194,7 @@ export function NoteSection({
                       label={t("sidebar.note.tie")}
                       pressed={note.isTieDestination}
                       onPressedChange={(pressed) =>
-                        executeAppAction("edit.note.setIsTieDestination", pressed, { t })
+                        executeAppAction("document.note.setIsTieDestination", pressed, { t })
                       }
                       icon={<Link2 className="h-3.5 w-3.5" />}
                     />
@@ -203,7 +203,7 @@ export function NoteSection({
                     label={t("sidebar.note.ghostNote")}
                     pressed={note.isGhost}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setIsGhost", pressed, { t })
+                      executeAppAction("document.note.setIsGhost", pressed, { t })
                     }
                     icon={<Parentheses className="h-3.5 w-3.5" />}
                   />
@@ -211,7 +211,7 @@ export function NoteSection({
                     label={t("sidebar.note.deadNote")}
                     pressed={note.isDead}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setIsDead", pressed, { t })
+                      executeAppAction("document.note.setIsDead", pressed, { t })
                     }
                     icon={<X className="h-3.5 w-3.5" />}
                   />
@@ -219,7 +219,7 @@ export function NoteSection({
                     label={t("sidebar.note.accent")}
                     pressed={note.accentuated === AccentuationType.Normal}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setAccentuated", pressed ? AccentuationType.Normal : AccentuationType.None, { t })
+                      executeAppAction("document.note.setAccentuated", pressed ? AccentuationType.Normal : AccentuationType.None, { t })
                     }
                     icon={<AccentNormal className="h-3.5 w-3.5" />}
                   />
@@ -227,7 +227,7 @@ export function NoteSection({
                     label={t("sidebar.note.heavyAccent")}
                     pressed={note.accentuated === AccentuationType.Heavy}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setAccentuated", pressed ? AccentuationType.Heavy : AccentuationType.None, { t })
+                      executeAppAction("document.note.setAccentuated", pressed ? AccentuationType.Heavy : AccentuationType.None, { t })
                     }
                     icon={<AccentHeavy className="h-3.5 w-3.5" />}
                   />
@@ -235,7 +235,7 @@ export function NoteSection({
                     label={t("sidebar.note.tenuto")}
                     pressed={note.accentuated === AccentuationType.Tenuto}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setAccentuated", pressed ? AccentuationType.Tenuto : AccentuationType.None, { t })
+                      executeAppAction("document.note.setAccentuated", pressed ? AccentuationType.Tenuto : AccentuationType.None, { t })
                     }
                     textIcon="-"
                   />
@@ -243,7 +243,7 @@ export function NoteSection({
                     label={t("sidebar.note.staccato")}
                     pressed={note.isStaccato}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setIsStaccato", pressed, { t })
+                      executeAppAction("document.note.setIsStaccato", pressed, { t })
                     }
                     icon={<Disc className="h-3 w-3" />}
                   />
@@ -253,7 +253,7 @@ export function NoteSection({
                         label={t("sidebar.note.letRing")}
                         pressed={note.isLetRing}
                         onPressedChange={(pressed) =>
-                          executeAppAction("edit.note.setIsLetRing", pressed, { t })
+                          executeAppAction("document.note.setIsLetRing", pressed, { t })
                         }
                         icon={<BellRing className="h-3.5 w-3.5" />}
                       />
@@ -261,7 +261,7 @@ export function NoteSection({
                         label={t("sidebar.note.palmMute")}
                         pressed={note.isPalmMute}
                         onPressedChange={(pressed) =>
-                          executeAppAction("edit.note.setIsPalmMute", pressed, { t })
+                          executeAppAction("document.note.setIsPalmMute", pressed, { t })
                         }
                         icon={<Hand className="h-3.5 w-3.5" />}
                       />
@@ -282,7 +282,7 @@ export function NoteSection({
               label={t("sidebar.note.deadSlapped")}
               pressed={beat.deadSlapped}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setDeadSlapped", pressed, { t })
+                executeAppAction("document.beat.setDeadSlapped", pressed, { t })
               }
               textIcon="DS"
             />

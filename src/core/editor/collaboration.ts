@@ -15,6 +15,16 @@ export interface CollaborationPersistence {
   destroy(): void;
 }
 
+/**
+ * A logical peer attached to the current document without prescribing a
+ * network transport. EditorEngine owns document rebinding and update routing.
+ */
+export interface DocumentPeerConnection {
+  resetDocument(update: Uint8Array): void;
+  updateDocument(update: Uint8Array): void;
+  onDocumentUpdate(callback: (update: Uint8Array) => void): () => void;
+}
+
 export interface CollaborationAdapter {
   createRoom?: () => Promise<string>;
   roomExists?: (roomCode: string) => Promise<boolean>;

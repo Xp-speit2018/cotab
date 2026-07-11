@@ -96,7 +96,7 @@ vi.mock("@/core/engine", () => {
   };
 });
 
-import { executeAction } from "@/core/actions/registry";
+import { executeDocumentAction } from "@/core/actions/registry";
 import {
   AutomationType,
   Clef,
@@ -137,12 +137,12 @@ function staffBarCount(trackIdx = 0, staffIdx = 0): number {
   return bars.length;
 }
 
-describe("edit.bar.insertAfter", () => {
+describe("document.bar.insertAfter", () => {
   it("adds a masterBar and a bar to each staff", () => {
     expect(masterBarCount()).toBe(2);
     expect(staffBarCount()).toBe(2);
 
-    executeAction("edit.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
 
     expect(masterBarCount()).toBe(3);
     expect(staffBarCount()).toBe(3);
@@ -152,7 +152,7 @@ describe("edit.bar.insertAfter", () => {
     const barBefore = resolveYBarHelper(0, 0, 1)!;
     const uuidBefore = barBefore.get("uuid");
 
-    executeAction("edit.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
 
     const barAtIdx1 = resolveYBarHelper(0, 0, 1)!;
     expect(barAtIdx1.get("uuid")).not.toBe(uuidBefore);
@@ -169,7 +169,7 @@ describe("edit.bar.insertAfter", () => {
       mbs.get(0).set("timeSignatureDenominator", 8);
     });
 
-    executeAction("edit.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
 
     const newMb = mbs.get(1);
     expect(newMb.get("timeSignatureNumerator")).toBe(3);
@@ -178,16 +178,16 @@ describe("edit.bar.insertAfter", () => {
 
   it("does nothing without selection", () => {
     selectBeat(null);
-    executeAction("edit.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
     expect(masterBarCount()).toBe(2);
   });
 });
 
-describe("edit.bar.insertBefore", () => {
+describe("document.bar.insertBefore", () => {
   it("inserts a bar before the current bar", () => {
     const bar0uuid = resolveYBarHelper(0, 0, 0)!.get("uuid");
 
-    executeAction("edit.bar.insertBefore", undefined, ctx);
+    executeDocumentAction("document.bar.insertBefore", undefined, ctx);
 
     expect(masterBarCount()).toBe(3);
     expect(staffBarCount()).toBe(3);
@@ -198,21 +198,21 @@ describe("edit.bar.insertBefore", () => {
 
 });
 
-describe("edit.bar.delete", () => {
+describe("document.bar.delete", () => {
   it("removes bar when bar is empty", () => {
     selectBeat({ ...defaultSel, barIndex: 1 });
-    executeAction("edit.bar.delete", undefined, ctx);
+    executeDocumentAction("document.bar.delete", undefined, ctx);
     expect(masterBarCount()).toBe(1);
     expect(staffBarCount()).toBe(1);
   });
 
   it("is blocked when only 1 bar remains", () => {
     selectBeat({ ...defaultSel, barIndex: 0 });
-    executeAction("edit.bar.delete", undefined, ctx);
+    executeDocumentAction("document.bar.delete", undefined, ctx);
     expect(masterBarCount()).toBe(1);
     expect(staffBarCount()).toBe(1);
 
-    const result = executeAction("edit.bar.delete", undefined, ctx);
+    const result = executeDocumentAction("document.bar.delete", undefined, ctx);
     expect(result).toBe(false);
   });
 
@@ -230,45 +230,45 @@ describe("edit.bar.delete", () => {
       yBeat.set("isEmpty", false);
     });
 
-    const result = executeAction("edit.bar.delete", undefined, ctx);
+    const result = executeDocumentAction("document.bar.delete", undefined, ctx);
     expect(result).toBe(false);
     expect(masterBarCount()).toBe(2);
   });
 });
 
-describe("edit.bar field actions", () => {
+describe("document.bar field actions", () => {
   it.each([
-    ["edit.bar.setClef", "clef", Clef.F4],
-    ["edit.bar.setClefOttava", "clefOttava", Ottavia._8vb],
-    ["edit.bar.setSimileMark", "simileMark", SimileMark.Simple],
-    ["edit.bar.setKeySignature", "keySignature", -3],
-    ["edit.bar.setKeySignatureType", "keySignatureType", KeySignatureType.Minor],
+    ["document.bar.setClef", "clef", Clef.F4],
+    ["document.bar.setClefOttava", "clefOttava", Ottavia._8vb],
+    ["document.bar.setSimileMark", "simileMark", SimileMark.Simple],
+    ["document.bar.setKeySignature", "keySignature", -3],
+    ["document.bar.setKeySignatureType", "keySignatureType", KeySignatureType.Minor],
   ] as const)("%s updates %s", (actionId, field, value) => {
-    executeAction(actionId, value, ctx);
+    executeDocumentAction(actionId, value, ctx);
     expect(resolveYBarHelper(0, 0, 0)!.get(field)).toBe(value);
   });
 });
 
-describe("edit.masterBar field actions", () => {
+describe("document.masterBar field actions", () => {
   function masterBar(): Y.Map<unknown> {
     return (getScoreMap()!.get("masterBars") as Y.Array<Y.Map<unknown>>).get(0);
   }
 
   it.each([
-    ["edit.masterBar.setTimeSignatureNumerator", "timeSignatureNumerator", 7],
-    ["edit.masterBar.setTimeSignatureDenominator", "timeSignatureDenominator", 8],
-    ["edit.masterBar.setIsRepeatStart", "isRepeatStart", true],
-    ["edit.masterBar.setRepeatCount", "repeatCount", 3],
-    ["edit.masterBar.setAlternateEndings", "alternateEndings", 5],
-    ["edit.masterBar.setTripletFeel", "tripletFeel", TripletFeel.Triplet8th],
-    ["edit.masterBar.setIsFreeTime", "isFreeTime", true],
+    ["document.masterBar.setTimeSignatureNumerator", "timeSignatureNumerator", 7],
+    ["document.masterBar.setTimeSignatureDenominator", "timeSignatureDenominator", 8],
+    ["document.masterBar.setIsRepeatStart", "isRepeatStart", true],
+    ["document.masterBar.setRepeatCount", "repeatCount", 3],
+    ["document.masterBar.setAlternateEndings", "alternateEndings", 5],
+    ["document.masterBar.setTripletFeel", "tripletFeel", TripletFeel.Triplet8th],
+    ["document.masterBar.setIsFreeTime", "isFreeTime", true],
   ] as const)("%s updates %s", (actionId, field, value) => {
-    executeAction(actionId, value, ctx);
+    executeDocumentAction(actionId, value, ctx);
     expect(masterBar().get(field)).toBe(value);
   });
 
   it("sets and clears section", () => {
-    executeAction("edit.masterBar.setSection", {
+    executeDocumentAction("document.masterBar.setSection", {
       text: "Verse",
       marker: "A",
     }, ctx);
@@ -277,12 +277,12 @@ describe("edit.masterBar field actions", () => {
       marker: "A",
     });
 
-    executeAction("edit.masterBar.setSection", null, ctx);
+    executeDocumentAction("document.masterBar.setSection", null, ctx);
     expect(masterBar().get("section")).toBeNull();
   });
 
   it("replaces tempoAutomations", () => {
-    executeAction("edit.masterBar.setTempoAutomations", [
+    executeDocumentAction("document.masterBar.setTempoAutomations", [
       {
         isLinear: false,
         type: AutomationType.Tempo,
@@ -307,7 +307,7 @@ describe("edit.masterBar field actions", () => {
   });
 
   it("updates and removes only the tempo automation", () => {
-    executeAction("edit.masterBar.setTempoAutomations", [
+    executeDocumentAction("document.masterBar.setTempoAutomations", [
       {
         isLinear: false,
         type: AutomationType.Volume,
@@ -318,7 +318,7 @@ describe("edit.masterBar field actions", () => {
       },
     ], ctx);
 
-    executeAction("edit.masterBar.setTempo", 132, ctx);
+    executeDocumentAction("document.masterBar.setTempo", 132, ctx);
     const automations = masterBar().get(
       "tempoAutomations",
     ) as Y.Array<Y.Map<unknown>>;
@@ -326,14 +326,14 @@ describe("edit.masterBar field actions", () => {
     expect(automations.get(0).get("type")).toBe(AutomationType.Volume);
     expect(automations.get(1).get("value")).toBe(132);
 
-    executeAction("edit.masterBar.setTempo", null, ctx);
+    executeDocumentAction("document.masterBar.setTempo", null, ctx);
     expect(automations.length).toBe(1);
     expect(automations.get(0).get("type")).toBe(AutomationType.Volume);
   });
 
   it("does nothing without a selected bar", () => {
     selectBeat(null);
-    executeAction("edit.masterBar.setRepeatCount", 4, ctx);
+    executeDocumentAction("document.masterBar.setRepeatCount", 4, ctx);
     expect(masterBar().get("repeatCount")).toBe(0);
   });
 });

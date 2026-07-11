@@ -83,7 +83,7 @@ vi.mock("@/core/engine", () => {
 
 import { EditorEngine } from "@/core/engine";
 import { createTrack, createStaff } from "@/core/schema";
-import { executeAction } from "@/core/actions/registry";
+import { executeDocumentAction } from "@/core/actions/registry";
 import "@/core/actions/edit-bar";
 import "@/core/actions/edit-track";
 
@@ -109,28 +109,28 @@ beforeEach(() => {
   selectBeat(defaultSel);
 });
 
-describe("edit.track.setName", () => {
+describe("document.track.setName", () => {
   it("updates track name in Y.Doc", () => {
-    const result = executeAction("edit.track.setName", { trackIndex: 0, name: "Lead Guitar" }, ctx);
+    const result = executeDocumentAction("document.track.setName", { trackIndex: 0, name: "Lead Guitar" }, ctx);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Lead Guitar");
   });
 
   it("does nothing for invalid index", () => {
-    executeAction("edit.track.setName", { trackIndex: 99, name: "Nope" }, ctx);
+    executeDocumentAction("document.track.setName", { trackIndex: 99, name: "Nope" }, ctx);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Test Guitar");
   });
 });
 
-describe("edit.track.setShortName", () => {
+describe("document.track.setShortName", () => {
   it("updates shortName in Y.Doc", () => {
-    executeAction("edit.track.setShortName", { trackIndex: 0, shortName: "Gtr" }, ctx);
+    executeDocumentAction("document.track.setShortName", { trackIndex: 0, shortName: "Gtr" }, ctx);
     expect(resolveYTrackHelper(0)!.get("shortName")).toBe("Gtr");
   });
 });
 
-describe("edit.track.setPlaybackInfoProgram", () => {
+describe("document.track.setPlaybackInfoProgram", () => {
   it("updates playbackInfo.program in Y.Doc", () => {
-    executeAction("edit.track.setPlaybackInfoProgram", { trackIndex: 0, program: 30 }, ctx);
+    executeDocumentAction("document.track.setPlaybackInfoProgram", { trackIndex: 0, program: 30 }, ctx);
     const playbackInfo = resolveYTrackHelper(0)!.get(
       "playbackInfo",
     ) as Y.Map<unknown>;
@@ -139,7 +139,7 @@ describe("edit.track.setPlaybackInfoProgram", () => {
   });
 });
 
-describe("edit.track.setPercussionArticulationOutputMidiNumber", () => {
+describe("document.track.setPercussionArticulationOutputMidiNumber", () => {
   it("updates the selected AlphaTab articulation entry", () => {
     const track = resolveYTrackHelper(0)!;
     const articulations = track.get(
@@ -152,7 +152,7 @@ describe("edit.track.setPercussionArticulationOutputMidiNumber", () => {
       articulations.push([articulation]);
     });
 
-    executeAction("edit.track.setPercussionArticulationOutputMidiNumber", {
+    executeDocumentAction("document.track.setPercussionArticulationOutputMidiNumber", {
       trackIndex: 0,
       articulationIndex: 0,
       outputMidiNumber: 40,
@@ -162,7 +162,7 @@ describe("edit.track.setPercussionArticulationOutputMidiNumber", () => {
   });
 });
 
-describe("edit.track.delete", () => {
+describe("document.track.delete", () => {
   beforeEach(() => {
     const scoreMap = getScoreMap()!;
     scoreMap.doc!.transact(() => {
@@ -179,7 +179,7 @@ describe("edit.track.delete", () => {
 
   it("removes track from Y.Array", () => {
     expect(trackCount()).toBe(2);
-    executeAction("edit.track.delete", 1, ctx);
+    executeDocumentAction("document.track.delete", 1, ctx);
     expect(trackCount()).toBe(1);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Test Guitar");
   });
@@ -192,18 +192,18 @@ describe("edit.track.delete", () => {
     seedOneTrackScore(getScoreMap()!, 1);
 
     expect(trackCount()).toBe(1);
-    const result = executeAction("edit.track.delete", 0, ctx);
+    const result = executeDocumentAction("document.track.delete", 0, ctx);
     expect(result).toBe(false);
     expect(trackCount()).toBe(1);
   });
 
   it("returns false for invalid track index", () => {
-    const result = executeAction("edit.track.delete", 99, ctx);
+    const result = executeDocumentAction("document.track.delete", 99, ctx);
     expect(result).toBe(false);
   });
 });
 
-describe("edit.track.setName (all track types)", () => {
+describe("document.track.setName (all track types)", () => {
   it("updates violin track name", () => {
     resetMockState();
     destroyDoc();
@@ -211,7 +211,7 @@ describe("edit.track.setName (all track types)", () => {
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Violin", tuning: [76, 69, 62, 55] });
     selectBeat({ ...defaultSel, string: 2 as number | null });
 
-    executeAction("edit.track.setName", { trackIndex: 0, name: "Solo Violin" }, ctx);
+    executeDocumentAction("document.track.setName", { trackIndex: 0, name: "Solo Violin" }, ctx);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Solo Violin");
   });
 
@@ -222,7 +222,7 @@ describe("edit.track.setName (all track types)", () => {
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Piano", showTablature: false });
     selectBeat(defaultSel);
 
-    executeAction("edit.track.setName", { trackIndex: 0, name: "Grand Piano" }, ctx);
+    executeDocumentAction("document.track.setName", { trackIndex: 0, name: "Grand Piano" }, ctx);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Grand Piano");
   });
 
@@ -233,16 +233,16 @@ describe("edit.track.setName (all track types)", () => {
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
     selectBeat(defaultSel);
 
-    executeAction("edit.track.setName", { trackIndex: 0, name: "Kit" }, ctx);
+    executeDocumentAction("document.track.setName", { trackIndex: 0, name: "Kit" }, ctx);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Kit");
   });
 });
 
-describe("edit.track.add", () => {
+describe("document.track.add", () => {
   it("adds a preset track directly to Y.Doc without a renderer score", () => {
     const tracksBefore = trackCount();
 
-    executeAction("edit.track.add", "acousticPiano", ctx);
+    executeDocumentAction("document.track.add", "acousticPiano", ctx);
 
     expect(trackCount()).toBe(tracksBefore + 1);
     const yTrack = resolveYTrackHelper(tracksBefore)!;
@@ -260,7 +260,7 @@ describe("edit.track.add", () => {
     destroyDoc();
     initDoc();
 
-    executeAction("edit.track.add", "drumkit", ctx);
+    executeDocumentAction("document.track.add", "drumkit", ctx);
 
     const scoreMap = getScoreMap()!;
     const yMasterBars = scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>;

@@ -18,25 +18,25 @@ Current implementation: `src/app-actions`.
 
 Examples:
 
-- `document.edit.beat.placeNote`
-- `selector.nextBeat`
+- `document.beat.placeNote`
+- `selector.set`
 - `transport.playPause`
 - `view.toggleSidebar`
 
-The AppAction namespace may delegate to lower-level registries. Shortcut
-bindings reference AppAction IDs, not React callbacks or CLI commands.
+AppAction lookup composes native selector/transport/view actions with the
+DocumentAction registry. DocumentActions are resolved directly rather than
+copied into a proxy registry. Shortcut bindings reference AppAction IDs, not
+React callbacks or CLI commands.
 
 ### DocumentAction
 
 A DocumentAction is a headless action over `EditorEngine` and the score
-document. Existing modules under `src/core/actions` are the current
-DocumentAction implementation, although the code still uses the generic
-`Action*` type names.
+document. Modules under `src/core/actions` implement the
+`DocumentActionDefinition` registry.
 
-Most DocumentActions mutate the Y.Doc score and are undoable. Some existing
-headless actions manage local editor state needed for document editing, such as
-selector navigation, history, clipboard, or pending selection. These actions
-must remain renderer-independent.
+Most DocumentActions mutate the Y.Doc score and are undoable. History and
+clipboard actions remain renderer-independent document operations. Selector
+actions are local AppActions and do not live in the DocumentAction registry.
 
 DocumentActions are safe for CLI and MCP surfaces because they do not depend on
 React, the browser DOM, or the AlphaTab renderer instance.
@@ -48,11 +48,8 @@ A TransportAction controls local playback behavior.
 Examples:
 
 - `transport.playPause`
-- `transport.play`
-- `transport.pause`
 - `transport.stop`
 - `transport.setPlayheadToSelector`
-- `transport.seekToStart`
 - `transport.toggleLoop`
 
 TransportActions are local editor/application state. They must not write to the
@@ -65,10 +62,7 @@ A ViewAction controls local UI presentation.
 
 Examples:
 
-- `view.toggleSidebar`
-- `view.toggleDebugPanel`
-- `view.zoomIn`
-- `view.zoomOut`
+- `view.setTrackVisible`
 
 ViewActions are local UI state. They must not be exposed as score-editing
 operations through CLI/MCP unless a target explicitly provides equivalent view
@@ -81,16 +75,16 @@ state.
 - Use `command` only for CLI subcommands.
 - Keep transport and view actions out of `src/core/actions`.
 - Keep Y.Doc mutations and renderer-independent document editing in
-  `src/core/actions` until that registry is renamed or split.
+  `src/core/actions`.
 - Prefer domain-first IDs: `document.*`, `selector.*`, `transport.*`,
   `view.*`.
 
-## Current Transitional State
+## Protocol v0
 
-The codebase still has historical IDs such as `edit.beat.placeNote` and
-`nav.setSelection`. Do not rename them mechanically. `src/app-actions` currently
-registers these DocumentActions as AppActions through a proxy, while native
-transport actions use IDs such as `transport.playPause`.
+Public IDs are domain-first: DocumentActions use `document.*`, selector actions
+use `selector.*`, and local transport/view actions retain their own domains.
+Protocol v0 may still change these IDs and argument shapes without compatibility
+aliases.
 
 Production UI, shortcut handling, and local app-state entrypoints dispatch
 through AppAction. Direct DocumentAction execution is reserved for the core
@@ -100,3 +94,14 @@ and focused DocumentAction tests.
 The boundary is guarded by `src/core/__tests__/target-boundaries.test.ts`, which
 fails if UI, shortcut, or local app-state code imports `@/core/actions`
 directly.
+
+## Minimal MCP
+
+`src/protocol/minimal-mcp.ts` is the single tool definition and dispatch layer
+for protocol v0. It exposes score inspection, DocumentAction execution,
+peer-local selector control, and peer-local undo/redo. Action arguments retain
+their native JSON shape rather than being normalized for a specific transport.
+
+The stdio MCP server and the browser Agent Worker both execute this dispatcher.
+Tauri connects Codex dynamic tools to the browser worker, so local Codex edits
+the current logical peer instead of an unrelated headless document.

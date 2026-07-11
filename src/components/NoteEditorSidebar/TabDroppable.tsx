@@ -7,12 +7,17 @@ import { cn } from "@/lib/utils";
  */
 export function TabDroppable({
   tabId,
+  side,
   children,
 }: {
   tabId: string;
+  side: "left" | "right";
   children: React.ReactNode;
 }) {
-  const { isOver, setNodeRef } = useDroppable({ id: tabId });
+  const { isOver, setNodeRef } = useDroppable({
+    id: `tab-content:${tabId}`,
+    data: { type: "tab-content", tabId, side },
+  });
   return (
     <div
       ref={setNodeRef}

@@ -112,7 +112,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.bend")}
                     pressed={note.bendType !== BendType.None}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setBend", pressed
+                      executeAppAction("document.note.setBend", pressed
                         ? {
                             bendType: BendType.Bend,
                             bendStyle: BendStyle.Default,
@@ -135,7 +135,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.vibratoSlight")}
                     pressed={note.vibrato === VibratoType.Slight}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setVibrato", pressed ? VibratoType.Slight : VibratoType.None, { t })
+                      executeAppAction("document.note.setVibrato", pressed ? VibratoType.Slight : VibratoType.None, { t })
                     }
                     icon={<Waves className="h-3.5 w-3.5" />}
                   />
@@ -143,7 +143,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.vibratoWide")}
                     pressed={note.vibrato === VibratoType.Wide}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setVibrato", pressed ? VibratoType.Wide : VibratoType.None, { t })
+                      executeAppAction("document.note.setVibrato", pressed ? VibratoType.Wide : VibratoType.None, { t })
                     }
                     icon={<Waves className="h-3.5 w-3.5" strokeWidth={3} />}
                   />
@@ -151,7 +151,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.slideInBelow")}
                     pressed={note.slideInType === SlideInType.IntoFromBelow}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setSlideInType", pressed ? SlideInType.IntoFromBelow : SlideInType.None, { t })
+                      executeAppAction("document.note.setSlideInType", pressed ? SlideInType.IntoFromBelow : SlideInType.None, { t })
                     }
                     icon={<CornerRightUp className="h-3.5 w-3.5" />}
                   />
@@ -159,7 +159,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.slideInAbove")}
                     pressed={note.slideInType === SlideInType.IntoFromAbove}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setSlideInType", pressed ? SlideInType.IntoFromAbove : SlideInType.None, { t })
+                      executeAppAction("document.note.setSlideInType", pressed ? SlideInType.IntoFromAbove : SlideInType.None, { t })
                     }
                     icon={<CornerRightDown className="h-3.5 w-3.5" />}
                   />
@@ -167,7 +167,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.slideOut")}
                     pressed={note.slideOutType !== SlideOutType.None}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setSlideOutType", pressed ? SlideOutType.Shift : SlideOutType.None, { t })
+                      executeAppAction("document.note.setSlideOutType", pressed ? SlideOutType.Shift : SlideOutType.None, { t })
                     }
                     icon={<MoveRight className="h-3.5 w-3.5" />}
                   />
@@ -175,7 +175,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.hammerPullOff")}
                     pressed={note.isHammerPullOrigin}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setIsHammerPullOrigin", pressed, { t })
+                      executeAppAction("document.note.setIsHammerPullOrigin", pressed, { t })
                     }
                     textIcon="H/P"
                   />
@@ -183,7 +183,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.leftHandTap")}
                     pressed={note.isLeftHandTapped}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setIsLeftHandTapped", pressed, { t })
+                      executeAppAction("document.note.setIsLeftHandTapped", pressed, { t })
                     }
                     textIcon="T+"
                   />
@@ -191,7 +191,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.trill")}
                     pressed={note.trillValue >= 0}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setTrill", {
+                      executeAppAction("document.note.setTrill", {
                         trillValue: pressed ? Math.max(0, note.fret + 2) : -1,
                         trillSpeed: Duration.Sixteenth,
                       }, { t })
@@ -202,7 +202,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.harmonics")}
                     pressed={note.harmonicType !== HarmonicType.None}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setHarmonicType", pressed ? HarmonicType.Natural : HarmonicType.None, { t })
+                      executeAppAction("document.note.setHarmonicType", pressed ? HarmonicType.Natural : HarmonicType.None, { t })
                     }
                     icon={<Sparkles className="h-3.5 w-3.5" />}
                   />
@@ -210,7 +210,7 @@ export function EffectsSection({
                     label={t("sidebar.effects.ornament")}
                     pressed={note.ornament !== NoteOrnament.None}
                     onPressedChange={(pressed) =>
-                      executeAppAction("edit.note.setOrnament", pressed ? NoteOrnament.Turn : NoteOrnament.None, { t })
+                      executeAppAction("document.note.setOrnament", pressed ? NoteOrnament.Turn : NoteOrnament.None, { t })
                     }
                     icon={<RotateCcw className="h-3.5 w-3.5" />}
                   />
@@ -237,7 +237,7 @@ export function EffectsSection({
                     min={0}
                     max={24}
                     onCommit={(value) =>
-                      executeAppAction("edit.note.setHarmonicValue", value, { t })
+                      executeAppAction("document.note.setHarmonicValue", value, { t })
                     }
                   />
                 </>
@@ -272,7 +272,7 @@ export function EffectsSection({
                 label={t("sidebar.effects.beatVibrato")}
                 pressed={beat.vibrato !== VibratoType.None}
                 onPressedChange={(pressed) =>
-                  executeAppAction("edit.beat.setVibrato", pressed ? VibratoType.Slight : VibratoType.None, { t })
+                  executeAppAction("document.beat.setVibrato", pressed ? VibratoType.Slight : VibratoType.None, { t })
                 }
                 icon={<Waves className="h-3.5 w-3.5" />}
               />
@@ -280,7 +280,7 @@ export function EffectsSection({
                 label={t("sidebar.effects.graceNote")}
                 pressed={beat.graceType !== GraceType.None}
                 onPressedChange={(pressed) =>
-                  executeAppAction("edit.beat.setGraceType", pressed ? GraceType.BeforeBeat : GraceType.None, { t })
+                  executeAppAction("document.beat.setGraceType", pressed ? GraceType.BeforeBeat : GraceType.None, { t })
                 }
                 icon={<Music className="h-3.5 w-3.5" />}
               />
@@ -288,7 +288,7 @@ export function EffectsSection({
                 label={t("sidebar.effects.whammyBar")}
                 pressed={beat.whammyBarType !== WhammyType.None}
                 onPressedChange={(pressed) =>
-                  executeAppAction("edit.beat.setWhammyBar", pressed
+                  executeAppAction("document.beat.setWhammyBar", pressed
                     ? {
                         whammyBarType: WhammyType.Dive,
                         whammyStyle: BendStyle.Default,
@@ -311,7 +311,7 @@ export function EffectsSection({
                 label={t("sidebar.effects.brushUp")}
                 pressed={beat.brushType === BrushType.BrushUp}
                 onPressedChange={(pressed) =>
-                  executeAppAction("edit.beat.setBrush", pressed
+                  executeAppAction("document.beat.setBrush", pressed
                     ? { brushType: BrushType.BrushUp, brushDuration: 120 }
                     : { brushType: BrushType.None, brushDuration: 0 }, { t })
                 }
@@ -321,7 +321,7 @@ export function EffectsSection({
                 label={t("sidebar.effects.brushDown")}
                 pressed={beat.brushType === BrushType.BrushDown}
                 onPressedChange={(pressed) =>
-                  executeAppAction("edit.beat.setBrush", pressed
+                  executeAppAction("document.beat.setBrush", pressed
                     ? { brushType: BrushType.BrushDown, brushDuration: 120 }
                     : { brushType: BrushType.None, brushDuration: 0 }, { t })
                 }
@@ -331,7 +331,7 @@ export function EffectsSection({
                 label={t("sidebar.effects.tremoloPicking")}
                 pressed={beat.tremoloPicking !== null}
                 onPressedChange={(pressed) =>
-                  executeAppAction("edit.beat.setTremoloPicking", pressed
+                  executeAppAction("document.beat.setTremoloPicking", pressed
                     ? { marks: 3, style: TremoloPickingStyle.Default }
                     : null, { t })
                 }
@@ -350,7 +350,7 @@ export function EffectsSection({
             )}
             icon={<Hand className="h-3.5 w-3.5" />}
             onValueChange={(value) =>
-              executeAppAction("edit.beat.setRasgueado", value, { t })
+              executeAppAction("document.beat.setRasgueado", value, { t })
             }
           />
 
@@ -377,7 +377,7 @@ export function EffectsSection({
                   pressed={beat.dynamics === dynamic}
                   onPressedChange={(pressed) => {
                     if (pressed) {
-                      executeAppAction("edit.beat.setDynamics", dynamic, { t });
+                      executeAppAction("document.beat.setDynamics", dynamic, { t });
                     }
                   }}
                   textIcon={dynamicLabel(dynamic)}
@@ -392,7 +392,7 @@ export function EffectsSection({
               label={t("sidebar.effects.fadeIn")}
               pressed={beat.fade === FadeType.FadeIn}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setFade", pressed ? FadeType.FadeIn : FadeType.None, { t })
+                executeAppAction("document.beat.setFade", pressed ? FadeType.FadeIn : FadeType.None, { t })
               }
               icon={<SunMedium className="h-3.5 w-3.5" />}
             />
@@ -400,7 +400,7 @@ export function EffectsSection({
               label={t("sidebar.effects.fadeOut")}
               pressed={beat.fade === FadeType.FadeOut}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setFade", pressed ? FadeType.FadeOut : FadeType.None, { t })
+                executeAppAction("document.beat.setFade", pressed ? FadeType.FadeOut : FadeType.None, { t })
               }
               textIcon="FO"
             />
@@ -408,7 +408,7 @@ export function EffectsSection({
               label={t("sidebar.effects.volumeSwell")}
               pressed={beat.fade === FadeType.VolumeSwell}
               onPressedChange={(pressed) =>
-                executeAppAction("edit.beat.setFade", pressed ? FadeType.VolumeSwell : FadeType.None, { t })
+                executeAppAction("document.beat.setFade", pressed ? FadeType.VolumeSwell : FadeType.None, { t })
               }
               textIcon="VS"
             />
@@ -421,7 +421,7 @@ export function EffectsSection({
             value={beat.text ?? ""}
             placeholder={t("sidebar.effects.textPlaceholder")}
             onCommit={(value) =>
-              executeAppAction("edit.beat.setText", value || null, { t })
+              executeAppAction("document.beat.setText", value || null, { t })
             }
           />
           <EditablePropRow
@@ -429,7 +429,7 @@ export function EffectsSection({
             value={beat.chordId ?? ""}
             placeholder={t("sidebar.effects.chordPlaceholder")}
             onCommit={(value) =>
-              executeAppAction("edit.beat.setChordId", value || null, { t })
+              executeAppAction("document.beat.setChordId", value || null, { t })
             }
           />
         </div>

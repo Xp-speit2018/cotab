@@ -67,7 +67,7 @@ import {
   DynamicValue,
   NoteOrnament,
 } from "@/core/schema";
-import { executeAction } from "@/core/actions/registry";
+import { executeDocumentAction } from "@/core/actions/registry";
 import "@/core/actions/edit-note";
 
 const defaultSel = {
@@ -94,93 +94,93 @@ function getNote() {
   return resolveYNoteHelper(0, 0, 0, 0, 0, 0)!;
 }
 
-describe("edit.note.setIsTieDestination", () => {
+describe("document.note.setIsTieDestination", () => {
   it("sets isTieDestination on note Y.Map", () => {
-    executeAction("edit.note.setIsTieDestination", true, ctx);
+    executeDocumentAction("document.note.setIsTieDestination", true, ctx);
     expect(getNote().get("isTieDestination")).toBe(true);
   });
 
   it("unsets tie", () => {
-    executeAction("edit.note.setIsTieDestination", true, ctx);
-    executeAction("edit.note.setIsTieDestination", false, ctx);
+    executeDocumentAction("document.note.setIsTieDestination", true, ctx);
+    executeDocumentAction("document.note.setIsTieDestination", false, ctx);
     expect(getNote().get("isTieDestination")).toBe(false);
   });
 });
 
-describe("edit.note.setIsGhost", () => {
+describe("document.note.setIsGhost", () => {
   it("toggles isGhost", () => {
-    executeAction("edit.note.setIsGhost", true, ctx);
+    executeDocumentAction("document.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(true);
   });
 });
 
-describe("edit.note.setIsDead", () => {
+describe("document.note.setIsDead", () => {
   it("toggles isDead", () => {
-    executeAction("edit.note.setIsDead", true, ctx);
+    executeDocumentAction("document.note.setIsDead", true, ctx);
     expect(getNote().get("isDead")).toBe(true);
   });
 });
 
-describe("edit.note.setAccentuated", () => {
+describe("document.note.setAccentuated", () => {
   it("sets accentuated field", () => {
-    executeAction("edit.note.setAccentuated", AccentuationType.Heavy, ctx);
+    executeDocumentAction("document.note.setAccentuated", AccentuationType.Heavy, ctx);
     expect(getNote().get("accentuated")).toBe(AccentuationType.Heavy);
   });
 });
 
-describe("edit.note.setIsStaccato", () => {
+describe("document.note.setIsStaccato", () => {
   it("toggles isStaccato", () => {
-    executeAction("edit.note.setIsStaccato", true, ctx);
+    executeDocumentAction("document.note.setIsStaccato", true, ctx);
     expect(getNote().get("isStaccato")).toBe(true);
   });
 });
 
-describe("edit.note.setIsLetRing", () => {
+describe("document.note.setIsLetRing", () => {
   it("toggles isLetRing", () => {
-    executeAction("edit.note.setIsLetRing", true, ctx);
+    executeDocumentAction("document.note.setIsLetRing", true, ctx);
     expect(getNote().get("isLetRing")).toBe(true);
   });
 });
 
-describe("edit.note.setIsPalmMute", () => {
+describe("document.note.setIsPalmMute", () => {
   it("toggles isPalmMute", () => {
-    executeAction("edit.note.setIsPalmMute", true, ctx);
+    executeDocumentAction("document.note.setIsPalmMute", true, ctx);
     expect(getNote().get("isPalmMute")).toBe(true);
   });
 });
 
-describe("edit.note.setIsHammerPullOrigin", () => {
+describe("document.note.setIsHammerPullOrigin", () => {
   it("toggles isHammerPullOrigin", () => {
-    executeAction("edit.note.setIsHammerPullOrigin", true, ctx);
+    executeDocumentAction("document.note.setIsHammerPullOrigin", true, ctx);
     expect(getNote().get("isHammerPullOrigin")).toBe(true);
   });
 });
 
-describe("edit.note.setVibrato", () => {
+describe("document.note.setVibrato", () => {
   it("sets vibrato enum", () => {
-    executeAction("edit.note.setVibrato", VibratoType.Wide, ctx);
+    executeDocumentAction("document.note.setVibrato", VibratoType.Wide, ctx);
     expect(getNote().get("vibrato")).toBe(VibratoType.Wide);
   });
 });
 
-describe("edit.note.setBendType", () => {
+describe("document.note.setBendType", () => {
   it("sets bendType enum", () => {
-    executeAction("edit.note.setBendType", BendType.Bend, ctx);
+    executeDocumentAction("document.note.setBendType", BendType.Bend, ctx);
     expect(getNote().get("bendType")).toBe(BendType.Bend);
   });
 });
 
-describe("edit.note bend data", () => {
+describe("document.note bend data", () => {
   it("sets bend style and continuation independently", () => {
-    executeAction("edit.note.setBendStyle", BendStyle.Gradual, ctx);
-    executeAction("edit.note.setIsContinuedBend", true, ctx);
+    executeDocumentAction("document.note.setBendStyle", BendStyle.Gradual, ctx);
+    executeDocumentAction("document.note.setIsContinuedBend", true, ctx);
 
     expect(getNote().get("bendStyle")).toBe(BendStyle.Gradual);
     expect(getNote().get("isContinuedBend")).toBe(true);
   });
 
   it("replaces bend points using the schema field names", () => {
-    executeAction("edit.note.setBendPoints", [
+    executeDocumentAction("document.note.setBendPoints", [
       { offset: 0, value: 0 },
       { offset: 30, value: 4 },
       { offset: 60, value: 2 },
@@ -193,12 +193,12 @@ describe("edit.note bend data", () => {
       { offset: 60, value: 2 },
     ]);
 
-    executeAction("edit.note.setBendPoints", null, ctx);
+    executeDocumentAction("document.note.setBendPoints", null, ctx);
     expect(getNote().get("bendPoints")).toBeNull();
   });
 
   it("sets a complete bend atomically", () => {
-    executeAction("edit.note.setBend", {
+    executeDocumentAction("document.note.setBend", {
       bendType: BendType.BendRelease,
       bendStyle: BendStyle.Fast,
       isContinuedBend: true,
@@ -217,70 +217,70 @@ describe("edit.note bend data", () => {
   });
 });
 
-describe("edit.note.setSlideOutType", () => {
+describe("document.note.setSlideOutType", () => {
   it("sets slideOutType enum", () => {
-    executeAction("edit.note.setSlideOutType", SlideOutType.Shift, ctx);
+    executeDocumentAction("document.note.setSlideOutType", SlideOutType.Shift, ctx);
     expect(getNote().get("slideOutType")).toBe(SlideOutType.Shift);
   });
 });
 
-describe("edit.note.setSlideInType", () => {
+describe("document.note.setSlideInType", () => {
   it("sets slideInType enum", () => {
-    executeAction("edit.note.setSlideInType", SlideInType.IntoFromBelow, ctx);
+    executeDocumentAction("document.note.setSlideInType", SlideInType.IntoFromBelow, ctx);
     expect(getNote().get("slideInType")).toBe(SlideInType.IntoFromBelow);
   });
 });
 
-describe("edit.note.setHarmonicType", () => {
+describe("document.note.setHarmonicType", () => {
   it("sets harmonicType enum", () => {
-    executeAction("edit.note.setHarmonicType", HarmonicType.Natural, ctx);
+    executeDocumentAction("document.note.setHarmonicType", HarmonicType.Natural, ctx);
     expect(getNote().get("harmonicType")).toBe(HarmonicType.Natural);
   });
 });
 
-describe("edit.note scalar playback fields", () => {
+describe("document.note scalar playback fields", () => {
   it("sets harmonicValue and note dynamics", () => {
-    executeAction("edit.note.setHarmonicValue", 12, ctx);
-    executeAction("edit.note.setDynamics", DynamicValue.PP, ctx);
+    executeDocumentAction("document.note.setHarmonicValue", 12, ctx);
+    executeDocumentAction("document.note.setDynamics", DynamicValue.PP, ctx);
 
     expect(getNote().get("harmonicValue")).toBe(12);
     expect(getNote().get("dynamics")).toBe(DynamicValue.PP);
   });
 
   it.each([
-    ["edit.note.setFret", "fret", 9],
-    ["edit.note.setOctave", "octave", 5],
-    ["edit.note.setTone", "tone", 7],
-    ["edit.note.setPercussionArticulation", "percussionArticulation", 42],
+    ["document.note.setFret", "fret", 9],
+    ["document.note.setOctave", "octave", 5],
+    ["document.note.setTone", "tone", 7],
+    ["document.note.setPercussionArticulation", "percussionArticulation", 42],
   ] as const)("%s writes %s directly", (actionId, field, value) => {
-    executeAction(actionId, value, ctx);
+    executeDocumentAction(actionId, value, ctx);
     expect(getNote().get(field)).toBe(value);
   });
 
   it("sets string directly", () => {
-    executeAction("edit.note.setString", 4, ctx);
+    executeDocumentAction("document.note.setString", 4, ctx);
     expect(getNote().get("string")).toBe(4);
   });
 });
 
-describe("edit.note.setTrill", () => {
+describe("document.note.setTrill", () => {
   it("sets trillValue and trillSpeed", () => {
-    executeAction("edit.note.setTrill", { trillValue: 7, trillSpeed: Duration.Sixteenth }, ctx);
+    executeDocumentAction("document.note.setTrill", { trillValue: 7, trillSpeed: Duration.Sixteenth }, ctx);
     expect(getNote().get("trillValue")).toBe(7);
     expect(getNote().get("trillSpeed")).toBe(Duration.Sixteenth);
   });
 });
 
-describe("edit.note.setOrnament", () => {
+describe("document.note.setOrnament", () => {
   it("sets ornament enum", () => {
-    executeAction("edit.note.setOrnament", NoteOrnament.Turn, ctx);
+    executeDocumentAction("document.note.setOrnament", NoteOrnament.Turn, ctx);
     expect(getNote().get("ornament")).toBe(NoteOrnament.Turn);
   });
 });
 
-describe("edit.note.setIsLeftHandTapped", () => {
+describe("document.note.setIsLeftHandTapped", () => {
   it("toggles isLeftHandTapped", () => {
-    executeAction("edit.note.setIsLeftHandTapped", true, ctx);
+    executeDocumentAction("document.note.setIsLeftHandTapped", true, ctx);
     expect(getNote().get("isLeftHandTapped")).toBe(true);
   });
 });
@@ -288,18 +288,18 @@ describe("edit.note.setIsLeftHandTapped", () => {
 describe("applyNoteUpdates guards", () => {
   it("does nothing without selection", () => {
     selectBeat(null);
-    executeAction("edit.note.setIsGhost", true, ctx);
+    executeDocumentAction("document.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(false);
   });
 
   it("does nothing with negative note index", () => {
     setSelectedNoteIndex(-1);
-    executeAction("edit.note.setIsGhost", true, ctx);
+    executeDocumentAction("document.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(false);
   });
 });
 
-describe("edit.note (violin tab)", () => {
+describe("document.note (violin tab)", () => {
   beforeEach(() => {
     resetMockState();
     destroyDoc();
@@ -311,12 +311,12 @@ describe("edit.note (violin tab)", () => {
   });
 
   it("setGhost applies to violin note", () => {
-    executeAction("edit.note.setIsGhost", true, ctx);
+    executeDocumentAction("document.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(true);
   });
 });
 
-describe("edit.note (piano notation)", () => {
+describe("document.note (piano notation)", () => {
   beforeEach(() => {
     resetMockState();
     destroyDoc();
@@ -342,12 +342,12 @@ describe("edit.note (piano notation)", () => {
   });
 
   it("setGhost applies to piano note", () => {
-    executeAction("edit.note.setIsGhost", true, ctx);
+    executeDocumentAction("document.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(true);
   });
 });
 
-describe("edit.note (drumkit percussion)", () => {
+describe("document.note (drumkit percussion)", () => {
   beforeEach(() => {
     resetMockState();
     destroyDoc();
@@ -359,14 +359,14 @@ describe("edit.note (drumkit percussion)", () => {
   });
 
   it("setGhost applies to percussion note", () => {
-    executeAction("edit.note.setIsGhost", true, ctx);
+    executeDocumentAction("document.note.setIsGhost", true, ctx);
     expect(getNote().get("isGhost")).toBe(true);
   });
 });
 
 // ─── togglePercussionArticulation ─────────────────────────────────────────────
 
-describe("edit.beat.togglePercussionArticulation", () => {
+describe("document.beat.togglePercussionArticulation", () => {
   const drumSel = { ...defaultSel, string: 2 as number | null };
 
   function setupDrumTrack() {
@@ -380,7 +380,7 @@ describe("edit.beat.togglePercussionArticulation", () => {
   it("adds percussion note when gp7Id not present in beat", () => {
     setupDrumTrack();
 
-    executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
+    executeDocumentAction("document.beat.togglePercussionArticulation", 38, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
@@ -391,7 +391,7 @@ describe("edit.beat.togglePercussionArticulation", () => {
     setupDrumTrack();
     placePercussionNoteDirectly(getScoreMap()!, 0, 0, 0, 42);
 
-    executeAction("edit.beat.togglePercussionArticulation", 42, ctx);
+    executeDocumentAction("document.beat.togglePercussionArticulation", 42, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
@@ -409,7 +409,7 @@ describe("edit.beat.togglePercussionArticulation", () => {
     second.set("id", 38);
     articulations.push([first, second]);
 
-    executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
+    executeDocumentAction("document.beat.togglePercussionArticulation", 38, ctx);
 
     const notes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get(
       "notes",
@@ -424,7 +424,7 @@ describe("edit.beat.togglePercussionArticulation", () => {
     seedOneTrackScore(getScoreMap()!, 1);
     selectBeat(defaultSel);
 
-    executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
+    executeDocumentAction("document.beat.togglePercussionArticulation", 38, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
@@ -434,7 +434,7 @@ describe("edit.beat.togglePercussionArticulation", () => {
     setupDrumTrack();
     selectBeat(null);
 
-    executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
+    executeDocumentAction("document.beat.togglePercussionArticulation", 38, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
@@ -443,12 +443,12 @@ describe("edit.beat.togglePercussionArticulation", () => {
 
 // ─── Edge Cases ───────────────────────────────────────────────────────────────
 
-describe("edit.note edge cases", () => {
+describe("document.note edge cases", () => {
   it("applyNoteUpdates does nothing when Y.Note cannot be resolved", () => {
     // Set selection with invalid note index
     setSelectedNoteIndex(999);
 
-    const result = executeAction("edit.note.setIsTieDestination", true, ctx);
+    const result = executeDocumentAction("document.note.setIsTieDestination", true, ctx);
 
     // Should not throw, should just return without doing anything
     expect(result).toBeUndefined();
@@ -463,7 +463,7 @@ describe("edit.note edge cases", () => {
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
     selectBeat({ ...defaultSel, string: 2 as number | null });
 
-    executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
+    executeDocumentAction("document.beat.togglePercussionArticulation", 38, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
@@ -477,7 +477,7 @@ describe("edit.note edge cases", () => {
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Drums", isPercussion: true });
     selectBeat({ ...defaultSel, beatIndex: 999, string: 2 as number | null });
 
-    executeAction("edit.beat.togglePercussionArticulation", 38, ctx);
+    executeDocumentAction("document.beat.togglePercussionArticulation", 38, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);

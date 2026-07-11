@@ -28,7 +28,7 @@ export function runCliOperation(operation: CliOperation): unknown {
     case "set_selection":
       return { selection: localEngineHost.setSelection(operation.selection) };
     case "execute":
-      return localEngineHost.executeAction(operation.id, operation.args);
+      return localEngineHost.executeDocumentAction(operation.id, operation.args);
     case "snapshot":
       return localEngineHost.snapshot();
     case "list_actions":

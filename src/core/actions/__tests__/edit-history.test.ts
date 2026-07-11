@@ -65,7 +65,7 @@ vi.mock("@/core/engine", () => {
 });
 
 import { EditorEngine } from "@/core/engine";
-import { executeAction } from "@/core/actions/registry";
+import { executeDocumentAction } from "@/core/actions/registry";
 import "@/core/actions/edit-history";
 
 beforeEach(() => {
@@ -76,7 +76,7 @@ beforeEach(() => {
 
 const ctx = testContext();
 
-describe("edit.undo", () => {
+describe("document.undo", () => {
   it("undoes a Y.Doc mutation", () => {
     const scoreMap = getScoreMap()!;
     transact(() => {
@@ -84,29 +84,29 @@ describe("edit.undo", () => {
     });
     expect(scoreMap.get("title")).toBe("Changed");
 
-    executeAction("edit.undo", undefined, ctx);
+    executeDocumentAction("document.undo", undefined, ctx);
     expect(scoreMap.get("title")).toBe("Untitled");
   });
 
   it("does nothing when undo stack is empty", () => {
     const scoreMap = getScoreMap()!;
     expect(scoreMap.get("title")).toBe("Untitled");
-    executeAction("edit.undo", undefined, ctx);
+    executeDocumentAction("document.undo", undefined, ctx);
     expect(scoreMap.get("title")).toBe("Untitled");
   });
 });
 
-describe("edit.redo", () => {
+describe("document.redo", () => {
   it("re-applies an undone change", () => {
     const scoreMap = getScoreMap()!;
     transact(() => {
       scoreMap.set("artist", "Mozart");
     });
 
-    executeAction("edit.undo", undefined, ctx);
+    executeDocumentAction("document.undo", undefined, ctx);
     expect(scoreMap.get("artist")).toBe("");
 
-    executeAction("edit.redo", undefined, ctx);
+    executeDocumentAction("document.redo", undefined, ctx);
     expect(scoreMap.get("artist")).toBe("Mozart");
   });
 
@@ -115,7 +115,7 @@ describe("edit.redo", () => {
     transact(() => {
       scoreMap.set("title", "Test");
     });
-    executeAction("edit.redo", undefined, ctx);
+    executeDocumentAction("document.redo", undefined, ctx);
     expect(scoreMap.get("title")).toBe("Test");
   });
 });
@@ -147,7 +147,7 @@ describe("atomic transactions", () => {
     expect(scoreMap.get("title")).toBe("New Title");
     expect(scoreMap.get("artist")).toBe("New Artist");
 
-    executeAction("edit.undo", undefined, ctx);
+    executeDocumentAction("document.undo", undefined, ctx);
     expect(scoreMap.get("title")).toBe("Untitled");
     expect(scoreMap.get("artist")).toBe("");
   });
@@ -165,16 +165,16 @@ describe("sequential undos", () => {
     expect(scoreMap.get("artist")).toBe("B");
     expect(scoreMap.get("album")).toBe("C");
 
-    executeAction("edit.undo", undefined, ctx);
+    executeDocumentAction("document.undo", undefined, ctx);
     expect(scoreMap.get("album")).toBe("");
 
-    executeAction("edit.undo", undefined, ctx);
+    executeDocumentAction("document.undo", undefined, ctx);
     expect(scoreMap.get("artist")).toBe("");
 
-    executeAction("edit.undo", undefined, ctx);
+    executeDocumentAction("document.undo", undefined, ctx);
     expect(scoreMap.get("title")).toBe("Untitled");
 
-    executeAction("edit.redo", undefined, ctx);
+    executeDocumentAction("document.redo", undefined, ctx);
     expect(scoreMap.get("title")).toBe("A");
   });
 });
@@ -204,7 +204,7 @@ describe("array mutations", () => {
     expect(yBars.length).toBe(2);
     expect(yMasterBars.length).toBe(2);
 
-    executeAction("edit.undo", undefined, ctx);
+    executeDocumentAction("document.undo", undefined, ctx);
     expect(yBars.length).toBe(1);
     expect(yMasterBars.length).toBe(1);
   });

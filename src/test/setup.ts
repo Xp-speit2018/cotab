@@ -14,7 +14,7 @@
 import { vi, expect } from "vitest";
 import * as Y from "yjs";
 import type { TFunction } from "i18next";
-import type { ActionExecutionContext } from "@/core/actions/types";
+import type { DocumentActionExecutionContext } from "@/core/actions/types";
 import type {
   SelectedBeat,
   SelectionRange,
@@ -918,8 +918,8 @@ export function expectPercussionNote(
  * Reset all mock state between tests.
  * Call in beforeEach after resetTestDoc().
  */
-/** Create a minimal ActionExecutionContext for tests. */
-export function testContext(): ActionExecutionContext {
+/** Create a minimal DocumentActionExecutionContext for tests. */
+export function testContext(): DocumentActionExecutionContext {
   return { t: ((key: string) => key) as unknown as TFunction };
 }
 

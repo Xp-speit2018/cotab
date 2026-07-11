@@ -1,6 +1,6 @@
 import * as Y from "yjs";
-import { actionRegistry } from "@/core/actions/registry";
-import type { ActionDefinition } from "@/core/actions/types";
+import { documentActionRegistry } from "@/core/actions/registry";
+import type { DocumentActionDefinition } from "@/core/actions/types";
 import { engine } from "@/core/engine";
 import type {
   AutomationSchema,
@@ -29,11 +29,11 @@ function applyMasterBarUpdates(updates: Record<string, unknown>): void {
 function scalarAction(
   id: string,
   field: string,
-): ActionDefinition<number> {
+): DocumentActionDefinition<number> {
   return {
     id,
     i18nKey: `actions.${id}`,
-    category: "edit.masterBar",
+    category: "document.masterBar",
     params: [
       { name: "value", type: "number", i18nKey: `actions.${id}.params.value` },
     ],
@@ -46,11 +46,11 @@ function scalarAction(
 function booleanAction(
   id: string,
   field: string,
-): ActionDefinition<boolean> {
+): DocumentActionDefinition<boolean> {
   return {
     id,
     i18nKey: `actions.${id}`,
-    category: "edit.masterBar",
+    category: "document.masterBar",
     params: [
       { name: "value", type: "boolean", i18nKey: `actions.${id}.params.value` },
     ],
@@ -61,38 +61,38 @@ function booleanAction(
 }
 
 const setTimeSignatureNumeratorAction = scalarAction(
-  "edit.masterBar.setTimeSignatureNumerator",
+  "document.masterBar.setTimeSignatureNumerator",
   "timeSignatureNumerator",
 );
 const setTimeSignatureDenominatorAction = scalarAction(
-  "edit.masterBar.setTimeSignatureDenominator",
+  "document.masterBar.setTimeSignatureDenominator",
   "timeSignatureDenominator",
 );
 const setIsRepeatStartAction = booleanAction(
-  "edit.masterBar.setIsRepeatStart",
+  "document.masterBar.setIsRepeatStart",
   "isRepeatStart",
 );
 const setRepeatCountAction = scalarAction(
-  "edit.masterBar.setRepeatCount",
+  "document.masterBar.setRepeatCount",
   "repeatCount",
 );
 const setAlternateEndingsAction = scalarAction(
-  "edit.masterBar.setAlternateEndings",
+  "document.masterBar.setAlternateEndings",
   "alternateEndings",
 );
 const setTripletFeelAction = scalarAction(
-  "edit.masterBar.setTripletFeel",
+  "document.masterBar.setTripletFeel",
   "tripletFeel",
 );
 const setIsFreeTimeAction = booleanAction(
-  "edit.masterBar.setIsFreeTime",
+  "document.masterBar.setIsFreeTime",
   "isFreeTime",
 );
 
-const setSectionAction: ActionDefinition<SectionSchema | null> = {
-  id: "edit.masterBar.setSection",
+const setSectionAction: DocumentActionDefinition<SectionSchema | null> = {
+  id: "document.masterBar.setSection",
   i18nKey: "actions.edit.masterBar.setSection",
-  category: "edit.masterBar",
+  category: "document.masterBar",
   execute: (section, _context) => {
     const yMasterBar = resolveSelectedMasterBar();
     if (!yMasterBar) return;
@@ -109,10 +109,10 @@ const setSectionAction: ActionDefinition<SectionSchema | null> = {
   },
 };
 
-const setTempoAutomationsAction: ActionDefinition<AutomationSchema[]> = {
-  id: "edit.masterBar.setTempoAutomations",
+const setTempoAutomationsAction: DocumentActionDefinition<AutomationSchema[]> = {
+  id: "document.masterBar.setTempoAutomations",
   i18nKey: "actions.edit.masterBar.setTempoAutomations",
-  category: "edit.masterBar",
+  category: "document.masterBar",
   execute: (automations, _context) => {
     const yMasterBar = resolveSelectedMasterBar();
     if (!yMasterBar) return;
@@ -136,10 +136,10 @@ const setTempoAutomationsAction: ActionDefinition<AutomationSchema[]> = {
   },
 };
 
-const setTempoAction: ActionDefinition<number | null> = {
-  id: "edit.masterBar.setTempo",
+const setTempoAction: DocumentActionDefinition<number | null> = {
+  id: "document.masterBar.setTempo",
   i18nKey: "actions.edit.masterBar.setTempo",
-  category: "edit.masterBar",
+  category: "document.masterBar",
   execute: (tempo, _context) => {
     const yMasterBar = resolveSelectedMasterBar();
     if (!yMasterBar) return;
@@ -179,32 +179,32 @@ const setTempoAction: ActionDefinition<number | null> = {
   },
 };
 
-actionRegistry.register(setTimeSignatureNumeratorAction);
-actionRegistry.register(setTimeSignatureDenominatorAction);
-actionRegistry.register(setIsRepeatStartAction);
-actionRegistry.register(setRepeatCountAction);
-actionRegistry.register(setAlternateEndingsAction);
-actionRegistry.register(setTripletFeelAction);
-actionRegistry.register(setIsFreeTimeAction);
-actionRegistry.register(setSectionAction);
-actionRegistry.register(setTempoAutomationsAction);
-actionRegistry.register(setTempoAction);
+documentActionRegistry.register(setTimeSignatureNumeratorAction);
+documentActionRegistry.register(setTimeSignatureDenominatorAction);
+documentActionRegistry.register(setIsRepeatStartAction);
+documentActionRegistry.register(setRepeatCountAction);
+documentActionRegistry.register(setAlternateEndingsAction);
+documentActionRegistry.register(setTripletFeelAction);
+documentActionRegistry.register(setIsFreeTimeAction);
+documentActionRegistry.register(setSectionAction);
+documentActionRegistry.register(setTempoAutomationsAction);
+documentActionRegistry.register(setTempoAction);
 
 declare global {
-  interface ActionMap {
-    "edit.masterBar.setTimeSignatureNumerator": { args: number; result: void };
-    "edit.masterBar.setTimeSignatureDenominator": { args: number; result: void };
-    "edit.masterBar.setIsRepeatStart": { args: boolean; result: void };
-    "edit.masterBar.setRepeatCount": { args: number; result: void };
-    "edit.masterBar.setAlternateEndings": { args: number; result: void };
-    "edit.masterBar.setTripletFeel": { args: number; result: void };
-    "edit.masterBar.setIsFreeTime": { args: boolean; result: void };
-    "edit.masterBar.setSection": { args: SectionSchema | null; result: void };
-    "edit.masterBar.setTempoAutomations": {
+  interface DocumentActionMap {
+    "document.masterBar.setTimeSignatureNumerator": { args: number; result: void };
+    "document.masterBar.setTimeSignatureDenominator": { args: number; result: void };
+    "document.masterBar.setIsRepeatStart": { args: boolean; result: void };
+    "document.masterBar.setRepeatCount": { args: number; result: void };
+    "document.masterBar.setAlternateEndings": { args: number; result: void };
+    "document.masterBar.setTripletFeel": { args: number; result: void };
+    "document.masterBar.setIsFreeTime": { args: boolean; result: void };
+    "document.masterBar.setSection": { args: SectionSchema | null; result: void };
+    "document.masterBar.setTempoAutomations": {
       args: AutomationSchema[];
       result: void;
     };
-    "edit.masterBar.setTempo": { args: number | null; result: void };
+    "document.masterBar.setTempo": { args: number | null; result: void };
   }
 }
 

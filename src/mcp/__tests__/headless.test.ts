@@ -7,15 +7,15 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import type { TFunction } from "i18next";
-import type { ActionExecutionContext } from "@/core/actions/types";
+import type { DocumentActionExecutionContext } from "@/core/actions/types";
 import { engine } from "@/core/engine";
 import "@/core/actions"; // Register all actions
-import { executeAction } from "@/core/actions/registry";
+import { executeDocumentAction } from "@/core/actions/registry";
 import { snapshotScore, createTrack, createStaff, createBar, createVoice, createBeat, createMasterBar } from "@/core/schema";
 import * as Y from "yjs";
 
-/** Create a minimal ActionExecutionContext for headless tests. */
-function testContext(): ActionExecutionContext {
+/** Create a minimal DocumentActionExecutionContext for headless tests. */
+function testContext(): DocumentActionExecutionContext {
   return { t: ((key: string) => key) as unknown as TFunction };
 }
 
@@ -43,7 +43,7 @@ describe("Headless Engine", () => {
     const ctx = testContext();
 
     // Set the score title
-    executeAction("edit.score.setTitle", "Test Score", ctx);
+    executeDocumentAction("document.score.setTitle", "Test Score", ctx);
 
     const scoreMap = engine.getScoreMap();
     expect(scoreMap?.get("title")).toBe("Test Score");
@@ -63,7 +63,7 @@ describe("Headless Engine", () => {
     expect(scoreMap?.get("title")).toBe("Untitled");
 
     // Set title
-    executeAction("edit.score.setTitle", "New Title", ctx);
+    executeDocumentAction("document.score.setTitle", "New Title", ctx);
     expect(scoreMap?.get("title")).toBe("New Title");
 
     // Undo reverts to "Untitled"
@@ -95,18 +95,18 @@ describe("Headless Engine", () => {
   });
 
   it("should list all registered actions", async () => {
-    const { getAllActions } = await import("@/core/actions/registry");
-    const actions = getAllActions();
+    const { getAllDocumentActions } = await import("@/core/actions/registry");
+    const actions = getAllDocumentActions();
 
     // Should have many actions registered
     expect(actions.length).toBeGreaterThan(10);
 
     // Check for expected action categories
     const ids = actions.map((a) => a.id);
-    expect(ids).toContain("edit.score.setTitle");
-    expect(ids).toContain("edit.score.setArtist");
-    expect(ids.some((id) => id.startsWith("edit.track."))).toBe(true);
-    expect(ids.some((id) => id.startsWith("edit.note."))).toBe(true);
+    expect(ids).toContain("document.score.setTitle");
+    expect(ids).toContain("document.score.setArtist");
+    expect(ids.some((id) => id.startsWith("document.track."))).toBe(true);
+    expect(ids.some((id) => id.startsWith("document.note."))).toBe(true);
   });
 
   it("should create a complete score through actions", () => {
@@ -139,9 +139,9 @@ describe("Headless Engine", () => {
     }, doc.clientID);
 
     // Set metadata
-    executeAction("edit.score.setTitle", "My Song", ctx);
-    executeAction("edit.score.setArtist", "Test Artist", ctx);
-    executeAction("edit.score.setTempo", 140, ctx);
+    executeDocumentAction("document.score.setTitle", "My Song", ctx);
+    executeDocumentAction("document.score.setArtist", "Test Artist", ctx);
+    executeDocumentAction("document.score.setTempo", 140, ctx);
 
     // Verify final snapshot
     const snapshot = snapshotScore(scoreMap);

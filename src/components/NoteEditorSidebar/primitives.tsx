@@ -96,7 +96,10 @@ export function SortableSection({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({
+    id: `section:${id}`,
+    data: { type: "section", sectionId: id },
+  });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),

@@ -6,8 +6,8 @@
  * UI state.
  */
 
-import { executeAction as executeActionInternal } from "./registry";
-import type { ActionExecutionContext, ActionId, ActionArgs, ActionResult } from "./types";
+import { executeDocumentAction as executeDocumentActionInternal } from "./registry";
+import type { DocumentActionExecutionContext, DocumentActionId, DocumentActionArgs, DocumentActionResult } from "./types";
 
 // Import pure actions to trigger registration
 import "./edit-score";
@@ -19,22 +19,21 @@ import "./edit-master-bar";
 import "./edit-beat";
 import "./edit-note";
 import "./edit-track";
-import "./navigation";
 
-export { actionRegistry, getAllActions } from "./registry";
+export { documentActionRegistry, getAllDocumentActions } from "./registry";
 export type {
-  ActionCategory,
-  ActionDefinition,
-  ActionParamSchema,
-  ActionId,
-  ActionArgs,
-  ActionResult,
+  DocumentActionCategory,
+  DocumentActionDefinition,
+  DocumentActionParamSchema,
+  DocumentActionId,
+  DocumentActionArgs,
+  DocumentActionResult,
 } from "./types";
 
-export function executeAction<Id extends ActionId>(
+export function executeDocumentAction<Id extends DocumentActionId>(
   id: Id,
-  args: ActionArgs<Id>,
-  context: ActionExecutionContext,
-): ActionResult<Id> | undefined {
-  return executeActionInternal(id, args, context);
+  args: DocumentActionArgs<Id>,
+  context: DocumentActionExecutionContext,
+): DocumentActionResult<Id> | undefined {
+  return executeDocumentActionInternal(id, args, context);
 }

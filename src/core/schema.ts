@@ -16,6 +16,30 @@
 import * as Y from "yjs";
 import { v4 as uuidv4 } from "uuid";
 
+const DOCUMENT_METADATA_MAP = "cotabDocument";
+const DOCUMENT_ID_KEY = "id";
+
+export function ensureDocumentId(doc: Y.Doc): string {
+  const metadata = doc.getMap(DOCUMENT_METADATA_MAP);
+  const existing = metadata.get(DOCUMENT_ID_KEY);
+  if (typeof existing === "string" && existing.length > 0) return existing;
+
+  const documentId = uuidv4();
+  metadata.set(DOCUMENT_ID_KEY, documentId);
+  return documentId;
+}
+
+export function resetDocumentId(doc: Y.Doc): string {
+  const documentId = uuidv4();
+  doc.getMap(DOCUMENT_METADATA_MAP).set(DOCUMENT_ID_KEY, documentId);
+  return documentId;
+}
+
+export function readDocumentId(doc: Y.Doc): string | null {
+  const value = doc.getMap(DOCUMENT_METADATA_MAP).get(DOCUMENT_ID_KEY);
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 // ─── Enums (mirror AlphaTab's model enums) ───────────────────────────────────
 
 export const enum AccentuationType {
@@ -752,6 +776,7 @@ export function createTrack(name: string = "Track 1"): Y.Map<unknown> {
  * Only writes if the map is empty (first peer to initialize).
  */
 export function initializeScore(doc: Y.Doc): Y.Map<unknown> {
+  ensureDocumentId(doc);
   const score = doc.getMap("score");
 
   if (!score.has("title")) {

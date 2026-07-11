@@ -34,11 +34,11 @@ Use `it.each` for property setters that share `applyBeatUpdates` / `applyNoteUpd
 
 ```ts
 it.each([
-  ["edit.beat.setVibrato", "vibrato", 1],
-  ["edit.beat.setDynamics", "dynamics", 5],
+  ["document.beat.setVibrato", "vibrato", 1],
+  ["document.beat.setDynamics", "dynamics", 5],
   // ...
 ])("%s sets %s on Y.Map", (actionId, field, value) => {
-  executeAction(actionId, value, ctx);
+  executeDocumentAction(actionId, value, ctx);
   expect(resolveYBeat(...).get(field)).toBe(value);
 });
 ```
@@ -47,7 +47,7 @@ it.each([
 
 - `edit-{domain}.test.ts` — L1 unit tests
 - `edit-{domain}-integration.test.ts` — L2 integration tests
-- Describe blocks match current action IDs: `describe("edit.beat.placeNote", ...)`
+- Describe blocks match current action IDs: `describe("document.beat.placeNote", ...)`
 
 ## No Duplication
 

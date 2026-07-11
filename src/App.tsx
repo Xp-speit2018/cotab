@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Toolbar } from "@/components/Toolbar";
-import { ScoreViewport } from "@/components/ScoreViewport";
-import { NoteEditorSidebar } from "@/components/NoteEditorSidebar";
+import { EditorWorkspace } from "@/components/EditorWorkspace";
 import { ShortcutConfigPanel } from "@/components/ShortcutConfigPanel";
 import { TrackPresetDialog } from "@/components/TrackPresetDialog";
 import { RoomDialog } from "@/components/RoomDialog";
@@ -23,10 +22,7 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col">
       <Toolbar />
-      <div className="flex flex-1 overflow-hidden">
-        <NoteEditorSidebar />
-        <ScoreViewport />
-      </div>
+      <EditorWorkspace />
       <ShortcutConfigPanel />
       <TrackPresetDialog />
       <RoomDialog />

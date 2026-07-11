@@ -1,64 +1,204 @@
 export const DEFAULT_SIDEBAR_WIDTH = 280;
+export const DEFAULT_AGENT_SIDEBAR_WIDTH = 400;
+export const COLLAPSED_SIDEBAR_WIDTH = 36;
 export const MIN_SIDEBAR_WIDTH = 200;
-export const MAX_SIDEBAR_WIDTH = 480;
-export const SIDEBAR_WIDTH_KEY = "cotab:sidebar-width";
-const STORAGE_KEY = "cotab:sidebar-tab-layout-v5";
+export const MAX_SIDEBAR_WIDTH = 520;
 
-export function loadSidebarWidth(): number {
-  try {
-    const raw = localStorage.getItem(SIDEBAR_WIDTH_KEY);
-    if (raw) {
-      const v = Number(raw);
-      if (v >= MIN_SIDEBAR_WIDTH && v <= MAX_SIDEBAR_WIDTH) return v;
-    }
-  } catch {
-    // ignore
-  }
-  return DEFAULT_SIDEBAR_WIDTH;
-}
+const WIDTH_KEYS = {
+  left: "cotab:left-sidebar-width",
+  right: "cotab:right-sidebar-width",
+} as const;
+const COLLAPSED_KEYS = {
+  left: "cotab:left-sidebar-collapsed",
+  right: "cotab:right-sidebar-collapsed",
+} as const;
+const TAB_PLACEMENT_KEY = "cotab:sidebar-tab-placement-v1";
+const SECTION_LAYOUT_KEY = "cotab:sidebar-section-layout-v1";
+const LEGACY_SECTION_LAYOUT_KEY = "cotab:sidebar-tab-layout-v5";
 
-export function saveSidebarWidth(w: number) {
-  localStorage.setItem(SIDEBAR_WIDTH_KEY, String(w));
-}
+export type SidebarSide = "left" | "right";
+export type EditorTabId = "notes" | "meta" | "debug" | "agent";
+export type SectionTabId = Exclude<EditorTabId, "agent">;
 
-export const TAB_COUNT = 3;
+export type SectionId =
+  | "song"
+  | "tracks"
+  | "articulation"
+  | "log"
+  | "fps"
+  | "editorState"
+  | "alphaTabState"
+  | "bar"
+  | "note"
+  | "effects";
 
-export type SectionId = "song" | "tracks" | "articulation" | "log" | "fps" | "editorState" | "alphaTabState" | "bar" | "note" | "effects";
-export const ALL_SECTION_IDS: SectionId[] = ["song", "tracks", "articulation", "log", "fps", "editorState", "alphaTabState", "bar", "note", "effects"];
-
-export type TabLayout = SectionId[][];
-export const DEFAULT_LAYOUT: TabLayout = [
-  ["bar", "note", "effects", "articulation"],
-  ["song", "tracks"],
-  ["editorState", "alphaTabState", "log", "fps"],
+export const ALL_SECTION_IDS: SectionId[] = [
+  "song",
+  "tracks",
+  "articulation",
+  "log",
+  "fps",
+  "editorState",
+  "alphaTabState",
+  "bar",
+  "note",
+  "effects",
 ];
 
-export function loadTabLayout(): TabLayout {
+export interface SidebarTabPlacement {
+  left: EditorTabId[];
+  right: EditorTabId[];
+}
+
+export type SectionLayout = Record<SectionTabId, SectionId[]>;
+
+export const DEFAULT_SECTION_LAYOUT: SectionLayout = {
+  notes: ["bar", "note", "effects", "articulation"],
+  meta: ["song", "tracks"],
+  debug: ["editorState", "alphaTabState", "log", "fps"],
+};
+
+function readNumber(key: string): number | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_LAYOUT;
-    const parsed = JSON.parse(raw) as string[][];
-    if (!Array.isArray(parsed) || parsed.length !== TAB_COUNT) return DEFAULT_LAYOUT;
-    const allIds = parsed.flat();
-    if (
-      allIds.length === ALL_SECTION_IDS.length &&
-      ALL_SECTION_IDS.every((id) => allIds.includes(id))
-    ) {
-      return parsed as TabLayout;
+    const value = Number(localStorage.getItem(key));
+    return Number.isFinite(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function loadSidebarWidth(side: SidebarSide): number {
+  const value = readNumber(WIDTH_KEYS[side]);
+  if (value !== null && value >= MIN_SIDEBAR_WIDTH && value <= MAX_SIDEBAR_WIDTH) {
+    return value;
+  }
+  return side === "right" ? DEFAULT_AGENT_SIDEBAR_WIDTH : DEFAULT_SIDEBAR_WIDTH;
+}
+
+export function saveSidebarWidth(side: SidebarSide, width: number): void {
+  try {
+    localStorage.setItem(WIDTH_KEYS[side], String(width));
+  } catch {
+    // Resizing still applies for the current session.
+  }
+}
+
+export function loadSidebarCollapsed(side: SidebarSide, desktop: boolean): boolean {
+  try {
+    const value = localStorage.getItem(COLLAPSED_KEYS[side]);
+    if (value !== null) return value === "true";
+  } catch {
+    // Use defaults.
+  }
+  return side === "right" && !desktop;
+}
+
+export function saveSidebarCollapsed(side: SidebarSide, collapsed: boolean): void {
+  try {
+    localStorage.setItem(COLLAPSED_KEYS[side], String(collapsed));
+  } catch {
+    // Collapsing still applies for the current session.
+  }
+}
+
+export function availableEditorTabs(desktop: boolean): EditorTabId[] {
+  return desktop
+    ? ["notes", "meta", "debug", "agent"]
+    : ["notes", "meta", "debug"];
+}
+
+export function defaultTabPlacement(desktop: boolean): SidebarTabPlacement {
+  return {
+    left: ["notes", "meta", "debug"],
+    right: desktop ? ["agent"] : [],
+  };
+}
+
+export function loadTabPlacement(desktop: boolean): SidebarTabPlacement {
+  const available = availableEditorTabs(desktop);
+  try {
+    const parsed = JSON.parse(localStorage.getItem(TAB_PLACEMENT_KEY) ?? "null") as
+      | Partial<SidebarTabPlacement>
+      | null;
+    if (parsed && Array.isArray(parsed.left) && Array.isArray(parsed.right)) {
+      const ordered = [...parsed.left, ...parsed.right].filter(
+        (id): id is EditorTabId => available.includes(id as EditorTabId),
+      );
+      if (
+        ordered.length === available.length &&
+        new Set(ordered).size === available.length
+      ) {
+        return {
+          left: parsed.left.filter((id): id is EditorTabId => available.includes(id as EditorTabId)),
+          right: parsed.right.filter((id): id is EditorTabId => available.includes(id as EditorTabId)),
+        };
+      }
     }
   } catch {
-    // ignore
+    // Use defaults.
   }
-  return DEFAULT_LAYOUT;
+  return defaultTabPlacement(desktop);
 }
 
-export function saveTabLayout(layout: TabLayout) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(layout));
+export function saveTabPlacement(placement: SidebarTabPlacement): void {
+  try {
+    localStorage.setItem(TAB_PLACEMENT_KEY, JSON.stringify(placement));
+  } catch {
+    // Placement still applies for the current session.
+  }
 }
 
-export function findTabIndex(layout: TabLayout, sectionId: string): number {
-  for (let i = 0; i < layout.length; i++) {
-    if (layout[i].includes(sectionId as SectionId)) return i;
+function sectionLayoutFromArrays(value: unknown): SectionLayout | null {
+  if (!Array.isArray(value) || value.length !== 3) return null;
+  const arrays = value as string[][];
+  const allIds = arrays.flat();
+  if (
+    allIds.length !== ALL_SECTION_IDS.length ||
+    !ALL_SECTION_IDS.every((id) => allIds.includes(id))
+  ) {
+    return null;
   }
-  return -1;
+  return {
+    notes: arrays[0] as SectionId[],
+    meta: arrays[1] as SectionId[],
+    debug: arrays[2] as SectionId[],
+  };
+}
+
+export function loadSectionLayout(): SectionLayout {
+  try {
+    const current = localStorage.getItem(SECTION_LAYOUT_KEY);
+    if (current) {
+      const parsed = JSON.parse(current) as Partial<SectionLayout>;
+      const arrays = [parsed.notes, parsed.meta, parsed.debug];
+      const layout = sectionLayoutFromArrays(arrays);
+      if (layout) return layout;
+    }
+    const legacy = localStorage.getItem(LEGACY_SECTION_LAYOUT_KEY);
+    if (legacy) {
+      const layout = sectionLayoutFromArrays(JSON.parse(legacy));
+      if (layout) return layout;
+    }
+  } catch {
+    // Use defaults.
+  }
+  return DEFAULT_SECTION_LAYOUT;
+}
+
+export function saveSectionLayout(layout: SectionLayout): void {
+  try {
+    localStorage.setItem(SECTION_LAYOUT_KEY, JSON.stringify(layout));
+  } catch {
+    // Layout still applies for the current session.
+  }
+}
+
+export function findSectionTab(
+  layout: SectionLayout,
+  sectionId: SectionId,
+): SectionTabId | null {
+  for (const tabId of ["notes", "meta", "debug"] as const) {
+    if (layout[tabId].includes(sectionId)) return tabId;
+  }
+  return null;
 }

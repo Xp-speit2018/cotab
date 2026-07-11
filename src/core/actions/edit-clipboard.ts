@@ -1,6 +1,6 @@
 import * as Y from "yjs";
-import { actionRegistry } from "@/core/actions/registry";
-import type { ActionDefinition } from "@/core/actions/types";
+import { documentActionRegistry } from "@/core/actions/registry";
+import type { DocumentActionDefinition } from "@/core/actions/types";
 import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
 import {
@@ -173,14 +173,14 @@ function copyToBuffer(): boolean {
     barIndex === null ||
     voiceIndex === null
   ) {
-    debugLog("debug", "edit.clipboard", "copy: no selection");
+    debugLog("debug", "document.clipboard", "copy: no selection");
     return false;
   }
 
   const yTrack = engine.resolveYTrack(trackIndex);
   const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
   if (!yTrack || !yStaff) {
-    debugLog("debug", "edit.clipboard", "copy: no Y.Track/Staff resolved");
+    debugLog("debug", "document.clipboard", "copy: no Y.Track/Staff resolved");
     return false;
   }
 
@@ -197,7 +197,7 @@ function copyToBuffer(): boolean {
       voiceIndex,
     );
     if (!yVoice) {
-      debugLog("debug", "edit.clipboard", `copy: no Y.Voice at bar ${barIdx}`);
+      debugLog("debug", "document.clipboard", `copy: no Y.Voice at bar ${barIdx}`);
       return false;
     }
     const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;
@@ -213,7 +213,7 @@ function copyToBuffer(): boolean {
   // Store in engine (triggers hook for system clipboard sync)
   engine.setClipboard(JSON.stringify(clipboardData));
 
-  debugLog("info", "edit.clipboard", `copied bars ${startBar}–${endBar} (${bars.length} bar${bars.length > 1 ? "s" : ""})`, {
+  debugLog("info", "document.clipboard", `copied bars ${startBar}–${endBar} (${bars.length} bar${bars.length > 1 ? "s" : ""})`, {
     trackIndex,
     staffIndex,
     voiceIndex,
@@ -239,19 +239,19 @@ function getClipboardData(): ClipboardData | null {
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
-const copyAction: ActionDefinition<void> = {
-  id: "edit.copy",
+const copyAction: DocumentActionDefinition<void> = {
+  id: "document.copy",
   i18nKey: "shortcuts.clipboard.copy",
-  category: "edit.clipboard",
+  category: "document.clipboard",
   execute: () => {
     copyToBuffer();
   },
 };
 
-const cutAction: ActionDefinition<void> = {
-  id: "edit.cut",
+const cutAction: DocumentActionDefinition<void> = {
+  id: "document.cut",
   i18nKey: "shortcuts.clipboard.cut",
-  category: "edit.clipboard",
+  category: "document.clipboard",
   execute: () => {
     const { trackIndex, staffIndex, barIndex, voiceIndex } = engine.selector;
     if (
@@ -260,7 +260,7 @@ const cutAction: ActionDefinition<void> = {
       barIndex === null ||
       voiceIndex === null
     ) {
-      debugLog("debug", "edit.clipboard", "cut: no selection");
+      debugLog("debug", "document.clipboard", "cut: no selection");
       return;
     }
 
@@ -285,7 +285,7 @@ const cutAction: ActionDefinition<void> = {
       }
     });
 
-    debugLog("info", "edit.clipboard", `cut bars ${startBar}–${endBar} (${endBar - startBar + 1} bar${startBar !== endBar ? "s" : ""}) → cleared`, {
+    debugLog("info", "document.clipboard", `cut bars ${startBar}–${endBar} (${endBar - startBar + 1} bar${startBar !== endBar ? "s" : ""}) → cleared`, {
       trackIndex,
       staffIndex,
       voiceIndex,
@@ -296,14 +296,14 @@ const cutAction: ActionDefinition<void> = {
   },
 };
 
-const pasteAction: ActionDefinition<void> = {
-  id: "edit.paste",
+const pasteAction: DocumentActionDefinition<void> = {
+  id: "document.paste",
   i18nKey: "shortcuts.clipboard.paste",
-  category: "edit.clipboard",
+  category: "document.clipboard",
   execute: () => {
     const clipboardData = getClipboardData();
     if (!clipboardData) {
-      debugLog("debug", "edit.clipboard", "paste: no buffer");
+      debugLog("debug", "document.clipboard", "paste: no buffer");
       return;
     }
 
@@ -314,7 +314,7 @@ const pasteAction: ActionDefinition<void> = {
       barIndex === null ||
       voiceIndex === null
     ) {
-      debugLog("debug", "edit.clipboard", "paste: no selection");
+      debugLog("debug", "document.clipboard", "paste: no selection");
       return;
     }
 
@@ -322,7 +322,7 @@ const pasteAction: ActionDefinition<void> = {
     const yTrack = engine.resolveYTrack(trackIndex);
     const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yTrack || !yStaff) {
-      debugLog("debug", "edit.clipboard", "paste: no Y.Track/Staff resolved");
+      debugLog("debug", "document.clipboard", "paste: no Y.Track/Staff resolved");
       return;
     }
 
@@ -330,7 +330,7 @@ const pasteAction: ActionDefinition<void> = {
       (yTrack.get("uuid") as string) !== clipboardData.trackUuid ||
       (yStaff.get("uuid") as string) !== clipboardData.staffUuid
     ) {
-      debugLog("warn", "edit.clipboard", "paste: track/staff UUID mismatch — buffer from a different track", {
+      debugLog("warn", "document.clipboard", "paste: track/staff UUID mismatch — buffer from a different track", {
         bufferTrackUuid: clipboardData.trackUuid,
         bufferStaffUuid: clipboardData.staffUuid,
         targetTrackUuid: yTrack.get("uuid"),
@@ -344,7 +344,7 @@ const pasteAction: ActionDefinition<void> = {
     const barsWritten = Math.min(barsInBuffer, totalBars - barIndex);
 
     if (barsWritten < barsInBuffer) {
-      debugLog("warn", "edit.clipboard", `paste: clamped ${barsInBuffer} buffered bars to ${barsWritten} (score has ${totalBars} bars, target starts at bar ${barIndex})`, {
+      debugLog("warn", "document.clipboard", `paste: clamped ${barsInBuffer} buffered bars to ${barsWritten} (score has ${totalBars} bars, target starts at bar ${barIndex})`, {
         barsInBuffer,
         barsWritten,
         totalBars,
@@ -375,7 +375,7 @@ const pasteAction: ActionDefinition<void> = {
     });
 
     const lastTargetBar = barIndex + barsWritten - 1;
-    debugLog("info", "edit.clipboard", `pasted ${barsWritten} bar${barsWritten > 1 ? "s" : ""} into bars ${barIndex}–${lastTargetBar}`, {
+    debugLog("info", "document.clipboard", `pasted ${barsWritten} bar${barsWritten > 1 ? "s" : ""} into bars ${barIndex}–${lastTargetBar}`, {
       trackIndex,
       staffIndex,
       voiceIndex,
@@ -390,15 +390,15 @@ const pasteAction: ActionDefinition<void> = {
   },
 };
 
-actionRegistry.register(copyAction);
-actionRegistry.register(cutAction);
-actionRegistry.register(pasteAction);
+documentActionRegistry.register(copyAction);
+documentActionRegistry.register(cutAction);
+documentActionRegistry.register(pasteAction);
 
 declare global {
-  interface ActionMap {
-    "edit.copy": { args: void; result: void };
-    "edit.cut": { args: void; result: void };
-    "edit.paste": { args: void; result: void };
+  interface DocumentActionMap {
+    "document.copy": { args: void; result: void };
+    "document.cut": { args: void; result: void };
+    "document.paste": { args: void; result: void };
   }
 }
 

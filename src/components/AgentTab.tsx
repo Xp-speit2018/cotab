@@ -1,0 +1,692 @@
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { useTranslation } from "react-i18next";
+import {
+  Archive,
+  Bot,
+  BrainCircuit,
+  Check,
+  ChevronDown,
+  CircleStop,
+  Clock3,
+  FileMusic,
+  History,
+  ListTree,
+  Loader2,
+  Plus,
+  Search,
+  Send,
+  SlidersHorizontal,
+  Unplug,
+  Wrench,
+  XCircle,
+} from "lucide-react";
+import {
+  agentSession,
+  type AgentActivityEntry,
+  type AgentHistoryEntry,
+  type AgentTimelineEntry,
+} from "@/agent/agent-session";
+import { engine } from "@/core/engine";
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+import { usePlayerStore } from "@/stores/render-store";
+
+type TimelineBlock =
+  | { readonly kind: "message"; readonly entry: AgentTimelineEntry }
+  | { readonly kind: "activities"; readonly id: string; readonly entries: AgentActivityEntry[] };
+
+type AgentView = "conversation" | "history";
+type HistoryScope = "document" | "all";
+
+function groupTimeline(entries: readonly AgentTimelineEntry[]): TimelineBlock[] {
+  const blocks: TimelineBlock[] = [];
+  let activities: AgentActivityEntry[] = [];
+  const flushActivities = () => {
+    if (activities.length === 0) return;
+    blocks.push({
+      kind: "activities",
+      id: `activities:${activities[0].id}`,
+      entries: activities,
+    });
+    activities = [];
+  };
+
+  for (const entry of entries) {
+    if (entry.kind === "activity") {
+      activities.push(entry);
+      continue;
+    }
+    flushActivities();
+    blocks.push({ kind: "message", entry });
+  }
+  flushActivities();
+  return blocks;
+}
+
+function StatusIcon({ status }: { status: AgentActivityEntry["status"] }) {
+  if (status === "running") {
+    return <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />;
+  }
+  if (status === "failed") {
+    return <XCircle className="h-3.5 w-3.5 text-destructive" />;
+  }
+  return <Check className="h-3.5 w-3.5 text-emerald-600" />;
+}
+
+function ToolArguments({ value }: { value: unknown }) {
+  const { t } = useTranslation();
+  if (value === undefined) return null;
+  let formatted: string;
+  try {
+    formatted = JSON.stringify(value, null, 2);
+  } catch {
+    formatted = String(value);
+  }
+  return (
+    <details className="mt-1 text-[11px] text-muted-foreground">
+      <summary className="cursor-pointer select-none hover:text-foreground">
+        {t("agent.activity.arguments")}
+      </summary>
+      <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words border-l pl-2 font-mono text-[10px] leading-4">
+        {formatted}
+      </pre>
+    </details>
+  );
+}
+
+function ActivityGroup({ activities }: { activities: AgentActivityEntry[] }) {
+  const { t } = useTranslation();
+  const running = activities.some((activity) => activity.status === "running");
+  const failed = activities.some((activity) => activity.status === "failed");
+  const [open, setOpen] = useState(running);
+  const wasRunning = useRef(running);
+
+  useEffect(() => {
+    if (running) setOpen(true);
+    else if (wasRunning.current) setOpen(false);
+    wasRunning.current = running;
+  }, [running]);
+
+  const toolLabel = (tool: string | undefined) => {
+    if (!tool) return t("agent.activity.tool");
+    const key = `agent.tools.${tool}`;
+    const translated = t(key);
+    return translated === key ? tool : translated;
+  };
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="border-y bg-muted/20">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent/50">
+        {running ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-500" />
+        ) : failed ? (
+          <XCircle className="h-3.5 w-3.5 text-destructive" />
+        ) : (
+          <ListTree className="h-3.5 w-3.5 text-muted-foreground" />
+        )}
+        <span className="min-w-0 flex-1 truncate font-medium">
+          {running
+            ? t("agent.activity.working")
+            : t("agent.activity.completed", { count: activities.length })}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-muted-foreground transition-transform",
+            open && "rotate-180",
+          )}
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="border-t px-3 py-1.5">
+          {activities.map((activity) => (
+            <div key={activity.id} className="flex gap-2 border-b py-2 last:border-b-0">
+              <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+                <StatusIcon status={activity.status} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
+                  {activity.activityType === "tool" && (
+                    <Wrench className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  )}
+                  <span className="truncate">
+                    {activity.activityType === "reasoning"
+                      ? t("agent.activity.reasoning")
+                      : activity.activityType === "plan"
+                        ? t("agent.activity.plan")
+                        : toolLabel(activity.tool)}
+                  </span>
+                  {typeof activity.durationMs === "number" && (
+                    <span className="ml-auto shrink-0 text-[10px] font-normal tabular-nums text-muted-foreground">
+                      {(activity.durationMs / 1000).toFixed(1)}s
+                    </span>
+                  )}
+                </div>
+                {activity.detail && (
+                  <div className="mt-1 whitespace-pre-wrap break-words text-xs leading-5 text-muted-foreground">
+                    {activity.detail}
+                  </div>
+                )}
+                {activity.activityType === "tool" && (
+                  <ToolArguments value={activity.arguments} />
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function ConversationTimeline({ timeline }: { timeline: readonly AgentTimelineEntry[] }) {
+  const endRef = useRef<HTMLDivElement>(null);
+  const blocks = useMemo(() => groupTimeline(timeline), [timeline]);
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: "end" });
+  }, [timeline]);
+
+  return (
+    <ScrollArea className="min-h-0 flex-1">
+      <div className="py-3">
+        {blocks.map((block) => {
+          if (block.kind === "activities") {
+            return <ActivityGroup key={block.id} activities={block.entries} />;
+          }
+          const entry = block.entry;
+          if (entry.kind !== "message") return null;
+          return (
+            <div
+              key={entry.id}
+              className={cn(
+                "mx-3 mb-3 whitespace-pre-wrap break-words text-sm leading-6",
+                entry.role === "user"
+                  ? "ml-10 rounded-md bg-muted px-3 py-2"
+                  : "mr-2",
+              )}
+            >
+              {entry.text}
+            </div>
+          );
+        })}
+        <div ref={endRef} />
+      </div>
+    </ScrollArea>
+  );
+}
+
+function formatHistoryDate(timestamp: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(timestamp));
+}
+
+function HistoryView({
+  scope,
+  setScope,
+  setView,
+}: {
+  scope: HistoryScope;
+  setScope: (scope: HistoryScope) => void;
+  setView: (view: AgentView) => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const session = useSyncExternalStore(agentSession.subscribe, agentSession.getSnapshot);
+  const [search, setSearch] = useState("");
+  const documentId = engine.getDocumentId();
+
+  const history = session.history.filter((entry) => {
+    if (scope === "document" && entry.documentId !== documentId) return false;
+    const query = search.trim().toLocaleLowerCase();
+    if (!query) return true;
+    return `${entry.title} ${entry.preview} ${entry.scoreLabel}`
+      .toLocaleLowerCase()
+      .includes(query);
+  });
+
+  const openThread = async (entry: AgentHistoryEntry) => {
+    if (entry.documentId !== documentId) return;
+    await agentSession.openThread(entry.threadId).catch(() => undefined);
+    setView("conversation");
+  };
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="border-b px-3 py-2.5">
+        <div role="tablist" className="grid h-8 grid-cols-2 rounded-md bg-muted p-0.5">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scope === "document"}
+            className={cn(
+              "rounded px-2 text-xs",
+              scope === "document" && "bg-background shadow-sm",
+            )}
+            onClick={() => setScope("document")}
+          >
+            {t("agent.history.currentScore")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={scope === "all"}
+            className={cn(
+              "rounded px-2 text-xs",
+              scope === "all" && "bg-background shadow-sm",
+            )}
+            onClick={() => setScope("all")}
+          >
+            {t("agent.history.all")}
+          </button>
+        </div>
+        <label className="mt-2 flex h-8 items-center gap-2 rounded-md border px-2">
+          <Search className="h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            value={search}
+            className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+            placeholder={t("agent.history.search")}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+      </div>
+
+      <ScrollArea className="min-h-0 flex-1">
+        {session.historyLoading ? (
+          <div className="flex h-24 items-center justify-center">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : history.length === 0 ? (
+          <div className="px-4 py-10 text-center text-xs text-muted-foreground">
+            {t("agent.history.empty")}
+          </div>
+        ) : (
+          <div>
+            {history.map((entry) => {
+              const belongsToCurrentDocument = entry.documentId === documentId;
+              return (
+                <div
+                  key={entry.threadId}
+                  className={cn(
+                    "group flex items-start border-b",
+                    session.threadId === entry.threadId && "bg-accent/50",
+                  )}
+                >
+                  <button
+                    type="button"
+                    disabled={!belongsToCurrentDocument}
+                    className="min-w-0 flex-1 px-3 py-2.5 text-left disabled:cursor-not-allowed disabled:opacity-55"
+                    onClick={() => void openThread(entry)}
+                  >
+                    <div className="truncate text-xs font-medium">{entry.title}</div>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                      <FileMusic className="h-3 w-3 shrink-0" />
+                      <span className="min-w-0 flex-1 truncate">{entry.scoreLabel}</span>
+                      <span className="shrink-0 tabular-nums">
+                        {formatHistoryDate(entry.updatedAt, i18n.language)}
+                      </span>
+                    </div>
+                  </button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        className="mr-2 mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded opacity-0 hover:bg-accent group-hover:opacity-100 focus:opacity-100"
+                        aria-label={t("agent.history.archive")}
+                        onClick={() => void agentSession.archiveThread(entry.threadId)}
+                      >
+                        <Archive className="h-3.5 w-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("agent.history.archive")}</TooltipContent>
+                  </Tooltip>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
+  );
+}
+
+function Composer() {
+  const { t } = useTranslation();
+  const session = useSyncExternalStore(agentSession.subscribe, agentSession.getSnapshot);
+  const [prompt, setPrompt] = useState("");
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const working = session.phase === "working";
+  const connected = session.phase === "connected" || working;
+  const selectedModel = session.models.find((model) => model.model === session.model);
+
+  const send = async () => {
+    const text = prompt.trim();
+    if (!text || working) return;
+    setPrompt("");
+    await agentSession.sendPrompt(text).catch(() => setPrompt(text));
+  };
+
+  const updateSetting = async (operation: () => Promise<void>) => {
+    try {
+      await operation();
+      setSettingsError(null);
+    } catch (error) {
+      setSettingsError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  return (
+    <div className="border-t p-3">
+      <div className="rounded-md border bg-background focus-within:ring-1 focus-within:ring-ring">
+        <textarea
+          value={prompt}
+          rows={3}
+          disabled={!connected || working}
+          className="block max-h-40 min-h-20 w-full resize-none bg-transparent px-3 pb-9 pt-2.5 text-sm leading-5 outline-none placeholder:text-muted-foreground disabled:opacity-60"
+          placeholder={t("agent.promptPlaceholder")}
+          onChange={(event) => setPrompt(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault();
+              void send();
+            }
+          }}
+        />
+        <div className="flex h-8 items-center justify-between px-1.5 pb-1.5">
+          <div className="flex min-w-0 items-center gap-1">
+            <Popover open={settingsOpen} onOpenChange={setSettingsOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="max-w-40 truncate"
+                  aria-label={t("agent.modelSettings")}
+                  disabled={!connected || working || session.modelsLoading}
+                >
+                  <SlidersHorizontal className="h-3 w-3" />
+                  <span className="truncate">{selectedModel?.displayName ?? session.model ?? t("agent.model")}</span>
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64 p-1.5">
+                <div className="px-1.5 pb-1 pt-0.5 text-[10px] font-medium text-muted-foreground">
+                  {t("agent.model")}
+                </div>
+                {session.models.map((model) => (
+                  <button
+                    key={model.model}
+                    type="button"
+                    className={cn(
+                      "flex w-full items-start gap-2 rounded px-2 py-1.5 text-left hover:bg-accent",
+                      model.model === session.model && "bg-accent/70",
+                    )}
+                    onClick={() => void updateSetting(() => agentSession.setModel(model.model))}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-medium">{model.displayName}</span>
+                      <span className="block truncate text-[10px] text-muted-foreground">{model.description}</span>
+                    </span>
+                    {model.model === session.model && <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+                  </button>
+                ))}
+                <div className="my-1 border-t" />
+                <div className="px-1.5 pb-1 text-[10px] font-medium text-muted-foreground">
+                  {t("agent.reasoningEffort")}
+                </div>
+                <div className="flex flex-wrap gap-1 px-1">
+                  {(selectedModel?.supportedReasoningEfforts ?? []).map((option) => (
+                    <Button
+                      key={option.reasoningEffort}
+                      size="xs"
+                      variant={option.reasoningEffort === session.reasoningEffort ? "secondary" : "ghost"}
+                      onClick={() => void updateSetting(() => agentSession.setReasoningEffort(option.reasoningEffort))}
+                    >
+                      {option.reasoningEffort}
+                    </Button>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon-xs"
+                  variant={session.collaborationMode === "plan" ? "secondary" : "ghost"}
+                  aria-label={t("agent.planMode")}
+                  aria-pressed={session.collaborationMode === "plan"}
+                  disabled={!connected || working || !session.model}
+                  onClick={() => void updateSetting(() =>
+                    agentSession.setCollaborationMode(
+                      session.collaborationMode === "plan" ? "default" : "plan",
+                    ),
+                  )}
+                >
+                  <BrainCircuit className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("agent.planMode")}</TooltipContent>
+            </Tooltip>
+          </div>
+          {working ? (
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-7 w-7"
+              aria-label={t("agent.stop")}
+              onClick={() => void agentSession.interrupt()}
+            >
+              <CircleStop className="h-3.5 w-3.5" />
+            </Button>
+          ) : (
+            <Button
+              size="icon"
+              className="h-7 w-7"
+              disabled={!connected || !prompt.trim()}
+              aria-label={t("agent.send")}
+              onClick={() => void send()}
+            >
+              <Send className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+      {settingsError && <div className="mt-2 text-xs text-destructive">{settingsError}</div>}
+    </div>
+  );
+}
+
+export function AgentTab() {
+  const { t } = useTranslation();
+  const session = useSyncExternalStore(agentSession.subscribe, agentSession.getSnapshot);
+  const [view, setView] = useState<AgentView>("conversation");
+  const [historyScope, setHistoryScope] = useState<HistoryScope>("document");
+  const scoreTitle = usePlayerStore((state) => state.scoreTitle);
+  const connected = session.phase === "connected" || session.phase === "working";
+  const connecting = session.phase === "connecting";
+  const activeModel = session.models.find((model) => model.model === session.model);
+  const connectionLabel = session.model
+    ? `${activeModel?.displayName ?? session.model}${session.reasoningEffort ? ` · ${session.reasoningEffort}` : ""}`
+    : session.version ?? t(`agent.codexStatus.${session.phase}`);
+
+  useEffect(() => {
+    void agentSession.initialize();
+  }, []);
+
+  const createThread = async () => {
+    await agentSession.newThread().catch(() => undefined);
+    setView("conversation");
+  };
+
+  const showHistory = async () => {
+    setView("history");
+    await agentSession.loadHistory();
+  };
+
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
+        <span
+          className={cn(
+            "h-1.5 w-1.5 shrink-0 rounded-full",
+            session.phase === "working"
+              ? "bg-amber-500"
+              : connected
+                ? "bg-emerald-500"
+                : session.phase === "error"
+                  ? "bg-destructive"
+                  : "bg-muted-foreground/40",
+          )}
+        />
+        <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
+          {connectionLabel}
+        </span>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={view === "history" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-7 w-7"
+              aria-label={t("agent.history.title")}
+              disabled={!connected}
+              onClick={() => {
+                if (view === "history") setView("conversation");
+                else void showHistory();
+              }}
+            >
+              <History className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("agent.history.title")}</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              aria-label={t("agent.newConversation")}
+              disabled={connecting || session.phase === "working" || !session.installed}
+              onClick={() => void createThread()}
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{t("agent.newConversation")}</TooltipContent>
+        </Tooltip>
+
+        {connected && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-label={t("agent.disconnect")}
+                disabled={session.phase === "working"}
+                onClick={() => void agentSession.disconnect()}
+              >
+                <Unplug className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("agent.disconnect")}</TooltipContent>
+          </Tooltip>
+        )}
+
+      </div>
+
+      {!connected ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            <Bot className="h-7 w-7 text-muted-foreground" />
+            <div>
+              <div className="text-sm font-medium">{t("agent.localCodex")}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {session.installed
+                  ? session.version ?? t("agent.codexStatus.installed")
+                  : t("agent.codexStatus.notFound")}
+              </div>
+            </div>
+            <Button
+              size="sm"
+              className="h-8 gap-1.5"
+              disabled={!session.installed || connecting}
+              onClick={() => void agentSession.connect()}
+            >
+              {connecting ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Bot className="h-3.5 w-3.5" />
+              )}
+              {t("agent.connect")}
+            </Button>
+          </div>
+          {session.error && (
+            <div className="border-t px-3 py-2 text-xs text-destructive">
+              {session.error}
+            </div>
+          )}
+        </div>
+      ) : view === "history" ? (
+        <HistoryView
+          scope={historyScope}
+          setScope={setHistoryScope}
+          setView={setView}
+        />
+      ) : (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex h-8 shrink-0 items-center gap-1.5 border-b px-3 text-[11px] text-muted-foreground">
+            <FileMusic className="h-3 w-3" />
+            <span className="truncate">{scoreTitle || t("agent.untitledScore")}</span>
+            {session.phase === "working" && (
+              <>
+                <span className="ml-auto h-1.5 w-1.5 rounded-full bg-amber-500" />
+                <span>{t("agent.codexStatus.working")}</span>
+              </>
+            )}
+          </div>
+          {session.timeline.length === 0 ? (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
+              <Clock3 className="h-5 w-5" />
+              <span className="text-xs">{t("agent.emptyConversation")}</span>
+            </div>
+          ) : (
+            <ConversationTimeline timeline={session.timeline} />
+          )}
+          {session.error && (
+            <div className="border-t px-3 py-2 text-xs text-destructive">
+              {session.error}
+            </div>
+          )}
+          <Composer />
+        </div>
+      )}
+    </div>
+  );
+}

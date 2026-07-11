@@ -7,11 +7,12 @@
  */
 
 import * as Y from "yjs";
-import { initializeScore } from "./schema";
+import { initializeScore, readDocumentId } from "./schema";
 import type {
   CollaborationAdapter,
   CollaborationPersistence,
   CollaborationProvider,
+  DocumentPeerConnection,
   PeerInfo,
 } from "./editor/collaboration";
 import {
@@ -34,6 +35,7 @@ export type {
   CollaborationAdapter,
   CollaborationPersistence,
   CollaborationProvider,
+  DocumentPeerConnection,
   PeerInfo,
 } from "./editor/collaboration";
 
@@ -286,6 +288,10 @@ export class EditorEngine {
   private undoManager: Y.UndoManager | null = null;
   private _collaborationAdapter: CollaborationAdapter | null = null;
   private _hookRegistry = new HookRegistry();
+  private _documentPeers = new Map<
+    DocumentPeerConnection,
+    { origin: symbol; unsubscribe: () => void }
+  >();
 
   // Clipboard buffer (text-based for cross-platform compatibility)
   private _clipboardText: string | null = null;
@@ -297,6 +303,37 @@ export class EditorEngine {
 
   registerHooks(hooks: EngineHooks): () => void {
     return this._hookRegistry.on(hooks);
+  }
+
+  registerDocumentPeer(connection: DocumentPeerConnection): () => void {
+    const existing = this._documentPeers.get(connection);
+    if (existing) {
+      return () => this.unregisterDocumentPeer(connection);
+    }
+
+    const origin = Symbol("document-peer");
+    const unsubscribe = connection.onDocumentUpdate((update) => {
+      if (this.doc) Y.applyUpdate(this.doc, update, origin);
+    });
+    this._documentPeers.set(connection, { origin, unsubscribe });
+    if (this.doc) connection.resetDocument(Y.encodeStateAsUpdate(this.doc));
+
+    return () => this.unregisterDocumentPeer(connection);
+  }
+
+  private unregisterDocumentPeer(connection: DocumentPeerConnection): void {
+    const peer = this._documentPeers.get(connection);
+    if (!peer) return;
+    peer.unsubscribe();
+    this._documentPeers.delete(connection);
+  }
+
+  private resetDocumentPeers(): void {
+    if (!this.doc) return;
+    const update = Y.encodeStateAsUpdate(this.doc);
+    for (const connection of this._documentPeers.keys()) {
+      connection.resetDocument(update);
+    }
   }
 
   localSetSelection(
@@ -433,16 +470,24 @@ export class EditorEngine {
     }
   }
 
+  private _onDocumentUpdate = (update: Uint8Array, origin: unknown): void => {
+    for (const [connection, peer] of this._documentPeers) {
+      if (origin !== peer.origin) connection.updateDocument(update);
+    }
+  };
+
   private attachObserver(): void {
     if (this.scoreMap) {
       this.scoreMap.observeDeep(this._onYDocChange);
     }
+    this.doc?.on("update", this._onDocumentUpdate);
   }
 
   private detachObserver(): void {
     if (this.scoreMap) {
       this.scoreMap.unobserveDeep(this._onYDocChange);
     }
+    this.doc?.off("update", this._onDocumentUpdate);
   }
 
   initDoc(): void {
@@ -451,6 +496,7 @@ export class EditorEngine {
     this.scoreMap = initializeScore(this.doc);
     this.attachObserver();
     this.attachUndoManager();
+    this.resetDocumentPeers();
   }
 
   destroyDoc(): void {
@@ -472,6 +518,7 @@ export class EditorEngine {
     this.scoreMap = newScoreMap;
     this.attachObserver();
     this.attachUndoManager();
+    this.resetDocumentPeers();
     // Trigger renderer rebuild after doc swap
     this._hookRegistry.emit('onLocalYDocEdit');
   }
@@ -486,6 +533,9 @@ export class EditorEngine {
   getDoc(): Y.Doc | null { return this.doc; }
   getScoreMap(): Y.Map<unknown> | null { return this.scoreMap; }
   getUndoManager(): Y.UndoManager | null { return this.undoManager; }
+  getDocumentId(): string | null {
+    return this.doc ? readDocumentId(this.doc) : null;
+  }
 
   // Internal observer that dispatches peer edit notifications
   private _onYDocChange = (

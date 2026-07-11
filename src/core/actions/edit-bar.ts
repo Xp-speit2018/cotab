@@ -1,6 +1,6 @@
 import * as Y from "yjs";
-import { actionRegistry } from "@/core/actions/registry";
-import type { ActionDefinition } from "@/core/actions/types";
+import { documentActionRegistry } from "@/core/actions/registry";
+import type { DocumentActionDefinition } from "@/core/actions/types";
 import { debugLog } from "@/core/editor/action-log";
 import { engine, EditorEngine } from "@/core/engine";
 import { createMasterBar } from "@/core/schema";
@@ -51,14 +51,14 @@ function isBarEmptyAllTracksY(yScore: Y.Map<unknown>, barIndex: number): boolean
   return true;
 }
 
-const insertBarBeforeAction: ActionDefinition<void> = {
-  id: "edit.bar.insertBefore",
+const insertBarBeforeAction: DocumentActionDefinition<void> = {
+  id: "document.bar.insertBefore",
   i18nKey: "actions.edit.bar.insertBefore",
-  category: "edit.bar",
+  category: "document.bar",
   execute: (_args, _context) => {
     const { barIndex } = engine.selector;
     if (barIndex === null) {
-      debugLog("warn", "edit.bar.insertBefore", "no selection");
+      debugLog("warn", "document.bar.insertBefore", "no selection");
       return;
     }
     const yScore = getScoreMap();
@@ -85,18 +85,18 @@ const insertBarBeforeAction: ActionDefinition<void> = {
       }
     });
 
-    debugLog("info", "edit.bar.insertBefore", "complete");
+    debugLog("info", "document.bar.insertBefore", "complete");
   },
 };
 
-const insertBarAfterAction: ActionDefinition<void> = {
-  id: "edit.bar.insertAfter",
+const insertBarAfterAction: DocumentActionDefinition<void> = {
+  id: "document.bar.insertAfter",
   i18nKey: "actions.edit.bar.insertAfter",
-  category: "edit.bar",
+  category: "document.bar",
   execute: (_args, _context) => {
     const { barIndex } = engine.selector;
     if (barIndex === null) {
-      debugLog("warn", "edit.bar.insertAfter", "no selection");
+      debugLog("warn", "document.bar.insertAfter", "no selection");
       return;
     }
     const yScore = getScoreMap();
@@ -122,18 +122,18 @@ const insertBarAfterAction: ActionDefinition<void> = {
       }
     });
 
-    debugLog("info", "edit.bar.insertAfter", "complete");
+    debugLog("info", "document.bar.insertAfter", "complete");
   },
 };
 
-const deleteBarAction: ActionDefinition<void> = {
-  id: "edit.bar.delete",
+const deleteBarAction: DocumentActionDefinition<void> = {
+  id: "document.bar.delete",
   i18nKey: "actions.edit.bar.delete",
-  category: "edit.bar",
+  category: "document.bar",
   execute: (_args, _context): boolean => {
     const { barIndex } = engine.selector;
     if (barIndex === null) {
-      debugLog("warn", "edit.bar.delete", "no selection");
+      debugLog("warn", "document.bar.delete", "no selection");
       return false;
     }
     const yScore = getScoreMap();
@@ -141,12 +141,12 @@ const deleteBarAction: ActionDefinition<void> = {
 
     const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
     if (yMasterBars.length <= 1) {
-      debugLog("warn", "edit.bar.delete", "blocked — only bar remaining");
+      debugLog("warn", "document.bar.delete", "blocked — only bar remaining");
       return false;
     }
 
     if (!isBarEmptyAllTracksY(yScore, barIndex)) {
-      debugLog("warn", "edit.bar.delete", "blocked — bar not empty");
+      debugLog("warn", "document.bar.delete", "blocked — bar not empty");
       return false;
     }
 
@@ -163,80 +163,80 @@ const deleteBarAction: ActionDefinition<void> = {
       }
     });
 
-    debugLog("info", "edit.bar.delete", "complete");
+    debugLog("info", "document.bar.delete", "complete");
     return true;
   },
 };
 
-const setClefAction: ActionDefinition<number> = {
-  id: "edit.bar.setClef",
+const setClefAction: DocumentActionDefinition<number> = {
+  id: "document.bar.setClef",
   i18nKey: "actions.edit.bar.setClef",
-  category: "edit.bar",
+  category: "document.bar",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setClef.params.value" }],
   execute: (value, _context) => {
     applyBarUpdates({ clef: value });
   },
 };
 
-const setClefOttavaAction: ActionDefinition<number> = {
-  id: "edit.bar.setClefOttava",
+const setClefOttavaAction: DocumentActionDefinition<number> = {
+  id: "document.bar.setClefOttava",
   i18nKey: "actions.edit.bar.setClefOttava",
-  category: "edit.bar",
+  category: "document.bar",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setClefOttava.params.value" }],
   execute: (value, _context) => {
     applyBarUpdates({ clefOttava: value });
   },
 };
 
-const setSimileMarkAction: ActionDefinition<number> = {
-  id: "edit.bar.setSimileMark",
+const setSimileMarkAction: DocumentActionDefinition<number> = {
+  id: "document.bar.setSimileMark",
   i18nKey: "actions.edit.bar.setSimileMark",
-  category: "edit.bar",
+  category: "document.bar",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setSimileMark.params.value" }],
   execute: (value, _context) => {
     applyBarUpdates({ simileMark: value });
   },
 };
 
-const setKeySignatureAction: ActionDefinition<number> = {
-  id: "edit.bar.setKeySignature",
+const setKeySignatureAction: DocumentActionDefinition<number> = {
+  id: "document.bar.setKeySignature",
   i18nKey: "actions.edit.bar.setKeySignature",
-  category: "edit.bar",
+  category: "document.bar",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setKeySignature.params.value" }],
   execute: (value, _context) => {
     applyBarUpdates({ keySignature: value });
   },
 };
 
-const setKeySignatureTypeAction: ActionDefinition<number> = {
-  id: "edit.bar.setKeySignatureType",
+const setKeySignatureTypeAction: DocumentActionDefinition<number> = {
+  id: "document.bar.setKeySignatureType",
   i18nKey: "actions.edit.bar.setKeySignatureType",
-  category: "edit.bar",
+  category: "document.bar",
   params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setKeySignatureType.params.value" }],
   execute: (value, _context) => {
     applyBarUpdates({ keySignatureType: value });
   },
 };
 
-actionRegistry.register(insertBarBeforeAction);
-actionRegistry.register(insertBarAfterAction);
-actionRegistry.register(deleteBarAction);
-actionRegistry.register(setClefAction);
-actionRegistry.register(setClefOttavaAction);
-actionRegistry.register(setSimileMarkAction);
-actionRegistry.register(setKeySignatureAction);
-actionRegistry.register(setKeySignatureTypeAction);
+documentActionRegistry.register(insertBarBeforeAction);
+documentActionRegistry.register(insertBarAfterAction);
+documentActionRegistry.register(deleteBarAction);
+documentActionRegistry.register(setClefAction);
+documentActionRegistry.register(setClefOttavaAction);
+documentActionRegistry.register(setSimileMarkAction);
+documentActionRegistry.register(setKeySignatureAction);
+documentActionRegistry.register(setKeySignatureTypeAction);
 
 declare global {
-  interface ActionMap {
-    "edit.bar.insertBefore": { args: void; result: void };
-    "edit.bar.insertAfter": { args: void; result: void };
-    "edit.bar.delete": { args: void; result: boolean };
-    "edit.bar.setClef": { args: number; result: void };
-    "edit.bar.setClefOttava": { args: number; result: void };
-    "edit.bar.setSimileMark": { args: number; result: void };
-    "edit.bar.setKeySignature": { args: number; result: void };
-    "edit.bar.setKeySignatureType": { args: number; result: void };
+  interface DocumentActionMap {
+    "document.bar.insertBefore": { args: void; result: void };
+    "document.bar.insertAfter": { args: void; result: void };
+    "document.bar.delete": { args: void; result: boolean };
+    "document.bar.setClef": { args: number; result: void };
+    "document.bar.setClefOttava": { args: number; result: void };
+    "document.bar.setSimileMark": { args: number; result: void };
+    "document.bar.setKeySignature": { args: number; result: void };
+    "document.bar.setKeySignatureType": { args: number; result: void };
   }
 }
 

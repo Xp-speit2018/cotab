@@ -18,22 +18,22 @@ export function patchBehaviorReaders(bindings: ShortcutBinding[]): void {
         }
         break;
 
-      case "edit.beat.toggleRest":
+      case "document.beat.toggleRest":
         if (b.behavior.type === "toggle") {
           (b.behavior as { getCurrentValue: () => boolean }).getCurrentValue = () =>
             usePlayerStore.getState().selectedBeatInfo?.isRest ?? false;
         }
         break;
 
-      case "edit.beat.cycleDurationUp":
-      case "edit.beat.cycleDurationDown":
+      case "document.beat.cycleDurationUp":
+      case "document.beat.cycleDurationDown":
         if (b.behavior.type === "cycle") {
           (b.behavior as { getCurrentValue: () => number }).getCurrentValue = () =>
             (usePlayerStore.getState().selectedBeatInfo?.duration as number) ?? 4;
         }
         break;
 
-      case "edit.beat.cycleDots":
+      case "document.beat.cycleDots":
         if (b.behavior.type === "cycle") {
           (b.behavior as { getCurrentValue: () => number }).getCurrentValue = () =>
             usePlayerStore.getState().selectedBeatInfo?.dots ?? 0;

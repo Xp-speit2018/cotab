@@ -11,7 +11,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
   // ── Navigation ────────────────────────────────────────────────────────────
   {
     id: "nav.nextBeat",
-    actionId: "nav.setSelection",
+    actionId: "selector.set",
     i18nKey: "shortcuts.nav.nextBeat",
     category: "navigation",
     defaultKeys: "arrowright",
@@ -20,7 +20,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
   },
   {
     id: "nav.prevBeat",
-    actionId: "nav.setSelection",
+    actionId: "selector.set",
     i18nKey: "shortcuts.nav.prevBeat",
     category: "navigation",
     defaultKeys: "arrowleft",
@@ -29,7 +29,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
   },
   {
     id: "nav.moveUp",
-    actionId: "nav.setSelection",
+    actionId: "selector.set",
     i18nKey: "shortcuts.nav.moveUp",
     category: "navigation",
     defaultKeys: "arrowup",
@@ -38,7 +38,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
   },
   {
     id: "nav.moveDown",
-    actionId: "nav.setSelection",
+    actionId: "selector.set",
     i18nKey: "shortcuts.nav.moveDown",
     category: "navigation",
     defaultKeys: "arrowdown",
@@ -47,7 +47,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
   },
   {
     id: "nav.nextBar",
-    actionId: "nav.setSelection",
+    actionId: "selector.set",
     i18nKey: "shortcuts.nav.nextBar",
     category: "navigation",
     defaultKeys: "mod+arrowright",
@@ -56,7 +56,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
   },
   {
     id: "nav.prevBar",
-    actionId: "nav.setSelection",
+    actionId: "selector.set",
     i18nKey: "shortcuts.nav.prevBar",
     category: "navigation",
     defaultKeys: "mod+arrowleft",
@@ -65,7 +65,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
   },
   {
     id: "nav.nextStaff",
-    actionId: "nav.setSelection",
+    actionId: "selector.set",
     i18nKey: "shortcuts.nav.nextStaff",
     category: "navigation",
     defaultKeys: "mod+arrowdown",
@@ -74,7 +74,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
   },
   {
     id: "nav.prevStaff",
-    actionId: "nav.setSelection",
+    actionId: "selector.set",
     i18nKey: "shortcuts.nav.prevStaff",
     category: "navigation",
     defaultKeys: "mod+arrowup",
@@ -95,8 +95,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
 
   // ── Editing: Beat ─────────────────────────────────────────────────────────
   {
-    id: "edit.beat.toggleRest",
-    actionId: "edit.beat.setRest",
+    id: "document.beat.toggleRest",
+    actionId: "document.beat.setRest",
     i18nKey: "shortcuts.edit.beat.toggleRest",
     category: "editing.beat",
     defaultKeys: "r",
@@ -104,8 +104,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: { type: "toggle", getCurrentValue: () => false },
   },
   {
-    id: "edit.beat.insertRestBefore",
-    actionId: "edit.beat.insertRestBefore",
+    id: "document.beat.insertRestBefore",
+    actionId: "document.beat.insertRestBefore",
     i18nKey: "shortcuts.edit.beat.insertRestBefore",
     category: "editing.beat",
     defaultKeys: "shift+[",
@@ -113,8 +113,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
   {
-    id: "edit.beat.insertRestAfter",
-    actionId: "edit.beat.insertRestAfter",
+    id: "document.beat.insertRestAfter",
+    actionId: "document.beat.insertRestAfter",
     i18nKey: "shortcuts.edit.beat.insertRestAfter",
     category: "editing.beat",
     defaultKeys: "shift+]",
@@ -122,8 +122,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
   {
-    id: "edit.beat.deleteNote",
-    actionId: "edit.beat.deleteNote",
+    id: "document.beat.deleteNote",
+    actionId: "document.beat.deleteNote",
     i18nKey: "shortcuts.edit.beat.deleteNote",
     category: "editing.beat",
     defaultKeys: "backspace",
@@ -131,8 +131,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
   {
-    id: "edit.beat.cycleDurationUp",
-    actionId: "edit.beat.setDuration",
+    id: "document.beat.cycleDurationUp",
+    actionId: "document.beat.setDuration",
     i18nKey: "shortcuts.edit.beat.cycleDurationUp",
     category: "editing.beat",
     defaultKeys: "=",
@@ -145,8 +145,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     },
   },
   {
-    id: "edit.beat.cycleDurationDown",
-    actionId: "edit.beat.setDuration",
+    id: "document.beat.cycleDurationDown",
+    actionId: "document.beat.setDuration",
     i18nKey: "shortcuts.edit.beat.cycleDurationDown",
     category: "editing.beat",
     defaultKeys: "-",
@@ -159,8 +159,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     },
   },
   {
-    id: "edit.beat.cycleDots",
-    actionId: "edit.beat.setDots",
+    id: "document.beat.cycleDots",
+    actionId: "document.beat.setDots",
     i18nKey: "shortcuts.edit.beat.cycleDots",
     category: "editing.beat",
     defaultKeys: ".",
@@ -175,8 +175,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
 
   // ── Editing: Bar ──────────────────────────────────────────────────────────
   {
-    id: "edit.bar.insertBefore",
-    actionId: "edit.bar.insertBefore",
+    id: "document.bar.insertBefore",
+    actionId: "document.bar.insertBefore",
     i18nKey: "shortcuts.edit.bar.insertBefore",
     category: "editing.bar",
     defaultKeys: "mod+alt+[",
@@ -184,8 +184,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
   {
-    id: "edit.bar.insertAfter",
-    actionId: "edit.bar.insertAfter",
+    id: "document.bar.insertAfter",
+    actionId: "document.bar.insertAfter",
     i18nKey: "shortcuts.edit.bar.insertAfter",
     category: "editing.bar",
     defaultKeys: "mod+alt+]",
@@ -193,8 +193,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
   {
-    id: "edit.bar.delete",
-    actionId: "edit.bar.delete",
+    id: "document.bar.delete",
+    actionId: "document.bar.delete",
     i18nKey: "shortcuts.edit.bar.delete",
     category: "editing.bar",
     defaultKeys: "mod+backspace",
@@ -204,8 +204,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
 
   // ── Editing: Track ────────────────────────────────────────────────────────
   {
-    id: "edit.track.delete",
-    actionId: "edit.track.delete",
+    id: "document.track.delete",
+    actionId: "document.track.delete",
     i18nKey: "shortcuts.edit.track.delete",
     category: "editing.track",
     defaultKeys: "mod+shift+backspace",
@@ -215,8 +215,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
 
   // ── History ─────────────────────────────────────────────────────────────
   {
-    id: "edit.undo",
-    actionId: "edit.undo",
+    id: "document.undo",
+    actionId: "document.undo",
     i18nKey: "shortcuts.history.undo",
     category: "history",
     defaultKeys: "mod+z",
@@ -224,8 +224,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
   {
-    id: "edit.redo",
-    actionId: "edit.redo",
+    id: "document.redo",
+    actionId: "document.redo",
     i18nKey: "shortcuts.history.redo",
     category: "history",
     defaultKeys: "mod+shift+z",
@@ -235,8 +235,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
 
   // ── Clipboard (placeholder) ───────────────────────────────────────────────
   {
-    id: "edit.copy",
-    actionId: "edit.copy",
+    id: "document.copy",
+    actionId: "document.copy",
     i18nKey: "shortcuts.clipboard.copy",
     category: "clipboard",
     defaultKeys: "mod+c",
@@ -244,8 +244,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
   {
-    id: "edit.paste",
-    actionId: "edit.paste",
+    id: "document.paste",
+    actionId: "document.paste",
     i18nKey: "shortcuts.clipboard.paste",
     category: "clipboard",
     defaultKeys: "mod+v",
@@ -253,8 +253,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     behavior: direct,
   },
   {
-    id: "edit.cut",
-    actionId: "edit.cut",
+    id: "document.cut",
+    actionId: "document.cut",
     i18nKey: "shortcuts.clipboard.cut",
     category: "clipboard",
     defaultKeys: "mod+x",
@@ -269,8 +269,8 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
  */
 export function getDigitBindings(): ShortcutBinding[] {
   return Array.from({ length: 10 }, (_, i) => ({
-    id: `edit.beat.placeNote.${i}`,
-    actionId: "edit.beat.placeNote",
+    id: `document.beat.placeNote.${i}`,
+    actionId: "document.beat.placeNote",
     i18nKey: "shortcuts.edit.beat.placeNote",
     category: "editing.beat" as const,
     defaultKeys: `${i}`,

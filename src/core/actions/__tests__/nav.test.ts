@@ -3,7 +3,6 @@ import * as Y from "yjs";
 import {
   resetMockState,
   seedOneTrackScore,
-  testContext,
   initDoc,
   destroyDoc,
   getScoreMap,
@@ -11,9 +10,6 @@ import {
   seedTrackWithConfig,
 } from "@/test/setup";
 import { createStaff, createBar, createVoice, createBeat } from "@/core/schema";
-
-// Track localSetSelection calls
-let lastSelection: Record<string, unknown> | null = null;
 
 vi.mock("@/core/engine", () => {
   const refs = () =>
@@ -54,7 +50,6 @@ vi.mock("@/core/engine", () => {
       if (d) d.transact(fn, d.clientID);
     }),
     localSetSelection: vi.fn((sel: Record<string, unknown>) => {
-      lastSelection = sel;
       // Also update mock state for subsequent reads
       const ms = (globalThis as Record<string, unknown>).__testMockState as Record<
         string,
@@ -103,7 +98,6 @@ vi.mock("@/core/engine", () => {
 
 const mockGetNavigablePositions = vi.fn((_trackIndex: number, _staffIndex: number) => null as number[] | null);
 
-import { executeAction } from "@/core/actions/registry";
 import {
   computeMoveDown as computeCoreMoveDown,
   computeMoveUp as computeCoreMoveUp,
@@ -115,7 +109,6 @@ import {
   computePrevStaff,
 } from "@/core/navigation";
 import type { SelectedBeat } from "@/core/engine";
-import "@/core/actions/navigation";
 
 function computeMoveUp(current: SelectedBeat): SelectedBeat | null {
   return computeCoreMoveUp(current, { getNavigablePositions: mockGetNavigablePositions });
@@ -134,43 +127,12 @@ const defaultSel = {
   string: 3 as number | null,
 };
 
-const ctx = testContext();
-
 beforeEach(() => {
   resetMockState();
   destroyDoc();
   initDoc();
-  lastSelection = null;
   mockGetNavigablePositions.mockReset();
   mockGetNavigablePositions.mockReturnValue(null);
-});
-
-// ─── nav.setSelection ─────────────────────────────────────────────────────────
-
-describe("nav.setSelection", () => {
-  beforeEach(() => {
-    seedOneTrackScore(getScoreMap()!, 2);
-  });
-
-  it("sets selection to target", () => {
-    const target = { ...defaultSel, beatIndex: 1 };
-
-    executeAction("nav.setSelection", target, ctx);
-
-    expect(lastSelection).toMatchObject({
-      trackIndex: 0,
-      staffIndex: 0,
-      barIndex: 0,
-      voiceIndex: 0,
-      beatIndex: 1,
-      string: 3,
-    });
-  });
-
-  it("does nothing with null target", () => {
-    executeAction("nav.setSelection", null as unknown as typeof defaultSel, ctx);
-    expect(lastSelection).toBeNull();
-  });
 });
 
 // ─── computeNextBeat ─────────────────────────────────────────────────────────

@@ -48,7 +48,7 @@ export function handleDigitInput(digit: number, context: AppActionExecutionConte
   if (isPercussionTrack()) {
     const gp7Id = useShortcutStore.getState().getPercussionGp7Id(digit);
     if (gp7Id !== undefined) {
-      executeAppActionUnsafe("edit.beat.togglePercussionArticulation", gp7Id, context);
+      executeAppActionUnsafe("document.beat.togglePercussionArticulation", gp7Id, context);
       debugLog("debug", "fretInput", "percussion digit", { digit, gp7Id });
     }
     reset();
@@ -59,7 +59,7 @@ export function handleDigitInput(digit: number, context: AppActionExecutionConte
     state.accumulated += String(digit);
     const fretValue = parseInt(state.accumulated, 10);
 
-    executeAppActionUnsafe("edit.beat.placeNote", fretValue, context);
+    executeAppActionUnsafe("document.beat.placeNote", fretValue, context);
     debugLog("debug", "fretInput", "tab digit", {
       digit,
       accumulated: state.accumulated,
@@ -81,7 +81,7 @@ export function handleDigitInput(digit: number, context: AppActionExecutionConte
   // current grid position. The clef of the active staff determines
   // the pitch mapping, so Treble and Alto/Bass staves resolve correctly.
   if (digit === 1) {
-    executeAppActionUnsafe("edit.beat.placeNote", undefined, context);
+    executeAppActionUnsafe("document.beat.placeNote", undefined, context);
     debugLog("debug", "fretInput", "notation placeNote", { digit });
   }
   reset();

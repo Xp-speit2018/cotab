@@ -1,25 +1,23 @@
-import { useState, useCallback, useRef } from "react";
+import { lazy, Suspense, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragOverEvent,
-} from "@dnd-kit/core";
+import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
+  horizontalListSortingStrategy,
+  useSortable,
   verticalListSortingStrategy,
-  arrayMove,
 } from "@dnd-kit/sortable";
-import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
+} from "lucide-react";
 import {
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
+  TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeHandle } from "@/components/ui/resize-handle";
@@ -27,18 +25,13 @@ import { usePlayerStore } from "@/stores/render-store";
 import type { SelectedNoteInfo } from "@/stores/render-types";
 import { cn } from "@/lib/utils";
 import { FpsSection } from "@/components/FpsMonitor";
-import {
-  MIN_SIDEBAR_WIDTH,
-  MAX_SIDEBAR_WIDTH,
-  TAB_COUNT,
-  loadSidebarWidth,
-  saveSidebarWidth,
-  loadTabLayout,
-  saveTabLayout,
-  findTabIndex,
-  type SectionId,
-  type TabLayout,
+import type {
+  EditorTabId,
+  SectionId,
+  SectionTabId,
+  SidebarSide,
 } from "./layout";
+import { useSidebarLayoutStore } from "./sidebar-store";
 import { SortableSection } from "./primitives";
 import { TabDroppable } from "./TabDroppable";
 import { SongSection } from "./SongSection";
@@ -51,18 +44,119 @@ import { LogSection } from "./LogSection";
 import { EditorStateSection } from "./EditorStateSection";
 import { AlphaTabStateSection } from "./AlphaTabStateSection";
 
-export function NoteEditorSidebar() {
+const AgentTab = lazy(() =>
+  import("@/components/AgentTab").then((module) => ({
+    default: module.AgentTab,
+  })),
+);
+
+function SortableTabButton({
+  tabId,
+  side,
+  active,
+  onClick,
+}: {
+  tabId: EditorTabId;
+  side: SidebarSide;
+  active: boolean;
+  onClick: () => void;
+}) {
   const { t } = useTranslation();
-  const sidebarVisible = usePlayerStore((s) => s.sidebarVisible);
-  const collapsed = !sidebarVisible;
-  const setCollapsed = (val: boolean) => usePlayerStore.setState({ sidebarVisible: !val });
-  const [sidebarWidth, setSidebarWidth] = useState(loadSidebarWidth);
-  const widthAtDragStart = useRef(sidebarWidth);
-  const [activeTab, setActiveTab] = useState(0);
-  const [tabLayout, setTabLayout] = useState<TabLayout>(loadTabLayout);
-  const selectedBeatInfo = usePlayerStore((s) => s.selectedBeatInfo);
-  const selectedBarInfo = usePlayerStore((s) => s.selectedBarInfo);
-  const selectedNoteIndex = usePlayerStore((s) => s.selectedNoteIndex);
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `editor-tab:${tabId}`,
+    data: { type: "tab", tabId, side },
+  });
+  const {
+    role: _sortableRole,
+    "aria-pressed": _sortablePressed,
+    ...sortableAttributes
+  } = attributes;
+
+  return (
+    <button
+      ref={setNodeRef}
+      type="button"
+      className={cn(
+        "min-w-0 flex-1 cursor-grab px-1 py-2 text-center text-[10px] font-medium uppercase tracking-wider transition-colors active:cursor-grabbing",
+        active
+          ? "border-b-2 border-primary text-primary"
+          : "text-muted-foreground hover:text-foreground",
+        isDragging && "z-50 opacity-70",
+      )}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      onClick={onClick}
+      {...sortableAttributes}
+      {...listeners}
+      aria-pressed={active}
+    >
+      <span className="block truncate">{t(`sidebar.tabNames.${tabId}`)}</span>
+    </button>
+  );
+}
+
+function SidebarCollapseButton({
+  side,
+  collapsed,
+  onClick,
+}: {
+  side: SidebarSide;
+  collapsed: boolean;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation();
+  const Icon = collapsed
+    ? side === "left" ? PanelLeftOpen : PanelRightOpen
+    : side === "left" ? PanelLeftClose : PanelRightClose;
+  const label = collapsed ? t("sidebar.expandSidebar") : t("sidebar.collapseSidebar");
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
+          aria-label={label}
+          onClick={onClick}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={side === "left" ? "right" : "left"}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+export function EditorSidebar({ side }: { side: SidebarSide }) {
+  const { t } = useTranslation();
+  const placement = useSidebarLayoutStore((state) => state.placement);
+  const sections = useSidebarLayoutStore((state) => state.sections);
+  const activeTab = useSidebarLayoutStore((state) => state.activeTab[side]);
+  const collapsed = useSidebarLayoutStore((state) => state.collapsed[side]);
+  const width = useSidebarLayoutStore((state) => state.width[side]);
+  const setActiveTab = useSidebarLayoutStore((state) => state.setActiveTab);
+  const setCollapsed = useSidebarLayoutStore((state) => state.setCollapsed);
+  const setWidth = useSidebarLayoutStore((state) => state.setWidth);
+  const saveWidth = useSidebarLayoutStore((state) => state.saveWidth);
+  const widthAtDragStart = useRef(width);
+  const selectedBeatInfo = usePlayerStore((state) => state.selectedBeatInfo);
+  const selectedBarInfo = usePlayerStore((state) => state.selectedBarInfo);
+  const selectedNoteIndex = usePlayerStore((state) => state.selectedNoteIndex);
+  const tabs = placement[side];
+  const { isOver, setNodeRef } = useDroppable({
+    id: `sidebar:${side}`,
+    data: { type: "sidebar", side },
+  });
 
   const activeNote: SelectedNoteInfo | null =
     selectedBeatInfo &&
@@ -70,100 +164,12 @@ export function NoteEditorSidebar() {
     selectedNoteIndex < selectedBeatInfo.notes.length
       ? selectedBeatInfo.notes[selectedNoteIndex]
       : null;
-
   const hasBeat = !!(selectedBeatInfo && selectedBarInfo);
 
-  const handleSidebarResize = useCallback((deltaX: number) => {
-    const newWidth = Math.min(
-      MAX_SIDEBAR_WIDTH,
-      Math.max(MIN_SIDEBAR_WIDTH, widthAtDragStart.current + deltaX),
-    );
-    setSidebarWidth(newWidth);
-  }, []);
-
-  const handleSidebarResizeEnd = useCallback(() => {
-    saveSidebarWidth(sidebarWidth);
-    widthAtDragStart.current = sidebarWidth;
-  }, [sidebarWidth]);
-
-  const handleSidebarResizeStart = useCallback(() => {
-    widthAtDragStart.current = sidebarWidth;
-  }, [sidebarWidth]);
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor),
-  );
-
-  const handleDragOver = useCallback(
-    (event: DragOverEvent) => {
-      const { active, over } = event;
-      if (!over) return;
-
-      const activeId = active.id as string;
-      const overId = over.id as string;
-
-      const fromTab = findTabIndex(tabLayout, activeId);
-      let toTab: number;
-      if (overId.startsWith("tab-")) {
-        toTab = parseInt(overId.split("-")[1], 10);
-      } else {
-        toTab = findTabIndex(tabLayout, overId);
-      }
-
-      if (fromTab === -1 || toTab === -1 || fromTab === toTab) return;
-
-      setTabLayout((prev) => {
-        const next = prev.map((tab) => [...tab]);
-        const idx = next[fromTab].indexOf(activeId as SectionId);
-        if (idx === -1) return prev;
-        next[fromTab].splice(idx, 1);
-
-        if (overId.startsWith("tab-")) {
-          next[toTab].push(activeId as SectionId);
-        } else {
-          const overIdx = next[toTab].indexOf(overId as SectionId);
-          if (overIdx === -1) {
-            next[toTab].push(activeId as SectionId);
-          } else {
-            next[toTab].splice(overIdx, 0, activeId as SectionId);
-          }
-        }
-
-        saveTabLayout(next);
-        return next;
-      });
-    },
-    [tabLayout],
-  );
-
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over) return;
-
-      const activeId = active.id as string;
-      const overId = over.id as string;
-
-      if (overId.startsWith("tab-")) return;
-
-      const activeTabIdx = findTabIndex(tabLayout, activeId);
-      const overTabIdx = findTabIndex(tabLayout, overId);
-
-      if (activeTabIdx === -1 || activeTabIdx !== overTabIdx) return;
-      if (activeId === overId) return;
-
-      setTabLayout((prev) => {
-        const next = prev.map((tab) => [...tab]);
-        const oldIndex = next[activeTabIdx].indexOf(activeId as SectionId);
-        const newIndex = next[activeTabIdx].indexOf(overId as SectionId);
-        next[activeTabIdx] = arrayMove(next[activeTabIdx], oldIndex, newIndex);
-        saveTabLayout(next);
-        return next;
-      });
-    },
-    [tabLayout],
-  );
+  const handleResize = useCallback((deltaX: number) => {
+    const directionalDelta = side === "left" ? deltaX : -deltaX;
+    setWidth(side, widthAtDragStart.current + directionalDelta);
+  }, [setWidth, side]);
 
   const renderSection = useCallback(
     (id: SectionId, dragHandleProps: Record<string, unknown>) => {
@@ -188,121 +194,165 @@ export function NoteEditorSidebar() {
           ) : null;
         case "note":
           return hasBeat ? (
-            <NoteSection beat={selectedBeatInfo!} note={activeNote} dragHandleProps={dragHandleProps} />
+            <NoteSection
+              beat={selectedBeatInfo!}
+              note={activeNote}
+              dragHandleProps={dragHandleProps}
+            />
           ) : null;
         case "effects":
           return hasBeat ? (
-            <EffectsSection beat={selectedBeatInfo!} note={activeNote} dragHandleProps={dragHandleProps} />
+            <EffectsSection
+              beat={selectedBeatInfo!}
+              note={activeNote}
+              dragHandleProps={dragHandleProps}
+            />
           ) : null;
-        default:
-          return null;
       }
     },
-    [selectedBeatInfo, selectedBarInfo, selectedNoteIndex, activeNote, hasBeat],
+    [activeNote, hasBeat, selectedBarInfo, selectedBeatInfo],
   );
 
-  if (collapsed) {
+  if (collapsed || tabs.length === 0) {
     return (
-      <div className="flex flex-col items-center border-r bg-card py-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <button
-              className="flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent"
-              onClick={() => setCollapsed(false)}
-              aria-label={t("sidebar.expandSidebar")}
-            >
-              <PanelLeftOpen className="h-4 w-4" />
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="right">{t("sidebar.expandSidebar")}</TooltipContent>
-        </Tooltip>
+      <div
+        ref={setNodeRef}
+        data-sidebar-side={side}
+        className={cn(
+          "flex min-w-0 flex-col items-center bg-card py-1",
+          side === "left" ? "border-r" : "border-l",
+          isOver && "bg-accent",
+        )}
+      >
+        {collapsed && (
+          <SidebarCollapseButton
+            side={side}
+            collapsed
+            onClick={() => setCollapsed(side, false)}
+          />
+        )}
       </div>
     );
   }
 
-  const currentTabSections = tabLayout[activeTab] ?? [];
-
-  return (
-    <div className="flex min-h-0 flex-shrink-0" style={{ width: sidebarWidth }}>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card">
-        <div className="flex shrink-0 items-center border-b">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
-                onClick={() => setCollapsed(true)}
-                aria-label={t("sidebar.collapseSidebar")}
-              >
-                <PanelLeftClose className="h-3.5 w-3.5" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="right">{t("sidebar.collapseSidebar")}</TooltipContent>
-          </Tooltip>
-          {Array.from({ length: TAB_COUNT }, (_, i) => (
-            <button
-              key={i}
-              type="button"
-              className={cn(
-                "flex-1 py-2 text-center text-[10px] font-medium uppercase tracking-wider transition-colors",
-                activeTab === i
-                  ? "border-b-2 border-primary text-primary"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-              onClick={() => setActiveTab(i)}
-            >
-              {t(`sidebar.tabNames.${i}`)}
-            </button>
-          ))}
-        </div>
-
-        <ScrollArea className="flex-1 overflow-hidden">
-          <div className="pb-4 pr-3">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragOver={handleDragOver}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext
-                items={currentTabSections}
-                strategy={verticalListSortingStrategy}
-              >
-                <TabDroppable tabId={`tab-${activeTab}`}>
-                  {currentTabSections.length > 0 ? (
-                    currentTabSections.map((id) => (
-                      <SortableSection key={id} id={id}>
-                        {(dragHandleProps) => renderSection(id, dragHandleProps)}
-                      </SortableSection>
-                    ))
-                  ) : (
-                    <div className="flex items-center justify-center p-6">
-                      <p className="text-center text-[10px] text-muted-foreground">
-                        {t("sidebar.dropHereHint")}
-                      </p>
-                    </div>
-                  )}
-                </TabDroppable>
-              </SortableContext>
-            </DndContext>
-
-            {!hasBeat &&
-              currentTabSections.some((id) => id === "bar" || id === "note" || id === "effects") && (
-                <div className="flex items-center justify-center p-4">
-                  <p className="text-center text-xs text-muted-foreground">
-                    {t("sidebar.emptyState")}
-                  </p>
-                </div>
-              )}
+  const sectionTab = activeTab && activeTab !== "agent"
+    ? activeTab as SectionTabId
+    : null;
+  const currentSections = sectionTab ? sections[sectionTab] : [];
+  const panel = (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-card">
+      <div className="flex shrink-0 items-center border-b">
+        {side === "left" && (
+          <SidebarCollapseButton
+            side={side}
+            collapsed={false}
+            onClick={() => setCollapsed(side, true)}
+          />
+        )}
+        <SortableContext
+          items={tabs.map((tabId) => `editor-tab:${tabId}`)}
+          strategy={horizontalListSortingStrategy}
+        >
+          <div className="flex min-w-0 flex-1">
+            {tabs.map((tabId) => (
+              <SortableTabButton
+                key={tabId}
+                tabId={tabId}
+                side={side}
+                active={activeTab === tabId}
+                onClick={() => setActiveTab(side, tabId)}
+              />
+            ))}
           </div>
-        </ScrollArea>
+        </SortableContext>
+        {side === "right" && (
+          <SidebarCollapseButton
+            side={side}
+            collapsed={false}
+            onClick={() => setCollapsed(side, true)}
+          />
+        )}
       </div>
 
-      <ResizeHandle
-        side="right"
-        onResizeStart={handleSidebarResizeStart}
-        onResize={handleSidebarResize}
-        onResizeEnd={handleSidebarResizeEnd}
-      />
+      {activeTab === "agent" ? (
+        <Suspense
+          fallback={(
+            <div className="flex flex-1 items-center justify-center text-xs text-muted-foreground">
+              {t("agent.codexStatus.connecting")}
+            </div>
+          )}
+        >
+          <AgentTab />
+        </Suspense>
+      ) : sectionTab ? (
+        <ScrollArea className="min-h-0 flex-1 overflow-hidden">
+          <div className="pb-4 pr-3">
+            <SortableContext
+              items={currentSections.map((id) => `section:${id}`)}
+              strategy={verticalListSortingStrategy}
+            >
+              <TabDroppable tabId={sectionTab} side={side}>
+                {currentSections.length > 0 ? (
+                  currentSections.map((id) => (
+                    <SortableSection key={id} id={id}>
+                      {(dragHandleProps) => renderSection(id, dragHandleProps)}
+                    </SortableSection>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center p-6 text-center text-[10px] text-muted-foreground">
+                    {t("sidebar.dropHereHint")}
+                  </div>
+                )}
+              </TabDroppable>
+            </SortableContext>
+            {!hasBeat && currentSections.some(
+              (id) => id === "bar" || id === "note" || id === "effects",
+            ) && (
+              <div className="flex items-center justify-center p-4 text-center text-xs text-muted-foreground">
+                {t("sidebar.emptyState")}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      ) : (
+        <div className="flex flex-1 items-center justify-center p-6 text-center text-[10px] text-muted-foreground">
+          {t("sidebar.dropTabHereHint")}
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div
+      ref={setNodeRef}
+      data-sidebar-side={side}
+      className={cn(
+        "flex min-h-0 min-w-0",
+        isOver && "ring-1 ring-inset ring-primary/30",
+      )}
+      style={{ width: "100%" }}
+    >
+      {side === "right" && (
+        <ResizeHandle
+          side="left"
+          onResizeStart={() => {
+            widthAtDragStart.current = width;
+          }}
+          onResize={handleResize}
+          onResizeEnd={() => saveWidth(side)}
+        />
+      )}
+      {panel}
+      {side === "left" && (
+        <ResizeHandle
+          side="right"
+          onResizeStart={() => {
+            widthAtDragStart.current = width;
+          }}
+          onResize={handleResize}
+          onResizeEnd={() => saveWidth(side)}
+        />
+      )}
     </div>
   );
 }

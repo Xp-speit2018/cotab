@@ -34,14 +34,24 @@ editing. See [docs/ACTIONS.md](docs/ACTIONS.md) for the action taxonomy.
 Current target boundaries:
 
 - `src/core` is the shared logical engine.
+- `src/protocol` contains the transport-independent minimal MCP tools and the
+  headless core-edit host used by every agent surface.
+- `src/agent` contains the Desktop Codex adapter and its headless logical peer.
+  These modules run in the Tauri WebView and are not exposed as a Web product
+  capability.
 - `src/adapters/web` contains browser/WebView collaboration wiring such as
   WebRTC signaling and IndexedDB persistence.
-- Desktop is a Tauri shell over the Web build, so it uses the Web target
-  boundary unless a future native Tauri adapter is added.
+- Desktop remains a Tauri shell over the Web build. Its native layer is limited
+  to host capabilities such as launching the local Codex app-server; score and
+  collaboration logic stays in the Web/core targets.
 - `src/adapters/local` is the local headless engine host used by the CLI and MCP
   stdio targets.
-- `src/cli` and `src/mcp` are command/protocol surfaces over the local adapter.
+- `src/cli` and `src/mcp` are command/stdio protocol surfaces over the local
+  adapter. The Tauri native layer may launch local agent processes, but score
+  operations remain in the shared Web/protocol implementation.
   In this repo, "command" refers to CLI subcommands, not UI actions.
+- A normal browser build exposes no Agent UI, model adapter, or LLM credential
+  path.
 
 ## What’s done
 
@@ -60,8 +70,18 @@ Current target boundaries:
 
 ## Roadmap
 
+- [x] **Action Protocol v0 and minimal MCP** — Remove the transitional action
+  boundaries and expose the `core-edit-v0` semantics through one
+  transport-independent MCP tool implementation. The stdio MCP server and
+  in-app runtimes must execute the same logical operations; v0 does not promise
+  advanced or fluent agent workflows.
+- [x] **Desktop Codex connection** — Add a Bot menu to the Tauri title bar that
+  detects and connects a locally installed Codex client to CoTab's shared MCP
+  surface. Tauri owns Codex's stdio JSONL transport, while tool calls run
+  through an on-demand logical peer in the WebView. The peer follows the Codex
+  connection lifecycle; the browser target has no corresponding Agent or LLM
+  surface.
 - [ ] **Server-Assisted Sync** - Optional future mode for NAT-hostile networks. This may add a websocket-backed room with server authority, but the current architecture remains p2p CRDT.
-- [ ] **Agentic score editing** — Expose score editing functions (add/delete tracks, bars, notes, metadata, etc.) through an MCP stdio adapter or skills, so AI agents and external tools can drive the editor programmatically without becoming sync authorities.
 - [ ] **UI/UX improvements and unification** — Polish, consistency, and accessibility.
 - [ ] **Cloud storage support** — Optional sync/storage in the cloud.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.

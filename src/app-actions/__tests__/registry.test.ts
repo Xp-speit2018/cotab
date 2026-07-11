@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AppActionExecutionContext } from "@/app-actions";
-import { executeAppActionUnsafe, getAllAppActions } from "@/app-actions";
+import {
+  appActionRegistry,
+  executeAppActionUnsafe,
+  getAllAppActions,
+} from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
 
 const context: AppActionExecutionContext = {
@@ -10,11 +14,12 @@ const context: AppActionExecutionContext = {
 describe("AppAction registry", () => {
   it("registers core actions as AppActions", () => {
     const actions = getAllAppActions();
-    const nav = actions.find((action) => action.id === "nav.setSelection");
-    const edit = actions.find((action) => action.id === "edit.beat.placeNote");
+    const nav = actions.find((action) => action.id === "selector.set");
+    const edit = actions.find((action) => action.id === "document.beat.placeNote");
 
     expect(nav?.domain).toBe("selector");
     expect(edit?.domain).toBe("document");
+    expect(appActionRegistry.get("document.beat.placeNote")).toBeUndefined();
   });
 
   it("registers transport actions above core", () => {

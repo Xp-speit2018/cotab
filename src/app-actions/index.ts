@@ -1,8 +1,9 @@
-import { registerDocumentAppActions } from "./document-actions";
+import "@/core/actions";
+import { registerSelectorActions } from "./selector-actions";
 import { registerTransportActions } from "./transport-actions";
 import { registerViewActions } from "./view-actions";
 
-registerDocumentAppActions();
+registerSelectorActions();
 registerTransportActions();
 registerViewActions();
 

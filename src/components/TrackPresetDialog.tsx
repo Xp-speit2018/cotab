@@ -28,7 +28,7 @@ export function TrackPresetDialog() {
 
   const handleSelect = (presetId: string) => {
     usePlayerStore.setState({ addTrackDialogOpen: false });
-    executeAppAction("edit.track.add", presetId, { t });
+    executeAppAction("document.track.add", presetId, { t });
   };
 
   const handleOpenChange = (value: boolean) => {

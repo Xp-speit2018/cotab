@@ -18,6 +18,7 @@
 import * as Y from "yjs";
 import * as alphaTab from "@coderline/alphatab";
 import { v4 as uuidv4 } from "uuid";
+import { resetDocumentId } from "./schema";
 
 // ─── Engine back-reference (set by engine.ts to avoid circular import) ──────
 
@@ -50,6 +51,7 @@ export function importScoreToYDoc(
   const yScore = doc.getMap("score");
 
   doc.transact(() => {
+    if (origin === _fileImportOrigin) resetDocumentId(doc);
     yScore.set("title", score.title || "");
     yScore.set("subTitle", score.subTitle || "");
     yScore.set("artist", score.artist || "");

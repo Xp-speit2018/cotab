@@ -19,9 +19,9 @@ export interface AppActionDefinition<TArgs = void, TResult = void | boolean> {
 declare global {
   /**
    * Top-level user action registry for UI controls and shortcuts.
-   * DocumentAction IDs are included through the current core ActionMap.
+   * DocumentAction IDs are included through the current core DocumentActionMap.
    */
-  interface AppActionMap extends ActionMap {}
+  interface AppActionMap extends DocumentActionMap {}
 }
 
 export type AppActionId = keyof AppActionMap;

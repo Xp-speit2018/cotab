@@ -40,21 +40,21 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
 
   const handleMeta = useCallback(
     (field: ScoreMetadataField) => (value: string) => {
-      executeAppAction("edit.score.setMetadata", { field, value }, { t });
+      executeAppAction("document.score.setMetadata", { field, value }, { t });
     },
     [t],
   );
 
   const handleTempo = useCallback(
     (tempo: number) => {
-      executeAppAction("edit.score.setTempo", tempo, { t });
+      executeAppAction("document.score.setTempo", tempo, { t });
     },
     [t],
   );
 
   const handleTempoLabel = useCallback(
     (label: string) => {
-      executeAppAction("edit.score.setTempoLabel", label, { t });
+      executeAppAction("document.score.setTempoLabel", label, { t });
     },
     [t],
   );

@@ -1,11 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
+import * as Y from "yjs";
 
 import {
   EditorEngine,
   type CollaborationAdapter,
   type CollaborationPersistence,
   type CollaborationProvider,
+  type DocumentPeerConnection,
 } from "@/core/engine";
+import { initializeScore } from "@/core/schema";
 
 function createLifecycleHandle() {
   const callbacks = new Map<string, Array<() => void>>();
@@ -102,5 +105,47 @@ describe("EditorEngine collaboration lifecycle", () => {
     expect(engine.connected).toBe(false);
     expect(engine.connectionStatus).toBe("error");
     expect(engine.connectionError).toBe("errorRoomNotFound");
+  });
+
+  it("owns logical document peer routing across document replacement", () => {
+    const engine = new EditorEngine();
+    let receivePeerUpdate: ((update: Uint8Array) => void) | null = null;
+    const connection: DocumentPeerConnection = {
+      resetDocument: vi.fn(),
+      updateDocument: vi.fn(),
+      onDocumentUpdate: vi.fn((callback) => {
+        receivePeerUpdate = callback;
+        return vi.fn();
+      }),
+    };
+
+    engine.initDoc();
+    const unregister = engine.registerDocumentPeer(connection);
+    expect(connection.resetDocument).toHaveBeenCalledOnce();
+
+    engine.localEditYDoc(() => engine.getScoreMap()?.set("title", "Local"));
+    expect(connection.updateDocument).toHaveBeenCalledOnce();
+
+    const peerDoc = new Y.Doc();
+    const initialUpdate = vi.mocked(connection.resetDocument).mock.calls[0][0];
+    Y.applyUpdate(peerDoc, initialUpdate);
+    const localUpdate = vi.mocked(connection.updateDocument).mock.calls[0][0];
+    Y.applyUpdate(peerDoc, localUpdate);
+    let update: Uint8Array | null = null;
+    peerDoc.on("update", (next) => { update = next; });
+    peerDoc.getMap("score").set("title", "Peer");
+    expect(update).not.toBeNull();
+    const updatesBeforePeerEdit = vi.mocked(connection.updateDocument).mock.calls.length;
+    receivePeerUpdate!(update!);
+    expect(engine.getScoreMap()?.get("title")).toBe("Peer");
+    expect(connection.updateDocument).toHaveBeenCalledTimes(updatesBeforePeerEdit);
+
+    const replacement = new Y.Doc();
+    engine.replaceDoc(replacement, initializeScore(replacement));
+    expect(connection.resetDocument).toHaveBeenCalledTimes(2);
+
+    unregister();
+    engine.localEditYDoc(() => engine.getScoreMap()?.set("title", "After"));
+    expect(connection.updateDocument).toHaveBeenCalledTimes(updatesBeforePeerEdit);
   });
 });

@@ -8,12 +8,17 @@
 
 import * as Y from "yjs";
 import { initializeScore, readDocumentId } from "./schema";
+import { createSyncState } from "./editor/collaboration";
 import type {
   CollaborationAdapter,
   CollaborationPersistence,
   CollaborationProvider,
+  CollaborationTransportProfile,
   DocumentPeerConnection,
+  LogicalPeerTransferProfile,
   PeerInfo,
+  SyncState,
+  YjsUpdateSource,
 } from "./editor/collaboration";
 import {
   createTrack,
@@ -35,8 +40,14 @@ export type {
   CollaborationAdapter,
   CollaborationPersistence,
   CollaborationProvider,
+  CollaborationTransportProfile,
   DocumentPeerConnection,
+  LogicalPeerTransferProfile,
   PeerInfo,
+  SyncState,
+  YjsUpdateSample,
+  YjsUpdateSource,
+  YjsUpdateStats,
 } from "./editor/collaboration";
 
 // Pure converters (headless-safe)
@@ -277,6 +288,7 @@ export class EditorEngine {
   connected: boolean = false;
   roomCode: string | null = null;
   peers: PeerInfo[] = [];
+  syncState: SyncState = createSyncState();
   connectionStatus: "idle" | "connecting" | "connected" | "error" = "idle";
   connectionError: string | null = null;
   userName: string = "";
@@ -290,8 +302,10 @@ export class EditorEngine {
   private _hookRegistry = new HookRegistry();
   private _documentPeers = new Map<
     DocumentPeerConnection,
-    { origin: symbol; unsubscribe: () => void }
+    { origin: symbol; unsubscribe: () => void; unsubscribeStatus: (() => void) | null }
   >();
+  private _networkPeers = new Map<string, PeerInfo>();
+  private _connectionGeneration = 0;
 
   // Clipboard buffer (text-based for cross-platform compatibility)
   private _clipboardText: string | null = null;
@@ -315,8 +329,19 @@ export class EditorEngine {
     const unsubscribe = connection.onDocumentUpdate((update) => {
       if (this.doc) Y.applyUpdate(this.doc, update, origin);
     });
-    this._documentPeers.set(connection, { origin, unsubscribe });
-    if (this.doc) connection.resetDocument(Y.encodeStateAsUpdate(this.doc));
+    const unsubscribeStatus = connection.onPeerStatusChange?.((status) => {
+      if (connection.peer) {
+        connection.peer.status = status;
+        this.refreshPeerRoster();
+      }
+    }) ?? null;
+    this._documentPeers.set(connection, { origin, unsubscribe, unsubscribeStatus });
+    if (this.doc) {
+      const update = Y.encodeStateAsUpdate(this.doc);
+      connection.resetDocument(update);
+      this.recordLogicalPeerTransfer(connection, "reset", update.byteLength);
+    }
+    this.refreshPeerRoster();
 
     return () => this.unregisterDocumentPeer(connection);
   }
@@ -325,7 +350,9 @@ export class EditorEngine {
     const peer = this._documentPeers.get(connection);
     if (!peer) return;
     peer.unsubscribe();
+    peer.unsubscribeStatus?.();
     this._documentPeers.delete(connection);
+    this.refreshPeerRoster();
   }
 
   private resetDocumentPeers(): void {
@@ -333,6 +360,7 @@ export class EditorEngine {
     const update = Y.encodeStateAsUpdate(this.doc);
     for (const connection of this._documentPeers.keys()) {
       connection.resetDocument(update);
+      this.recordLogicalPeerTransfer(connection, "reset", update.byteLength);
     }
   }
 
@@ -470,10 +498,109 @@ export class EditorEngine {
     }
   }
 
-  private _onDocumentUpdate = (update: Uint8Array, origin: unknown): void => {
+  private documentPeerForOrigin(
+    origin: unknown,
+  ): [DocumentPeerConnection, { origin: symbol }] | null {
     for (const [connection, peer] of this._documentPeers) {
-      if (origin !== peer.origin) connection.updateDocument(update);
+      if (peer.origin === origin) return [connection, peer];
     }
+    return null;
+  }
+
+  private yjsUpdateSource(
+    origin: unknown,
+    sourcePeer: DocumentPeerConnection | null,
+  ): YjsUpdateSource {
+    if (
+      (this.doc && origin === this.doc.clientID)
+      || origin === FILE_IMPORT_ORIGIN
+      || (this.undoManager !== null && origin === this.undoManager)
+    ) return "local";
+    if (sourcePeer?.peer?.kind === "agent") return "agent";
+    if (sourcePeer) return "logicalPeer";
+    if (this.provider?.ownsOrigin?.(origin)) return "network";
+    if (this.persistence?.ownsOrigin?.(origin)) return "persistence";
+    return "system";
+  }
+
+  private recordYjsUpdate(
+    source: YjsUpdateSource,
+    update: Uint8Array,
+    peerId: string | null,
+  ): void {
+    const at = Date.now();
+    const previous = this.syncState.yjs.bySource[source];
+    const sample = { at, source, peerId, bytes: update.byteLength };
+    this.syncState = {
+      ...this.syncState,
+      yjs: {
+        bySource: {
+          ...this.syncState.yjs.bySource,
+          [source]: {
+            updates: previous.updates + 1,
+            bytes: previous.bytes + update.byteLength,
+            maxBytes: Math.max(previous.maxBytes, update.byteLength),
+            lastAt: at,
+          },
+        },
+        lastUpdate: sample,
+        recentUpdates: [...this.syncState.yjs.recentUpdates, sample].slice(-50),
+      },
+    };
+  }
+
+  private recordLogicalPeerTransfer(
+    connection: DocumentPeerConnection,
+    direction: "reset" | "sent" | "received",
+    bytes: number,
+  ): void {
+    const peerId = connection.peer?.id;
+    if (!peerId) return;
+    const previous: LogicalPeerTransferProfile = this.syncState.logicalPeers[peerId] ?? {
+      resetCount: 0,
+      resetBytes: 0,
+      sentUpdates: 0,
+      sentBytes: 0,
+      receivedUpdates: 0,
+      receivedBytes: 0,
+      lastTransferAt: null,
+    };
+    const next = { ...previous, lastTransferAt: Date.now() };
+    if (direction === "reset") {
+      next.resetCount += 1;
+      next.resetBytes += bytes;
+    } else if (direction === "sent") {
+      next.sentUpdates += 1;
+      next.sentBytes += bytes;
+    } else {
+      next.receivedUpdates += 1;
+      next.receivedBytes += bytes;
+    }
+    this.syncState = {
+      ...this.syncState,
+      logicalPeers: {
+        ...this.syncState.logicalPeers,
+        [peerId]: next,
+      },
+    };
+  }
+
+  private _onDocumentUpdate = (update: Uint8Array, origin: unknown): void => {
+    const sourceEntry = this.documentPeerForOrigin(origin);
+    const sourceConnection = sourceEntry?.[0] ?? null;
+    const source = this.yjsUpdateSource(origin, sourceConnection);
+    this.recordYjsUpdate(source, update, sourceConnection?.peer?.id ?? null);
+    if (sourceConnection) {
+      this.recordLogicalPeerTransfer(sourceConnection, "received", update.byteLength);
+    }
+
+    for (const [connection, peer] of this._documentPeers) {
+      if (origin !== peer.origin) {
+        connection.updateDocument(update);
+        this.recordLogicalPeerTransfer(connection, "sent", update.byteLength);
+      }
+    }
+    this._hookRegistry.emit('onConnectionMetaChange');
   };
 
   private attachObserver(): void {
@@ -671,25 +798,86 @@ export class EditorEngine {
     this._collaborationAdapter = adapter;
   }
 
+  private syncPhase(): SyncState["phase"] {
+    if (this.connectionStatus === "error") return "error";
+    if (!this.connected) {
+      return this.connectionStatus === "connecting" ? "connecting" : "offline";
+    }
+
+    const transport = this.syncState.transport;
+    if (this._networkPeers.size === 0) {
+      return transport.signalingConnected ? "ready" : "connecting";
+    }
+    if (
+      transport.syncedPeerCount >= this._networkPeers.size
+      && [...this._networkPeers.values()].every((peer) => peer.status === "synced")
+    ) {
+      return "synced";
+    }
+    return transport.connectedPeerCount > 0 ? "syncing" : "connecting";
+  }
+
+  private refreshSyncPhase(): void {
+    const phase = this.syncPhase();
+    const firstSynced = phase === "synced" && this.syncState.phase !== "synced";
+    this.syncState = {
+      ...this.syncState,
+      phase,
+      error: phase === "error" ? this.connectionError : null,
+      networkPeerCount: this._networkPeers.size,
+      logicalPeerCount: [...this._documentPeers.keys()].filter((connection) => connection.peer).length,
+      lastSyncedAt: firstSynced ? Date.now() : this.syncState.lastSyncedAt,
+    };
+  }
+
+  private refreshPeerRoster(): void {
+    const logicalPeers = [...this._documentPeers.keys()]
+      .map((connection) => connection.peer)
+      .filter((peer): peer is PeerInfo => peer !== undefined);
+    const peers = new Map(this._networkPeers);
+    for (const peer of logicalPeers) peers.set(peer.id, peer);
+    this.peers = [...peers.values()];
+    this.refreshSyncPhase();
+    this._hookRegistry.emit('onConnectionMetaChange');
+  }
+
+  private setTransportProfile(profile: CollaborationTransportProfile): void {
+    this.syncState = {
+      ...this.syncState,
+      transport: profile,
+    };
+    this.refreshSyncPhase();
+    this._hookRegistry.emit('onConnectionMetaChange');
+  }
+
   async connect(roomCode: string, userName: string): Promise<void> {
     if (!this._collaborationAdapter) {
       throw new Error("Collaboration adapter not set. Call setCollaborationAdapter() first.");
     }
 
+    const connectionGeneration = ++this._connectionGeneration;
+
     // Disconnect existing connection
     await this.disconnectInternal();
+    if (connectionGeneration !== this._connectionGeneration) return;
 
+    this.connected = false;
+    this.roomCode = null;
     this.connectionStatus = "connecting";
     this.connectionError = null;
     this.userName = userName;
+    this.syncState = createSyncState("connecting");
+    this.refreshPeerRoster();
     this._hookRegistry.emit('onConnectionMetaChange');
 
     if (this._collaborationAdapter.roomExists) {
       try {
         const exists = await this._collaborationAdapter.roomExists(roomCode);
+        if (connectionGeneration !== this._connectionGeneration) return;
         if (!exists) {
           this.connectionStatus = "error";
           this.connectionError = "errorRoomNotFound";
+          this.refreshSyncPhase();
           this._hookRegistry.emit('onConnectionMetaChange');
           return;
         }
@@ -697,15 +885,19 @@ export class EditorEngine {
         // Some adapters cannot confirm room existence before joining.
       }
     }
+    if (connectionGeneration !== this._connectionGeneration) return;
 
+    let pendingDoc: Y.Doc | null = null;
     try {
       this.destroyDoc();
       const newDoc = new Y.Doc();
+      pendingDoc = newDoc;
       const newScoreMap = newDoc.getMap("score");
 
       this.persistence = this._collaborationAdapter.createPersistence?.(roomCode, newDoc) ?? null;
       if (this.persistence) {
         this.persistence.on("synced", () => {
+          if (connectionGeneration !== this._connectionGeneration) return;
           this._hookRegistry.emit('onPeerYDocEdit');
         });
       }
@@ -714,9 +906,14 @@ export class EditorEngine {
         roomCode,
         userName,
         doc: newDoc,
-        onPresenceMessage: (msg) => this.handlePresenceMessage(msg),
+        onPresenceMessage: (msg) => {
+          if (connectionGeneration === this._connectionGeneration) {
+            this.handlePresenceMessage(msg);
+          }
+        },
       });
       this.provider.on("synced", () => {
+        if (connectionGeneration !== this._connectionGeneration) return;
         this._hookRegistry.emit('onPeerYDocEdit');
       });
 
@@ -726,22 +923,31 @@ export class EditorEngine {
       this.connected = true;
       this.roomCode = roomCode;
       this.connectionStatus = "connected";
+      this.refreshSyncPhase();
       this._hookRegistry.emit('onConnectionMetaChange');
     } catch {
+      await this.disconnectInternal();
+      if (pendingDoc && this.doc !== pendingDoc) pendingDoc.destroy();
+      if (connectionGeneration !== this._connectionGeneration) return;
+      if (!this.doc) this.initDoc();
+      this.connected = false;
+      this.roomCode = null;
       this.connectionStatus = "error";
       this.connectionError = "errorConnection";
+      this.refreshSyncPhase();
       this._hookRegistry.emit('onConnectionMetaChange');
     }
   }
 
   async disconnect(): Promise<void> {
+    this._connectionGeneration += 1;
     await this.disconnectInternal();
     this.connected = false;
     this.roomCode = null;
-    this.peers = [];
+    this.syncState = createSyncState();
     this.connectionStatus = "idle";
     this.connectionError = null;
-    this._hookRegistry.emit('onConnectionMetaChange');
+    this.refreshPeerRoster();
   }
 
   private async disconnectInternal(): Promise<void> {
@@ -753,6 +959,7 @@ export class EditorEngine {
       this.persistence.destroy();
       this.persistence = null;
     }
+    this._networkPeers.clear();
   }
 
   async createRoom(userName: string): Promise<void> {
@@ -763,25 +970,36 @@ export class EditorEngine {
       throw new Error("Current collaboration adapter does not support room creation.");
     }
 
+    const roomGeneration = ++this._connectionGeneration;
+    await this.disconnectInternal();
+    if (roomGeneration !== this._connectionGeneration) return;
+
+    this.connected = false;
+    this.roomCode = null;
     this.connectionStatus = "connecting";
     this.connectionError = null;
     this.userName = userName;
-    this._hookRegistry.emit('onConnectionMetaChange');
+    this.syncState = createSyncState("connecting");
+    this.refreshPeerRoster();
 
     try {
       const roomCode = await this._collaborationAdapter.createRoom();
+      if (roomGeneration !== this._connectionGeneration) return;
       await this.connect(roomCode, userName);
+      if (!this.connected) return;
 
       // Ensure default score content
       if (this.scoreMap) {
         const yTracks = this.scoreMap.get("tracks") as Y.Array<unknown> | undefined;
         if (!yTracks || yTracks.length === 0) {
-          EditorEngine.createNewScore(this.scoreMap);
+          this.localEditYDoc(() => EditorEngine.createNewScore(this.scoreMap!));
         }
       }
     } catch {
+      if (roomGeneration !== this._connectionGeneration) return;
       this.connectionStatus = "error";
       this.connectionError = "errorConnection";
+      this.refreshSyncPhase();
       this._hookRegistry.emit('onConnectionMetaChange');
     }
   }
@@ -790,26 +1008,22 @@ export class EditorEngine {
     const type = msg.type as string | undefined;
     if (!type) return;
 
-    let next: PeerInfo[] = this.peers;
-
-    if (type === "auth-ok") {
-      const peerList = msg.peers as PeerInfo[] | undefined;
-      next = peerList ?? [];
-    } else if (type === "peer-joined") {
-      const id = (msg.peerId ?? msg.id) as string;
-      const name = msg.name as string;
-      if (id && !this.peers.some((p) => p.id === id)) {
-        next = [...this.peers, { id, name: name ?? id }];
-      }
-    } else if (type === "peer-left") {
-      const id = (msg.peerId ?? msg.id) as string;
-      if (id) {
-        next = this.peers.filter((p) => p.id !== id);
-      }
+    if (type === "network-peers") {
+      const peers = Array.isArray(msg.peers) ? msg.peers as PeerInfo[] : [];
+      this._networkPeers = new Map(peers.map((peer) => [peer.id, peer]));
+      this.refreshPeerRoster();
+      return;
     }
 
-    if (next !== this.peers) {
-      this.peers = next;
+    if (type === "transport-profile") {
+      this.setTransportProfile(msg.profile as CollaborationTransportProfile);
+      return;
+    }
+
+    if (type === "collaboration-error") {
+      this.connectionStatus = "error";
+      this.connectionError = typeof msg.error === "string" ? msg.error : "errorConnection";
+      this.refreshSyncPhase();
       this._hookRegistry.emit('onConnectionMetaChange');
     }
   }

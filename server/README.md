@@ -29,6 +29,19 @@ Runs TypeScript in watch mode alongside a Node.js file watcher for automatic reb
 
 ## Docker
 
+From the repository root, start both the signaling server and the local TURN
+fallback used by collaboration E2E tests:
+
+```bash
+docker compose up --build signaling turn
+```
+
+TURN only relays WebRTC traffic when a direct ICE path is unavailable. It does
+not own the Yjs document or make the collaboration architecture
+server-authoritative.
+
+To run only the signaling image:
+
 ```bash
 docker build -t cotab-signaling-server .
 docker run -p 4444:4444 cotab-signaling-server

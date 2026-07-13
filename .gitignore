@@ -42,6 +42,9 @@ e2e/*
 !e2e/transport-mouse-mode.spec.ts
 !e2e/core-edit-actions.spec.ts
 !e2e/agent-runtime.spec.ts
+!e2e/coop.spec.ts
+!e2e/helpers/
+!e2e/helpers/coop.ts
 playwright.config.js
 
 # Editor directories and files

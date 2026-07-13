@@ -27,6 +27,7 @@ export type SectionId =
   | "log"
   | "fps"
   | "editorState"
+  | "syncState"
   | "alphaTabState"
   | "bar"
   | "note"
@@ -39,6 +40,7 @@ export const ALL_SECTION_IDS: SectionId[] = [
   "log",
   "fps",
   "editorState",
+  "syncState",
   "alphaTabState",
   "bar",
   "note",
@@ -55,7 +57,7 @@ export type SectionLayout = Record<SectionTabId, SectionId[]>;
 export const DEFAULT_SECTION_LAYOUT: SectionLayout = {
   notes: ["bar", "note", "effects", "articulation"],
   meta: ["song", "tracks"],
-  debug: ["editorState", "alphaTabState", "log", "fps"],
+  debug: ["editorState", "syncState", "alphaTabState", "log", "fps"],
 };
 
 function readNumber(key: string): number | null {
@@ -149,20 +151,36 @@ export function saveTabPlacement(placement: SidebarTabPlacement): void {
 }
 
 function sectionLayoutFromArrays(value: unknown): SectionLayout | null {
-  if (!Array.isArray(value) || value.length !== 3) return null;
-  const arrays = value as string[][];
-  const allIds = arrays.flat();
   if (
-    allIds.length !== ALL_SECTION_IDS.length ||
-    !ALL_SECTION_IDS.every((id) => allIds.includes(id))
-  ) {
-    return null;
-  }
-  return {
-    notes: arrays[0] as SectionId[],
-    meta: arrays[1] as SectionId[],
-    debug: arrays[2] as SectionId[],
+    !Array.isArray(value)
+    || value.length !== 3
+    || !value.every((entry) => Array.isArray(entry))
+  ) return null;
+
+  const seen = new Set<SectionId>();
+  const normalized = (value as unknown[][]).map((entries) => entries.filter(
+    (entry): entry is SectionId => {
+      if (typeof entry !== "string" || !ALL_SECTION_IDS.includes(entry as SectionId)) return false;
+      const id = entry as SectionId;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    },
+  ));
+  const layout: SectionLayout = {
+    notes: normalized[0],
+    meta: normalized[1],
+    debug: normalized[2],
   };
+
+  for (const tabId of ["notes", "meta", "debug"] as const) {
+    for (const id of DEFAULT_SECTION_LAYOUT[tabId]) {
+      if (seen.has(id)) continue;
+      layout[tabId].push(id);
+      seen.add(id);
+    }
+  }
+  return layout;
 }
 
 export function loadSectionLayout(): SectionLayout {

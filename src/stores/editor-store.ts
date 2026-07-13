@@ -23,6 +23,7 @@ export interface EditorReactiveState {
   connectionStatus: typeof engine.connectionStatus;
   connectionError: typeof engine.connectionError;
   userName: typeof engine.userName;
+  syncState: typeof engine.syncState;
 }
 
 // Derive undo state from UndoManager
@@ -44,6 +45,7 @@ export const useEditorStore = create<EditorReactiveState>(() => ({
   connectionStatus: engine.connectionStatus,
   connectionError: engine.connectionError,
   userName: engine.userName,
+  syncState: engine.syncState,
 }));
 
 // Register hooks to sync engine state to Zustand store
@@ -70,6 +72,7 @@ engine.registerHooks({
       connectionStatus: engine.connectionStatus,
       connectionError: engine.connectionError,
       userName: engine.userName,
+      syncState: engine.syncState,
     });
   },
 });

@@ -35,8 +35,17 @@ class AgentPeerRuntime {
     }
   >();
   private readonly documentUpdateListeners = new Set<(update: Uint8Array) => void>();
+  private readonly statusListeners = new Set<
+    (status: NonNullable<DocumentPeerConnection["peer"]>["status"]) => void
+  >();
 
   private readonly peerConnection: DocumentPeerConnection = {
+    peer: {
+      id: "agent:local-codex",
+      name: "Local Codex",
+      kind: "agent",
+      status: "connecting",
+    },
     resetDocument: (update) => {
       const copy = update.slice().buffer;
       this.post({ type: "document.reset", update: copy }, [copy]);
@@ -49,6 +58,10 @@ class AgentPeerRuntime {
       this.documentUpdateListeners.add(callback);
       return () => this.documentUpdateListeners.delete(callback);
     },
+    onPeerStatusChange: (callback) => {
+      this.statusListeners.add(callback);
+      return () => this.statusListeners.delete(callback);
+    },
   };
 
   private readonly handleWorkerMessage = (
@@ -59,11 +72,7 @@ class AgentPeerRuntime {
       case "runtime.ready":
         break;
       case "document.ready":
-        this.snapshot = {
-          status: "ready",
-          clientId: message.clientId,
-          error: null,
-        };
+        this.setSnapshot({ status: "ready", clientId: message.clientId, error: null });
         this.resolveStart?.();
         this.resolveStart = null;
         this.rejectStart = null;
@@ -88,35 +97,64 @@ class AgentPeerRuntime {
     return this.snapshot;
   }
 
+  private setSnapshot(snapshot: AgentPeerRuntimeSnapshot): void {
+    this.snapshot = snapshot;
+    const status = snapshot.status === "ready"
+      ? "synced"
+      : snapshot.status === "error"
+        ? "error"
+        : snapshot.status === "stopped"
+          ? "offline"
+          : "connecting";
+    if (this.peerConnection.peer) this.peerConnection.peer.status = status;
+    for (const listener of this.statusListeners) listener(status);
+  }
+
   async start(): Promise<void> {
     if (!isTauriRuntime()) {
       throw new Error("The agent peer runtime is only available in CoTab Desktop.");
     }
     if (this.snapshot.status === "ready") return;
     if (this.startPromise) return this.startPromise;
+    if (this.snapshot.status === "error") this.stop();
     if (typeof Worker === "undefined") {
       throw new Error("Web Workers are not available in this runtime.");
     }
 
-    this.snapshot = { status: "starting", clientId: null, error: null };
+    this.setSnapshot({ status: "starting", clientId: null, error: null });
+    let worker: Worker;
+    try {
+      worker = new Worker(
+        new URL("./agent-peer.worker.ts", import.meta.url),
+        { type: "module", name: "cotab-agent-peer" },
+      );
+    } catch (cause) {
+      const error = cause instanceof Error
+        ? cause
+        : new Error("The agent peer worker could not be created.");
+      this.setSnapshot({ status: "error", clientId: null, error: error.message });
+      throw error;
+    }
+
     this.startPromise = new Promise<void>((resolve, reject) => {
       this.resolveStart = resolve;
       this.rejectStart = reject;
     });
 
-    const worker = new Worker(
-      new URL("./agent-peer.worker.ts", import.meta.url),
-      { type: "module", name: "cotab-agent-peer" },
-    );
     this.worker = worker;
     worker.addEventListener("message", this.handleWorkerMessage);
     worker.addEventListener("error", (event) => {
       const error = new Error(event.message || "The agent peer worker failed.");
-      this.snapshot = { status: "error", clientId: null, error: error.message };
+      this.setSnapshot({ status: "error", clientId: null, error: error.message });
       this.rejectStart?.(error);
       this.resolveStart = null;
       this.rejectStart = null;
       this.startPromise = null;
+      for (const pending of this.pending.values()) {
+        clearTimeout(pending.timeout);
+        pending.reject(error);
+      }
+      this.pending.clear();
     });
 
     this.unregisterPeer = engine.registerDocumentPeer(this.peerConnection);
@@ -149,7 +187,7 @@ class AgentPeerRuntime {
     this.startPromise = null;
     this.resolveStart = null;
     this.rejectStart = null;
-    this.snapshot = { status: "stopped", clientId: null, error: null };
+    this.setSnapshot({ status: "stopped", clientId: null, error: null });
   }
 
   async callTool(

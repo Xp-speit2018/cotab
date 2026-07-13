@@ -11,8 +11,8 @@ const rooms = new Map<string, Room>();
 /** Reverse lookup: WebSocket → Peer (for fast disconnect handling) */
 const peersByConn = new Map<WebSocket, Peer>();
 
-/** Reverse lookup: Peer → Room code */
-const roomByPeer = new Map<string, string>();
+/** Reverse lookup: Peer object → Room code */
+const roomByPeer = new Map<Peer, string>();
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -68,7 +68,8 @@ export function roomExists(code: string): boolean {
 export function joinRoom(
   code: string,
   name: string,
-  conn: WebSocket
+  conn: WebSocket,
+  requestedPeerId?: string,
 ): { peer: Peer; room: Room } | null {
   const room = rooms.get(code);
   if (!room) return null;
@@ -79,8 +80,13 @@ export function joinRoom(
     room.destroyTimer = null;
   }
 
+  let peerId = requestedPeerId && !room.peers.has(requestedPeerId)
+    ? requestedPeerId
+    : generatePeerId();
+  while (room.peers.has(peerId)) peerId = generatePeerId();
+
   const peer: Peer = {
-    id: generatePeerId(),
+    id: peerId,
     name,
     conn,
     subscribedTopics: new Set(),
@@ -89,7 +95,7 @@ export function joinRoom(
 
   room.peers.set(peer.id, peer);
   peersByConn.set(conn, peer);
-  roomByPeer.set(peer.id, code);
+  roomByPeer.set(peer, code);
 
   // Broadcast peer-joined to existing peers
   for (const [id, existingPeer] of room.peers) {
@@ -109,14 +115,14 @@ export function removePeer(conn: WebSocket): void {
   const peer = peersByConn.get(conn);
   if (!peer) return;
 
-  const code = roomByPeer.get(peer.id);
+  const code = roomByPeer.get(peer);
+  peersByConn.delete(conn);
   if (!code) return;
 
   const room = rooms.get(code);
 
   // Clean up lookups
-  peersByConn.delete(conn);
-  roomByPeer.delete(peer.id);
+  roomByPeer.delete(peer);
 
   if (!room) return;
 
@@ -152,7 +158,7 @@ export function getPeerByConn(conn: WebSocket): Peer | undefined {
 }
 
 export function getRoomByPeer(peer: Peer): Room | undefined {
-  const code = roomByPeer.get(peer.id);
+  const code = roomByPeer.get(peer);
   return code ? rooms.get(code) : undefined;
 }
 

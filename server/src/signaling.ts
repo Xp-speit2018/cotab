@@ -1,6 +1,6 @@
 import type { WebSocket } from "ws";
 import type { PublishMessage, SubscribeMessage, UnsubscribeMessage } from "./types.js";
-import { getPeerByConn } from "./rooms.js";
+import { getPeerByConn, getRoomByPeer } from "./rooms.js";
 
 /**
  * y-webrtc compatible signaling handlers.
@@ -8,7 +8,7 @@ import { getPeerByConn } from "./rooms.js";
  * These mirror the behavior of the built-in y-webrtc signaling server:
  * - subscribe: register the peer for topics and announce to existing subscribers
  * - unsubscribe: remove the peer from topics
- * - publish: relay a message to all other subscribers of the topic
+ * - publish: relay a message to all subscribers of the topic
  * - ping/pong: keepalive
  */
 
@@ -26,9 +26,11 @@ export function handleSubscribe(
   msg: SubscribeMessage
 ): void {
   const peer = getPeerByConn(conn);
-  if (!peer) return;
+  const room = peer ? getRoomByPeer(peer) : undefined;
+  if (!peer || !room || !Array.isArray(msg.topics)) return;
 
   for (const topic of msg.topics) {
+    if (topic !== room.topic) continue;
     // Track in global topic map
     let subs = topicSubscribers.get(topic);
     if (!subs) {
@@ -47,9 +49,10 @@ export function handleUnsubscribe(
   msg: UnsubscribeMessage
 ): void {
   const peer = getPeerByConn(conn);
-  if (!peer) return;
+  if (!peer || !Array.isArray(msg.topics)) return;
 
   for (const topic of msg.topics) {
+    if (typeof topic !== "string") continue;
     const subs = topicSubscribers.get(topic);
     if (subs) {
       subs.delete(conn);
@@ -65,16 +68,24 @@ export function handlePublish(
   conn: WebSocket,
   msg: PublishMessage
 ): void {
+  const peer = getPeerByConn(conn);
+  const room = peer ? getRoomByPeer(peer) : undefined;
+  if (
+    !peer
+    || !room
+    || msg.topic !== room.topic
+    || !peer.subscribedTopics.has(msg.topic)
+  ) return;
+
   const subs = topicSubscribers.get(msg.topic);
   if (!subs) return;
 
-  // Relay to all subscribers except the sender, include subscriber count
+  // Match the y-webrtc signaling protocol and include the sender. Clients
+  // discard messages carrying their own signaling peer ID.
   const payload = { ...msg, clients: subs.size };
 
   for (const subscriber of subs) {
-    if (subscriber !== conn) {
-      send(subscriber, payload);
-    }
+    send(subscriber, payload);
   }
 }
 

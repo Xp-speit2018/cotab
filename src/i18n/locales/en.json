@@ -354,6 +354,12 @@
       "topLevel": "EditorReactiveState"
     },
 
+    "syncState": {
+      "title": "Sync State",
+      "help": "Live P2P synchronization state, peer discovery, and Yjs update profile.",
+      "topLevel": "Collaboration"
+    },
+
     "alphaTabState": {
       "title": "AlphaTab State",
       "help": "Live runtime monitor for the AlphaTab API, player, score, bounds lookup, and playback fields.",

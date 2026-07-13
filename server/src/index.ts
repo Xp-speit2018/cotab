@@ -89,8 +89,14 @@ wss.on("connection", (conn: WebSocket, req: http.IncomingMessage) => {
   const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
   const qRoomCode = url.searchParams.get("roomCode");
   const qName = url.searchParams.get("name");
+  const qPeerId = url.searchParams.get("peerId");
   if (qRoomCode && qName) {
-    const ok = handleAuth(conn, { type: "auth", name: qName, roomCode: qRoomCode });
+    const ok = handleAuth(conn, {
+      type: "auth",
+      name: qName,
+      roomCode: qRoomCode,
+      ...(qPeerId ? { peerId: qPeerId } : {}),
+    });
     if (ok) authenticated.add(conn);
   }
 
@@ -143,6 +149,11 @@ wss.on("connection", (conn: WebSocket, req: http.IncomingMessage) => {
         break;
       case "ping":
         handlePing(conn);
+        break;
+      case "leave":
+        cleanupSubscriptions(conn);
+        removePeer(conn);
+        authenticated.delete(conn);
         break;
       default:
         // Unknown message type — ignore

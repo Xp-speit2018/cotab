@@ -92,10 +92,15 @@ import {
   importFromAlphaTab,
 } from "@/core/engine";
 import { eventMatchesTransportModifier } from "@/shortcuts/transport-modifier";
-import { createWebCollaborationAdapter } from "@/adapters/web/collaboration";
+import {
+  createWebCollaborationAdapter,
+  parseIceServers,
+} from "@/adapters/web/collaboration";
 import {
   isRebuildingFromYDoc,
   installRendererObserver,
+  loadAlphaTabSource,
+  shouldImportLoadedScore,
   uninstallRendererObserver,
 } from "./renderer-bridge";
 import {
@@ -1151,9 +1156,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     engine.setCollaborationAdapter(createWebCollaborationAdapter({
       signalingUrl: import.meta.env.VITE_SIGNALING_URL,
+      iceServers: parseIceServers(import.meta.env.VITE_WEBRTC_ICE_SERVERS),
     }));
 
-    installRendererObserver();
     _unsubscribeHooks = engine.registerHooks({
       onLocalSelectionSet: (sel) => {
         _processingHook = true;
@@ -1197,6 +1202,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
     const api = new alphaTab.AlphaTabApi(mainEl, settings);
     setApi(api);
+    installRendererObserver();
 
     // ── Click-to-select via mousedown + boundsLookup ────────────────
     // We handle beat selection entirely in our own mousedown handler
@@ -1523,7 +1529,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // Import into Y.Doc for CRDT sync (skipped when the load
       // originated from a Y.Doc rebuild to prevent infinite loops).
       const rebuildingFromYDoc = isRebuildingFromYDoc();
-      if (!rebuildingFromYDoc) {
+      if (shouldImportLoadedScore()) {
         importFromAlphaTab(score);
       }
 
@@ -1567,9 +1573,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       });
 
       applyBarWarningStyles();
-      api!.renderTracks(
-        visibleTrackIndices.map((index) => score.tracks[index]),
-      );
     });
 
     api.playerReady.on(() => {
@@ -1707,7 +1710,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
 
     // Load the demo file
-    api.load("/demos/Taijin_kyofusho.gp");
+    loadAlphaTabSource("/demos/Taijin_kyofusho.gp");
   },
 
   destroy: () => {
@@ -1793,19 +1796,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const reader = new FileReader();
       reader.onload = () => {
         if (reader.result instanceof ArrayBuffer) {
-          api!.load(new Uint8Array(reader.result));
+          loadAlphaTabSource(new Uint8Array(reader.result));
         }
       };
       reader.readAsArrayBuffer(data);
     } else {
-      api.load(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
+      loadAlphaTabSource(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
     }
   },
 
   loadUrl: (url) => {
     const api = getApi();
     if (!api) return;
-    api.load(url);
+    loadAlphaTabSource(url);
   },
 
   // ── Playback Controls ────────────────────────────────────────────────────

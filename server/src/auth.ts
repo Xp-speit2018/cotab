@@ -3,6 +3,7 @@ import type { AuthMessage } from "./types.js";
 import { joinRoom, roomExists } from "./rooms.js";
 
 const MAX_NAME_LENGTH = 32;
+const MAX_PEER_ID_LENGTH = 64;
 
 function send(conn: WebSocket, data: Record<string, unknown>): void {
   if (conn.readyState === conn.OPEN) {
@@ -17,7 +18,7 @@ function send(conn: WebSocket, data: Record<string, unknown>): void {
  * with either `auth-ok` or `auth-error`.
  */
 export function handleAuth(conn: WebSocket, msg: AuthMessage): boolean {
-  const { name, roomCode } = msg;
+  const { name, roomCode, peerId } = msg;
 
   // Validate display name
   if (!name || typeof name !== "string" || name.trim().length === 0) {
@@ -44,14 +45,27 @@ export function handleAuth(conn: WebSocket, msg: AuthMessage): boolean {
     return false;
   }
 
+  if (
+    peerId !== undefined
+    && (
+      typeof peerId !== "string"
+      || peerId.length === 0
+      || peerId.length > MAX_PEER_ID_LENGTH
+      || !/^[A-Za-z0-9:-]+$/.test(peerId)
+    )
+  ) {
+    send(conn, { type: "auth-error", reason: "Invalid peer ID" });
+    return false;
+  }
+
   // Join the room
-  const result = joinRoom(roomCode, name.trim(), conn);
+  const result = joinRoom(roomCode, name.trim(), conn, peerId);
   if (!result) {
     send(conn, { type: "auth-error", reason: "Failed to join room" });
     return false;
   }
 
-  const { room } = result;
+  const { peer, room } = result;
 
   // Build peer list (excluding the joining peer)
   const peers = Array.from(room.peers.values())
@@ -60,6 +74,7 @@ export function handleAuth(conn: WebSocket, msg: AuthMessage): boolean {
 
   send(conn, {
     type: "auth-ok",
+    peerId: peer.id,
     roomTopic: room.topic,
     peers,
   });

@@ -24,6 +24,7 @@ export interface AuthMessage {
   type: "auth";
   name: string;
   roomCode: string;
+  peerId?: string;
 }
 
 export interface SubscribeMessage {
@@ -46,17 +47,23 @@ export interface PingMessage {
   type: "ping";
 }
 
+export interface LeaveMessage {
+  type: "leave";
+}
+
 export type ClientMessage =
   | AuthMessage
   | SubscribeMessage
   | UnsubscribeMessage
   | PublishMessage
-  | PingMessage;
+  | PingMessage
+  | LeaveMessage;
 
 // ─── Server → Client Messages ──────────────────────────────────────────────────
 
 export interface AuthOkMessage {
   type: "auth-ok";
+  peerId: string;
   roomTopic: string;
   peers: Array<{ id: string; name: string }>;
 }

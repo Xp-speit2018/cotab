@@ -81,7 +81,11 @@ Current target boundaries:
   through an on-demand logical peer in the WebView. The peer follows the Codex
   connection lifecycle; the browser target has no corresponding Agent or LLM
   surface.
-- [ ] **Server-Assisted Sync** - Optional future mode for NAT-hostile networks. This may add a websocket-backed room with server authority, but the current architecture remains p2p CRDT.
+- [ ] **Server-Authoritative Sync** - Optional future mode in which a
+  websocket-backed server owns the authoritative room state and may provide
+  persistence. This is distinct from STUN/TURN connectivity fallback: TURN may
+  relay encrypted WebRTC traffic while the current collaboration model remains
+  p2p CRDT.
 - [ ] **UI/UX improvements and unification** — Polish, consistency, and accessibility.
 - [ ] **Cloud storage support** — Optional sync/storage in the cloud.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.

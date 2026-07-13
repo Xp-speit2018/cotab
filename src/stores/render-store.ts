@@ -968,6 +968,17 @@ function destroyRangeOverlays(): void {
   destroyDragRangePreviewOverlay();
 }
 
+/**
+ * AlphaTab replaces its surface and cursor containers when layout settings
+ * change. CoTab overlays cache DOM nodes in those containers, so they must be
+ * discarded before the render and recreated from fresh bounds afterwards.
+ */
+function invalidateCoTabRenderOverlays(): void {
+  destroySnapGridOverlay();
+  destroyRangeOverlays();
+  destroyTransportPlayheadOverlay();
+}
+
 function readVisibleIndices(): number[] {
   const api = getApi();
   if (!api?.tracks) return [];
@@ -2009,6 +2020,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setZoom: (zoom) => {
     const api = getApi();
     if (!api) return;
+    if (zoom === get().zoom) return;
+
+    // The postRenderFinished handler rebuilds every CoTab overlay after
+    // AlphaTab has produced the new boundsLookup for this scale.
+    invalidateCoTabRenderOverlays();
     api.settings.display.scale = zoom;
     api.updateSettings();
     api.render();

@@ -188,7 +188,7 @@ export function Toolbar() {
             size="icon"
             className="h-8 w-8"
             disabled={!canUndo}
-            onClick={() => executeAppAction("document.undo", undefined, { t })}
+            onClick={() => executeAppAction("document.undo", {}, { t })}
           >
             <Undo2 className="h-4 w-4" />
           </Button>
@@ -203,7 +203,7 @@ export function Toolbar() {
             size="icon"
             className="h-8 w-8"
             disabled={!canRedo}
-            onClick={() => executeAppAction("document.redo", undefined, { t })}
+            onClick={() => executeAppAction("document.redo", {}, { t })}
           >
             <Redo2 className="h-4 w-4" />
           </Button>

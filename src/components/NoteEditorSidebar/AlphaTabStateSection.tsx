@@ -6,6 +6,10 @@ import {
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { getApi } from "@/stores/render-api";
+import {
+  getRendererDiagnostics,
+  subscribeRendererDiagnostics,
+} from "@/stores/renderer-bridge";
 import { SectionHeader } from "./primitives";
 import { RuntimeStateTree } from "./EditorStateSection";
 
@@ -27,6 +31,7 @@ function readAlphaTabStateSnapshot(): RuntimeState {
     return {
       api: null,
       isReadyForPlayback: false,
+      rendererBridge: getRendererDiagnostics(),
     };
   }
 
@@ -39,6 +44,7 @@ function readAlphaTabStateSnapshot(): RuntimeState {
     : null;
 
   return {
+    rendererBridge: getRendererDiagnostics(),
     isReadyForPlayback: readOwnValue(apiRecord, "isReadyForPlayback"),
     playerState: readOwnValue(apiRecord, "playerState"),
     tickPosition: readOwnValue(apiRecord, "tickPosition"),
@@ -69,8 +75,12 @@ function useAlphaTabStateSnapshot(isOpen: boolean): RuntimeState {
     update();
     if (!isOpen) return undefined;
 
+    const unsubscribe = subscribeRendererDiagnostics(update);
     const interval = window.setInterval(update, POLL_INTERVAL_MS);
-    return () => window.clearInterval(interval);
+    return () => {
+      unsubscribe();
+      window.clearInterval(interval);
+    };
   }, [isOpen]);
 
   return snapshot;
@@ -86,7 +96,11 @@ export function AlphaTabStateSection({
   const snapshot = useAlphaTabStateSnapshot(isOpen);
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+    <Collapsible
+      data-debug-section="alphatab-state"
+      open={isOpen}
+      onOpenChange={setIsOpen}
+    >
       <SectionHeader
         title={t("sidebar.alphaTabState.title")}
         helpText={t("sidebar.alphaTabState.help")}

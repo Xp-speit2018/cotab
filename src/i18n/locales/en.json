@@ -665,6 +665,13 @@
     "reasoningEffort": "Reasoning effort",
     "modelSettings": "Model and reasoning effort",
     "planMode": "Plan mode",
+    "proxy": {
+      "title": "Codex proxy",
+      "enabled": "Enable proxy",
+      "url": "Proxy URL",
+      "apply": "Apply",
+      "invalid": "Enter a valid HTTP or HTTPS proxy URL."
+    },
     "resources": {
       "title": "External resources",
       "local": "Local resources",

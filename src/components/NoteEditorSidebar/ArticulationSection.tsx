@@ -132,7 +132,7 @@ export function ArticulationSection({
                             onClick={() =>
                               executeAppAction(
                                 "document.beat.togglePercussionArticulation",
-                                entry.id,
+                                { gp7Id: entry.id },
                                 { t },
                               )
                             }

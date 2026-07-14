@@ -1,41 +1,32 @@
-import { documentActionRegistry } from "./registry";
-import type { DocumentActionDefinition } from "./types";
 import { engine } from "@/core/engine";
+import { defineDocumentAction, emptyActionArgs } from "./definition";
 
 const getUndoManager = () => engine.getUndoManager();
 
-const undoAction: DocumentActionDefinition<void> = {
+const undoAction = defineDocumentAction({
   id: "document.undo",
   i18nKey: "actions.edit.undo",
   category: "document.history",
+  argsSchema: emptyActionArgs,
   execute: () => {
     const um = getUndoManager();
     if (um && um.undoStack.length > 0) {
       um.undo();
     }
   },
-};
+});
 
-const redoAction: DocumentActionDefinition<void> = {
+const redoAction = defineDocumentAction({
   id: "document.redo",
   i18nKey: "actions.edit.redo",
   category: "document.history",
+  argsSchema: emptyActionArgs,
   execute: () => {
     const um = getUndoManager();
     if (um && um.redoStack.length > 0) {
       um.redo();
     }
   },
-};
+});
 
-documentActionRegistry.register(undoAction);
-documentActionRegistry.register(redoAction);
-
-declare global {
-  interface DocumentActionMap {
-    "document.undo": { args: void; result: void };
-    "document.redo": { args: void; result: void };
-  }
-}
-
-export {};
+export const historyDocumentActions = [undoAction, redoAction] as const;

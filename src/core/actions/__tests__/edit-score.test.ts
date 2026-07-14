@@ -26,7 +26,10 @@ vi.mock("@/core/engine", () => {
   };
 });
 
-import { executeDocumentAction } from "@/core/actions/registry";
+import {
+  DocumentActionArgumentsError,
+  executeDocumentAction,
+} from "@/core/actions/registry";
 import "@/core/actions/edit-score";
 
 beforeEach(() => {
@@ -40,27 +43,27 @@ const ctx = testContext();
 
 describe("document.score.setTitle", () => {
   it("updates title in Y.Doc", () => {
-    executeDocumentAction("document.score.setTitle", "My Song", ctx);
+    executeDocumentAction("document.score.setTitle", { value: "My Song" }, ctx);
     expect(syncGetScoreMap()!.get("title")).toBe("My Song");
   });
 
   it("overwrites previous title", () => {
-    executeDocumentAction("document.score.setTitle", "First", ctx);
-    executeDocumentAction("document.score.setTitle", "Second", ctx);
+    executeDocumentAction("document.score.setTitle", { value: "First" }, ctx);
+    executeDocumentAction("document.score.setTitle", { value: "Second" }, ctx);
     expect(syncGetScoreMap()!.get("title")).toBe("Second");
   });
 });
 
 describe("document.score.setArtist", () => {
   it("updates artist in Y.Doc", () => {
-    executeDocumentAction("document.score.setArtist", "Bach", ctx);
+    executeDocumentAction("document.score.setArtist", { value: "Bach" }, ctx);
     expect(syncGetScoreMap()!.get("artist")).toBe("Bach");
   });
 });
 
 describe("document.score.setTempo", () => {
   it("updates tempo in Y.Doc", () => {
-    executeDocumentAction("document.score.setTempo", 140, ctx);
+    executeDocumentAction("document.score.setTempo", { tempo: 140 }, ctx);
     const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
       Y.Map<unknown>
     >;
@@ -72,8 +75,10 @@ describe("document.score.setTempo", () => {
   });
 
   it("rejects tempo <= 0", () => {
-    executeDocumentAction("document.score.setTempo", 120, ctx);
-    executeDocumentAction("document.score.setTempo", 0, ctx);
+    executeDocumentAction("document.score.setTempo", { tempo: 120 }, ctx);
+    expect(() =>
+      executeDocumentAction("document.score.setTempo", { tempo: 0 }, ctx),
+    ).toThrow(DocumentActionArgumentsError);
     const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
       Y.Map<unknown>
     >;
@@ -84,8 +89,10 @@ describe("document.score.setTempo", () => {
   });
 
   it("rejects negative tempo", () => {
-    executeDocumentAction("document.score.setTempo", 100, ctx);
-    executeDocumentAction("document.score.setTempo", -10, ctx);
+    executeDocumentAction("document.score.setTempo", { tempo: 100 }, ctx);
+    expect(() =>
+      executeDocumentAction("document.score.setTempo", { tempo: -10 }, ctx),
+    ).toThrow(DocumentActionArgumentsError);
     const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
       Y.Map<unknown>
     >;
@@ -98,7 +105,7 @@ describe("document.score.setTempo", () => {
 
 describe("document.score.setTempoLabel", () => {
   it("writes the initial tempo automation text", () => {
-    executeDocumentAction("document.score.setTempoLabel", "Allegro", ctx);
+    executeDocumentAction("document.score.setTempoLabel", { label: "Allegro" }, ctx);
     const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
       Y.Map<unknown>
     >;

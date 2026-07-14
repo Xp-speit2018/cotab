@@ -182,9 +182,9 @@ describe("compose Happy Birthday", () => {
   // ─── Phase 1: Set metadata ───────────────────────────────────────────────
 
   it("Phase 1: sets score metadata", () => {
-    executeDocumentAction("document.score.setTitle", "Happy Birthday to You", ctx);
-    executeDocumentAction("document.score.setArtist", "Traditional", ctx);
-    executeDocumentAction("document.score.setTempo", 100, ctx);
+    executeDocumentAction("document.score.setTitle", { value: "Happy Birthday to You" }, ctx);
+    executeDocumentAction("document.score.setArtist", { value: "Traditional" }, ctx);
+    executeDocumentAction("document.score.setTempo", { tempo: 100 }, ctx);
 
     const snap = snapshotDoc();
     expect(snap.title).toBe("Happy Birthday to You");
@@ -196,11 +196,11 @@ describe("compose Happy Birthday", () => {
 
   it("Phase 2: adds 3 more bars for a total of 4", () => {
     selectBeat(sel({ barIndex: 0 }));
-    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
     selectBeat(sel({ barIndex: 1 }));
-    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
     selectBeat(sel({ barIndex: 2 }));
-    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
 
     expect(masterBarCount()).toBe(4);
     expect(barCount()).toBe(4);
@@ -221,7 +221,7 @@ describe("compose Happy Birthday", () => {
     for (let i = 0; i < notes.length; i++) {
       const s = sel({ barIndex: 0, beatIndex: i, string: notes[i].string });
       selectBeat(s);
-      executeDocumentAction("document.beat.placeNote", notes[i].fret, ctx);
+      executeDocumentAction("document.beat.placeNote", { targetValue: notes[i].fret }, ctx);
     }
 
     for (let i = 0; i < notes.length; i++) {
@@ -238,7 +238,7 @@ describe("compose Happy Birthday", () => {
 
   it("Phase 4: sets durations on beats", () => {
     selectBeat(sel({ barIndex: 0, beatIndex: 0 }));
-    executeDocumentAction("document.beat.setDuration", Duration.Eighth, ctx);
+    executeDocumentAction("document.beat.setDuration", { value: Duration.Eighth }, ctx);
 
     const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     expect(yBeat.get("duration")).toBe(Duration.Eighth);
@@ -248,19 +248,19 @@ describe("compose Happy Birthday", () => {
 
   it("Phase 5: delete bars down to 1, then rebuild", () => {
     selectBeat(sel({ barIndex: 0 }));
-    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
     selectBeat(sel({ barIndex: 1 }));
-    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
     expect(masterBarCount()).toBe(3);
 
     selectBeat(sel({ barIndex: 2 }));
-    executeDocumentAction("document.bar.delete", undefined, ctx);
+    executeDocumentAction("document.bar.delete", {}, ctx);
     selectBeat(sel({ barIndex: 1 }));
-    executeDocumentAction("document.bar.delete", undefined, ctx);
+    executeDocumentAction("document.bar.delete", {}, ctx);
     expect(masterBarCount()).toBe(1);
 
     selectBeat(sel({ barIndex: 0 }));
-    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
     expect(masterBarCount()).toBe(2);
   });
 
@@ -307,7 +307,7 @@ describe("compose Happy Birthday", () => {
 
     expect(trackCount()).toBe(2);
     selectBeat(sel({ trackIndex: 0 }));
-    executeDocumentAction("document.track.delete", 0, ctx);
+    executeDocumentAction("document.track.delete", { trackIndex: 0 }, ctx);
     expect(trackCount()).toBe(1);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Piano");
   });
@@ -317,12 +317,12 @@ describe("compose Happy Birthday", () => {
   it("Phase 8: apply note properties after placing", () => {
     const s = sel({ barIndex: 0, beatIndex: 0, string: 2 });
     selectBeat(s);
-    executeDocumentAction("document.beat.placeNote", 1, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: 1 }, ctx);
 
     setSelectedNoteIndex(0);
-    executeDocumentAction("document.note.setIsGhost", true, ctx);
-    executeDocumentAction("document.note.setIsStaccato", true, ctx);
-    executeDocumentAction("document.note.setVibrato", 2, ctx);
+    executeDocumentAction("document.note.setIsGhost", { value: true }, ctx);
+    executeDocumentAction("document.note.setIsStaccato", { value: true }, ctx);
+    executeDocumentAction("document.note.setVibrato", { value: 2 }, ctx);
 
     const note = resolveYNoteHelper(0, 0, 0, 0, 0, 0)!;
     expect(note.get("isGhost")).toBe(true);
@@ -333,36 +333,36 @@ describe("compose Happy Birthday", () => {
   // ─── Phase 9: Undo/redo round trip ─────────────────────────────────────────
 
   it("Phase 9: undo reverts title change", () => {
-    executeDocumentAction("document.score.setTitle", "Happy Birthday", ctx);
+    executeDocumentAction("document.score.setTitle", { value: "Happy Birthday" }, ctx);
     expect(getScoreMap()!.get("title")).toBe("Happy Birthday");
 
-    executeDocumentAction("document.undo", undefined, ctx);
+    executeDocumentAction("document.undo", {}, ctx);
     expect(getScoreMap()!.get("title")).toBe("Untitled");
 
-    executeDocumentAction("document.redo", undefined, ctx);
+    executeDocumentAction("document.redo", {}, ctx);
     expect(getScoreMap()!.get("title")).toBe("Happy Birthday");
   });
 
   // ─── Phase 10: Full snapshot verification ──────────────────────────────────
 
   it("Phase 10: full composition snapshot", () => {
-    executeDocumentAction("document.score.setTitle", "Happy Birthday to You", ctx);
-    executeDocumentAction("document.score.setArtist", "Traditional", ctx);
-    executeDocumentAction("document.score.setTempo", 100, ctx);
+    executeDocumentAction("document.score.setTitle", { value: "Happy Birthday to You" }, ctx);
+    executeDocumentAction("document.score.setArtist", { value: "Traditional" }, ctx);
+    executeDocumentAction("document.score.setTempo", { tempo: 100 }, ctx);
 
     selectBeat(sel({ barIndex: 0 }));
-    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
     selectBeat(sel({ barIndex: 1 }));
-    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
     selectBeat(sel({ barIndex: 2 }));
-    executeDocumentAction("document.bar.insertAfter", undefined, ctx);
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
 
     addBeatsDirectly(getScoreMap()!, 0, 0, 2);
     const bar1Notes = [HB_NOTES.C5, HB_NOTES.C5, HB_NOTES.D5];
     for (let i = 0; i < bar1Notes.length; i++) {
       const s = sel({ barIndex: 0, beatIndex: i, string: bar1Notes[i].string });
       selectBeat(s);
-      executeDocumentAction("document.beat.placeNote", bar1Notes[i].fret, ctx);
+      executeDocumentAction("document.beat.placeNote", { targetValue: bar1Notes[i].fret }, ctx);
     }
 
     const snap = snapshotDoc();

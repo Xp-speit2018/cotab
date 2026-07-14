@@ -73,7 +73,7 @@ export function BarSection({
     };
     executeAppAction(
       "document.masterBar.setSection",
-      section.text || section.marker ? section : null,
+      { section: section.text || section.marker ? section : null },
       { t },
     );
   };
@@ -96,7 +96,7 @@ export function BarSection({
               min={1}
               max={32}
               onCommit={(value) =>
-                executeAppAction("document.masterBar.setTimeSignatureNumerator", value, { t })
+                executeAppAction("document.masterBar.setTimeSignatureNumerator", { value }, { t })
               }
             />
             <EditableNumberPropRow
@@ -105,7 +105,7 @@ export function BarSection({
               min={1}
               max={64}
               onCommit={(value) =>
-                executeAppAction("document.masterBar.setTimeSignatureDenominator", value, { t })
+                executeAppAction("document.masterBar.setTimeSignatureDenominator", { value }, { t })
               }
             />
           </div>
@@ -120,7 +120,7 @@ export function BarSection({
             )}
             icon={<Music2 className="h-3.5 w-3.5" />}
             onValueChange={(value) =>
-              executeAppAction("document.bar.setClef", value, { t })
+              executeAppAction("document.bar.setClef", { value }, { t })
             }
           />
           <SelectPropRow
@@ -132,7 +132,7 @@ export function BarSection({
                 : option,
             )}
             onValueChange={(value) =>
-              executeAppAction("document.bar.setClefOttava", value, { t })
+              executeAppAction("document.bar.setClefOttava", { value }, { t })
             }
           />
           <SelectPropRow
@@ -144,7 +144,7 @@ export function BarSection({
                 : option,
             )}
             onValueChange={(value) =>
-              executeAppAction("document.bar.setSimileMark", value, { t })
+              executeAppAction("document.bar.setSimileMark", { value }, { t })
             }
           />
 
@@ -156,7 +156,7 @@ export function BarSection({
               min={-7}
               max={7}
               onCommit={(value) =>
-                executeAppAction("document.bar.setKeySignature", value, { t })
+                executeAppAction("document.bar.setKeySignature", { value }, { t })
               }
             />
             <SelectPropRow
@@ -167,7 +167,7 @@ export function BarSection({
                 { value: KeySignatureType.Minor, label: t("sidebar.bar.minor") },
               ]}
               onValueChange={(value) =>
-                executeAppAction("document.bar.setKeySignatureType", value, { t })
+                executeAppAction("document.bar.setKeySignatureType", { value }, { t })
               }
             />
           </div>
@@ -177,7 +177,7 @@ export function BarSection({
               label={t("sidebar.bar.tempoMarker")}
               pressed={bar.tempo !== null}
               onPressedChange={(pressed) =>
-                executeAppAction("document.masterBar.setTempo", pressed ? 120 : null, { t })
+                executeAppAction("document.masterBar.setTempo", { tempo: pressed ? 120 : null }, { t })
               }
               icon={<Gauge className="h-3.5 w-3.5" />}
             />
@@ -185,7 +185,7 @@ export function BarSection({
               label={t("sidebar.bar.repeatStart")}
               pressed={bar.isRepeatStart}
               onPressedChange={(pressed) =>
-                executeAppAction("document.masterBar.setIsRepeatStart", pressed, { t })
+                executeAppAction("document.masterBar.setIsRepeatStart", { value: pressed }, { t })
               }
               icon={<Repeat className="h-3.5 w-3.5" />}
             />
@@ -193,7 +193,7 @@ export function BarSection({
               label={t("sidebar.bar.freeTime")}
               pressed={bar.isFreeTime}
               onPressedChange={(pressed) =>
-                executeAppAction("document.masterBar.setIsFreeTime", pressed, { t })
+                executeAppAction("document.masterBar.setIsFreeTime", { value: pressed }, { t })
               }
               icon={<Infinity className="h-3.5 w-3.5" />}
             />
@@ -207,7 +207,7 @@ export function BarSection({
               min={20}
               max={400}
               onCommit={(value) =>
-                executeAppAction("document.masterBar.setTempo", value, { t })
+                executeAppAction("document.masterBar.setTempo", { tempo: value }, { t })
               }
             />
           )}
@@ -229,7 +229,7 @@ export function BarSection({
             }))}
             icon={<Triangle className="h-3.5 w-3.5" />}
             onValueChange={(value) =>
-              executeAppAction("document.masterBar.setTripletFeel", value, { t })
+              executeAppAction("document.masterBar.setTripletFeel", { value }, { t })
             }
           />
 
@@ -240,7 +240,7 @@ export function BarSection({
               min={0}
               max={32}
               onCommit={(value) =>
-                executeAppAction("document.masterBar.setRepeatCount", value, { t })
+                executeAppAction("document.masterBar.setRepeatCount", { value }, { t })
               }
             />
             <EditableNumberPropRow
@@ -249,7 +249,7 @@ export function BarSection({
               min={0}
               max={255}
               onCommit={(value) =>
-                executeAppAction("document.masterBar.setAlternateEndings", value, { t })
+                executeAppAction("document.masterBar.setAlternateEndings", { value }, { t })
               }
             />
           </div>

@@ -1,9 +1,9 @@
 import * as Y from "yjs";
-import { documentActionRegistry } from "@/core/actions/registry";
-import type { DocumentActionDefinition } from "@/core/actions/types";
 import { debugLog } from "@/core/editor/action-log";
 import { engine, EditorEngine } from "@/core/engine";
 import { createMasterBar } from "@/core/schema";
+import { defineDocumentAction, emptyActionArgs } from "./definition";
+import { valueIntegerArgs } from "./args-schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
@@ -51,11 +51,12 @@ function isBarEmptyAllTracksY(yScore: Y.Map<unknown>, barIndex: number): boolean
   return true;
 }
 
-const insertBarBeforeAction: DocumentActionDefinition<void> = {
+const insertBarBeforeAction = defineDocumentAction({
   id: "document.bar.insertBefore",
   i18nKey: "actions.edit.bar.insertBefore",
   category: "document.bar",
-  execute: (_args, _context) => {
+  argsSchema: emptyActionArgs,
+  execute: () => {
     const { barIndex } = engine.selector;
     if (barIndex === null) {
       debugLog("warn", "document.bar.insertBefore", "no selection");
@@ -87,13 +88,14 @@ const insertBarBeforeAction: DocumentActionDefinition<void> = {
 
     debugLog("info", "document.bar.insertBefore", "complete");
   },
-};
+});
 
-const insertBarAfterAction: DocumentActionDefinition<void> = {
+const insertBarAfterAction = defineDocumentAction({
   id: "document.bar.insertAfter",
   i18nKey: "actions.edit.bar.insertAfter",
   category: "document.bar",
-  execute: (_args, _context) => {
+  argsSchema: emptyActionArgs,
+  execute: () => {
     const { barIndex } = engine.selector;
     if (barIndex === null) {
       debugLog("warn", "document.bar.insertAfter", "no selection");
@@ -124,13 +126,14 @@ const insertBarAfterAction: DocumentActionDefinition<void> = {
 
     debugLog("info", "document.bar.insertAfter", "complete");
   },
-};
+});
 
-const deleteBarAction: DocumentActionDefinition<void> = {
+const deleteBarAction = defineDocumentAction({
   id: "document.bar.delete",
   i18nKey: "actions.edit.bar.delete",
   category: "document.bar",
-  execute: (_args, _context): boolean => {
+  argsSchema: emptyActionArgs,
+  execute: (): boolean => {
     const { barIndex } = engine.selector;
     if (barIndex === null) {
       debugLog("warn", "document.bar.delete", "no selection");
@@ -166,78 +169,65 @@ const deleteBarAction: DocumentActionDefinition<void> = {
     debugLog("info", "document.bar.delete", "complete");
     return true;
   },
-};
+});
 
-const setClefAction: DocumentActionDefinition<number> = {
+const setClefAction = defineDocumentAction({
   id: "document.bar.setClef",
   i18nKey: "actions.edit.bar.setClef",
   category: "document.bar",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setClef.params.value" }],
-  execute: (value, _context) => {
+  argsSchema: valueIntegerArgs,
+  execute: ({ value }) => {
     applyBarUpdates({ clef: value });
   },
-};
+});
 
-const setClefOttavaAction: DocumentActionDefinition<number> = {
+const setClefOttavaAction = defineDocumentAction({
   id: "document.bar.setClefOttava",
   i18nKey: "actions.edit.bar.setClefOttava",
   category: "document.bar",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setClefOttava.params.value" }],
-  execute: (value, _context) => {
+  argsSchema: valueIntegerArgs,
+  execute: ({ value }) => {
     applyBarUpdates({ clefOttava: value });
   },
-};
+});
 
-const setSimileMarkAction: DocumentActionDefinition<number> = {
+const setSimileMarkAction = defineDocumentAction({
   id: "document.bar.setSimileMark",
   i18nKey: "actions.edit.bar.setSimileMark",
   category: "document.bar",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setSimileMark.params.value" }],
-  execute: (value, _context) => {
+  argsSchema: valueIntegerArgs,
+  execute: ({ value }) => {
     applyBarUpdates({ simileMark: value });
   },
-};
+});
 
-const setKeySignatureAction: DocumentActionDefinition<number> = {
+const setKeySignatureAction = defineDocumentAction({
   id: "document.bar.setKeySignature",
   i18nKey: "actions.edit.bar.setKeySignature",
   category: "document.bar",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setKeySignature.params.value" }],
-  execute: (value, _context) => {
+  argsSchema: valueIntegerArgs,
+  execute: ({ value }) => {
     applyBarUpdates({ keySignature: value });
   },
-};
+});
 
-const setKeySignatureTypeAction: DocumentActionDefinition<number> = {
+const setKeySignatureTypeAction = defineDocumentAction({
   id: "document.bar.setKeySignatureType",
   i18nKey: "actions.edit.bar.setKeySignatureType",
   category: "document.bar",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.bar.setKeySignatureType.params.value" }],
-  execute: (value, _context) => {
+  argsSchema: valueIntegerArgs,
+  execute: ({ value }) => {
     applyBarUpdates({ keySignatureType: value });
   },
-};
+});
 
-documentActionRegistry.register(insertBarBeforeAction);
-documentActionRegistry.register(insertBarAfterAction);
-documentActionRegistry.register(deleteBarAction);
-documentActionRegistry.register(setClefAction);
-documentActionRegistry.register(setClefOttavaAction);
-documentActionRegistry.register(setSimileMarkAction);
-documentActionRegistry.register(setKeySignatureAction);
-documentActionRegistry.register(setKeySignatureTypeAction);
-
-declare global {
-  interface DocumentActionMap {
-    "document.bar.insertBefore": { args: void; result: void };
-    "document.bar.insertAfter": { args: void; result: void };
-    "document.bar.delete": { args: void; result: boolean };
-    "document.bar.setClef": { args: number; result: void };
-    "document.bar.setClefOttava": { args: number; result: void };
-    "document.bar.setSimileMark": { args: number; result: void };
-    "document.bar.setKeySignature": { args: number; result: void };
-    "document.bar.setKeySignatureType": { args: number; result: void };
-  }
-}
-
-export {};
+export const barDocumentActions = [
+  insertBarBeforeAction,
+  insertBarAfterAction,
+  deleteBarAction,
+  setClefAction,
+  setClefOttavaAction,
+  setSimileMarkAction,
+  setKeySignatureAction,
+  setKeySignatureTypeAction,
+] as const;

@@ -1,6 +1,9 @@
-import "@/core/actions";
 import { createIdentityDocumentActionContext } from "@/core/actions/context";
-import { executeDocumentActionUnsafe, getAllDocumentActions } from "@/core/actions/registry";
+import {
+  executeDocumentActionById,
+  getAllDocumentActions,
+} from "@/core/actions/registry";
+import { DOCUMENT_ACTION_DESCRIPTORS } from "@/core/actions/projections";
 import { engine, EditorEngine } from "@/core/engine";
 import { snapshotScore } from "@/core/schema";
 import type {
@@ -82,22 +85,12 @@ export function createCoreEditEngineHost(): CoreEditEngineHost {
     },
 
     listActions(): CoreEditActionDescriptor[] {
-      return getAllDocumentActions()
-        .map((action) => ({
-          id: action.id,
-          category: action.category,
-          i18nKey: action.i18nKey,
-          params: action.params ?? [],
-        }))
-        .sort((a, b) => a.id.localeCompare(b.id));
+      return [...DOCUMENT_ACTION_DESCRIPTORS];
     },
 
-    executeDocumentAction(id: string, args?: unknown): unknown {
+    executeDocumentAction(id: string, args: unknown): unknown {
       ensureDocument();
-      if (!getAllDocumentActions().some((action) => action.id === id)) {
-        throw new Error(`Unknown core-edit action: ${id}`);
-      }
-      return executeDocumentActionUnsafe(id, args, context);
+      return executeDocumentActionById(id, args, context);
     },
 
     setSelection(selection: CoreEditSelection): CoreEditSelection | null {

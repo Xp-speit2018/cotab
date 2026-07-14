@@ -106,7 +106,11 @@ class CodexConnection {
     }
   }
 
-  async connect(localResources = false): Promise<void> {
+  async connect(
+    localResources = false,
+    webResources = false,
+    proxyUrl: string | null = null,
+  ): Promise<void> {
     if (!isTauriRuntime()) {
       throw new Error("Local Codex is only available in CoTab Desktop.");
     }
@@ -124,6 +128,8 @@ class CodexConnection {
       const native = await invokeNative<NativeCodexStatus>("connect_local_codex", {
         onEvent: channel,
         localResources,
+        webResources,
+        proxyUrl,
       });
 
       await this.request("initialize", {
@@ -162,9 +168,13 @@ class CodexConnection {
     });
   }
 
-  async reconnect(localResources: boolean): Promise<void> {
+  async reconnect(
+    localResources: boolean,
+    webResources: boolean,
+    proxyUrl: string | null,
+  ): Promise<void> {
     await this.disconnect();
-    await this.connect(localResources);
+    await this.connect(localResources, webResources, proxyUrl);
   }
 
   async pickWriteRoot(): Promise<string | null> {

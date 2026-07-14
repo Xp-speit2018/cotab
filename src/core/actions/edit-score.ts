@@ -1,14 +1,30 @@
-import { documentActionRegistry } from "./registry";
-import type { DocumentActionDefinition } from "./types";
-import type { ScoreMetadataField } from "@/core/schema";
-import { AutomationType, createAutomation } from "@/core/schema";
-import { engine } from "@/core/engine";
 import * as Y from "yjs";
+import * as z from "zod";
+import { engine } from "@/core/engine";
+import { AutomationType, createAutomation } from "@/core/schema";
+import { actionArgs, defineDocumentAction } from "./definition";
+import { finiteNumber, valueStringArgs } from "./args-schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
 
-function setScoreField(field: ScoreMetadataField, value: string): void {
+const scoreMetadataFieldSchema = z.enum([
+  "title",
+  "subTitle",
+  "artist",
+  "album",
+  "words",
+  "music",
+  "copyright",
+  "tab",
+  "instructions",
+  "notices",
+]);
+
+function setScoreField(
+  field: z.output<typeof scoreMetadataFieldSchema>,
+  value: string,
+): void {
   const yScore = getScoreMap();
   if (!yScore) return;
   transact(() => {
@@ -33,104 +49,76 @@ function getOrCreateInitialTempoAutomation(
     yFirstMasterBar.set("tempoAutomations", yAutomations);
   }
   if (yAutomations.length === 0) {
-    yAutomations.push([
-      createAutomation(AutomationType.Tempo, 120, 0),
-    ]);
+    yAutomations.push([createAutomation(AutomationType.Tempo, 120, 0)]);
   }
   return yAutomations.get(0);
 }
 
-const setMetadataAction: DocumentActionDefinition<{ field: ScoreMetadataField; value: string }> = {
+const setMetadataAction = defineDocumentAction({
   id: "document.score.setMetadata",
   i18nKey: "actions.edit.score.setMetadata",
   category: "document.score",
-  params: [
-    { name: "field", type: "string", i18nKey: "actions.edit.score.setMetadata.params.field" },
-    { name: "value", type: "string", i18nKey: "actions.edit.score.setMetadata.params.value" },
-  ],
-  execute: ({ field, value }, _context) => {
+  argsSchema: actionArgs({
+    field: scoreMetadataFieldSchema,
+    value: z.string(),
+  }),
+  execute: ({ field, value }) => {
     setScoreField(field, value);
   },
-};
+});
 
-documentActionRegistry.register(setMetadataAction);
-
-const setTitleAction: DocumentActionDefinition<string> = {
+const setTitleAction = defineDocumentAction({
   id: "document.score.setTitle",
   i18nKey: "actions.edit.score.setTitle",
   category: "document.score",
-  params: [
-    { name: "value", type: "string", i18nKey: "actions.edit.score.setTitle.params.value" },
-  ],
-  execute: (value, _context) => {
+  argsSchema: valueStringArgs,
+  execute: ({ value }) => {
     setScoreField("title", value);
   },
-};
+});
 
-const setArtistAction: DocumentActionDefinition<string> = {
+const setArtistAction = defineDocumentAction({
   id: "document.score.setArtist",
   i18nKey: "actions.edit.score.setArtist",
   category: "document.score",
-  params: [
-    { name: "value", type: "string", i18nKey: "actions.edit.score.setArtist.params.value" },
-  ],
-  execute: (value, _context) => {
+  argsSchema: valueStringArgs,
+  execute: ({ value }) => {
     setScoreField("artist", value);
   },
-};
+});
 
-const setTempoAction: DocumentActionDefinition<number> = {
+const setTempoAction = defineDocumentAction({
   id: "document.score.setTempo",
   i18nKey: "actions.edit.score.setTempo",
   category: "document.score",
-  params: [
-    { name: "tempo", type: "number", i18nKey: "actions.edit.score.setTempo.params.tempo" },
-  ],
-  execute: (tempo, _context) => {
+  argsSchema: actionArgs({ tempo: finiteNumber.positive() }),
+  execute: ({ tempo }) => {
     const yScore = getScoreMap();
-    if (!yScore || tempo <= 0) return;
+    if (!yScore) return;
     transact(() => {
       getOrCreateInitialTempoAutomation(yScore)?.set("value", tempo);
     });
   },
-};
+});
 
-const setTempoLabelAction: DocumentActionDefinition<string> = {
+const setTempoLabelAction = defineDocumentAction({
   id: "document.score.setTempoLabel",
   i18nKey: "actions.edit.score.setTempoLabel",
   category: "document.score",
-  params: [
-    {
-      name: "label",
-      type: "string",
-      i18nKey: "actions.edit.score.setTempoLabel.params.label",
-    },
-  ],
-  execute: (label, _context) => {
+  argsSchema: actionArgs({ label: z.string() }),
+  execute: ({ label }) => {
     const yScore = getScoreMap();
     if (!yScore) return;
     transact(() => {
       getOrCreateInitialTempoAutomation(yScore)?.set("text", label);
     });
   },
-};
+});
 
-documentActionRegistry.register(setTitleAction);
-documentActionRegistry.register(setArtistAction);
-documentActionRegistry.register(setTempoAction);
-documentActionRegistry.register(setTempoLabelAction);
-
-declare global {
-  interface DocumentActionMap {
-    "document.score.setMetadata": {
-      args: { field: ScoreMetadataField; value: string };
-      result: void;
-    };
-    "document.score.setTitle": { args: string; result: void };
-    "document.score.setArtist": { args: string; result: void };
-    "document.score.setTempo": { args: number; result: void };
-    "document.score.setTempoLabel": { args: string; result: void };
-  }
-}
-
-export {};
+export const scoreDocumentActions = [
+  setMetadataAction,
+  setTitleAction,
+  setArtistAction,
+  setTempoAction,
+  setTempoLabelAction,
+] as const;

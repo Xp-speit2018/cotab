@@ -31,8 +31,14 @@ React callbacks or CLI commands.
 ### DocumentAction
 
 A DocumentAction is a headless action over `EditorEngine` and the score
-document. Modules under `src/core/actions` implement the
-`DocumentActionDefinition` registry.
+document. Modules under `src/core/actions` define an immutable catalog of
+`DocumentActionDefinition` values.
+
+Each definition owns one strict-object `argsSchema`. The schema is the only
+argument contract: TypeScript argument types are inferred from it, and runtime
+validation happens before an action can execute. Empty-argument actions accept
+`{}`. Scalar, array, or null top-level arguments are invalid and are never
+coerced into object arguments.
 
 Most DocumentActions mutate the Y.Doc score and are undoable. History and
 clipboard actions remain renderer-independent document operations. Selector
@@ -86,6 +92,12 @@ use `selector.*`, and local transport/view actions retain their own domains.
 Protocol v0 may still change these IDs and argument shapes without compatibility
 aliases.
 
+The action catalog is projected into runtime validation, `list_actions`, MCP
+JSON Schema, CLI action descriptions, generic UI form definitions, and the
+[generated action reference](DOCUMENT-ACTIONS.generated.md). Run
+`npm run docs:actions` after changing a definition; `npm run check:action-docs`
+detects stale generated output.
+
 Production UI, shortcut handling, and local app-state entrypoints dispatch
 through AppAction. Direct DocumentAction execution is reserved for the core
 action implementation, headless target adapters such as CLI/MCP/local engine,
@@ -99,8 +111,10 @@ directly.
 
 `src/protocol/minimal-mcp.ts` is the single tool definition and dispatch layer
 for protocol v0. It exposes score inspection, DocumentAction execution,
-peer-local selector control, and peer-local undo/redo. Action arguments retain
-their native JSON shape rather than being normalized for a specific transport.
+peer-local selector control, and peer-local undo/redo. Every `execute_action`
+call carries `{ id, args }`, where `args` is the strict object defined by that
+action's schema. Invalid arguments fail before the host invokes the action and
+therefore cannot update the Y.Doc.
 
 The stdio MCP server and the browser Agent Worker both execute this dispatcher.
 Tauri connects Codex dynamic tools to the browser worker, so local Codex edits

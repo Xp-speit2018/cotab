@@ -1,64 +1,62 @@
 import * as Y from "yjs";
-import { documentActionRegistry } from "./registry";
-import type { DocumentActionDefinition } from "./types";
+import * as z from "zod";
 import { engine } from "@/core/engine";
-import type { ChordSchema, TuningSchema } from "@/core/schema";
+import { actionArgs, defineDocumentAction } from "./definition";
+import {
+  chordSchema,
+  integer,
+  nonNegativeInteger,
+  tuningSchema,
+} from "./args-schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
-const setStaffCapoAction: DocumentActionDefinition<{
-  trackIndex: number;
-  staffIndex: number;
-  capo: number;
-}> = {
+const setStaffCapoAction = defineDocumentAction({
   id: "document.staff.setCapo",
   i18nKey: "actions.edit.staff.setCapo",
   category: "document.staff",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.staff.setCapo.params.trackIndex" },
-    { name: "staffIndex", type: "number", i18nKey: "actions.edit.staff.setCapo.params.staffIndex" },
-    { name: "capo", type: "number", i18nKey: "actions.edit.staff.setCapo.params.capo" },
-  ],
-  execute: ({ trackIndex, staffIndex, capo }, _context) => {
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    staffIndex: nonNegativeInteger,
+    capo: integer,
+  }),
+  execute: ({ trackIndex, staffIndex, capo }) => {
     const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
       yStaff.set("capo", capo);
     });
   },
-};
+});
 
-const setStaffTranspositionPitchAction: DocumentActionDefinition<{
-  trackIndex: number;
-  staffIndex: number;
-  transpositionPitch: number;
-}> = {
+const setStaffTranspositionPitchAction = defineDocumentAction({
   id: "document.staff.setTranspositionPitch",
   i18nKey: "actions.edit.staff.setTranspositionPitch",
   category: "document.staff",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.staff.setTranspositionPitch.params.trackIndex" },
-    { name: "staffIndex", type: "number", i18nKey: "actions.edit.staff.setTranspositionPitch.params.staffIndex" },
-    { name: "transpositionPitch", type: "number", i18nKey: "actions.edit.staff.setTranspositionPitch.params.transpositionPitch" },
-  ],
-  execute: ({ trackIndex, staffIndex, transpositionPitch }, _context) => {
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    staffIndex: nonNegativeInteger,
+    transpositionPitch: integer,
+  }),
+  execute: ({ trackIndex, staffIndex, transpositionPitch }) => {
     const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
       yStaff.set("transpositionPitch", transpositionPitch);
     });
   },
-};
+});
 
-const setStaffStringTuningAction: DocumentActionDefinition<{
-  trackIndex: number;
-  staffIndex: number;
-  stringTuning: TuningSchema;
-}> = {
+const setStaffStringTuningAction = defineDocumentAction({
   id: "document.staff.setStringTuning",
   i18nKey: "actions.edit.staff.setStringTuning",
   category: "document.staff",
-  execute: ({ trackIndex, staffIndex, stringTuning }, _context) => {
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    staffIndex: nonNegativeInteger,
+    stringTuning: tuningSchema,
+  }),
+  execute: ({ trackIndex, staffIndex, stringTuning }) => {
     const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
@@ -76,40 +74,37 @@ const setStaffStringTuningAction: DocumentActionDefinition<{
       yStringTuning.set("isStandard", stringTuning.isStandard);
     });
   },
-};
+});
 
-const setStaffIsPercussionAction: DocumentActionDefinition<{
-  trackIndex: number;
-  staffIndex: number;
-  isPercussion: boolean;
-}> = {
+const setStaffIsPercussionAction = defineDocumentAction({
   id: "document.staff.setIsPercussion",
   i18nKey: "actions.edit.staff.setIsPercussion",
   category: "document.staff",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.staff.setIsPercussion.params.trackIndex" },
-    { name: "staffIndex", type: "number", i18nKey: "actions.edit.staff.setIsPercussion.params.staffIndex" },
-    { name: "isPercussion", type: "boolean", i18nKey: "actions.edit.staff.setIsPercussion.params.isPercussion" },
-  ],
-  execute: ({ trackIndex, staffIndex, isPercussion }, _context) => {
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    staffIndex: nonNegativeInteger,
+    isPercussion: z.boolean(),
+  }),
+  execute: ({ trackIndex, staffIndex, isPercussion }) => {
     const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
       yStaff.set("isPercussion", isPercussion);
     });
   },
-};
+});
 
-const setStaffChordAction: DocumentActionDefinition<{
-  trackIndex: number;
-  staffIndex: number;
-  id: string;
-  chord: ChordSchema | null;
-}> = {
+const setStaffChordAction = defineDocumentAction({
   id: "document.staff.setChord",
   i18nKey: "actions.edit.staff.setChord",
   category: "document.staff",
-  execute: ({ trackIndex, staffIndex, id, chord }, _context) => {
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    staffIndex: nonNegativeInteger,
+    id: z.string(),
+    chord: chordSchema.nullable(),
+  }),
+  execute: ({ trackIndex, staffIndex, id, chord }) => {
     const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
     if (!yStaff) return;
     transact(() => {
@@ -141,50 +136,12 @@ const setStaffChordAction: DocumentActionDefinition<{
       yChords.set(id, yChord);
     });
   },
-};
+});
 
-documentActionRegistry.register(setStaffCapoAction);
-documentActionRegistry.register(setStaffTranspositionPitchAction);
-documentActionRegistry.register(setStaffStringTuningAction);
-documentActionRegistry.register(setStaffIsPercussionAction);
-documentActionRegistry.register(setStaffChordAction);
-
-declare global {
-  interface DocumentActionMap {
-    "document.staff.setCapo": {
-      args: { trackIndex: number; staffIndex: number; capo: number };
-      result: void;
-    };
-    "document.staff.setTranspositionPitch": {
-      args: {
-        trackIndex: number;
-        staffIndex: number;
-        transpositionPitch: number;
-      };
-      result: void;
-    };
-    "document.staff.setStringTuning": {
-      args: {
-        trackIndex: number;
-        staffIndex: number;
-        stringTuning: TuningSchema;
-      };
-      result: void;
-    };
-    "document.staff.setIsPercussion": {
-      args: { trackIndex: number; staffIndex: number; isPercussion: boolean };
-      result: void;
-    };
-    "document.staff.setChord": {
-      args: {
-        trackIndex: number;
-        staffIndex: number;
-        id: string;
-        chord: ChordSchema | null;
-      };
-      result: void;
-    };
-  }
-}
-
-export {};
+export const staffDocumentActions = [
+  setStaffCapoAction,
+  setStaffTranspositionPitchAction,
+  setStaffStringTuningAction,
+  setStaffIsPercussionAction,
+  setStaffChordAction,
+] as const;

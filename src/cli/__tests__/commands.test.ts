@@ -7,11 +7,18 @@ describe("CLI target adapter", () => {
     engine.destroyDoc();
   });
 
-  it("lists shared action IDs without importing a renderer host", () => {
+  it("lists shared action schemas without importing a renderer host", () => {
     const result = runCliCommand(["list-actions"]);
 
-    expect(result.actions).toContain("document.score.setTitle");
-    expect(result.actions).toContain("document.track.add");
+    expect(result.actions?.find((action) => action.id === "document.score.setTitle"))
+      .toMatchObject({
+        argsSchema: {
+          type: "object",
+          required: ["value"],
+        },
+      });
+    expect(result.actions?.some((action) => action.id === "document.track.add"))
+      .toBe(true);
   });
 
   it("creates a default score through the shared engine", () => {
@@ -24,7 +31,11 @@ describe("CLI target adapter", () => {
   });
 
   it("executes a shared action and returns a score snapshot", () => {
-    const result = runCliCommand(["exec", "document.score.setTitle", JSON.stringify("CLI Song")]);
+    const result = runCliCommand([
+      "exec",
+      "document.score.setTitle",
+      JSON.stringify({ value: "CLI Song" }),
+    ]);
     const snapshot = result.snapshot as { title: string };
 
     expect(snapshot.title).toBe("CLI Song");
@@ -35,8 +46,16 @@ describe("CLI target adapter", () => {
       "run",
       JSON.stringify([
         { type: "new" },
-        { type: "execute", id: "document.score.setTitle", args: "Batch Song" },
-        { type: "execute", id: "document.track.add", args: "drumkit" },
+        {
+          type: "execute",
+          id: "document.score.setTitle",
+          args: { value: "Batch Song" },
+        },
+        {
+          type: "execute",
+          id: "document.track.add",
+          args: { presetId: "drumkit" },
+        },
       ]),
     ]);
     const snapshot = result.snapshot as {

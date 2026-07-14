@@ -220,6 +220,14 @@ export class EditorEngine {
     index?: number,
     clef?: number,
   ): Y.Map<unknown> {
+    const insertionIndex = index ?? yBars.length;
+    const adjacentBar = yBars.length > 0
+      ? yBars.get(Math.min(insertionIndex, yBars.length - 1))
+      : null;
+    const adjacentVoices = adjacentBar?.get("voices") as
+      | Y.Array<Y.Map<unknown>>
+      | undefined;
+    const voiceCount = Math.max(1, adjacentVoices?.length ?? 1);
     const bar = createBar(clef);
     if (index !== undefined) {
       yBars.insert(index, [bar]);
@@ -228,9 +236,11 @@ export class EditorEngine {
     }
     const intBar = yBars.get(index ?? yBars.length - 1);
     const voices = intBar.get("voices") as Y.Array<Y.Map<unknown>>;
-    voices.push([createVoice()]);
-    const intVoice = voices.get(0);
-    (intVoice.get("beats") as Y.Array<Y.Map<unknown>>).push([createBeat()]);
+    for (let voiceIndex = 0; voiceIndex < voiceCount; voiceIndex++) {
+      voices.push([createVoice()]);
+      const intVoice = voices.get(voiceIndex);
+      (intVoice.get("beats") as Y.Array<Y.Map<unknown>>).push([createBeat()]);
+    }
     return intBar;
   }
 

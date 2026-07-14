@@ -1,7 +1,16 @@
-import type { DocumentActionCategory, DocumentActionParamSchema } from "@/core/actions/types";
+import { DOCUMENT_ACTIONS } from "@/core/actions/catalog";
+import {
+  DocumentActionArgumentsError,
+  UnknownDocumentActionError,
+} from "@/core/actions/registry";
+import {
+  EXECUTE_DOCUMENT_ACTION_JSON_SCHEMA,
+  type DocumentActionDescriptor,
+  type JsonSchema,
+} from "@/core/actions/projections";
 import type { SelectedBeat } from "@/core/engine";
 
-export type JsonSchema = Record<string, unknown>;
+export type { JsonSchema } from "@/core/actions/projections";
 
 export interface MinimalMcpToolDefinition {
   readonly name: string;
@@ -9,12 +18,7 @@ export interface MinimalMcpToolDefinition {
   readonly inputSchema: JsonSchema;
 }
 
-export interface CoreEditActionDescriptor {
-  readonly id: string;
-  readonly category: DocumentActionCategory;
-  readonly i18nKey: string;
-  readonly params: readonly DocumentActionParamSchema[];
-}
+export type CoreEditActionDescriptor = DocumentActionDescriptor;
 
 export interface CoreEditSelection extends SelectedBeat {
   noteIndex?: number;
@@ -23,7 +27,7 @@ export interface CoreEditSelection extends SelectedBeat {
 export interface MinimalMcpHost {
   snapshot(): unknown;
   listActions(): readonly CoreEditActionDescriptor[];
-  executeDocumentAction(id: string, args?: unknown): unknown;
+  executeDocumentAction(id: string, args: unknown): unknown;
   setSelection(selection: CoreEditSelection): CoreEditSelection | null;
   getSelection(): CoreEditSelection | null;
   undo(): boolean;
@@ -64,21 +68,8 @@ export const MINIMAL_MCP_TOOLS: readonly MinimalMcpToolDefinition[] = [
   },
   {
     name: "execute_action",
-    description: "Execute a core-edit action by ID using its native JSON argument value.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        id: {
-          type: "string",
-          description: "Registered core-edit action ID.",
-        },
-        args: {
-          description: "The action's native argument value; it may be scalar, null, array, or object.",
-        },
-      },
-      required: ["id"],
-      additionalProperties: false,
-    },
+    description: "Execute a core-edit action using the object arguments defined by that action.",
+    inputSchema: EXECUTE_DOCUMENT_ACTION_JSON_SCHEMA,
   },
   {
     name: "set_selection",
@@ -183,12 +174,28 @@ export function executeMinimalMcpTool(
         return { ok: true, value: host.listActions() };
       case "execute_action": {
         const args = asRecord(rawArguments);
-        if (!args || typeof args.id !== "string") {
-          return invalidArguments("execute_action requires a string id.");
+        if (
+          !args ||
+          typeof args.id !== "string" ||
+          !("args" in args)
+        ) {
+          return invalidArguments(
+            "execute_action requires a string id and an args object.",
+          );
+        }
+        const action = DOCUMENT_ACTIONS.find((candidate) => candidate.id === args.id);
+        if (!action) {
+          return invalidArguments(`Unknown document action: ${args.id}`);
+        }
+        const parsed = action.argsSchema.safeParse(args.args);
+        if (!parsed.success) {
+          return invalidArguments(
+            new DocumentActionArgumentsError(action.id, parsed.error).message,
+          );
         }
         return {
           ok: true,
-          value: host.executeDocumentAction(args.id, args.args),
+          value: host.executeDocumentAction(args.id, parsed.data),
         };
       }
       case "set_selection": {
@@ -212,6 +219,12 @@ export function executeMinimalMcpTool(
         };
     }
   } catch (error) {
+    if (
+      error instanceof DocumentActionArgumentsError ||
+      error instanceof UnknownDocumentActionError
+    ) {
+      return invalidArguments(error.message);
+    }
     return {
       ok: false,
       error: {

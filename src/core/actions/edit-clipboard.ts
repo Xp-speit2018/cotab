@@ -1,6 +1,8 @@
 import * as Y from "yjs";
-import { documentActionRegistry } from "@/core/actions/registry";
-import type { DocumentActionDefinition } from "@/core/actions/types";
+import {
+  defineDocumentAction,
+  emptyActionArgs,
+} from "@/core/actions/definition";
 import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
 import {
@@ -239,19 +241,21 @@ function getClipboardData(): ClipboardData | null {
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
-const copyAction: DocumentActionDefinition<void> = {
+const copyAction = defineDocumentAction({
   id: "document.copy",
   i18nKey: "shortcuts.clipboard.copy",
   category: "document.clipboard",
+  argsSchema: emptyActionArgs,
   execute: () => {
     copyToBuffer();
   },
-};
+});
 
-const cutAction: DocumentActionDefinition<void> = {
+const cutAction = defineDocumentAction({
   id: "document.cut",
   i18nKey: "shortcuts.clipboard.cut",
   category: "document.clipboard",
+  argsSchema: emptyActionArgs,
   execute: () => {
     const { trackIndex, staffIndex, barIndex, voiceIndex } = engine.selector;
     if (
@@ -294,12 +298,13 @@ const cutAction: DocumentActionDefinition<void> = {
       barCount: endBar - startBar + 1,
     });
   },
-};
+});
 
-const pasteAction: DocumentActionDefinition<void> = {
+const pasteAction = defineDocumentAction({
   id: "document.paste",
   i18nKey: "shortcuts.clipboard.paste",
   category: "document.clipboard",
+  argsSchema: emptyActionArgs,
   execute: () => {
     const clipboardData = getClipboardData();
     if (!clipboardData) {
@@ -388,18 +393,10 @@ const pasteAction: DocumentActionDefinition<void> = {
       })),
     });
   },
-};
+});
 
-documentActionRegistry.register(copyAction);
-documentActionRegistry.register(cutAction);
-documentActionRegistry.register(pasteAction);
-
-declare global {
-  interface DocumentActionMap {
-    "document.copy": { args: void; result: void };
-    "document.cut": { args: void; result: void };
-    "document.paste": { args: void; result: void };
-  }
-}
-
-export {};
+export const clipboardDocumentActions = [
+  copyAction,
+  cutAction,
+  pasteAction,
+] as const;

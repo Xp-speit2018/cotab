@@ -1,6 +1,11 @@
 import { engine } from "@/core/engine";
 import type { DocumentPeerConnection } from "@/core/editor/collaboration";
 import type { MinimalMcpCallResult } from "@/protocol/minimal-mcp";
+import {
+  getRendererDiagnostics,
+  waitForRendererRevision,
+  type RendererRevisionOutcome,
+} from "@/stores/renderer-bridge";
 import type { AgentToMainMessage, MainToAgentMessage } from "./messages";
 import { isTauriRuntime } from "./target";
 
@@ -11,6 +16,19 @@ export interface AgentPeerRuntimeSnapshot {
   readonly clientId: number | null;
   readonly error: string | null;
 }
+
+export interface AgentToolDiagnostics {
+  readonly document: {
+    readonly changed: boolean;
+    readonly workerUpdateCount: number;
+    readonly mainUpdateCount: number;
+  };
+  readonly renderer: RendererRevisionOutcome | null;
+}
+
+export type AgentMcpCallResult = MinimalMcpCallResult & {
+  readonly diagnostics?: AgentToolDiagnostics;
+};
 
 const CALL_TIMEOUT_MS = 30_000;
 
@@ -26,10 +44,15 @@ class AgentPeerRuntime {
     clientId: null,
     error: null,
   };
+  private receivedDocumentUpdateCount = 0;
   private readonly pending = new Map<
     number,
     {
-      resolve: (result: MinimalMcpCallResult) => void;
+      tool: string;
+      arguments: unknown;
+      rendererRevisionBefore: number;
+      receivedDocumentUpdatesBefore: number;
+      resolve: (result: AgentMcpCallResult) => void;
       reject: (error: Error) => void;
       timeout: ReturnType<typeof setTimeout>;
     }
@@ -78,20 +101,118 @@ class AgentPeerRuntime {
         this.rejectStart = null;
         break;
       case "document.update":
+        this.receivedDocumentUpdateCount += 1;
         for (const listener of this.documentUpdateListeners) {
           listener(new Uint8Array(message.update));
         }
         break;
-      case "mcp.result": {
-        const pending = this.pending.get(message.requestId);
-        if (!pending) break;
-        clearTimeout(pending.timeout);
-        this.pending.delete(message.requestId);
-        pending.resolve(message.result);
+      case "mcp.result":
+        void this.completeToolCall(message);
         break;
-      }
     }
   };
+
+  private readonly completeToolCall = async (
+    message: Extract<AgentToMainMessage, { type: "mcp.result" }>,
+  ): Promise<void> => {
+    const pending = this.pending.get(message.requestId);
+    if (!pending) return;
+
+    const mainUpdateCount =
+      this.receivedDocumentUpdateCount - pending.receivedDocumentUpdatesBefore;
+    const documentDiagnostics: AgentToolDiagnostics["document"] = {
+      changed: message.documentUpdateCount > 0,
+      workerUpdateCount: message.documentUpdateCount,
+      mainUpdateCount,
+    };
+
+    if (message.documentUpdateCount === 0) {
+      if (!message.result.ok || pending.tool !== "execute_action") {
+        this.resolvePending(message.requestId, pending, message.result);
+        return;
+      }
+      const actionId = this.actionId(pending.arguments);
+      this.resolvePending(message.requestId, pending, {
+        ok: false,
+        error: {
+          code: "execution_failed",
+          message:
+            `Core-edit action ${JSON.stringify(actionId)} completed without a Y.Doc update. `
+            + "It may have been blocked by an invalid selector or resolved to a no-op.",
+        },
+        diagnostics: {
+          document: documentDiagnostics,
+          renderer: null,
+        },
+      });
+      return;
+    }
+
+    const rendererRevision = getRendererDiagnostics().requestedRevision;
+    if (rendererRevision <= pending.rendererRevisionBefore) {
+      this.resolvePending(message.requestId, pending, {
+        ok: false,
+        error: {
+          code: "execution_failed",
+          message:
+            "The Agent updated Y.Doc, but the main renderer did not observe a new rebuild revision.",
+        },
+        diagnostics: {
+          document: documentDiagnostics,
+          renderer: null,
+        },
+      });
+      return;
+    }
+
+    const renderer = await waitForRendererRevision(rendererRevision);
+    if (this.pending.get(message.requestId) !== pending) return;
+    const diagnostics: AgentToolDiagnostics = {
+      document: documentDiagnostics,
+      renderer,
+    };
+    if (renderer.status === "failed") {
+      const actionId = this.actionId(pending.arguments);
+      const detail = renderer.error?.message ?? "Unknown renderer error.";
+      this.resolvePending(message.requestId, pending, {
+        ok: false,
+        error: {
+          code: "execution_failed",
+          message:
+            `Y.Doc changed for ${JSON.stringify(actionId)}, but AlphaTab renderer revision `
+            + `${renderer.revision} failed during ${renderer.stage}: ${detail}`,
+        },
+        diagnostics,
+      });
+      return;
+    }
+
+    this.resolvePending(message.requestId, pending, {
+      ...message.result,
+      diagnostics,
+    });
+  };
+
+  private actionId(argumentsValue: unknown): string {
+    if (typeof argumentsValue !== "object" || argumentsValue === null) {
+      return "unknown action";
+    }
+    const id = (argumentsValue as { id?: unknown }).id;
+    return typeof id === "string" ? id : "unknown action";
+  }
+
+  private resolvePending(
+    requestId: number,
+    pending: {
+      resolve: (result: AgentMcpCallResult) => void;
+      timeout: ReturnType<typeof setTimeout>;
+    },
+    result: AgentMcpCallResult,
+  ): void {
+    clearTimeout(pending.timeout);
+    this.pending.delete(requestId);
+    pending.resolve(result);
+  }
 
   getSnapshot(): AgentPeerRuntimeSnapshot {
     return this.snapshot;
@@ -193,17 +314,25 @@ class AgentPeerRuntime {
   async callTool(
     tool: string,
     args: unknown = {},
-  ): Promise<MinimalMcpCallResult> {
+  ): Promise<AgentMcpCallResult> {
     await this.start();
     if (!this.worker) throw new Error("Agent peer runtime is not running.");
 
     const requestId = this.nextRequestId++;
-    const result = new Promise<MinimalMcpCallResult>((resolve, reject) => {
+    const result = new Promise<AgentMcpCallResult>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(requestId);
         reject(new Error(`CoTab MCP tool timed out: ${tool}`));
       }, CALL_TIMEOUT_MS);
-      this.pending.set(requestId, { resolve, reject, timeout });
+      this.pending.set(requestId, {
+        tool,
+        arguments: args,
+        rendererRevisionBefore: getRendererDiagnostics().requestedRevision,
+        receivedDocumentUpdatesBefore: this.receivedDocumentUpdateCount,
+        resolve,
+        reject,
+        timeout,
+      });
     });
 
     this.post({

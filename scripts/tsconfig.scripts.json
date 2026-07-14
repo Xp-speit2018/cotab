@@ -13,7 +13,6 @@
   },
   "include": [
     "audit-alphatab-fields.ts",
-    "generate-actions-wiki.ts",
     "generate-server-api-wiki.ts"
   ]
 }

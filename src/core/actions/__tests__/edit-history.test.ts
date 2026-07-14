@@ -84,14 +84,14 @@ describe("document.undo", () => {
     });
     expect(scoreMap.get("title")).toBe("Changed");
 
-    executeDocumentAction("document.undo", undefined, ctx);
+    executeDocumentAction("document.undo", {}, ctx);
     expect(scoreMap.get("title")).toBe("Untitled");
   });
 
   it("does nothing when undo stack is empty", () => {
     const scoreMap = getScoreMap()!;
     expect(scoreMap.get("title")).toBe("Untitled");
-    executeDocumentAction("document.undo", undefined, ctx);
+    executeDocumentAction("document.undo", {}, ctx);
     expect(scoreMap.get("title")).toBe("Untitled");
   });
 });
@@ -103,10 +103,10 @@ describe("document.redo", () => {
       scoreMap.set("artist", "Mozart");
     });
 
-    executeDocumentAction("document.undo", undefined, ctx);
+    executeDocumentAction("document.undo", {}, ctx);
     expect(scoreMap.get("artist")).toBe("");
 
-    executeDocumentAction("document.redo", undefined, ctx);
+    executeDocumentAction("document.redo", {}, ctx);
     expect(scoreMap.get("artist")).toBe("Mozart");
   });
 
@@ -115,7 +115,7 @@ describe("document.redo", () => {
     transact(() => {
       scoreMap.set("title", "Test");
     });
-    executeDocumentAction("document.redo", undefined, ctx);
+    executeDocumentAction("document.redo", {}, ctx);
     expect(scoreMap.get("title")).toBe("Test");
   });
 });
@@ -147,7 +147,7 @@ describe("atomic transactions", () => {
     expect(scoreMap.get("title")).toBe("New Title");
     expect(scoreMap.get("artist")).toBe("New Artist");
 
-    executeDocumentAction("document.undo", undefined, ctx);
+    executeDocumentAction("document.undo", {}, ctx);
     expect(scoreMap.get("title")).toBe("Untitled");
     expect(scoreMap.get("artist")).toBe("");
   });
@@ -165,16 +165,16 @@ describe("sequential undos", () => {
     expect(scoreMap.get("artist")).toBe("B");
     expect(scoreMap.get("album")).toBe("C");
 
-    executeDocumentAction("document.undo", undefined, ctx);
+    executeDocumentAction("document.undo", {}, ctx);
     expect(scoreMap.get("album")).toBe("");
 
-    executeDocumentAction("document.undo", undefined, ctx);
+    executeDocumentAction("document.undo", {}, ctx);
     expect(scoreMap.get("artist")).toBe("");
 
-    executeDocumentAction("document.undo", undefined, ctx);
+    executeDocumentAction("document.undo", {}, ctx);
     expect(scoreMap.get("title")).toBe("Untitled");
 
-    executeDocumentAction("document.redo", undefined, ctx);
+    executeDocumentAction("document.redo", {}, ctx);
     expect(scoreMap.get("title")).toBe("A");
   });
 });
@@ -204,7 +204,7 @@ describe("array mutations", () => {
     expect(yBars.length).toBe(2);
     expect(yMasterBars.length).toBe(2);
 
-    executeDocumentAction("document.undo", undefined, ctx);
+    executeDocumentAction("document.undo", {}, ctx);
     expect(yBars.length).toBe(1);
     expect(yMasterBars.length).toBe(1);
   });

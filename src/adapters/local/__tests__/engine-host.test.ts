@@ -19,7 +19,7 @@ describe("local engine host adapter", () => {
 
   it("executes shared actions and supports undo/redo", () => {
     localEngineHost.createDefaultScore();
-    localEngineHost.executeDocumentAction("document.score.setTitle", "Adapter Song");
+    localEngineHost.executeDocumentAction("document.score.setTitle", { value: "Adapter Song" });
 
     expect((localEngineHost.snapshot() as { title: string }).title).toBe("Adapter Song");
 

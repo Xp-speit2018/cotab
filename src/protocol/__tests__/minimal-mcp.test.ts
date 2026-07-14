@@ -13,9 +13,14 @@ function createHost(): MinimalMcpHost {
       id: "document.score.setTitle",
       category: "document.score",
       i18nKey: "actions.edit.score.setTitle",
-      params: [],
+      argsSchema: {
+        type: "object",
+        properties: { value: { type: "string" } },
+        required: ["value"],
+        additionalProperties: false,
+      },
     }],
-    executeDocumentAction: vi.fn((_id: string, args?: unknown) => args),
+    executeDocumentAction: vi.fn((_id: string, args: unknown) => args),
     setSelection: vi.fn((next: CoreEditSelection) => {
       selection = next;
       return selection;
@@ -27,18 +32,35 @@ function createHost(): MinimalMcpHost {
 }
 
 describe("minimal MCP protocol", () => {
-  it("preserves an action's native scalar argument", () => {
+  it("passes schema-validated object arguments to the host", () => {
+    const host = createHost();
+    const result = executeMinimalMcpTool(host, "execute_action", {
+      id: "document.score.setTitle",
+      args: { value: "Agent title" },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: { value: "Agent title" },
+    });
+    expect(host.executeDocumentAction).toHaveBeenCalledWith(
+      "document.score.setTitle",
+      { value: "Agent title" },
+    );
+  });
+
+  it("rejects scalar action arguments before calling the host", () => {
     const host = createHost();
     const result = executeMinimalMcpTool(host, "execute_action", {
       id: "document.score.setTitle",
       args: "Agent title",
     });
 
-    expect(result).toEqual({ ok: true, value: "Agent title" });
-    expect(host.executeDocumentAction).toHaveBeenCalledWith(
-      "document.score.setTitle",
-      "Agent title",
-    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "invalid_arguments" },
+    });
+    expect(host.executeDocumentAction).not.toHaveBeenCalled();
   });
 
   it("keeps noteIndex in the peer-local selector", () => {

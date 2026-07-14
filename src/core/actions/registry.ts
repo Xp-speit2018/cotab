@@ -1,121 +1,141 @@
+import type * as z from "zod";
+import { debugLog } from "@/core/editor/action-log";
+import { DOCUMENT_ACTIONS, type AnyDocumentAction } from "./catalog";
+import { formatActionArgsError } from "./definition";
 import type {
   DocumentActionArgs,
-  DocumentActionDefinition,
   DocumentActionExecutionContext,
   DocumentActionId,
   DocumentActionResult,
 } from "./types";
-import { debugLog } from "@/core/editor/action-log";
+
+type RuntimeDocumentAction = {
+  readonly id: string;
+  readonly argsSchema: z.ZodType;
+  execute(args: unknown, context: DocumentActionExecutionContext): unknown;
+};
+
+export class UnknownDocumentActionError extends Error {
+  constructor(actionId: string) {
+    super(`Unknown document action: ${actionId}`);
+    this.name = "UnknownDocumentActionError";
+  }
+}
+
+export class DocumentActionArgumentsError extends Error {
+  readonly actionId: string;
+  readonly cause: z.ZodError;
+
+  constructor(actionId: string, cause: z.ZodError) {
+    super(formatActionArgsError(actionId, cause));
+    this.name = "DocumentActionArgumentsError";
+    this.actionId = actionId;
+    this.cause = cause;
+  }
+}
 
 class DocumentActionRegistry {
-  private readonly actions = new Map<string, DocumentActionDefinition<unknown, unknown>>();
+  private readonly actions = new Map<string, AnyDocumentAction>();
 
-  register<TArgs = void, TResult = void | boolean>(
-    definition: DocumentActionDefinition<TArgs, TResult>,
-  ): void {
-    if (this.actions.has(definition.id)) {
-      debugLog("warn", "DocumentActionRegistry", "duplicate action registration ignored", {
-        id: definition.id,
-      });
-      return;
+  constructor() {
+    for (const action of DOCUMENT_ACTIONS) {
+      if (this.actions.has(action.id)) {
+        throw new Error(`Duplicate document action definition: ${action.id}`);
+      }
+      this.actions.set(action.id, action);
     }
-    this.actions.set(definition.id, definition as DocumentActionDefinition<unknown, unknown>);
   }
 
-  get<TArgs = void, TResult = void | boolean>(
-    id: string,
-  ): DocumentActionDefinition<TArgs, TResult> | undefined {
-    return this.actions.get(id) as DocumentActionDefinition<TArgs, TResult> | undefined;
+  get<Id extends DocumentActionId>(
+    id: Id,
+  ): Extract<AnyDocumentAction, { readonly id: Id }> | undefined;
+  get(id: string): AnyDocumentAction | undefined;
+  get(id: string): AnyDocumentAction | undefined {
+    return this.actions.get(id);
   }
 
-  getAll(): readonly DocumentActionDefinition<unknown, unknown>[] {
-    return Array.from(this.actions.values());
+  getAll(): readonly AnyDocumentAction[] {
+    return DOCUMENT_ACTIONS;
   }
 }
 
 export const documentActionRegistry = new DocumentActionRegistry();
 
+function executeValidatedDocumentAction(
+  definition: AnyDocumentAction,
+  args: unknown,
+  context: DocumentActionExecutionContext,
+): unknown {
+  const runtimeDefinition = definition as unknown as RuntimeDocumentAction;
+  const parsed = runtimeDefinition.argsSchema.safeParse(args);
+  if (!parsed.success) {
+    debugLog("warn", "action", "invalid-arguments", {
+      id: definition.id,
+      issues: parsed.error.issues,
+    });
+    throw new DocumentActionArgumentsError(definition.id, parsed.error);
+  }
+
+  debugLog("debug", "action", "execute", {
+    id: definition.id,
+    args: parsed.data,
+  });
+  const start = performance.now?.() ?? Date.now();
+
+  try {
+    const result = runtimeDefinition.execute(parsed.data, context);
+    const durationMs = (performance.now?.() ?? Date.now()) - start;
+
+    if (result !== undefined) {
+      debugLog("debug", "action", "result", {
+        id: definition.id,
+        result,
+        durationMs,
+      });
+    } else if (durationMs > 1) {
+      debugLog("debug", "action", "done", {
+        id: definition.id,
+        durationMs,
+      });
+    }
+
+    return result;
+  } catch (error) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    debugLog("error", "action", "failed", {
+      id: definition.id,
+      durationMs: (performance.now?.() ?? Date.now()) - start,
+      error: err.message,
+      stack: err.stack,
+    });
+    throw error;
+  }
+}
+
 export function executeDocumentAction<Id extends DocumentActionId>(
   id: Id,
   args: DocumentActionArgs<Id>,
   context: DocumentActionExecutionContext,
-): DocumentActionResult<Id> | undefined {
-  const definition = documentActionRegistry.get<DocumentActionArgs<Id>, DocumentActionResult<Id>>(id);
-  if (!definition) {
-    debugLog("warn", "action", "unknown", { id });
-    return undefined;
-  }
-
-  debugLog("debug", "action", "execute", { id, args });
-  const start = performance.now?.() ?? Date.now();
-
-  try {
-    const result = definition.execute(args, context);
-    const end = performance.now?.() ?? Date.now();
-    const durationMs = end - start;
-
-    if (result !== undefined) {
-      debugLog("debug", "action", "result", { id, result, durationMs });
-    } else if (durationMs > 1) {
-      debugLog("debug", "action", "done", { id, durationMs });
-    }
-
-    return result;
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    const end = performance.now?.() ?? Date.now();
-    const durationMs = end - start;
-
-    debugLog("error", "action", "failed", {
-      id,
-      durationMs,
-      error: err.message,
-      stack: err.stack,
-    });
-    throw error;
-  }
+): DocumentActionResult<Id> {
+  const definition = documentActionRegistry.get(id);
+  if (!definition) throw new UnknownDocumentActionError(id);
+  return executeValidatedDocumentAction(
+    definition,
+    args,
+    context,
+  ) as DocumentActionResult<Id>;
 }
 
-export function executeDocumentActionUnsafe<TArgs = void, TResult = void | boolean>(
+export function executeDocumentActionById(
   id: string,
-  args: TArgs,
+  args: unknown,
   context: DocumentActionExecutionContext,
-): TResult | undefined {
-  const definition = documentActionRegistry.get<TArgs, TResult>(id);
-  if (!definition) {
-    debugLog("warn", "action", "unknown-unsafe", { id });
-    return undefined;
-  }
-  debugLog("debug", "action", "execute-unsafe", { id, args });
-  const start = performance.now?.() ?? Date.now();
-
-  try {
-    const result = definition.execute(args, context);
-    const end = performance.now?.() ?? Date.now();
-    const durationMs = end - start;
-
-    if (result !== undefined) {
-      debugLog("debug", "action", "result-unsafe", { id, result, durationMs });
-    } else if (durationMs > 1) {
-      debugLog("debug", "action", "done-unsafe", { id, durationMs });
-    }
-
-    return result;
-  } catch (error) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    const end = performance.now?.() ?? Date.now();
-    const durationMs = end - start;
-
-    debugLog("error", "action", "failed-unsafe", {
-      id,
-      durationMs,
-      error: err.message,
-      stack: err.stack,
-    });
-    throw error;
-  }
+): unknown {
+  const definition = documentActionRegistry.get(id);
+  if (!definition) throw new UnknownDocumentActionError(id);
+  return executeValidatedDocumentAction(definition, args, context);
 }
 
-export function getAllDocumentActions(): readonly DocumentActionDefinition<unknown, unknown>[] {
+export function getAllDocumentActions(): readonly AnyDocumentAction[] {
   return documentActionRegistry.getAll();
 }

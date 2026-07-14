@@ -2,6 +2,13 @@ import { engine } from "@/core/engine";
 import { MINIMAL_MCP_TOOLS } from "@/protocol/minimal-mcp";
 import { codexConnection, type CodexConnectionPhase } from "./codex-connection";
 import {
+  activeCodexProxyUrl,
+  loadCodexProxySettings,
+  normalizeCodexProxySettings,
+  saveCodexProxySettings,
+  type CodexProxySettings,
+} from "./codex-proxy-settings";
+import {
   agentHistoryIndex,
   type AgentThreadBinding,
 } from "./history-index";
@@ -76,6 +83,7 @@ export interface AgentSessionSnapshot {
   readonly reasoningEffort: string | null;
   readonly collaborationMode: CodexCollaborationMode;
   readonly resources: AgentResourcePermissions;
+  readonly proxy: CodexProxySettings;
   readonly modelsLoading: boolean;
   readonly error: string | null;
 }
@@ -128,6 +136,8 @@ const CODEX_DEVELOPER_INSTRUCTIONS = [
   "You are the score-editing agent inside CoTab.",
   "Use the provided CoTab tools to inspect and edit the current score.",
   "Use set_selection before selection-scoped beat or note actions.",
+  "Treat a score edit as successful only when its tool result confirms both a Y.Doc change and a successful renderer revision.",
+  "If a tool reports no document update or a renderer failure, inspect and report that failure instead of claiming the edit completed.",
   "Do not edit source files or use shell commands for score changes.",
   "Inspect current score state again when prior context may be stale.",
   "Report the score changes you made in the final response.",
@@ -269,6 +279,7 @@ class AgentSession {
       webResources: false,
       localWriteRoots: [],
     },
+    proxy: loadCodexProxySettings(),
     modelsLoading: false,
     error: null,
   };
@@ -302,7 +313,11 @@ class AgentSession {
   async connect(): Promise<void> {
     this.setSnapshot({ ...this.snapshot, error: null });
     try {
-      await codexConnection.connect(this.snapshot.resources.localResources);
+      await codexConnection.connect(
+        this.snapshot.resources.localResources,
+        this.snapshot.resources.webResources,
+        activeCodexProxyUrl(this.snapshot.proxy),
+      );
       await this.loadModels();
       await this.loadHistory();
     } catch (error) {
@@ -381,7 +396,7 @@ class AgentSession {
           : "read-only",
         cwd: this.snapshot.resources.localWriteRoots[0] ?? null,
         developerInstructions: CODEX_DEVELOPER_INSTRUCTIONS,
-      dynamicTools: dynamicTools(),
+        dynamicTools: dynamicTools(),
       },
     );
     await agentHistoryIndex.touch(threadId, Date.now());
@@ -394,6 +409,7 @@ class AgentSession {
       reasoningEffort: result.reasoningEffort ?? this.snapshot.reasoningEffort,
       error: null,
     });
+    await this.applyResourceSandbox(this.snapshot.resources);
     await this.loadHistory();
   }
 
@@ -601,7 +617,11 @@ class AgentSession {
       resources: { ...previous, localResources: enabled },
     });
     try {
-      await codexConnection.reconnect(enabled);
+      await codexConnection.reconnect(
+        enabled,
+        previous.webResources,
+        activeCodexProxyUrl(this.snapshot.proxy),
+      );
       if (activeThreadId) await this.openThread(activeThreadId);
     } catch (error) {
       this.setSnapshot({ ...this.snapshot, resources: previous });
@@ -610,8 +630,24 @@ class AgentSession {
   }
 
   async setWebResources(enabled: boolean): Promise<void> {
-    const resources = { ...this.snapshot.resources, webResources: enabled };
-    await this.applyResourceSandbox(resources);
+    if (enabled === this.snapshot.resources.webResources) return;
+    const previous = this.snapshot.resources;
+    const activeThreadId = this.snapshot.threadId;
+    this.setSnapshot({
+      ...this.snapshot,
+      resources: { ...previous, webResources: enabled },
+    });
+    try {
+      await codexConnection.reconnect(
+        previous.localResources,
+        enabled,
+        activeCodexProxyUrl(this.snapshot.proxy),
+      );
+      if (activeThreadId) await this.openThread(activeThreadId);
+    } catch (error) {
+      this.setSnapshot({ ...this.snapshot, resources: previous });
+      throw error;
+    }
   }
 
   async addLocalWriteRoot(): Promise<void> {
@@ -628,6 +664,35 @@ class AgentSession {
 
   async clearLocalWriteRoots(): Promise<void> {
     await this.setLocalWriteRoots([]);
+  }
+
+  async setProxy(settings: CodexProxySettings): Promise<void> {
+    if (this.snapshot.activeTurnId) {
+      throw new Error("Stop the current Codex turn before changing its proxy.");
+    }
+    const next = normalizeCodexProxySettings(settings);
+    const previous = this.snapshot.proxy;
+    if (next.enabled === previous.enabled && next.url === previous.url) return;
+
+    const activeThreadId = this.snapshot.threadId;
+    const connected = codexConnection.getSnapshot().phase === "connected";
+    saveCodexProxySettings(next);
+    this.setSnapshot({ ...this.snapshot, proxy: next, error: null });
+    if (!connected) return;
+
+    try {
+      await codexConnection.reconnect(
+        this.snapshot.resources.localResources,
+        this.snapshot.resources.webResources,
+        activeCodexProxyUrl(next),
+      );
+      if (activeThreadId) await this.openThread(activeThreadId);
+    } catch (error) {
+      saveCodexProxySettings(previous);
+      this.setSnapshot({ ...this.snapshot, proxy: previous });
+      this.setError(error);
+      throw error;
+    }
   }
 
   private async ensureConnected(): Promise<void> {
@@ -677,15 +742,17 @@ class AgentSession {
   }
 
   private async applyResourceSandbox(resources: AgentResourcePermissions): Promise<void> {
+    // Web resources gates Codex's web_search tool at process startup. It does
+    // not grant network access to shell commands or affect the model transport.
     const sandboxPolicy = resources.localWriteRoots.length > 0
       ? {
           type: "workspaceWrite" as const,
-          networkAccess: resources.webResources,
+          networkAccess: false,
           writableRoots: resources.localWriteRoots,
         }
       : {
           type: "readOnly" as const,
-          networkAccess: resources.webResources,
+          networkAccess: false,
         };
     await this.updateThreadSettings({ sandboxPolicy });
     this.setSnapshot({ ...this.snapshot, resources, error: null });

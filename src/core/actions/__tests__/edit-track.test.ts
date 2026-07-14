@@ -179,7 +179,7 @@ describe("document.track.delete", () => {
 
   it("removes track from Y.Array", () => {
     expect(trackCount()).toBe(2);
-    executeDocumentAction("document.track.delete", 1, ctx);
+    executeDocumentAction("document.track.delete", { trackIndex: 1 }, ctx);
     expect(trackCount()).toBe(1);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Test Guitar");
   });
@@ -192,13 +192,13 @@ describe("document.track.delete", () => {
     seedOneTrackScore(getScoreMap()!, 1);
 
     expect(trackCount()).toBe(1);
-    const result = executeDocumentAction("document.track.delete", 0, ctx);
+    const result = executeDocumentAction("document.track.delete", { trackIndex: 0 }, ctx);
     expect(result).toBe(false);
     expect(trackCount()).toBe(1);
   });
 
   it("returns false for invalid track index", () => {
-    const result = executeDocumentAction("document.track.delete", 99, ctx);
+    const result = executeDocumentAction("document.track.delete", { trackIndex: 99 }, ctx);
     expect(result).toBe(false);
   });
 });
@@ -242,7 +242,7 @@ describe("document.track.add", () => {
   it("adds a preset track directly to Y.Doc without a renderer score", () => {
     const tracksBefore = trackCount();
 
-    executeDocumentAction("document.track.add", "acousticPiano", ctx);
+    executeDocumentAction("document.track.add", { presetId: "acousticPiano" }, ctx);
 
     expect(trackCount()).toBe(tracksBefore + 1);
     const yTrack = resolveYTrackHelper(tracksBefore)!;
@@ -260,7 +260,7 @@ describe("document.track.add", () => {
     destroyDoc();
     initDoc();
 
-    executeDocumentAction("document.track.add", "drumkit", ctx);
+    executeDocumentAction("document.track.add", { presetId: "drumkit" }, ctx);
 
     const scoreMap = getScoreMap()!;
     const yMasterBars = scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>;

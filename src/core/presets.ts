@@ -10,7 +10,7 @@ export interface TrackPreset {
   tuning?: readonly number[];
 }
 
-export const TRACK_PRESETS: readonly TrackPreset[] = [
+export const TRACK_PRESETS = [
   { id: "acousticGuitar", nameKey: "sidebar.selector.presets.acousticGuitar", defaultName: "Acoustic Guitar", program: 25, channel: 0, clef: 4, isPercussion: false, stringCount: 6, tuning: [64, 59, 55, 50, 45, 40] },
   { id: "electricGuitarClean", nameKey: "sidebar.selector.presets.electricGuitarClean", defaultName: "Electric Guitar (Clean)", program: 27, channel: 0, clef: 4, isPercussion: false, stringCount: 6, tuning: [64, 59, 55, 50, 45, 40] },
   { id: "electricGuitarDistortion", nameKey: "sidebar.selector.presets.electricGuitarDistortion", defaultName: "Electric Guitar (Distortion)", program: 30, channel: 0, clef: 4, isPercussion: false, stringCount: 6, tuning: [64, 59, 55, 50, 45, 40] },
@@ -18,4 +18,6 @@ export const TRACK_PRESETS: readonly TrackPreset[] = [
   { id: "violin", nameKey: "sidebar.selector.presets.violin", defaultName: "Violin", program: 40, channel: 0, clef: 4, isPercussion: false, stringCount: 4, tuning: [76, 69, 62, 55] },
   { id: "acousticPiano", nameKey: "sidebar.selector.presets.acousticPiano", defaultName: "Acoustic Piano", program: 0, channel: 0, clef: 4, isPercussion: false, stringCount: 0 },
   { id: "drumkit", nameKey: "sidebar.selector.presets.drumkit", defaultName: "Drums", program: 0, channel: 9, clef: 0, isPercussion: true, stringCount: 0 },
-] as const;
+] as const satisfies readonly TrackPreset[];
+
+export type TrackPresetId = (typeof TRACK_PRESETS)[number]["id"];

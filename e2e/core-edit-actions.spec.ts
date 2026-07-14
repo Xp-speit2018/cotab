@@ -16,9 +16,11 @@ type RuntimeWindow = Window & {
           bars: Array<{
             voices: Array<{
               beats: Array<{
+                duration: number;
                 isRest: boolean;
                 isEmpty: boolean;
                 notes: Array<{
+                  fret: number;
                   string: number;
                   bendType: number;
                   bendPoints: Array<{ offset: number; value: number }> | null;
@@ -45,6 +47,55 @@ type RuntimeWindow = Window & {
     };
   };
 };
+
+test("keyboard editing projects shortcut values into document action objects", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.waitForFunction(() =>
+    Boolean((window as unknown as RuntimeWindow).__PLAYER_STORE__?.getState().isPlayerReady),
+  );
+
+  const initial = await page.evaluate(() => {
+    const runtime = window as unknown as RuntimeWindow;
+    const beat = runtime.__ALPHATAB_API__.score.tracks[0].staves[0]
+      .bars[8].voices[0].beats[0];
+    const note = beat.notes[0];
+    runtime.__PLAYER_STORE__.getState().setSelection({
+      trackIndex: 0,
+      staffIndex: 0,
+      voiceIndex: 0,
+      barIndex: 8,
+      beatIndex: 0,
+      string: note.string,
+    });
+    return { duration: beat.duration, fret: note.fret, string: note.string };
+  });
+  expect(initial.duration).not.toBe(2);
+
+  await page.keyboard.press("-");
+  await page.waitForFunction(() =>
+    (window as unknown as RuntimeWindow).__ALPHATAB_API__.score.tracks[0]
+      .staves[0].bars[8].voices[0].beats[0].duration === 2,
+  );
+
+  await page.keyboard.press("0");
+  await page.waitForFunction(({ string }) => {
+    const beat = (window as unknown as RuntimeWindow).__ALPHATAB_API__.score
+      .tracks[0].staves[0].bars[8].voices[0].beats[0];
+    return beat.notes.some((note) => note.string === string && note.fret === 0);
+  }, { string: initial.string });
+
+  const updated = await page.evaluate(({ string }) => {
+    const beat = (window as unknown as RuntimeWindow).__ALPHATAB_API__.score
+      .tracks[0].staves[0].bars[8].voices[0].beats[0];
+    return {
+      duration: beat.duration,
+      fret: beat.notes.find((note) => note.string === string)?.fret,
+    };
+  }, { string: initial.string });
+  expect(updated).toEqual({ duration: 2, fret: 0 });
+});
 
 test("core edit controls refresh the selected AlphaTab snapshot", async ({ page }) => {
   await page.goto("/");

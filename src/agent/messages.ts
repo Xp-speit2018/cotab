@@ -19,4 +19,5 @@ export type AgentToMainMessage =
       readonly type: "mcp.result";
       readonly requestId: number;
       readonly result: MinimalMcpCallResult;
+      readonly documentUpdateCount: number;
     };

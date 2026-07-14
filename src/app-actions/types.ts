@@ -1,5 +1,9 @@
 import type { TFunction } from "i18next";
-import type {} from "@/core/actions/types";
+import type {
+  DocumentActionArgs,
+  DocumentActionId,
+  DocumentActionResult,
+} from "@/core/actions/types";
 
 export type AppActionDomain = "document" | "selector" | "transport" | "view";
 
@@ -19,15 +23,29 @@ export interface AppActionDefinition<TArgs = void, TResult = void | boolean> {
 declare global {
   /**
    * Top-level user action registry for UI controls and shortcuts.
-   * DocumentAction IDs are included through the current core DocumentActionMap.
+   * This map contains only app-local selector, transport, and view actions.
+   * Document actions are derived directly from the core action catalog.
    */
-  interface AppActionMap extends DocumentActionMap {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface
+  interface AppActionMap {}
 }
 
-export type AppActionId = keyof AppActionMap;
+type NativeAppActionId = keyof AppActionMap;
 
-export type AppActionArgs<Id extends AppActionId> = AppActionMap[Id]["args"];
+export type AppActionId = DocumentActionId | NativeAppActionId;
 
-export type AppActionResult<Id extends AppActionId> = AppActionMap[Id]["result"];
+export type AppActionArgs<Id extends AppActionId> =
+  Id extends DocumentActionId
+    ? DocumentActionArgs<Id>
+    : Id extends NativeAppActionId
+      ? AppActionMap[Id]["args"]
+      : never;
+
+export type AppActionResult<Id extends AppActionId> =
+  Id extends DocumentActionId
+    ? DocumentActionResult<Id>
+    : Id extends NativeAppActionId
+      ? AppActionMap[Id]["result"]
+      : never;
 
 export {};

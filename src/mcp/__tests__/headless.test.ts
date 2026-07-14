@@ -43,7 +43,7 @@ describe("Headless Engine", () => {
     const ctx = testContext();
 
     // Set the score title
-    executeDocumentAction("document.score.setTitle", "Test Score", ctx);
+    executeDocumentAction("document.score.setTitle", { value: "Test Score" }, ctx);
 
     const scoreMap = engine.getScoreMap();
     expect(scoreMap?.get("title")).toBe("Test Score");
@@ -63,7 +63,7 @@ describe("Headless Engine", () => {
     expect(scoreMap?.get("title")).toBe("Untitled");
 
     // Set title
-    executeDocumentAction("document.score.setTitle", "New Title", ctx);
+    executeDocumentAction("document.score.setTitle", { value: "New Title" }, ctx);
     expect(scoreMap?.get("title")).toBe("New Title");
 
     // Undo reverts to "Untitled"
@@ -139,9 +139,9 @@ describe("Headless Engine", () => {
     }, doc.clientID);
 
     // Set metadata
-    executeDocumentAction("document.score.setTitle", "My Song", ctx);
-    executeDocumentAction("document.score.setArtist", "Test Artist", ctx);
-    executeDocumentAction("document.score.setTempo", 140, ctx);
+    executeDocumentAction("document.score.setTitle", { value: "My Song" }, ctx);
+    executeDocumentAction("document.score.setArtist", { value: "Test Artist" }, ctx);
+    executeDocumentAction("document.score.setTempo", { tempo: 140 }, ctx);
 
     // Verify final snapshot
     const snapshot = snapshotScore(scoreMap);

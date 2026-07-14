@@ -665,6 +665,13 @@
     "reasoningEffort": "推理强度",
     "modelSettings": "模型与推理强度",
     "planMode": "计划模式",
+    "proxy": {
+      "title": "Codex 代理",
+      "enabled": "启用代理",
+      "url": "代理 URL",
+      "apply": "应用",
+      "invalid": "请输入有效的 HTTP 或 HTTPS 代理 URL。"
+    },
     "resources": {
       "title": "外部资源",
       "local": "本机资源",

@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next";
 import type { AppActionExecutionContext } from "@/app-actions";
-import { executeAppActionUnsafe } from "@/app-actions";
+import { executeAppActionUnsafe, isDocumentAppAction } from "@/app-actions";
 import { useShortcutStore } from "./shortcut-store";
 import { keyboardEventToCombo } from "./platform";
 import { handleDigitInput, cancelDigitInput } from "./fret-input";
@@ -73,14 +73,22 @@ function handleKeyDown(e: KeyboardEvent): void {
   switch (behavior.type) {
     case "direct": {
       cancelDigitInput();
-      executeAppActionUnsafe(actionId, undefined, context);
+      executeAppActionUnsafe(
+        actionId,
+        isDocumentAppAction(actionId) ? {} : undefined,
+        context,
+      );
       break;
     }
 
     case "toggle": {
       cancelDigitInput();
       const current = behavior.getCurrentValue();
-      executeAppActionUnsafe(actionId, !current, context);
+      executeAppActionUnsafe(
+        actionId,
+        isDocumentAppAction(actionId) ? { value: !current } : !current,
+        context,
+      );
       break;
     }
 
@@ -88,7 +96,11 @@ function handleKeyDown(e: KeyboardEvent): void {
       cancelDigitInput();
       const current = behavior.getCurrentValue();
       const next = getNextCycleValue(behavior.values, current, behavior.direction);
-      executeAppActionUnsafe(actionId, next, context);
+      executeAppActionUnsafe(
+        actionId,
+        isDocumentAppAction(actionId) ? { value: next } : next,
+        context,
+      );
       break;
     }
 

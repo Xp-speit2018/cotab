@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 use tauri::{ipc::Channel, AppHandle, Manager};
+use url::Url;
 
 const AGENT_HISTORY_VERSION: u32 = 1;
 const AGENT_HISTORY_FILE: &str = "agent-history-v1.json";
@@ -275,6 +276,39 @@ fn forward_stderr(stderr: impl std::io::Read + Send + 'static) {
     });
 }
 
+fn normalize_proxy_url(proxy_url: Option<String>) -> Result<Option<String>, String> {
+    let Some(proxy_url) = proxy_url else {
+        return Ok(None);
+    };
+    let proxy_url = proxy_url.trim();
+    if proxy_url.is_empty() {
+        return Ok(None);
+    }
+    let parsed = Url::parse(proxy_url)
+        .map_err(|_| "Codex proxy must be a valid HTTP or HTTPS URL.".to_owned())?;
+    if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
+        return Err("Codex proxy must be a valid HTTP or HTTPS URL.".to_owned());
+    }
+    Ok(Some(proxy_url.to_owned()))
+}
+
+fn configure_proxy_environment(command: &mut Command, proxy_url: Option<&str>) {
+    for key in [
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ] {
+        if let Some(proxy_url) = proxy_url {
+            command.env(key, proxy_url);
+        } else {
+            command.env_remove(key);
+        }
+    }
+}
+
 #[tauri::command]
 fn get_codex_status(state: tauri::State<'_, CodexState>) -> Result<CodexStatus, String> {
     let mut slot = state
@@ -314,6 +348,8 @@ fn connect_local_codex(
     state: tauri::State<'_, CodexState>,
     on_event: Channel<CodexEvent>,
     local_resources: bool,
+    web_resources: bool,
+    proxy_url: Option<String>,
 ) -> Result<CodexStatus, String> {
     let mut slot = state
         .process
@@ -326,9 +362,23 @@ fn connect_local_codex(
 
     let (executable, version) = detect_codex()
         .ok_or_else(|| "Codex CLI was not found. Install it or set COTAB_CODEX_PATH.".to_owned())?;
+    let proxy_url = normalize_proxy_url(proxy_url)?;
     let mut command = Command::new(&executable);
     command
         .args(["app-server", "--stdio"])
+        // CoTab supplies its score tools through app-server dynamic tools. Do
+        // not inherit account Apps or the remote plugin catalog without a
+        // corresponding CoTab permission surface.
+        .args(["-c", "features.apps=false"])
+        .args(["-c", "features.remote_plugin=false"])
+        .args([
+            "-c",
+            if web_resources {
+                "web_search=\"live\""
+            } else {
+                "web_search=\"disabled\""
+            },
+        ])
         .arg("-c")
         .arg(if local_resources {
             "sandbox_permissions=[\"disk-full-read-access\"]"
@@ -338,6 +388,9 @@ fn connect_local_codex(
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+    // Proxy is an explicit CoTab setting. Disabled means a direct app-server
+    // connection, even when the desktop process inherited proxy variables.
+    configure_proxy_environment(&mut command, proxy_url.as_deref());
     configure_process_group(&mut command);
 
     let mut child = command
@@ -435,4 +488,74 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running CoTab desktop shell");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validates_codex_proxy_urls() {
+        assert_eq!(normalize_proxy_url(None).unwrap(), None);
+        assert_eq!(normalize_proxy_url(Some("  ".to_owned())).unwrap(), None);
+        assert_eq!(
+            normalize_proxy_url(Some(" http://localhost:9098 ".to_owned())).unwrap(),
+            Some("http://localhost:9098".to_owned())
+        );
+        assert_eq!(
+            normalize_proxy_url(Some("https://proxy.example:8443".to_owned())).unwrap(),
+            Some("https://proxy.example:8443".to_owned())
+        );
+        assert!(normalize_proxy_url(Some("socks5://localhost:9099".to_owned())).is_err());
+        assert!(normalize_proxy_url(Some("not-a-url".to_owned())).is_err());
+    }
+
+    #[test]
+    fn configures_both_proxy_environment_casings() {
+        let mut command = Command::new("codex");
+        configure_proxy_environment(&mut command, Some("http://localhost:9098"));
+        let environment = command
+            .get_envs()
+            .map(|(key, value)| {
+                (
+                    key.to_string_lossy().into_owned(),
+                    value.map(|value| value.to_string_lossy().into_owned()),
+                )
+            })
+            .collect::<std::collections::HashMap<_, _>>();
+        for key in [
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "ALL_PROXY",
+            "http_proxy",
+            "https_proxy",
+            "all_proxy",
+        ] {
+            assert_eq!(
+                environment.get(key),
+                Some(&Some("http://localhost:9098".to_owned()))
+            );
+        }
+    }
+
+    #[test]
+    fn removes_inherited_proxy_environment_when_disabled() {
+        let mut command = Command::new("codex");
+        configure_proxy_environment(&mut command, None);
+        let environment = command
+            .get_envs()
+            .map(|(key, value)| (key.to_string_lossy().into_owned(), value))
+            .collect::<std::collections::HashMap<_, _>>();
+        for key in [
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "ALL_PROXY",
+            "http_proxy",
+            "https_proxy",
+            "all_proxy",
+        ] {
+            assert!(environment.contains_key(key));
+            assert_eq!(environment[key], None);
+        }
+    }
 }

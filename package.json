@@ -24,6 +24,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "audit:alphatab-fields": "tsx scripts/audit-alphatab-fields.ts --audit > docs/ALPHATAB-FIELD-AUDIT.tmp.md && tsx scripts/audit-alphatab-fields.ts --selection > docs/CORE-FIELD-SELECTION.tmp.md",
+    "docs:actions": "tsx scripts/generate-document-actions.ts",
+    "docs:actions:wiki": "tsx scripts/generate-actions-wiki.ts",
+    "check:action-docs": "tsx scripts/generate-document-actions.ts --check",
     "mcp:dev": "tsx src/mcp/cli.ts",
     "cotab:cli": "tsx src/cli/cli.ts"
   },
@@ -53,6 +56,7 @@
     "y-indexeddb": "^9.0.12",
     "y-webrtc": "^10.3.0",
     "yjs": "^13.6.22",
+    "zod": "^4.4.3",
     "zustand": "^5.0.3"
   },
   "devDependencies": {

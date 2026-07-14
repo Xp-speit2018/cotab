@@ -12,8 +12,20 @@ export {
   executeAppAction,
   executeAppActionUnsafe,
   getAllAppActions,
+  isDocumentAppAction,
   registerAppAction,
 } from "./registry";
+export {
+  createDocumentActionFormArgs,
+  DOCUMENT_ACTION_FORM_DEFINITIONS,
+  getDocumentActionFormDefinition,
+  validateDocumentActionFormArgs,
+} from "./document-action-forms";
+export type {
+  DocumentActionFormDefinition,
+  DocumentActionFormField,
+  DocumentActionFormFieldKind,
+} from "./document-action-forms";
 export type {
   AppActionArgs,
   AppActionDefinition,

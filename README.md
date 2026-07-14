@@ -29,7 +29,9 @@ not become sync authorities.
 Action naming is domain-based. `src/app-actions` is the UI/shortcut action
 entrypoint for AppActions such as `transport.playPause`; existing
 `src/core/actions` are DocumentActions for renderer-independent document
-editing. See [docs/ACTIONS.md](docs/ACTIONS.md) for the action taxonomy.
+editing. Their definition-owned runtime schemas generate the TypeScript, MCP,
+CLI, generic UI-form, and documentation contracts. See
+[docs/ACTIONS.md](docs/ACTIONS.md) for the action taxonomy.
 
 Current target boundaries:
 

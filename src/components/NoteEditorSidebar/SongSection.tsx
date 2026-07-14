@@ -47,14 +47,14 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
 
   const handleTempo = useCallback(
     (tempo: number) => {
-      executeAppAction("document.score.setTempo", tempo, { t });
+      executeAppAction("document.score.setTempo", { tempo }, { t });
     },
     [t],
   );
 
   const handleTempoLabel = useCallback(
     (label: string) => {
-      executeAppAction("document.score.setTempoLabel", label, { t });
+      executeAppAction("document.score.setTempoLabel", { label }, { t });
     },
     [t],
   );

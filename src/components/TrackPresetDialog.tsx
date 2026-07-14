@@ -10,6 +10,7 @@ import {
 import { executeAppAction } from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
 import { TRACK_PRESETS } from "@/stores/render-types";
+import type { TrackPresetId } from "@/core/presets";
 import { cn } from "@/lib/utils";
 
 const PRESET_ICONS: Record<string, React.ReactNode> = {
@@ -26,9 +27,9 @@ export function TrackPresetDialog() {
   const { t } = useTranslation();
   const open = usePlayerStore((s) => s.addTrackDialogOpen);
 
-  const handleSelect = (presetId: string) => {
+  const handleSelect = (presetId: TrackPresetId) => {
     usePlayerStore.setState({ addTrackDialogOpen: false });
-    executeAppAction("document.track.add", presetId, { t });
+    executeAppAction("document.track.add", { presetId }, { t });
   };
 
   const handleOpenChange = (value: boolean) => {

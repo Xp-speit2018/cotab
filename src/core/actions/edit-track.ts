@@ -1,6 +1,5 @@
 import * as Y from "yjs";
-import { documentActionRegistry } from "@/core/actions/registry";
-import type { DocumentActionDefinition } from "@/core/actions/types";
+import * as z from "zod";
 import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
 import {
@@ -11,7 +10,13 @@ import {
   createTrack,
   createVoice,
 } from "@/core/schema";
-import { TRACK_PRESETS, type TrackPreset } from "@/core/presets";
+import {
+  TRACK_PRESETS,
+  type TrackPreset,
+  type TrackPresetId,
+} from "@/core/presets";
+import { actionArgs, defineDocumentAction } from "./definition";
+import { integer, nonNegativeInteger } from "./args-schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
@@ -136,23 +141,19 @@ function appendTrackFromPresetY(
   }
 }
 
-const addTrackAction: DocumentActionDefinition<string> = {
+const trackPresetIds = TRACK_PRESETS.map((preset) => preset.id) as [
+  TrackPresetId,
+  ...TrackPresetId[],
+];
+
+const addTrackAction = defineDocumentAction({
   id: "document.track.add",
   i18nKey: "actions.edit.track.add",
   category: "document.track",
-  params: [
-    { name: "presetId", type: "string", i18nKey: "actions.edit.track.add.params.presetId" },
-  ],
-  execute: (presetId, _context) => {
-    if (!presetId) {
-      debugLog("warn", "document.track.add", "presetId required");
-      return;
-    }
+  argsSchema: actionArgs({ presetId: z.enum(trackPresetIds) }),
+  execute: ({ presetId }) => {
     const preset = TRACK_PRESETS.find((p) => p.id === presetId);
-    if (!preset) {
-      debugLog("warn", "document.track.add", "unknown preset", { presetId });
-      return;
-    }
+    if (!preset) return;
     const yScore = getScoreMap();
     if (!yScore) return;
 
@@ -175,16 +176,14 @@ const addTrackAction: DocumentActionDefinition<string> = {
 
     debugLog("info", "document.track.add", "complete");
   },
-};
+});
 
-const deleteTrackAction: DocumentActionDefinition<number> = {
+const deleteTrackAction = defineDocumentAction({
   id: "document.track.delete",
   i18nKey: "actions.edit.track.delete",
   category: "document.track",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.delete.params.trackIndex" },
-  ],
-  execute: (trackIndex, _context): boolean => {
+  argsSchema: actionArgs({ trackIndex: nonNegativeInteger }),
+  execute: ({ trackIndex }): boolean => {
     const yScore = getScoreMap();
     if (!yScore) return false;
 
@@ -207,51 +206,48 @@ const deleteTrackAction: DocumentActionDefinition<number> = {
     debugLog("info", "document.track.delete", "complete");
     return true;
   },
-};
+});
 
-const setTrackNameAction: DocumentActionDefinition<{ trackIndex: number; name: string }> = {
+const setTrackNameAction = defineDocumentAction({
   id: "document.track.setName",
   i18nKey: "actions.edit.track.setName",
   category: "document.track",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.setName.params.trackIndex" },
-    { name: "name", type: "string", i18nKey: "actions.edit.track.setName.params.name" },
-  ],
-  execute: ({ trackIndex, name }, _context) => {
+  argsSchema: actionArgs({ trackIndex: nonNegativeInteger, name: z.string() }),
+  execute: ({ trackIndex, name }) => {
     const yTrack = engine.resolveYTrack(trackIndex);
     if (!yTrack) return;
     transact(() => {
       yTrack.set("name", name);
     });
   },
-};
+});
 
-const setTrackShortNameAction: DocumentActionDefinition<{ trackIndex: number; shortName: string }> = {
+const setTrackShortNameAction = defineDocumentAction({
   id: "document.track.setShortName",
   i18nKey: "actions.edit.track.setShortName",
   category: "document.track",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.setShortName.params.trackIndex" },
-    { name: "shortName", type: "string", i18nKey: "actions.edit.track.setShortName.params.shortName" },
-  ],
-  execute: ({ trackIndex, shortName }, _context) => {
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    shortName: z.string(),
+  }),
+  execute: ({ trackIndex, shortName }) => {
     const yTrack = engine.resolveYTrack(trackIndex);
     if (!yTrack) return;
     transact(() => {
       yTrack.set("shortName", shortName);
     });
   },
-};
+});
 
-const setTrackPlaybackInfoProgramAction: DocumentActionDefinition<{ trackIndex: number; program: number }> = {
+const setTrackPlaybackInfoProgramAction = defineDocumentAction({
   id: "document.track.setPlaybackInfoProgram",
   i18nKey: "actions.edit.track.setPlaybackInfoProgram",
   category: "document.track",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.setPlaybackInfoProgram.params.trackIndex" },
-    { name: "program", type: "number", i18nKey: "actions.edit.track.setPlaybackInfoProgram.params.program" },
-  ],
-  execute: ({ trackIndex, program }, _context) => {
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    program: integer.min(0).max(127),
+  }),
+  execute: ({ trackIndex, program }) => {
     const yTrack = engine.resolveYTrack(trackIndex);
     if (!yTrack) return;
     transact(() => {
@@ -261,22 +257,18 @@ const setTrackPlaybackInfoProgramAction: DocumentActionDefinition<{ trackIndex: 
       yPlaybackInfo?.set("program", program);
     });
   },
-};
+});
 
-const setPercussionArticulationOutputMidiNumberAction: DocumentActionDefinition<{
-  trackIndex: number;
-  articulationIndex: number;
-  outputMidiNumber: number;
-}> = {
+const setPercussionArticulationOutputMidiNumberAction = defineDocumentAction({
   id: "document.track.setPercussionArticulationOutputMidiNumber",
   i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber",
   category: "document.track",
-  params: [
-    { name: "trackIndex", type: "number", i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber.params.trackIndex" },
-    { name: "articulationIndex", type: "number", i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber.params.articulationIndex" },
-    { name: "outputMidiNumber", type: "number", i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber.params.outputMidiNumber" },
-  ],
-  execute: ({ trackIndex, articulationIndex, outputMidiNumber }, _context) => {
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    articulationIndex: nonNegativeInteger,
+    outputMidiNumber: integer.min(0).max(127),
+  }),
+  execute: ({ trackIndex, articulationIndex, outputMidiNumber }) => {
     const yTrack = engine.resolveYTrack(trackIndex);
     const yArticulations = yTrack?.get("percussionArticulations") as
       | Y.Array<Y.Map<unknown>>
@@ -292,37 +284,13 @@ const setPercussionArticulationOutputMidiNumberAction: DocumentActionDefinition<
         .set("outputMidiNumber", outputMidiNumber);
     });
   },
-};
+});
 
-documentActionRegistry.register(addTrackAction);
-documentActionRegistry.register(deleteTrackAction);
-documentActionRegistry.register(setTrackNameAction);
-documentActionRegistry.register(setTrackShortNameAction);
-documentActionRegistry.register(setTrackPlaybackInfoProgramAction);
-documentActionRegistry.register(setPercussionArticulationOutputMidiNumberAction);
-
-declare global {
-  interface DocumentActionMap {
-    "document.track.add": { args: string; result: void };
-    "document.track.delete": { args: number; result: boolean };
-    "document.track.setName": { args: { trackIndex: number; name: string }; result: void };
-    "document.track.setShortName": {
-      args: { trackIndex: number; shortName: string };
-      result: void;
-    };
-    "document.track.setPlaybackInfoProgram": {
-      args: { trackIndex: number; program: number };
-      result: void;
-    };
-    "document.track.setPercussionArticulationOutputMidiNumber": {
-      args: {
-        trackIndex: number;
-        articulationIndex: number;
-        outputMidiNumber: number;
-      };
-      result: void;
-    };
-  }
-}
-
-export {};
+export const trackDocumentActions = [
+  addTrackAction,
+  deleteTrackAction,
+  setTrackNameAction,
+  setTrackShortNameAction,
+  setTrackPlaybackInfoProgramAction,
+  setPercussionArticulationOutputMidiNumberAction,
+] as const;

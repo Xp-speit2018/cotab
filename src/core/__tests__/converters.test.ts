@@ -24,6 +24,7 @@ import {
   Duration,
   createAutomation,
   createBeat,
+  createMasterBar,
   createNote,
   snapshotScore,
 } from "@/core/schema";
@@ -32,6 +33,7 @@ import {
   buildAlphaTabScore,
   importScoreToYDoc,
 } from "../converters";
+import { EditorEngine } from "../engine";
 
 beforeEach(() => {
   destroyDoc();
@@ -640,5 +642,56 @@ describe("round-trip (Y → AlphaTab → Y)", () => {
       .filter(([, tempo]) => tempo !== null);
 
     expect(rebuiltTempos).toEqual(yTempos);
+  });
+
+  it("preserves imported voice topology when appending blank bars", () => {
+    const data = readFileSync("public/demos/Taijin_kyofusho.gp");
+    const settings = createAlphaTabSettings();
+    const alphaScore = alphaTab.importer.ScoreLoader.loadScoreFromBytes(
+      new Uint8Array(data),
+      settings,
+    );
+    const doc = new Y.Doc();
+    importScoreToYDoc(alphaScore, doc);
+
+    const yScore = doc.getMap("score");
+    const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
+    doc.transact(() => {
+      for (let added = 0; added < 2; added++) {
+        yMasterBars.push([createMasterBar()]);
+        for (const yTrack of yTracks) {
+          const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
+          for (const yStaff of yStaves) {
+            const yBars = yStaff.get("bars") as Y.Array<Y.Map<unknown>>;
+            EditorEngine.pushDefaultBar(yBars);
+          }
+        }
+      }
+    });
+
+    for (const yTrack of yTracks) {
+      const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
+      for (const yStaff of yStaves) {
+        const yBars = yStaff.get("bars") as Y.Array<Y.Map<unknown>>;
+        expect(yBars).toHaveLength(60);
+        const referenceVoices = yBars.get(57).get("voices") as Y.Array<unknown>;
+        for (const barIndex of [58, 59]) {
+          const voices = yBars.get(barIndex).get("voices") as Y.Array<Y.Map<unknown>>;
+          expect(voices).toHaveLength(referenceVoices.length);
+          for (const voice of voices) {
+            expect(voice.get("beats") as Y.Array<unknown>).toHaveLength(1);
+          }
+        }
+      }
+    }
+
+    const rebuilt = buildAlphaTabScore(yScore, settings);
+    expect(rebuilt.masterBars).toHaveLength(60);
+    for (const track of rebuilt.tracks) {
+      for (const staff of track.staves) {
+        expect(staff.bars).toHaveLength(60);
+      }
+    }
   });
 });

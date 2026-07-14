@@ -1,14 +1,25 @@
 import * as Y from "yjs";
-import { documentActionRegistry } from "@/core/actions/registry";
-import type { DocumentActionDefinition } from "@/core/actions/types";
+import * as z from "zod";
+import {
+  actionArgs,
+  defineDocumentAction,
+  emptyActionArgs,
+} from "@/core/actions/definition";
+import {
+  automationSchema,
+  bendPointSchema,
+  finiteNumber,
+  integer,
+  tremoloPickingSchema,
+  valueBooleanArgs,
+  valueIntegerArgs,
+} from "@/core/actions/args-schema";
 import { debugLog } from "@/core/editor/action-log";
 import { engine, type PendingSelection, type SelectedBeat } from "@/core/engine";
 import {
   createBeat,
   createNote,
-  type AutomationSchema,
   type BendPointSchema,
-  type TremoloPickingEffectSchema,
 } from "@/core/schema";
 import { formatPitch, snapPositionToPitch } from "@/core/pitch";
 
@@ -169,12 +180,12 @@ function replaceWhammyBarPoints(
   }
 }
 
-const placeNoteAction: DocumentActionDefinition<number | void> = {
+const placeNoteAction = defineDocumentAction({
   id: "document.beat.placeNote",
   i18nKey: "actions.edit.beat.placeNote",
   category: "document.beat",
-  params: [{ name: "targetValue", type: "number", i18nKey: "actions.edit.beat.placeNote.params.targetValue" }],
-  execute: (targetValue, _context) => {
+  argsSchema: actionArgs({ targetValue: finiteNumber.optional() }),
+  execute: ({ targetValue }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -257,13 +268,14 @@ const placeNoteAction: DocumentActionDefinition<number | void> = {
       }, pendingSel);
     }
   },
-};
+});
 
-const deleteNoteAction: DocumentActionDefinition<void> = {
+const deleteNoteAction = defineDocumentAction({
   id: "document.beat.deleteNote",
   i18nKey: "actions.edit.beat.deleteNote",
   category: "document.beat",
-  execute: (_args, _context): boolean => {
+  argsSchema: emptyActionArgs,
+  execute: (): boolean => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -341,14 +353,14 @@ const deleteNoteAction: DocumentActionDefinition<void> = {
 
     return true;
   },
-};
+});
 
-const insertRestBeforeAction: DocumentActionDefinition<number | void> = {
+const insertRestBeforeAction = defineDocumentAction({
   id: "document.beat.insertRestBefore",
   i18nKey: "actions.edit.beat.insertRestBefore",
   category: "document.beat",
-  params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestBefore.params.duration" }],
-  execute: (duration, _context) => {
+  argsSchema: actionArgs({ duration: integer.optional() }),
+  execute: ({ duration }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -385,14 +397,14 @@ const insertRestBeforeAction: DocumentActionDefinition<number | void> = {
       yBeats.insert(sel.beatIndex, [restBeat]);
     }, sel);
   },
-};
+});
 
-const insertRestAfterAction: DocumentActionDefinition<number | void> = {
+const insertRestAfterAction = defineDocumentAction({
   id: "document.beat.insertRestAfter",
   i18nKey: "actions.edit.beat.insertRestAfter",
   category: "document.beat",
-  params: [{ name: "duration", type: "number", i18nKey: "actions.edit.beat.insertRestAfter.params.duration" }],
-  execute: (duration, _context) => {
+  argsSchema: actionArgs({ duration: integer.optional() }),
+  execute: ({ duration }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -438,14 +450,14 @@ const insertRestAfterAction: DocumentActionDefinition<number | void> = {
       string: sel.string,
     });
   },
-};
+});
 
-const setRestAction: DocumentActionDefinition<boolean> = {
+const setRestAction = defineDocumentAction({
   id: "document.beat.setRest",
   i18nKey: "actions.edit.beat.setRest",
   category: "document.beat",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setRest.params.value" }],
-  execute: (value, _context) => {
+  argsSchema: valueBooleanArgs,
+  execute: ({ value }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -488,152 +500,107 @@ const setRestAction: DocumentActionDefinition<boolean> = {
       }, pendingSel);
     }
   },
-};
+});
 
-const setDurationAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setDuration",
-  i18nKey: "actions.edit.beat.setDuration",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setDuration.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ duration: value });
-  },
-};
+function beatI18nKey(id: `document.beat.${string}`): string {
+  return id.replace("document.beat.", "actions.edit.beat.");
+}
 
-const setDotsAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setDots",
-  i18nKey: "actions.edit.beat.setDots",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setDots.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ dots: value });
-  },
-};
+function defineIntegerBeatFieldAction<const Id extends `document.beat.${string}`>(
+  id: Id,
+  field: string,
+) {
+  return defineDocumentAction({
+    id,
+    i18nKey: beatI18nKey(id),
+    category: "document.beat",
+    argsSchema: valueIntegerArgs,
+    execute: ({ value }) => applyBeatUpdates({ [field]: value }),
+  });
+}
 
-const setIsEmptyAction: DocumentActionDefinition<boolean> = {
-  id: "document.beat.setIsEmpty",
-  i18nKey: "actions.edit.beat.setIsEmpty",
-  category: "document.beat",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setIsEmpty.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ isEmpty: value });
-  },
-};
+function defineBooleanBeatFieldAction<const Id extends `document.beat.${string}`>(
+  id: Id,
+  field: string,
+) {
+  return defineDocumentAction({
+    id,
+    i18nKey: beatI18nKey(id),
+    category: "document.beat",
+    argsSchema: valueBooleanArgs,
+    execute: ({ value }) => applyBeatUpdates({ [field]: value }),
+  });
+}
 
-const setTupletNumeratorAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setTupletNumerator",
-  i18nKey: "actions.edit.beat.setTupletNumerator",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setTupletNumerator.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ tupletNumerator: value });
-  },
-};
+const setDurationAction = defineIntegerBeatFieldAction(
+  "document.beat.setDuration",
+  "duration",
+);
+const setDotsAction = defineIntegerBeatFieldAction(
+  "document.beat.setDots",
+  "dots",
+);
+const setIsEmptyAction = defineBooleanBeatFieldAction(
+  "document.beat.setIsEmpty",
+  "isEmpty",
+);
+const setTupletNumeratorAction = defineIntegerBeatFieldAction(
+  "document.beat.setTupletNumerator",
+  "tupletNumerator",
+);
+const setTupletDenominatorAction = defineIntegerBeatFieldAction(
+  "document.beat.setTupletDenominator",
+  "tupletDenominator",
+);
 
-const setTupletDenominatorAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setTupletDenominator",
-  i18nKey: "actions.edit.beat.setTupletDenominator",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setTupletDenominator.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ tupletDenominator: value });
-  },
-};
-
-const setTupletAction: DocumentActionDefinition<{
-  numerator: number;
-  denominator: number;
-}> = {
+const setTupletAction = defineDocumentAction({
   id: "document.beat.setTuplet",
   i18nKey: "actions.edit.beat.setTuplet",
   category: "document.beat",
-  params: [
-    { name: "numerator", type: "number", i18nKey: "actions.edit.beat.setTuplet.params.numerator" },
-    { name: "denominator", type: "number", i18nKey: "actions.edit.beat.setTuplet.params.denominator" },
-  ],
-  execute: ({ numerator, denominator }, _context) => {
+  argsSchema: actionArgs({ numerator: integer, denominator: integer }),
+  execute: ({ numerator, denominator }) => {
     applyBeatUpdates({
       tupletNumerator: numerator,
       tupletDenominator: denominator,
     });
   },
-};
+});
 
-const setGraceTypeAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setGraceType",
-  i18nKey: "actions.edit.beat.setGraceType",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setGraceType.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ graceType: value });
-  },
-};
+const setGraceTypeAction = defineIntegerBeatFieldAction(
+  "document.beat.setGraceType",
+  "graceType",
+);
+const setDynamicsAction = defineIntegerBeatFieldAction(
+  "document.beat.setDynamics",
+  "dynamics",
+);
+const setVibratoAction = defineIntegerBeatFieldAction(
+  "document.beat.setVibrato",
+  "vibrato",
+);
+const setDeadSlappedAction = defineBooleanBeatFieldAction(
+  "document.beat.setDeadSlapped",
+  "deadSlapped",
+);
+const setWhammyBarTypeAction = defineIntegerBeatFieldAction(
+  "document.beat.setWhammyBarType",
+  "whammyBarType",
+);
+const setWhammyStyleAction = defineIntegerBeatFieldAction(
+  "document.beat.setWhammyStyle",
+  "whammyStyle",
+);
+const setIsContinuedWhammyAction = defineBooleanBeatFieldAction(
+  "document.beat.setIsContinuedWhammy",
+  "isContinuedWhammy",
+);
 
-const setDynamicsAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setDynamics",
-  i18nKey: "actions.edit.beat.setDynamics",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setDynamics.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ dynamics: value });
-  },
-};
-
-const setVibratoAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setVibrato",
-  i18nKey: "actions.edit.beat.setVibrato",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setVibrato.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ vibrato: value });
-  },
-};
-
-const setDeadSlappedAction: DocumentActionDefinition<boolean> = {
-  id: "document.beat.setDeadSlapped",
-  i18nKey: "actions.edit.beat.setDeadSlapped",
-  category: "document.beat",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setDeadSlapped.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ deadSlapped: value });
-  },
-};
-
-const setWhammyBarTypeAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setWhammyBarType",
-  i18nKey: "actions.edit.beat.setWhammyBarType",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setWhammyBarType.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ whammyBarType: value });
-  },
-};
-
-const setWhammyStyleAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setWhammyStyle",
-  i18nKey: "actions.edit.beat.setWhammyStyle",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setWhammyStyle.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ whammyStyle: value });
-  },
-};
-
-const setIsContinuedWhammyAction: DocumentActionDefinition<boolean> = {
-  id: "document.beat.setIsContinuedWhammy",
-  i18nKey: "actions.edit.beat.setIsContinuedWhammy",
-  category: "document.beat",
-  params: [{ name: "value", type: "boolean", i18nKey: "actions.edit.beat.setIsContinuedWhammy.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ isContinuedWhammy: value });
-  },
-};
-
-const setWhammyBarPointsAction: DocumentActionDefinition<BendPointSchema[] | null> = {
+const setWhammyBarPointsAction = defineDocumentAction({
   id: "document.beat.setWhammyBarPoints",
   i18nKey: "actions.edit.beat.setWhammyBarPoints",
   category: "document.beat",
-  execute: (points, _context) => {
+  argsSchema: actionArgs({ points: z.array(bendPointSchema).nullable() }),
+  execute: ({ points }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -663,23 +630,24 @@ const setWhammyBarPointsAction: DocumentActionDefinition<BendPointSchema[] | nul
       replaceWhammyBarPoints(yBeat, points);
     }, selection);
   },
-};
+});
 
-const setWhammyBarAction: DocumentActionDefinition<{
-  whammyBarType: number;
-  whammyStyle: number;
-  isContinuedWhammy: boolean;
-  whammyBarPoints: BendPointSchema[] | null;
-}> = {
+const setWhammyBarAction = defineDocumentAction({
   id: "document.beat.setWhammyBar",
   i18nKey: "actions.edit.beat.setWhammyBar",
   category: "document.beat",
+  argsSchema: actionArgs({
+    whammyBarType: integer,
+    whammyStyle: integer,
+    isContinuedWhammy: z.boolean(),
+    whammyBarPoints: z.array(bendPointSchema).nullable(),
+  }),
   execute: ({
     whammyBarType,
     whammyStyle,
     isContinuedWhammy,
     whammyBarPoints,
-  }, _context) => {
+  }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -711,59 +679,38 @@ const setWhammyBarAction: DocumentActionDefinition<{
       replaceWhammyBarPoints(yBeat, whammyBarPoints);
     }, selection);
   },
-};
+});
 
-const setBrushTypeAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setBrushType",
-  i18nKey: "actions.edit.beat.setBrushType",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setBrushType.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ brushType: value });
-  },
-};
+const setBrushTypeAction = defineIntegerBeatFieldAction(
+  "document.beat.setBrushType",
+  "brushType",
+);
+const setBrushDurationAction = defineIntegerBeatFieldAction(
+  "document.beat.setBrushDuration",
+  "brushDuration",
+);
 
-const setBrushDurationAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setBrushDuration",
-  i18nKey: "actions.edit.beat.setBrushDuration",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setBrushDuration.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ brushDuration: value });
-  },
-};
-
-const setBrushAction: DocumentActionDefinition<{
-  brushType: number;
-  brushDuration: number;
-}> = {
+const setBrushAction = defineDocumentAction({
   id: "document.beat.setBrush",
   i18nKey: "actions.edit.beat.setBrush",
   category: "document.beat",
-  params: [
-    { name: "brushType", type: "number", i18nKey: "actions.edit.beat.setBrush.params.brushType" },
-    { name: "brushDuration", type: "number", i18nKey: "actions.edit.beat.setBrush.params.brushDuration" },
-  ],
-  execute: ({ brushType, brushDuration }, _context) => {
+  argsSchema: actionArgs({ brushType: integer, brushDuration: integer }),
+  execute: ({ brushType, brushDuration }) => {
     applyBeatUpdates({ brushType, brushDuration });
   },
-};
+});
 
-const setFadeAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setFade",
-  i18nKey: "actions.edit.beat.setFade",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setFade.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ fade: value });
-  },
-};
+const setFadeAction = defineIntegerBeatFieldAction(
+  "document.beat.setFade",
+  "fade",
+);
 
-const setAutomationsAction: DocumentActionDefinition<AutomationSchema[]> = {
+const setAutomationsAction = defineDocumentAction({
   id: "document.beat.setAutomations",
   i18nKey: "actions.edit.beat.setAutomations",
   category: "document.beat",
-  execute: (automations, _context) => {
+  argsSchema: actionArgs({ automations: z.array(automationSchema) }),
+  execute: ({ automations }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -807,13 +754,14 @@ const setAutomationsAction: DocumentActionDefinition<AutomationSchema[]> = {
       }
     }, selection);
   },
-};
+});
 
-const setLyricsAction: DocumentActionDefinition<string[] | null> = {
+const setLyricsAction = defineDocumentAction({
   id: "document.beat.setLyrics",
   i18nKey: "actions.edit.beat.setLyrics",
   category: "document.beat",
-  execute: (lyrics, _context) => {
+  argsSchema: actionArgs({ lyrics: z.array(z.string()).nullable() }),
+  execute: ({ lyrics }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -849,31 +797,34 @@ const setLyricsAction: DocumentActionDefinition<string[] | null> = {
       yBeat.set("lyrics", yLyrics);
     }, selection);
   },
-};
+});
 
-const setTextAction: DocumentActionDefinition<string | null> = {
+const setTextAction = defineDocumentAction({
   id: "document.beat.setText",
   i18nKey: "actions.edit.beat.setText",
   category: "document.beat",
-  execute: (value, _context) => {
+  argsSchema: actionArgs({ value: z.string().nullable() }),
+  execute: ({ value }) => {
     applyBeatUpdates({ text: value });
   },
-};
+});
 
-const setChordIdAction: DocumentActionDefinition<string | null> = {
+const setChordIdAction = defineDocumentAction({
   id: "document.beat.setChordId",
   i18nKey: "actions.edit.beat.setChordId",
   category: "document.beat",
-  execute: (value, _context) => {
+  argsSchema: actionArgs({ value: z.string().nullable() }),
+  execute: ({ value }) => {
     applyBeatUpdates({ chordId: value });
   },
-};
+});
 
-const setTremoloPickingAction: DocumentActionDefinition<TremoloPickingEffectSchema | null> = {
+const setTremoloPickingAction = defineDocumentAction({
   id: "document.beat.setTremoloPicking",
   i18nKey: "actions.edit.beat.setTremoloPicking",
   category: "document.beat",
-  execute: (effect, _context) => {
+  argsSchema: actionArgs({ effect: tremoloPickingSchema.nullable() }),
+  execute: ({ effect }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
       trackIndex === null ||
@@ -910,102 +861,42 @@ const setTremoloPickingAction: DocumentActionDefinition<TremoloPickingEffectSche
       yBeat.set("tremoloPicking", yEffect);
     }, selection);
   },
-};
+});
 
-const setRasgueadoAction: DocumentActionDefinition<number> = {
-  id: "document.beat.setRasgueado",
-  i18nKey: "actions.edit.beat.setRasgueado",
-  category: "document.beat",
-  params: [{ name: "value", type: "number", i18nKey: "actions.edit.beat.setRasgueado.params.value" }],
-  execute: (value, _context) => {
-    applyBeatUpdates({ rasgueado: value });
-  },
-};
+const setRasgueadoAction = defineIntegerBeatFieldAction(
+  "document.beat.setRasgueado",
+  "rasgueado",
+);
 
-documentActionRegistry.register(placeNoteAction);
-documentActionRegistry.register(deleteNoteAction);
-documentActionRegistry.register(insertRestBeforeAction);
-documentActionRegistry.register(insertRestAfterAction);
-documentActionRegistry.register(setRestAction);
-documentActionRegistry.register(setDurationAction);
-documentActionRegistry.register(setDotsAction);
-documentActionRegistry.register(setIsEmptyAction);
-documentActionRegistry.register(setTupletNumeratorAction);
-documentActionRegistry.register(setTupletDenominatorAction);
-documentActionRegistry.register(setTupletAction);
-documentActionRegistry.register(setGraceTypeAction);
-documentActionRegistry.register(setDynamicsAction);
-documentActionRegistry.register(setVibratoAction);
-documentActionRegistry.register(setDeadSlappedAction);
-documentActionRegistry.register(setWhammyBarTypeAction);
-documentActionRegistry.register(setWhammyStyleAction);
-documentActionRegistry.register(setIsContinuedWhammyAction);
-documentActionRegistry.register(setWhammyBarPointsAction);
-documentActionRegistry.register(setWhammyBarAction);
-documentActionRegistry.register(setBrushTypeAction);
-documentActionRegistry.register(setBrushDurationAction);
-documentActionRegistry.register(setBrushAction);
-documentActionRegistry.register(setFadeAction);
-documentActionRegistry.register(setAutomationsAction);
-documentActionRegistry.register(setLyricsAction);
-documentActionRegistry.register(setTextAction);
-documentActionRegistry.register(setChordIdAction);
-documentActionRegistry.register(setTremoloPickingAction);
-documentActionRegistry.register(setRasgueadoAction);
-
-declare global {
-  interface DocumentActionMap {
-    "document.beat.placeNote": { args: number | void; result: void };
-    "document.beat.deleteNote": { args: void; result: boolean };
-    "document.beat.insertRestBefore": { args: number | void; result: void };
-    "document.beat.insertRestAfter": { args: number | void; result: void };
-    "document.beat.setRest": { args: boolean; result: void };
-    "document.beat.setDuration": { args: number; result: void };
-    "document.beat.setDots": { args: number; result: void };
-    "document.beat.setIsEmpty": { args: boolean; result: void };
-    "document.beat.setTupletNumerator": { args: number; result: void };
-    "document.beat.setTupletDenominator": { args: number; result: void };
-    "document.beat.setTuplet": {
-      args: { numerator: number; denominator: number };
-      result: void;
-    };
-    "document.beat.setGraceType": { args: number; result: void };
-    "document.beat.setDynamics": { args: number; result: void };
-    "document.beat.setVibrato": { args: number; result: void };
-    "document.beat.setDeadSlapped": { args: boolean; result: void };
-    "document.beat.setWhammyBarType": { args: number; result: void };
-    "document.beat.setWhammyStyle": { args: number; result: void };
-    "document.beat.setIsContinuedWhammy": { args: boolean; result: void };
-    "document.beat.setWhammyBarPoints": {
-      args: BendPointSchema[] | null;
-      result: void;
-    };
-    "document.beat.setWhammyBar": {
-      args: {
-        whammyBarType: number;
-        whammyStyle: number;
-        isContinuedWhammy: boolean;
-        whammyBarPoints: BendPointSchema[] | null;
-      };
-      result: void;
-    };
-    "document.beat.setBrushType": { args: number; result: void };
-    "document.beat.setBrushDuration": { args: number; result: void };
-    "document.beat.setBrush": {
-      args: { brushType: number; brushDuration: number };
-      result: void;
-    };
-    "document.beat.setFade": { args: number; result: void };
-    "document.beat.setAutomations": { args: AutomationSchema[]; result: void };
-    "document.beat.setLyrics": { args: string[] | null; result: void };
-    "document.beat.setText": { args: string | null; result: void };
-    "document.beat.setChordId": { args: string | null; result: void };
-    "document.beat.setTremoloPicking": {
-      args: TremoloPickingEffectSchema | null;
-      result: void;
-    };
-    "document.beat.setRasgueado": { args: number; result: void };
-  }
-}
-
-export {};
+export const beatDocumentActions = [
+  placeNoteAction,
+  deleteNoteAction,
+  insertRestBeforeAction,
+  insertRestAfterAction,
+  setRestAction,
+  setDurationAction,
+  setDotsAction,
+  setIsEmptyAction,
+  setTupletNumeratorAction,
+  setTupletDenominatorAction,
+  setTupletAction,
+  setGraceTypeAction,
+  setDynamicsAction,
+  setVibratoAction,
+  setDeadSlappedAction,
+  setWhammyBarTypeAction,
+  setWhammyStyleAction,
+  setIsContinuedWhammyAction,
+  setWhammyBarPointsAction,
+  setWhammyBarAction,
+  setBrushTypeAction,
+  setBrushDurationAction,
+  setBrushAction,
+  setFadeAction,
+  setAutomationsAction,
+  setLyricsAction,
+  setTextAction,
+  setChordIdAction,
+  setTremoloPickingAction,
+  setRasgueadoAction,
+] as const;

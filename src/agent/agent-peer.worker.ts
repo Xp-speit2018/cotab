@@ -16,6 +16,7 @@ interface WorkerPort {
 const port = globalThis as unknown as WorkerPort;
 const MAIN_DOCUMENT_ORIGIN = Symbol("cotab-main-document");
 let currentDoc: Y.Doc | null = null;
+let localDocumentUpdateCount = 0;
 
 function post(message: AgentToMainMessage, transfer?: Transferable[]): void {
   port.postMessage(message, transfer);
@@ -23,6 +24,7 @@ function post(message: AgentToMainMessage, transfer?: Transferable[]): void {
 
 function forwardAgentUpdate(update: Uint8Array, origin: unknown): void {
   if (origin === MAIN_DOCUMENT_ORIGIN) return;
+  localDocumentUpdateCount += 1;
   const copy = update.slice().buffer;
   post({ type: "document.update", update: copy }, [copy]);
 }
@@ -59,17 +61,21 @@ port.addEventListener("message", (event) => {
     case "document.update":
       applyMainUpdate(message.update);
       break;
-    case "mcp.call":
+    case "mcp.call": {
+      const updateCountBefore = localDocumentUpdateCount;
+      const result = executeMinimalMcpTool(
+        coreEditEngineHost,
+        message.tool,
+        message.arguments,
+      );
       post({
         type: "mcp.result",
         requestId: message.requestId,
-        result: executeMinimalMcpTool(
-          coreEditEngineHost,
-          message.tool,
-          message.arguments,
-        ),
+        result,
+        documentUpdateCount: localDocumentUpdateCount - updateCountBefore,
       });
       break;
+    }
     case "runtime.stop":
       currentDoc?.off("update", forwardAgentUpdate);
       engine.destroyDoc();

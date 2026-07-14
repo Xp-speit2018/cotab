@@ -71,7 +71,11 @@ import {
   Rasgueado,
   TremoloPickingStyle,
 } from "@/core/schema";
-import { executeDocumentAction } from "@/core/actions/registry";
+import {
+  DocumentActionArgumentsError,
+  executeDocumentAction,
+  executeDocumentActionById,
+} from "@/core/actions/registry";
 import "@/core/actions/edit-beat";
 
 const defaultSel = {
@@ -103,16 +107,39 @@ function configureBeat(opts?: { duration?: number; isEmpty?: boolean }) {
 
 describe("document.beat.setDuration", () => {
   it("updates Y.Map duration field", () => {
-    executeDocumentAction("document.beat.setDuration", Duration.Eighth, ctx);
+    executeDocumentAction("document.beat.setDuration", { value: Duration.Eighth }, ctx);
     const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     expect(yBeat.get("duration")).toBe(Duration.Eighth);
   });
 
   it("can cycle through durations", () => {
-    executeDocumentAction("document.beat.setDuration", Duration.Sixteenth, ctx);
+    executeDocumentAction("document.beat.setDuration", { value: Duration.Sixteenth }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("duration")).toBe(Duration.Sixteenth);
-    executeDocumentAction("document.beat.setDuration", Duration.Half, ctx);
+    executeDocumentAction("document.beat.setDuration", { value: Duration.Half }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("duration")).toBe(Duration.Half);
+  });
+
+  it("rejects nested object values before producing a Y.Doc update", () => {
+    const doc = getScoreMap()!.doc!;
+    const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    const originalDuration = yBeat.get("duration");
+    let updateCount = 0;
+    const onUpdate = () => {
+      updateCount += 1;
+    };
+    doc.on("update", onUpdate);
+
+    expect(() =>
+      executeDocumentActionById(
+        "document.beat.setDuration",
+        { value: { value: Duration.Eighth } },
+        ctx,
+      ),
+    ).toThrow(DocumentActionArgumentsError);
+
+    doc.off("update", onUpdate);
+    expect(updateCount).toBe(0);
+    expect(yBeat.get("duration")).toBe(originalDuration);
   });
 });
 
@@ -120,7 +147,7 @@ describe("document.beat.setDuration", () => {
 
 describe("document.beat.placeNote (guitar tab)", () => {
   it("adds note to beat's notes array", () => {
-    executeDocumentAction("document.beat.placeNote", 5, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: 5 }, ctx);
 
     const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
@@ -130,14 +157,14 @@ describe("document.beat.placeNote (guitar tab)", () => {
   });
 
   it("sets isEmpty to false", () => {
-    executeDocumentAction("document.beat.placeNote", 3, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: 3 }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("isEmpty")).toBe(false);
   });
 
   it("updates fret on existing string", () => {
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 5, 3);
 
-    executeDocumentAction("document.beat.placeNote", 7, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: 7 }, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
@@ -146,7 +173,7 @@ describe("document.beat.placeNote (guitar tab)", () => {
 
   it("does nothing without selection", () => {
     selectBeat(null);
-    executeDocumentAction("document.beat.placeNote", 5, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: 5 }, ctx);
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
   });
@@ -159,7 +186,7 @@ describe("document.beat.deleteNote", () => {
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 5, 3);
     setSelectedNoteIndex(0);
 
-    executeDocumentAction("document.beat.deleteNote", undefined, ctx);
+    executeDocumentAction("document.beat.deleteNote", {}, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
@@ -170,7 +197,7 @@ describe("document.beat.deleteNote", () => {
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 7, 1);
     setSelectedNoteIndex(0);
 
-    executeDocumentAction("document.beat.deleteNote", undefined, ctx);
+    executeDocumentAction("document.beat.deleteNote", {}, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
@@ -184,7 +211,7 @@ describe("document.beat.deleteNote", () => {
     const yVoiceBefore = resolveYVoiceHelper(0, 0, 0, 0)!;
     const beatsBefore = (yVoiceBefore.get("beats") as Y.Array<unknown>).length;
 
-    const result = executeDocumentAction("document.beat.deleteNote", undefined, ctx);
+    const result = executeDocumentAction("document.beat.deleteNote", {}, ctx);
 
     const yVoiceAfter = resolveYVoiceHelper(0, 0, 0, 0)!;
     const beatsAfter = (yVoiceAfter.get("beats") as Y.Array<unknown>).length;
@@ -194,7 +221,7 @@ describe("document.beat.deleteNote", () => {
 
   it("blocks when voice has only 1 beat and beat is rest", () => {
     configureBeat({ isEmpty: false });
-    const result = executeDocumentAction("document.beat.deleteNote", undefined, ctx);
+    const result = executeDocumentAction("document.beat.deleteNote", {}, ctx);
     expect(result).toBe(false);
   });
 });
@@ -205,7 +232,7 @@ describe("document.beat.insertRestBefore", () => {
   it("inserts a beat before the current position", () => {
     const beatsBefore = (resolveYVoiceHelper(0, 0, 0, 0)!.get("beats") as Y.Array<unknown>).length;
 
-    executeDocumentAction("document.beat.insertRestBefore", 8, ctx);
+    executeDocumentAction("document.beat.insertRestBefore", { duration: 8 }, ctx);
 
     const beatsAfter = (resolveYVoiceHelper(0, 0, 0, 0)!.get("beats") as Y.Array<unknown>).length;
     expect(beatsAfter).toBe(beatsBefore + 1);
@@ -218,7 +245,7 @@ describe("document.beat.insertRestBefore", () => {
 
 describe("document.beat.insertRestAfter", () => {
   it("inserts a beat after the current position", () => {
-    executeDocumentAction("document.beat.insertRestAfter", 16, ctx);
+    executeDocumentAction("document.beat.insertRestAfter", { duration: 16 }, ctx);
 
     const beats = resolveYVoiceHelper(0, 0, 0, 0)!.get("beats") as Y.Array<Y.Map<unknown>>;
     expect(beats.length).toBe(2);
@@ -233,7 +260,7 @@ describe("document.beat.insertRestAfter", () => {
 
 describe("document.beat.setDots", () => {
   it("sets dot count on beat", () => {
-    executeDocumentAction("document.beat.setDots", 1, ctx);
+    executeDocumentAction("document.beat.setDots", { value: 1 }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("dots")).toBe(1);
   });
 });
@@ -255,12 +282,12 @@ describe("document.beat (violin tab)", () => {
   });
 
   it("setDuration updates Y.Map", () => {
-    executeDocumentAction("document.beat.setDuration", Duration.Eighth, ctx);
+    executeDocumentAction("document.beat.setDuration", { value: Duration.Eighth }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("duration")).toBe(Duration.Eighth);
   });
 
   it("placeNote adds note on 4-string staff", () => {
-    executeDocumentAction("document.beat.placeNote", 3, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: 3 }, ctx);
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
     expect(yNotes.get(0).get("fret")).toBe(3);
@@ -285,12 +312,12 @@ describe("document.beat (piano notation)", () => {
   });
 
   it("setDuration updates Y.Map", () => {
-    executeDocumentAction("document.beat.setDuration", Duration.Quarter, ctx);
+    executeDocumentAction("document.beat.setDuration", { value: Duration.Quarter }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("duration")).toBe(Duration.Quarter);
   });
 
   it("placeNote adds note with octave and tone from snapPositionToPitch", () => {
-    executeDocumentAction("document.beat.placeNote", 7, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: 7 }, ctx);
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
     expect(yNotes.get(0).get("octave")).toBe(6);
@@ -317,14 +344,14 @@ describe("applyBeatUpdates property setters", () => {
     ["document.beat.setFade",          "fade",           1],
     ["document.beat.setRasgueado",     "rasgueado",      Rasgueado.PmpTriplet],
   ] as const)("%s sets %s on Y.Map", (actionId, field, value) => {
-    executeDocumentAction(actionId, value, ctx);
+    executeDocumentAction(actionId, { value }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get(field)).toBe(value);
   });
 
   it("does nothing without selection", () => {
     const before = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("vibrato");
     selectBeat(null);
-    executeDocumentAction("document.beat.setVibrato", 1, ctx);
+    executeDocumentAction("document.beat.setVibrato", { value: 1 }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("vibrato")).toBe(before);
   });
 });
@@ -351,10 +378,10 @@ describe("document.beat nested playback fields", () => {
   });
 
   it("replaces whammyBarPoints", () => {
-    executeDocumentAction("document.beat.setWhammyBarPoints", [
+    executeDocumentAction("document.beat.setWhammyBarPoints", { points: [
       { offset: 0, value: 0 },
       { offset: 60, value: -4 },
-    ], ctx);
+    ] }, ctx);
 
     const yPoints = resolveYBeatHelper(0, 0, 0, 0, 0)!.get(
       "whammyBarPoints",
@@ -364,7 +391,7 @@ describe("document.beat nested playback fields", () => {
       { offset: 60, value: -4 },
     ]);
 
-    executeDocumentAction("document.beat.setWhammyBarPoints", null, ctx);
+    executeDocumentAction("document.beat.setWhammyBarPoints", { points: null }, ctx);
     expect(
       resolveYBeatHelper(0, 0, 0, 0, 0)!.get("whammyBarPoints"),
     ).toBeNull();
@@ -390,7 +417,7 @@ describe("document.beat nested playback fields", () => {
   });
 
   it("replaces automations without renaming fields", () => {
-    executeDocumentAction("document.beat.setAutomations", [
+    executeDocumentAction("document.beat.setAutomations", { automations: [
       {
         isLinear: true,
         type: AutomationType.Tempo,
@@ -399,7 +426,7 @@ describe("document.beat nested playback fields", () => {
         text: "rit.",
         isVisible: true,
       },
-    ], ctx);
+    ] }, ctx);
 
     const yAutomations = resolveYBeatHelper(0, 0, 0, 0, 0)!.get(
       "automations",
@@ -415,42 +442,42 @@ describe("document.beat nested playback fields", () => {
   });
 
   it("sets and clears lyrics", () => {
-    executeDocumentAction("document.beat.setLyrics", ["hel", "lo"], ctx);
+    executeDocumentAction("document.beat.setLyrics", { lyrics: ["hel", "lo"] }, ctx);
     const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     expect((beat.get("lyrics") as Y.Array<string>).toArray()).toEqual([
       "hel",
       "lo",
     ]);
 
-    executeDocumentAction("document.beat.setLyrics", null, ctx);
+    executeDocumentAction("document.beat.setLyrics", { lyrics: null }, ctx);
     expect(beat.get("lyrics")).toBeNull();
   });
 
   it("sets nullable text and chordId", () => {
-    executeDocumentAction("document.beat.setText", "let ring", ctx);
-    executeDocumentAction("document.beat.setChordId", "Cmaj7", ctx);
+    executeDocumentAction("document.beat.setText", { value: "let ring" }, ctx);
+    executeDocumentAction("document.beat.setChordId", { value: "Cmaj7" }, ctx);
     const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     expect(beat.get("text")).toBe("let ring");
     expect(beat.get("chordId")).toBe("Cmaj7");
 
-    executeDocumentAction("document.beat.setText", null, ctx);
-    executeDocumentAction("document.beat.setChordId", null, ctx);
+    executeDocumentAction("document.beat.setText", { value: null }, ctx);
+    executeDocumentAction("document.beat.setChordId", { value: null }, ctx);
     expect(beat.get("text")).toBeNull();
     expect(beat.get("chordId")).toBeNull();
   });
 
   it("sets and clears tremoloPicking", () => {
-    executeDocumentAction("document.beat.setTremoloPicking", {
+    executeDocumentAction("document.beat.setTremoloPicking", { effect: {
       marks: 3,
       style: TremoloPickingStyle.Default,
-    }, ctx);
+    } }, ctx);
     const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     expect((beat.get("tremoloPicking") as Y.Map<unknown>).toJSON()).toEqual({
       marks: 3,
       style: TremoloPickingStyle.Default,
     });
 
-    executeDocumentAction("document.beat.setTremoloPicking", null, ctx);
+    executeDocumentAction("document.beat.setTremoloPicking", { effect: null }, ctx);
     expect(beat.get("tremoloPicking")).toBeNull();
   });
 });
@@ -461,7 +488,7 @@ describe("document.beat.setRest", () => {
   it("setRest(true) clears notes and sets isEmpty=false", () => {
     placeNoteDirectly(getScoreMap()!, 0, 0, 0, 5, 3);
 
-    executeDocumentAction("document.beat.setRest", true, ctx);
+    executeDocumentAction("document.beat.setRest", { value: true }, ctx);
 
     const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
@@ -470,7 +497,7 @@ describe("document.beat.setRest", () => {
   });
 
   it("setRest(false) on tab track adds default fret-0 note", () => {
-    executeDocumentAction("document.beat.setRest", false, ctx);
+    executeDocumentAction("document.beat.setRest", { value: false }, ctx);
 
     const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     const yNotes = yBeat.get("notes") as Y.Array<Y.Map<unknown>>;
@@ -487,7 +514,7 @@ describe("document.beat.setRest", () => {
     seedTrackWithConfig(getScoreMap()!, 1, { name: "Piano", showTablature: false, tuning: [] });
     selectBeat(defaultSel);
 
-    executeDocumentAction("document.beat.setRest", false, ctx);
+    executeDocumentAction("document.beat.setRest", { value: false }, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
@@ -495,7 +522,7 @@ describe("document.beat.setRest", () => {
 
   it("does nothing without selection", () => {
     selectBeat(null);
-    executeDocumentAction("document.beat.setRest", true, ctx);
+    executeDocumentAction("document.beat.setRest", { value: true }, ctx);
     // beat should still have its default isEmpty=true (unchanged)
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("isEmpty")).toBe(true);
   });
@@ -518,12 +545,12 @@ describe("document.beat (drumkit percussion)", () => {
   });
 
   it("setDuration updates Y.Map", () => {
-    executeDocumentAction("document.beat.setDuration", Duration.Sixteenth, ctx);
+    executeDocumentAction("document.beat.setDuration", { value: Duration.Sixteenth }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("duration")).toBe(Duration.Sixteenth);
   });
 
   it("placeNote adds note with percussionArticulation", () => {
-    executeDocumentAction("document.beat.placeNote", undefined, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: undefined }, ctx);
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(1);
     expectPercussionNote(yNotes.get(0), 48);
@@ -540,7 +567,7 @@ describe("document.beat (drumkit percussion)", () => {
     second.set("id", 48);
     articulations.push([first, second]);
 
-    executeDocumentAction("document.beat.placeNote", undefined, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: undefined }, ctx);
 
     const notes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get(
       "notes",
@@ -552,7 +579,7 @@ describe("document.beat (drumkit percussion)", () => {
     placePercussionNoteDirectly(getScoreMap()!, 0, 0, 0, 42);
     setSelectedNoteIndex(0);
 
-    executeDocumentAction("document.beat.deleteNote", undefined, ctx);
+    executeDocumentAction("document.beat.deleteNote", {}, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
@@ -565,7 +592,7 @@ describe("document.beat edge cases", () => {
   it("applyBeatUpdates does nothing when Y.Beat cannot be resolved", () => {
     // Select a beat at an invalid index
     selectBeat({ ...defaultSel, beatIndex: 999 });
-    const result = executeDocumentAction("document.beat.setDuration", 8, ctx);
+    const result = executeDocumentAction("document.beat.setDuration", { value: 8 }, ctx);
     // Should not throw, should just return without doing anything
     expect(result).toBeUndefined();
   });
@@ -573,7 +600,7 @@ describe("document.beat edge cases", () => {
   it("placeNote does nothing when string is null", () => {
     selectBeat({ ...defaultSel, string: null });
 
-    executeDocumentAction("document.beat.placeNote", 5, ctx);
+    executeDocumentAction("document.beat.placeNote", { targetValue: 5 }, ctx);
 
     const yNotes = resolveYBeatHelper(0, 0, 0, 0, 0)!.get("notes") as Y.Array<Y.Map<unknown>>;
     expect(yNotes.length).toBe(0);
@@ -584,7 +611,7 @@ describe("document.beat edge cases", () => {
       resolveYBeatHelper(0, 0, 0, 0, 0)!.set("duration", 8);
     });
 
-    executeDocumentAction("document.beat.insertRestBefore", undefined, ctx);
+    executeDocumentAction("document.beat.insertRestBefore", { duration: undefined }, ctx);
 
     const yBeat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
     expect(yBeat.get("duration")).toBe(8);
@@ -595,7 +622,7 @@ describe("document.beat edge cases", () => {
       resolveYBeatHelper(0, 0, 0, 0, 0)!.set("duration", 16);
     });
 
-    executeDocumentAction("document.beat.insertRestAfter", undefined, ctx);
+    executeDocumentAction("document.beat.insertRestAfter", { duration: undefined }, ctx);
 
     const yVoice = resolveYVoiceHelper(0, 0, 0, 0)!;
     const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>>;

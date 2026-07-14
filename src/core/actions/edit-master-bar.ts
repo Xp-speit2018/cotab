@@ -1,12 +1,15 @@
 import * as Y from "yjs";
-import { documentActionRegistry } from "@/core/actions/registry";
-import type { DocumentActionDefinition } from "@/core/actions/types";
 import { engine } from "@/core/engine";
-import type {
-  AutomationSchema,
-  SectionSchema,
-} from "@/core/schema";
 import { AutomationType, createAutomation } from "@/core/schema";
+import { actionArgs, defineDocumentAction } from "./definition";
+import {
+  automationSchema,
+  finiteNumber,
+  sectionSchema,
+  valueBooleanArgs,
+  valueIntegerArgs,
+} from "./args-schema";
+import * as z from "zod";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
@@ -26,38 +29,34 @@ function applyMasterBarUpdates(updates: Record<string, unknown>): void {
   });
 }
 
-function scalarAction(
-  id: string,
+function scalarAction<const Id extends string>(
+  id: Id,
   field: string,
-): DocumentActionDefinition<number> {
-  return {
+){
+  return defineDocumentAction({
     id,
     i18nKey: `actions.${id}`,
     category: "document.masterBar",
-    params: [
-      { name: "value", type: "number", i18nKey: `actions.${id}.params.value` },
-    ],
-    execute: (value, _context) => {
+    argsSchema: valueIntegerArgs,
+    execute: ({ value }) => {
       applyMasterBarUpdates({ [field]: value });
     },
-  };
+  });
 }
 
-function booleanAction(
-  id: string,
+function booleanAction<const Id extends string>(
+  id: Id,
   field: string,
-): DocumentActionDefinition<boolean> {
-  return {
+){
+  return defineDocumentAction({
     id,
     i18nKey: `actions.${id}`,
     category: "document.masterBar",
-    params: [
-      { name: "value", type: "boolean", i18nKey: `actions.${id}.params.value` },
-    ],
-    execute: (value, _context) => {
+    argsSchema: valueBooleanArgs,
+    execute: ({ value }) => {
       applyMasterBarUpdates({ [field]: value });
     },
-  };
+  });
 }
 
 const setTimeSignatureNumeratorAction = scalarAction(
@@ -89,11 +88,12 @@ const setIsFreeTimeAction = booleanAction(
   "isFreeTime",
 );
 
-const setSectionAction: DocumentActionDefinition<SectionSchema | null> = {
+const setSectionAction = defineDocumentAction({
   id: "document.masterBar.setSection",
   i18nKey: "actions.edit.masterBar.setSection",
   category: "document.masterBar",
-  execute: (section, _context) => {
+  argsSchema: actionArgs({ section: sectionSchema.nullable() }),
+  execute: ({ section }) => {
     const yMasterBar = resolveSelectedMasterBar();
     if (!yMasterBar) return;
     transact(() => {
@@ -107,13 +107,14 @@ const setSectionAction: DocumentActionDefinition<SectionSchema | null> = {
       yMasterBar.set("section", ySection);
     });
   },
-};
+});
 
-const setTempoAutomationsAction: DocumentActionDefinition<AutomationSchema[]> = {
+const setTempoAutomationsAction = defineDocumentAction({
   id: "document.masterBar.setTempoAutomations",
   i18nKey: "actions.edit.masterBar.setTempoAutomations",
   category: "document.masterBar",
-  execute: (automations, _context) => {
+  argsSchema: actionArgs({ automations: z.array(automationSchema) }),
+  execute: ({ automations }) => {
     const yMasterBar = resolveSelectedMasterBar();
     if (!yMasterBar) return;
     transact(() => {
@@ -134,13 +135,14 @@ const setTempoAutomationsAction: DocumentActionDefinition<AutomationSchema[]> = 
       }
     });
   },
-};
+});
 
-const setTempoAction: DocumentActionDefinition<number | null> = {
+const setTempoAction = defineDocumentAction({
   id: "document.masterBar.setTempo",
   i18nKey: "actions.edit.masterBar.setTempo",
   category: "document.masterBar",
-  execute: (tempo, _context) => {
+  argsSchema: actionArgs({ tempo: finiteNumber.positive().nullable() }),
+  execute: ({ tempo }) => {
     const yMasterBar = resolveSelectedMasterBar();
     if (!yMasterBar) return;
     transact(() => {
@@ -177,35 +179,17 @@ const setTempoAction: DocumentActionDefinition<number | null> = {
       }
     });
   },
-};
+});
 
-documentActionRegistry.register(setTimeSignatureNumeratorAction);
-documentActionRegistry.register(setTimeSignatureDenominatorAction);
-documentActionRegistry.register(setIsRepeatStartAction);
-documentActionRegistry.register(setRepeatCountAction);
-documentActionRegistry.register(setAlternateEndingsAction);
-documentActionRegistry.register(setTripletFeelAction);
-documentActionRegistry.register(setIsFreeTimeAction);
-documentActionRegistry.register(setSectionAction);
-documentActionRegistry.register(setTempoAutomationsAction);
-documentActionRegistry.register(setTempoAction);
-
-declare global {
-  interface DocumentActionMap {
-    "document.masterBar.setTimeSignatureNumerator": { args: number; result: void };
-    "document.masterBar.setTimeSignatureDenominator": { args: number; result: void };
-    "document.masterBar.setIsRepeatStart": { args: boolean; result: void };
-    "document.masterBar.setRepeatCount": { args: number; result: void };
-    "document.masterBar.setAlternateEndings": { args: number; result: void };
-    "document.masterBar.setTripletFeel": { args: number; result: void };
-    "document.masterBar.setIsFreeTime": { args: boolean; result: void };
-    "document.masterBar.setSection": { args: SectionSchema | null; result: void };
-    "document.masterBar.setTempoAutomations": {
-      args: AutomationSchema[];
-      result: void;
-    };
-    "document.masterBar.setTempo": { args: number | null; result: void };
-  }
-}
-
-export {};
+export const masterBarDocumentActions = [
+  setTimeSignatureNumeratorAction,
+  setTimeSignatureDenominatorAction,
+  setIsRepeatStartAction,
+  setRepeatCountAction,
+  setAlternateEndingsAction,
+  setTripletFeelAction,
+  setIsFreeTimeAction,
+  setSectionAction,
+  setTempoAutomationsAction,
+  setTempoAction,
+] as const;

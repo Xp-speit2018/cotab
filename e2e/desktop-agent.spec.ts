@@ -573,6 +573,14 @@ test("Desktop Local Codex connects from Agent tab and executes a tool call", asy
   await rightSidebar.getByPlaceholder("Edit the current score...").fill("Update the score title");
   await rightSidebar.getByRole("button", { name: "Send", exact: true }).click();
 
+  await expect.poll(() => page.evaluate(() => {
+    const threadStart = (window as unknown as AlphaTabWindow)
+      .__COTAB_TEST_SETTINGS__?.threadStart as
+      | { developerInstructions?: unknown }
+      | undefined;
+    return threadStart?.developerInstructions;
+  })).toContain("first materialize a complete rest rhythm");
+
   await expect(rightSidebar.getByText("Score updated.", { exact: true })).toBeVisible();
   await expect(rightSidebar.locator("strong", { hasText: "Score updated." })).toBeVisible();
   await expect(rightSidebar.getByText("Update the score title", { exact: true })).toHaveCount(1);

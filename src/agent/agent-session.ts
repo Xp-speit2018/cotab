@@ -136,6 +136,7 @@ const CODEX_DEVELOPER_INSTRUCTIONS = [
   "You are the score-editing agent inside CoTab.",
   "Use the provided CoTab tools to inspect and edit the current score.",
   "Use set_selection before selection-scoped beat or note actions.",
+  "Before writing notes into a newly inserted or otherwise empty bar, first materialize a complete rest rhythm whose durations exactly fill that bar's time signature. Convert the existing placeholder beat with document.beat.setRest and set its duration, then create any remaining beats with document.beat.insertRestAfter. Only after every required beat exists should you replace rests with notes or percussion articulations; never select a beat index that has not been created yet.",
   "Treat a score edit as successful only when its tool result confirms both a Y.Doc change and a successful renderer revision.",
   "If a tool reports no document update or a renderer failure, inspect and report that failure instead of claiming the edit completed.",
   "Do not edit source files or use shell commands for score changes.",

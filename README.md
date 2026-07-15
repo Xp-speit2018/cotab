@@ -88,6 +88,9 @@ Current target boundaries:
   persistence. This is distinct from STUN/TURN connectivity fallback: TURN may
   relay encrypted WebRTC traffic while the current collaboration model remains
   p2p CRDT.
+- [ ] **Layout-independent snap grid** — Remove the snap grid's historical
+  single-system technical debt. This is a prerequisite for dual layout support
+  and fixed-system incremental rendering.
 - [ ] **UI/UX improvements and unification** — Polish, consistency, and accessibility.
 - [ ] **Cloud storage support** — Optional sync/storage in the cloud.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.

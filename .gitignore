@@ -41,6 +41,7 @@ wiki
 e2e/*
 !e2e/playback-start.spec.ts
 !e2e/transport-mouse-mode.spec.ts
+!e2e/layout-switch.spec.js
 !e2e/core-edit-actions.spec.ts
 !e2e/agent-runtime.spec.ts
 !e2e/desktop-agent.spec.ts

@@ -83,7 +83,10 @@ vi.mock("@/core/engine", () => {
 
 import { EditorEngine } from "@/core/engine";
 import { createTrack, createStaff } from "@/core/schema";
-import { executeDocumentAction } from "@/core/actions/registry";
+import {
+  DocumentActionArgumentsError,
+  executeDocumentAction,
+} from "@/core/actions/registry";
 import "@/core/actions/edit-bar";
 import "@/core/actions/edit-track";
 
@@ -125,6 +128,48 @@ describe("document.track.setShortName", () => {
   it("updates shortName in Y.Doc", () => {
     executeDocumentAction("document.track.setShortName", { trackIndex: 0, shortName: "Gtr" }, ctx);
     expect(resolveYTrackHelper(0)!.get("shortName")).toBe("Gtr");
+  });
+});
+
+describe("track system layout actions", () => {
+  it("updates the default and explicit system layout", () => {
+    executeDocumentAction(
+      "document.track.setDefaultSystemsLayout",
+      { trackIndex: 0, value: 4 },
+      ctx,
+    );
+    executeDocumentAction(
+      "document.track.setSystemsLayout",
+      { trackIndex: 0, value: [3, 2, 1] },
+      ctx,
+    );
+
+    const track = resolveYTrackHelper(0)!;
+    expect(track.get("defaultSystemsLayout")).toBe(4);
+    expect(
+      (track.get("systemsLayout") as Y.Array<number>).toArray(),
+    ).toEqual([3, 2, 1]);
+  });
+
+  it("rejects non-positive entries before updating Y.Doc", () => {
+    const doc = getScoreMap()!.doc!;
+    let updates = 0;
+    doc.on("update", () => updates++);
+
+    expect(() =>
+      executeDocumentAction(
+        "document.track.setSystemsLayout",
+        { trackIndex: 0, value: [-1] },
+        ctx,
+      ),
+    ).toThrow(DocumentActionArgumentsError);
+
+    expect(updates).toBe(0);
+    expect(
+      (
+        resolveYTrackHelper(0)!.get("systemsLayout") as Y.Array<number>
+      ).toArray(),
+    ).toEqual([]);
   });
 });
 

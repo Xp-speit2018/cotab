@@ -14,6 +14,8 @@ import {
   Undo2,
   Redo2,
   Repeat2,
+  GalleryHorizontal,
+  Rows3,
 } from "lucide-react";
 import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Button } from "@/components/ui/button";
@@ -65,6 +67,7 @@ export function Toolbar() {
   const playerState = usePlayerStore((s) => s.playerState);
   const isLooping = usePlayerStore((s) => s.isLooping);
   const zoom = usePlayerStore((s) => s.zoom);
+  const scoreLayout = usePlayerStore((s) => s.scoreLayout);
   const scoreTitle = usePlayerStore((s) => s.scoreTitle);
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
@@ -114,7 +117,7 @@ export function Toolbar() {
   };
 
   return (
-    <div className="flex h-12 items-center gap-1 border-b bg-card px-2">
+    <div className="flex h-12 w-full min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b bg-card px-2">
       {/* ── Left: File + Song Info ──────────────────────────────────────── */}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -321,6 +324,55 @@ export function Toolbar() {
 
       {/* ── Right: Zoom, Language ───────────────────────────────────────── */}
       <div className="flex items-center gap-1">
+        <div
+          role="group"
+          aria-label={t("toolbar.scoreLayout")}
+          className="flex h-8 items-center rounded-md border p-0.5"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={scoreLayout === "horizontal" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-6 w-7"
+                aria-label={t("toolbar.horizontalLayout")}
+                aria-pressed={scoreLayout === "horizontal"}
+                onClick={() =>
+                  executeAppAction(
+                    "view.setScoreLayout",
+                    { layout: "horizontal" },
+                    { t },
+                  )
+                }
+              >
+                <GalleryHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("toolbar.horizontalLayout")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={scoreLayout === "parchment" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-6 w-7"
+                aria-label={t("toolbar.parchmentLayout")}
+                aria-pressed={scoreLayout === "parchment"}
+                onClick={() =>
+                  executeAppAction(
+                    "view.setScoreLayout",
+                    { layout: "parchment" },
+                    { t },
+                  )
+                }
+              >
+                <Rows3 className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{t("toolbar.parchmentLayout")}</TooltipContent>
+          </Tooltip>
+        </div>
+
         {/* Zoom */}
         <select
           value={zoom}

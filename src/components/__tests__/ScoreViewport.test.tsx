@@ -4,8 +4,12 @@
 
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { fireEvent, render } from "@testing-library/react";
 import { ScoreViewport } from "../ScoreViewport";
+
+const viewportState = vi.hoisted(() => ({
+  scoreLayout: "horizontal" as "horizontal" | "parchment",
+}));
 
 vi.mock("@/stores/render-store", () => ({
   usePlayerStore: vi.fn((selector: (s: unknown) => unknown) => {
@@ -13,9 +17,7 @@ vi.mock("@/stores/render-store", () => ({
       initialize: vi.fn(),
       destroy: vi.fn(),
       isLoading: false,
-      tracks: [],
-      visibleTrackIndices: [],
-      trackBounds: [],
+      scoreLayout: viewportState.scoreLayout,
     };
     return selector(mockState);
   }),
@@ -31,6 +33,7 @@ vi.mock("react-i18next", () => ({
 describe("ScoreViewport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    viewportState.scoreLayout = "horizontal";
   });
 
   it("mounts without throwing", () => {
@@ -47,5 +50,24 @@ describe("ScoreViewport", () => {
     render(<ScoreViewport />);
     const main = document.querySelector(".at-main");
     expect(main).toBeInTheDocument();
+  });
+
+  it("maps vertical wheel movement to the horizontal timeline", () => {
+    render(<ScoreViewport />);
+    const viewport = document.querySelector(".at-viewport") as HTMLElement;
+
+    fireEvent.wheel(viewport, { deltaY: 80 });
+
+    expect(viewport.scrollLeft).toBe(80);
+  });
+
+  it("keeps native vertical wheel behavior in parchment layout", () => {
+    viewportState.scoreLayout = "parchment";
+    render(<ScoreViewport />);
+    const viewport = document.querySelector(".at-viewport") as HTMLElement;
+
+    fireEvent.wheel(viewport, { deltaY: 80 });
+
+    expect(viewport.scrollLeft).toBe(0);
   });
 });

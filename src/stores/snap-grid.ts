@@ -8,6 +8,24 @@ import { GP7_ARTICULATION_MAP } from "./percussion-data";
 import type { SnapGrid, SnapPosition } from "./render-types";
 
 const snapGrids = new Map<string, SnapGrid>();
+const snapGridsByBar = new Map<string, SnapGrid>();
+const navigablePositions = new Map<string, number[]>();
+
+type CollectedSnapGrid = {
+  systemIndex: number;
+  trackIndex: number;
+  staffIndex: number;
+  barIndexes: Set<number>;
+  systemBounds: { x: number; y: number; w: number; h: number };
+  stringYs: Map<number, number>;
+  allYPositions: number[];
+  percYArticulations: { y: number; artic: number }[];
+  widths: number[];
+  heights: number[];
+  isTab: boolean;
+  isPercussion: boolean;
+  barRealBounds: { y: number; h: number } | null;
+};
 
 let snapGridOverlayContainer: HTMLDivElement | null = null;
 let snapGridLabelContainer: HTMLDivElement | null = null;
@@ -18,13 +36,20 @@ export function getSnapGrids(): Map<string, SnapGrid> {
   return snapGrids;
 }
 
+export function getSnapGridForBar(
+  trackIndex: number,
+  staffIndex: number,
+  barIndex: number,
+): SnapGrid | null {
+  return snapGridsByBar.get(`${trackIndex}:${staffIndex}:${barIndex}`) ?? null;
+}
+
 /**
  * Get the pre-computed navigable string values for a staff.
  * Returns unique string values in Y-sorted order (top to bottom), or null if grid not built.
  */
 export function getNavigablePositions(trackIndex: number, staffIndex: number): number[] | null {
-  const grid = snapGrids.get(`${trackIndex}:${staffIndex}`);
-  return grid?.navigableStrings ?? null;
+  return navigablePositions.get(`${trackIndex}:${staffIndex}`) ?? null;
 }
 
 export function findNearestSnap(grid: SnapGrid, y: number): SnapPosition | null {
@@ -65,53 +90,119 @@ function clusterYPositions(ys: number[], tolerance: number): number[] {
   return clusters.map((c) => c.reduce((a, b) => a + b, 0) / c.length);
 }
 
+function registerSnapGrid(
+  entry: CollectedSnapGrid,
+  positions: SnapPosition[],
+  noteWidth: number,
+  noteHeight: number,
+  percussionMap?: Map<number, number>,
+): void {
+  positions.sort((a, b) => a.y - b.y);
+  const systemStrings = [...new Set(positions.map((position) => position.string))];
+  const barIndexes = [...entry.barIndexes].sort((a, b) => a - b);
+  const grid: SnapGrid = {
+    systemIndex: entry.systemIndex,
+    trackIndex: entry.trackIndex,
+    staffIndex: entry.staffIndex,
+    barIndexes,
+    systemBounds: entry.systemBounds,
+    positions,
+    noteWidth,
+    noteHeight,
+    percussionMap,
+  };
+
+  snapGrids.set(
+    `${entry.systemIndex}:${entry.trackIndex}:${entry.staffIndex}`,
+    grid,
+  );
+  for (const barIndex of barIndexes) {
+    snapGridsByBar.set(
+      `${entry.trackIndex}:${entry.staffIndex}:${barIndex}`,
+      grid,
+    );
+  }
+
+  const staffKey = `${entry.trackIndex}:${entry.staffIndex}`;
+  const merged = new Set([
+    ...(navigablePositions.get(staffKey) ?? []),
+    ...systemStrings,
+  ]);
+  navigablePositions.set(
+    staffKey,
+    [...merged].sort(
+      entry.isTab && !entry.isPercussion
+        ? (a, b) => b - a
+        : (a, b) => a - b,
+    ),
+  );
+}
+
 export function buildSnapGrids(): void {
   snapGrids.clear();
+  snapGridsByBar.clear();
+  navigablePositions.clear();
   const api = getApi();
   const lookup = api?.boundsLookup;
   const score = api?.score;
   if (!lookup || !score || lookup.staffSystems.length === 0) return;
 
-  const collected = new Map<
-    string,
-    {
-      stringYs: Map<number, number>;
-      allYPositions: number[];
-      percYArticulations: { y: number; artic: number }[];
-      widths: number[];
-      heights: number[];
-      trackIndex: number;
-      staffIndex: number;
-      isTab: boolean;
-      barRealBounds: { y: number; h: number } | null;
-    }
-  >();
+  const collected = new Map<string, CollectedSnapGrid>();
+  const canonicalSystemIndexes = new Map<string, number>();
 
   for (const system of lookup.staffSystems) {
+    const firstMasterBarIndex = system.bars[0]?.index ?? -1;
+    const lastMasterBarIndex = system.bars.at(-1)?.index ?? -1;
+    const systemSignature = [
+      firstMasterBarIndex,
+      lastMasterBarIndex,
+      system.realBounds.x,
+      system.realBounds.y,
+      system.realBounds.w,
+      system.realBounds.h,
+    ].join(":");
+    let systemIndex = canonicalSystemIndexes.get(systemSignature);
+    if (systemIndex === undefined) {
+      systemIndex = canonicalSystemIndexes.size;
+      canonicalSystemIndexes.set(systemSignature, systemIndex);
+    }
+
     for (const masterBar of system.bars) {
       for (const barBounds of masterBar.bars) {
-        if (barBounds.beats.length === 0) continue;
-        const refBar = barBounds.beats[0].beat.voice.bar;
+        const refBar =
+          barBounds.bar ?? barBounds.beats[0]?.beat.voice.bar;
+        if (!refBar) continue;
         const ti = refBar.staff.track.index;
         const si = refBar.staff.index;
-        const key = `${ti}:${si}`;
+        const key = `${systemIndex}:${ti}:${si}`;
         let entry = collected.get(key);
         if (!entry) {
           const trackObj = score.tracks[ti];
           const staffObj = trackObj?.staves[si];
           entry = {
+            systemIndex,
+            trackIndex: ti,
+            staffIndex: si,
+            barIndexes: new Set(),
+            systemBounds: {
+              x: system.realBounds.x,
+              y: system.realBounds.y,
+              w: system.realBounds.w,
+              h: system.realBounds.h,
+            },
             stringYs: new Map(),
             allYPositions: [],
             percYArticulations: [],
             widths: [],
             heights: [],
-            trackIndex: ti,
-            staffIndex: si,
             isTab: staffObj?.showTablature ?? true,
+            isPercussion: trackObj?.isPercussion ?? false,
             barRealBounds: null,
           };
           collected.set(key, entry);
         }
+
+        entry.barIndexes.add(refBar.index);
 
         if (!entry.barRealBounds) {
           entry.barRealBounds = {
@@ -151,7 +242,7 @@ export function buildSnapGrids(): void {
   const oneStaffSpace = eng.oneStaffSpace;
   const slt = eng.staffLineThickness;
 
-  for (const [key, entry] of collected) {
+  for (const entry of collected.values()) {
     const track = score.tracks[entry.trackIndex];
     if (!track) continue;
     const staff = track.staves[entry.staffIndex];
@@ -174,22 +265,12 @@ export function buildSnapGrids(): void {
             y: lineBase + tabLineSpacing * (numStrings - s),
           });
         }
-        positions.sort((a, b) => a.y - b.y);
-        // Extract navigable strings from sorted positions
-        const seenTab = new Set<number>();
-        const navigableStringsTab: number[] = [];
-        for (const p of positions) {
-          if (!seenTab.has(p.string)) {
-            seenTab.add(p.string);
-            navigableStringsTab.push(p.string);
-          }
-        }
-        snapGrids.set(key, {
+        registerSnapGrid(
+          entry,
           positions,
-          noteWidth: medianW > 0 ? medianW : tabLineSpacing,
-          noteHeight: medianH > 0 ? medianH : tabLineSpacing,
-          navigableStrings: navigableStringsTab,
-        });
+          medianW > 0 ? medianW : tabLineSpacing,
+          medianH > 0 ? medianH : tabLineSpacing,
+        );
       } else {
         const halfSpace = oneStaffSpace / 2;
         const centerY = lineBase + 2 * oneStaffSpace;
@@ -202,22 +283,12 @@ export function buildSnapGrids(): void {
             positions.push({ string: i + 11, y: centerY + i * halfSpace });
           }
         }
-        positions.sort((a, b) => a.y - b.y);
-        // Extract navigable strings from sorted positions
-        const seenOther = new Set<number>();
-        const navigableStringsOther: number[] = [];
-        for (const p of positions) {
-          if (!seenOther.has(p.string)) {
-            seenOther.add(p.string);
-            navigableStringsOther.push(p.string);
-          }
-        }
-        snapGrids.set(key, {
+        registerSnapGrid(
+          entry,
           positions,
-          noteWidth: medianW > 0 ? medianW : oneStaffSpace,
-          noteHeight: medianH > 0 ? medianH : oneStaffSpace,
-          navigableStrings: navigableStringsOther,
-        });
+          medianW > 0 ? medianW : oneStaffSpace,
+          medianH > 0 ? medianH : oneStaffSpace,
+        );
       }
       continue;
     }
@@ -306,18 +377,6 @@ export function buildSnapGrids(): void {
       }
     }
 
-    positions.sort((a, b) => a.y - b.y);
-
-    // Pre-compute unique string values in Y-sorted order for navigation
-    const seen = new Set<number>();
-    const navigableStrings: number[] = [];
-    for (const p of positions) {
-      if (!seen.has(p.string)) {
-        seen.add(p.string);
-        navigableStrings.push(p.string);
-      }
-    }
-
     let percussionMap: Map<number, number> | undefined;
     if (track.isPercussion && entry.percYArticulations.length > 0) {
       percussionMap = new Map();
@@ -334,13 +393,7 @@ export function buildSnapGrids(): void {
       }
     }
 
-    snapGrids.set(key, {
-      positions,
-      noteWidth: medianW,
-      noteHeight: medianH,
-      percussionMap,
-      navigableStrings,
-    });
+    registerSnapGrid(entry, positions, medianW, medianH, percussionMap);
   }
 }
 
@@ -384,7 +437,6 @@ export function updateSnapGridOverlay(
   snapGridOverlayContainer = document.createElement("div");
   snapGridOverlayContainer.classList.add("at-snap-grid-overlay");
 
-  const mainWidth = mainElement.scrollWidth;
   const wrapper = viewportElement?.parentElement;
 
   if (wrapper && viewportElement) {
@@ -392,9 +444,7 @@ export function updateSnapGridOverlay(
     snapGridLabelContainer.classList.add("at-snap-grid-labels");
   }
 
-  for (const [gridKey, grid] of snapGrids) {
-    const [trackIndex, staffIndex] = gridKey.split(":").map(Number);
-
+  for (const grid of snapGrids.values()) {
     for (let i = 0; i < grid.positions.length; i++) {
       const pos = grid.positions[i];
       const isLine = i % 2 === 0;
@@ -405,7 +455,8 @@ export function updateSnapGridOverlay(
         isLine ? "at-snap-grid-marker--line" : "at-snap-grid-marker--space",
       );
       marker.style.top = `${pos.y}px`;
-      marker.style.width = `${mainWidth}px`;
+      marker.style.left = `${grid.systemBounds.x}px`;
+      marker.style.width = `${grid.systemBounds.w}px`;
       snapGridOverlayContainer.appendChild(marker);
 
       const label = document.createElement("div");
@@ -416,7 +467,14 @@ export function updateSnapGridOverlay(
       label.textContent = String(pos.string);
       snapGridLabelContainer?.appendChild(label);
 
-      snapGridEntries.push({ marker, label, string: pos.string, y: pos.y, trackIndex, staffIndex });
+      snapGridEntries.push({
+        marker,
+        label,
+        string: pos.string,
+        y: pos.y,
+        trackIndex: grid.trackIndex,
+        staffIndex: grid.staffIndex,
+      });
     }
   }
 
@@ -483,4 +541,6 @@ export function destroySnapGridOverlay(): void {
   }
   snapGridEntries = [];
   snapGrids.clear();
+  snapGridsByBar.clear();
+  navigablePositions.clear();
 }

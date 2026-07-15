@@ -137,6 +137,28 @@ function staffBarCount(trackIdx = 0, staffIdx = 0): number {
   return bars.length;
 }
 
+function setSystemLayouts(): void {
+  const score = getScoreMap()!;
+  score.doc!.transact(() => {
+    const scoreLayout = score.get("systemsLayout") as Y.Array<number>;
+    scoreLayout.push([2, 3]);
+    const track = (score.get("tracks") as Y.Array<Y.Map<unknown>>).get(0);
+    const trackLayout = track.get("systemsLayout") as Y.Array<number>;
+    trackLayout.push([1, 4]);
+  });
+}
+
+function expectSystemLayoutsUnchanged(): void {
+  const score = getScoreMap()!;
+  expect(
+    (score.get("systemsLayout") as Y.Array<number>).toArray(),
+  ).toEqual([2, 3]);
+  const track = (score.get("tracks") as Y.Array<Y.Map<unknown>>).get(0);
+  expect(
+    (track.get("systemsLayout") as Y.Array<number>).toArray(),
+  ).toEqual([1, 4]);
+}
+
 describe("document.bar.insertAfter", () => {
   it("adds a masterBar and a bar to each staff", () => {
     expect(masterBarCount()).toBe(2);
@@ -180,6 +202,12 @@ describe("document.bar.insertAfter", () => {
     selectBeat(null);
     executeDocumentAction("document.bar.insertAfter", {}, ctx);
     expect(masterBarCount()).toBe(2);
+  });
+
+  it("does not reinterpret explicit system layout", () => {
+    setSystemLayouts();
+    executeDocumentAction("document.bar.insertAfter", {}, ctx);
+    expectSystemLayoutsUnchanged();
   });
 });
 
@@ -233,6 +261,13 @@ describe("document.bar.delete", () => {
     const result = executeDocumentAction("document.bar.delete", {}, ctx);
     expect(result).toBe(false);
     expect(masterBarCount()).toBe(2);
+  });
+
+  it("does not reinterpret explicit system layout", () => {
+    setSystemLayouts();
+    selectBeat({ ...defaultSel, barIndex: 1 });
+    executeDocumentAction("document.bar.delete", {}, ctx);
+    expectSystemLayoutsUnchanged();
   });
 });
 

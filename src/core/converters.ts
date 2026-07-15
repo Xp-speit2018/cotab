@@ -62,6 +62,10 @@ export function importScoreToYDoc(
     yScore.set("tab", score.tab || "");
     yScore.set("instructions", score.instructions || "");
     yScore.set("notices", score.notices || "");
+    yScore.set("defaultSystemsLayout", score.defaultSystemsLayout);
+    const ySystemsLayout = new Y.Array<number>();
+    ySystemsLayout.push([...score.systemsLayout]);
+    yScore.set("systemsLayout", ySystemsLayout);
 
     const yMasterBars = new Y.Array<Y.Map<unknown>>();
     for (const mb of score.masterBars) {
@@ -100,6 +104,8 @@ function importMasterBar(mb: alphaTab.model.MasterBar): Y.Map<unknown> {
   y.set("alternateEndings", mb.alternateEndings);
   y.set("tripletFeel", mb.tripletFeel as unknown as number);
   y.set("isFreeTime", mb.isFreeTime);
+  y.set("displayScale", mb.displayScale);
+  y.set("displayWidth", mb.displayWidth);
 
   if (mb.section) {
     const sec = new Y.Map<unknown>();
@@ -158,6 +164,10 @@ export function importTrack(track: alphaTab.model.Track): Y.Map<unknown> {
   y.set("color", yColor);
   y.set("name", track.name || "");
   y.set("shortName", track.shortName || "");
+  y.set("defaultSystemsLayout", track.defaultSystemsLayout);
+  const ySystemsLayout = new Y.Array<number>();
+  ySystemsLayout.push([...track.systemsLayout]);
+  y.set("systemsLayout", ySystemsLayout);
 
   const yArticulations = new Y.Array<Y.Map<unknown>>();
   for (const articulation of track.percussionArticulations) {
@@ -250,6 +260,8 @@ function importBar(bar: alphaTab.model.Bar): Y.Map<unknown> {
   y.set("simileMark", bar.simileMark as unknown as number);
   y.set("keySignature", bar.keySignature as unknown as number);
   y.set("keySignatureType", bar.keySignatureType as unknown as number);
+  y.set("displayScale", bar.displayScale);
+  y.set("displayWidth", bar.displayWidth);
 
   const yVoices = new Y.Array<Y.Map<unknown>>();
   for (const voice of bar.voices) {
@@ -434,6 +446,10 @@ export function buildAlphaTabScore(
   score.tab = (yScore.get("tab") as string) || "";
   score.instructions = (yScore.get("instructions") as string) || "";
   score.notices = (yScore.get("notices") as string) || "";
+  score.defaultSystemsLayout =
+    (yScore.get("defaultSystemsLayout") as number) ?? 3;
+  score.systemsLayout =
+    (yScore.get("systemsLayout") as Y.Array<number> | undefined)?.toArray() ?? [];
 
   const yTracks = yScore.get("tracks") as
     | Y.Array<Y.Map<unknown>>
@@ -492,6 +508,8 @@ function buildMasterBar(
   mb.tripletFeel =
     (yMb.get("tripletFeel") as number as unknown as alphaTab.model.TripletFeel) ?? 0;
   mb.isFreeTime = (yMb.get("isFreeTime") as boolean) ?? false;
+  mb.displayScale = (yMb.get("displayScale") as number) ?? 1;
+  mb.displayWidth = (yMb.get("displayWidth") as number) ?? -1;
 
   const ySection = yMb.get("section") as Y.Map<unknown> | null;
   if (ySection) {
@@ -558,6 +576,10 @@ function buildTrack(yTrack: Y.Map<unknown>): alphaTab.model.Track {
   }
   track.name = (yTrack.get("name") as string) || "";
   track.shortName = (yTrack.get("shortName") as string) || "";
+  track.defaultSystemsLayout =
+    (yTrack.get("defaultSystemsLayout") as number) ?? 3;
+  track.systemsLayout =
+    (yTrack.get("systemsLayout") as Y.Array<number> | undefined)?.toArray() ?? [];
 
   const yArticulations = yTrack.get("percussionArticulations") as
     | Y.Array<Y.Map<unknown>>
@@ -672,6 +694,8 @@ function buildBar(yBar: Y.Map<unknown>): alphaTab.model.Bar {
   bar.keySignatureType =
     ((yBar.get("keySignatureType") as number) ??
       0) as unknown as alphaTab.model.KeySignatureType;
+  bar.displayScale = (yBar.get("displayScale") as number) ?? 1;
+  bar.displayWidth = (yBar.get("displayWidth") as number) ?? -1;
 
   const yVoices = yBar.get("voices") as Y.Array<Y.Map<unknown>>;
   if (yVoices) {

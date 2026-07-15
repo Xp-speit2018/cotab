@@ -88,7 +88,7 @@ Current target boundaries:
   persistence. This is distinct from STUN/TURN connectivity fallback: TURN may
   relay encrypted WebRTC traffic while the current collaboration model remains
   p2p CRDT.
-- [ ] **Layout-independent snap grid** — Remove the snap grid's historical
+- [x] **Layout-independent snap grid** — Remove the snap grid's historical
   single-system technical debt. This is a prerequisite for dual layout support
   and fixed-system incremental rendering.
 - [ ] **UI/UX improvements and unification** — Polish, consistency, and accessibility.

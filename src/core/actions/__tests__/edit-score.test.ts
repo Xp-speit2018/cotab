@@ -133,3 +133,64 @@ describe("document.score.setMetadata", () => {
     expect(syncGetScoreMap()!.get("subTitle")).toBe("Opus 1");
   });
 });
+
+describe("score system layout actions", () => {
+  it("updates the default and explicit system layout", () => {
+    executeDocumentAction(
+      "document.score.setDefaultSystemsLayout",
+      { value: 4 },
+      ctx,
+    );
+    executeDocumentAction(
+      "document.score.setSystemsLayout",
+      { value: [4, 3, 2] },
+      ctx,
+    );
+
+    const score = syncGetScoreMap()!;
+    expect(score.get("defaultSystemsLayout")).toBe(4);
+    expect(
+      (score.get("systemsLayout") as Y.Array<number>).toArray(),
+    ).toEqual([4, 3, 2]);
+  });
+
+  it("can clear the explicit system layout", () => {
+    executeDocumentAction(
+      "document.score.setSystemsLayout",
+      { value: [2, 2] },
+      ctx,
+    );
+    executeDocumentAction(
+      "document.score.setSystemsLayout",
+      { value: [] },
+      ctx,
+    );
+
+    expect(
+      (
+        syncGetScoreMap()!.get("systemsLayout") as Y.Array<number>
+      ).toArray(),
+    ).toEqual([]);
+  });
+
+  it("rejects non-positive entries before updating Y.Doc", () => {
+    const doc = syncGetScoreMap()!.doc!;
+    let updates = 0;
+    doc.on("update", () => updates++);
+
+    expect(() =>
+      executeDocumentAction(
+        "document.score.setSystemsLayout",
+        { value: [4, 0, 2] },
+        ctx,
+      ),
+    ).toThrow(DocumentActionArgumentsError);
+
+    expect(updates).toBe(0);
+    expect(
+      (
+        syncGetScoreMap()!.get("systemsLayout") as Y.Array<number>
+      ).toArray(),
+    ).toEqual([]);
+  });
+});

@@ -483,6 +483,8 @@ export interface BarSchema {
   simileMark: SimileMark;
   keySignature: number;
   keySignatureType: KeySignatureType;
+  displayScale: number;
+  displayWidth: number;
 }
 
 export interface MasterBarSchema {
@@ -497,6 +499,8 @@ export interface MasterBarSchema {
   section: SectionSchema | null;
   tempoAutomations: AutomationSchema[];
   fermata: Map<number, FermataSchema> | null;
+  displayScale: number;
+  displayWidth: number;
 }
 
 export interface StaffSchema {
@@ -520,6 +524,8 @@ export interface TrackSchema {
   name: string;
   shortName: string;
   percussionArticulations: InstrumentArticulationSchema[];
+  defaultSystemsLayout: number;
+  systemsLayout: number[];
 }
 
 export interface ScoreSchema {
@@ -533,6 +539,8 @@ export interface ScoreSchema {
   tab: string;
   instructions: string;
   notices: string;
+  defaultSystemsLayout: number;
+  systemsLayout: number[];
   /** AlphaTab getter derived from the first master bar's first tempo automation. */
   tempo: number;
   /** AlphaTab getter derived from the first master bar's first tempo automation. */
@@ -719,6 +727,8 @@ export function createBar(clef: number = Clef.G2): Y.Map<unknown> {
   bar.set("simileMark", SimileMark.None);
   bar.set("keySignature", 0);
   bar.set("keySignatureType", KeySignatureType.Major);
+  bar.set("displayScale", 1);
+  bar.set("displayWidth", -1);
   return bar;
 }
 
@@ -738,6 +748,8 @@ export function createMasterBar(
   mb.set("section", null);
   mb.set("tempoAutomations", new Y.Array<Y.Map<unknown>>());
   mb.set("fermata", null);
+  mb.set("displayScale", 1);
+  mb.set("displayWidth", -1);
   return mb;
 }
 
@@ -766,6 +778,8 @@ export function createTrack(name: string = "Track 1"): Y.Map<unknown> {
   track.set("name", name);
   track.set("shortName", "");
   track.set("percussionArticulations", new Y.Array<Y.Map<unknown>>());
+  track.set("defaultSystemsLayout", 3);
+  track.set("systemsLayout", new Y.Array<number>());
   return track;
 }
 
@@ -791,6 +805,8 @@ export function initializeScore(doc: Y.Doc): Y.Map<unknown> {
       score.set("tab", "");
       score.set("instructions", "");
       score.set("notices", "");
+      score.set("defaultSystemsLayout", 3);
+      score.set("systemsLayout", new Y.Array<number>());
       score.set("masterBars", new Y.Array<Y.Map<unknown>>());
       score.set("tracks", new Y.Array<Y.Map<unknown>>());
     });
@@ -1066,6 +1082,8 @@ export function snapshotBar(yBar: Y.Map<unknown>): BarSchema {
     keySignatureType:
       (yBar.get("keySignatureType") as KeySignatureType) ??
       KeySignatureType.Major,
+    displayScale: (yBar.get("displayScale") as number) ?? 1,
+    displayWidth: (yBar.get("displayWidth") as number) ?? -1,
   };
 }
 
@@ -1100,6 +1118,8 @@ export function snapshotMasterBar(yMb: Y.Map<unknown>): MasterBarSchema {
       yMb.get("tempoAutomations") as Y.Array<Y.Map<unknown>> | undefined,
     ),
     fermata,
+    displayScale: (yMb.get("displayScale") as number) ?? 1,
+    displayWidth: (yMb.get("displayWidth") as number) ?? -1,
   };
 }
 
@@ -1142,6 +1162,10 @@ export function snapshotTrack(yTrack: Y.Map<unknown>): TrackSchema {
     shortName: (yTrack.get("shortName") as string) ?? "",
     percussionArticulations:
       yArticulations?.map(snapshotInstrumentArticulation) ?? [],
+    defaultSystemsLayout:
+      (yTrack.get("defaultSystemsLayout") as number) ?? 3,
+    systemsLayout:
+      (yTrack.get("systemsLayout") as Y.Array<number> | undefined)?.toArray() ?? [],
   };
 }
 
@@ -1164,6 +1188,10 @@ export function snapshotScore(yScore: Y.Map<unknown>): ScoreSchema {
     tab: (yScore.get("tab") as string) ?? "",
     instructions: (yScore.get("instructions") as string) ?? "",
     notices: (yScore.get("notices") as string) ?? "",
+    defaultSystemsLayout:
+      (yScore.get("defaultSystemsLayout") as number) ?? 3,
+    systemsLayout:
+      (yScore.get("systemsLayout") as Y.Array<number> | undefined)?.toArray() ?? [],
     tempo: (firstTempoAutomation?.get("value") as number) ?? 120,
     tempoLabel: (firstTempoAutomation?.get("text") as string) ?? "",
     masterBars: masterBars ? masterBars.map((mb) => snapshotMasterBar(mb)) : [],

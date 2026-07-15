@@ -303,6 +303,7 @@ vi.mock("@/stores/percussion-data", () => ({
 
 vi.mock("@/stores/snap-grid", () => ({
   getSnapGrids: vi.fn(() => new Map()),
+  getSnapGridForBar: vi.fn(() => null),
   updateSnapGridOverlay: vi.fn(),
   getNavigablePositions: vi.fn(() => null),
 }));

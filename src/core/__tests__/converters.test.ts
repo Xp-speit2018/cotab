@@ -601,6 +601,99 @@ describe("round-trip (Y → AlphaTab → Y)", () => {
     expect(newNotes1.get(0).get("string")).toBe(1);
   });
 
+  it("preserves score, track, master-bar, and bar layout fields", () => {
+    const scoreMap = getScoreMap()!;
+    seedOneTrackScore(scoreMap, 1);
+
+    transact(() => {
+      scoreMap.set("defaultSystemsLayout", 4);
+      (scoreMap.get("systemsLayout") as Y.Array<number>).push([2, 3]);
+
+      const masterBar = (
+        scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>
+      ).get(0);
+      masterBar.set("displayScale", 1.25);
+      masterBar.set("displayWidth", 360);
+
+      const track = (
+        scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>
+      ).get(0);
+      track.set("defaultSystemsLayout", 2);
+      (track.get("systemsLayout") as Y.Array<number>).push([1, 2]);
+
+      const staff = (
+        track.get("staves") as Y.Array<Y.Map<unknown>>
+      ).get(0);
+      const bar = (
+        staff.get("bars") as Y.Array<Y.Map<unknown>>
+      ).get(0);
+      bar.set("displayScale", 0.75);
+      bar.set("displayWidth", 240);
+    });
+
+    const settings = createAlphaTabSettings();
+    const alphaScore = buildAlphaTabScore(scoreMap, settings);
+    expect(alphaScore.defaultSystemsLayout).toBe(4);
+    expect(alphaScore.systemsLayout).toEqual([2, 3]);
+    expect(alphaScore.tracks[0].defaultSystemsLayout).toBe(2);
+    expect(alphaScore.tracks[0].systemsLayout).toEqual([1, 2]);
+    expect(alphaScore.masterBars[0].displayScale).toBe(1.25);
+    expect(alphaScore.masterBars[0].displayWidth).toBe(360);
+    expect(alphaScore.tracks[0].staves[0].bars[0].displayScale).toBe(0.75);
+    expect(alphaScore.tracks[0].staves[0].bars[0].displayWidth).toBe(240);
+
+    const importedDoc = new Y.Doc();
+    importScoreToYDoc(alphaScore, importedDoc);
+    const snapshot = snapshotScore(importedDoc.getMap("score"));
+    expect(snapshot.defaultSystemsLayout).toBe(4);
+    expect(snapshot.systemsLayout).toEqual([2, 3]);
+    expect(snapshot.tracks[0].defaultSystemsLayout).toBe(2);
+    expect(snapshot.tracks[0].systemsLayout).toEqual([1, 2]);
+    expect(snapshot.masterBars[0].displayScale).toBe(1.25);
+    expect(snapshot.masterBars[0].displayWidth).toBe(360);
+    expect(snapshot.tracks[0].staves[0].bars[0].displayScale).toBe(0.75);
+    expect(snapshot.tracks[0].staves[0].bars[0].displayWidth).toBe(240);
+  });
+
+  it("preserves Taijin Kyofusho system layout through Y.Doc rebuild", () => {
+    const data = readFileSync("public/demos/Taijin_kyofusho.gp");
+    const settings = createAlphaTabSettings();
+    const alphaScore = alphaTab.importer.ScoreLoader.loadScoreFromBytes(
+      new Uint8Array(data),
+      settings,
+    );
+
+    expect(alphaScore.defaultSystemsLayout).toBe(4);
+    expect(alphaScore.systemsLayout).toEqual([
+      4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 2,
+    ]);
+    expect(alphaScore.tracks[0].defaultSystemsLayout).toBe(4);
+    expect(alphaScore.tracks[0].systemsLayout).toEqual([4, 4, 4, 4, 4, 4, 4]);
+    expect(alphaScore.tracks[1].defaultSystemsLayout).toBe(3);
+    expect(alphaScore.tracks[1].systemsLayout).toEqual([
+      3, 3, 3, 3, 3, 3, 3, 3, 3, 1,
+    ]);
+
+    const doc = new Y.Doc();
+    importScoreToYDoc(alphaScore, doc);
+    const rebuilt = buildAlphaTabScore(doc.getMap("score"), settings);
+
+    expect(rebuilt.defaultSystemsLayout).toBe(alphaScore.defaultSystemsLayout);
+    expect(rebuilt.systemsLayout).toEqual(alphaScore.systemsLayout);
+    expect(rebuilt.tracks[0].defaultSystemsLayout).toBe(
+      alphaScore.tracks[0].defaultSystemsLayout,
+    );
+    expect(rebuilt.tracks[0].systemsLayout).toEqual(
+      alphaScore.tracks[0].systemsLayout,
+    );
+    expect(rebuilt.tracks[1].defaultSystemsLayout).toBe(
+      alphaScore.tracks[1].defaultSystemsLayout,
+    );
+    expect(rebuilt.tracks[1].systemsLayout).toEqual(
+      alphaScore.tracks[1].systemsLayout,
+    );
+  });
+
   it("preserves Taijin Kyofusho per-bar tempo map through Y.Doc rebuild", () => {
     const data = readFileSync("public/demos/Taijin_kyofusho.gp");
     const settings = createAlphaTabSettings();

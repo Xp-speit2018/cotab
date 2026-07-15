@@ -6,7 +6,7 @@ Every action accepts one strict JSON object. The schemas below are projected
 from the runtime `DocumentActionDefinition.argsSchema` values used for
 validation and execution.
 
-Action count: 97.
+Action count: 101.
 
 ID | Category | i18n key | Arguments JSON Schema
 --- | --- | --- | ---
@@ -91,7 +91,9 @@ ID | Category | i18n key | Arguments JSON Schema
 `document.paste` | `document.clipboard` | `shortcuts.clipboard.paste` | `{"type":"object","properties":{},"additionalProperties":false}`
 `document.redo` | `document.history` | `actions.edit.redo` | `{"type":"object","properties":{},"additionalProperties":false}`
 `document.score.setArtist` | `document.score` | `actions.edit.score.setArtist` | `{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`
+`document.score.setDefaultSystemsLayout` | `document.score` | `actions.edit.score.setDefaultSystemsLayout` | `{"type":"object","properties":{"value":{"type":"integer","minimum":1,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
 `document.score.setMetadata` | `document.score` | `actions.edit.score.setMetadata` | `{"type":"object","properties":{"field":{"type":"string","enum":["title","subTitle","artist","album","words","music","copyright","tab","instructions","notices"]},"value":{"type":"string"}},"required":["field","value"],"additionalProperties":false}`
+`document.score.setSystemsLayout` | `document.score` | `actions.edit.score.setSystemsLayout` | `{"type":"object","properties":{"value":{"type":"array","items":{"type":"integer","minimum":1,"maximum":9007199254740991}}},"required":["value"],"additionalProperties":false}`
 `document.score.setTempo` | `document.score` | `actions.edit.score.setTempo` | `{"type":"object","properties":{"tempo":{"type":"number","exclusiveMinimum":0}},"required":["tempo"],"additionalProperties":false}`
 `document.score.setTempoLabel` | `document.score` | `actions.edit.score.setTempoLabel` | `{"type":"object","properties":{"label":{"type":"string"}},"required":["label"],"additionalProperties":false}`
 `document.score.setTitle` | `document.score` | `actions.edit.score.setTitle` | `{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`
@@ -102,8 +104,10 @@ ID | Category | i18n key | Arguments JSON Schema
 `document.staff.setTranspositionPitch` | `document.staff` | `actions.edit.staff.setTranspositionPitch` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"staffIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"transpositionPitch":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["trackIndex","staffIndex","transpositionPitch"],"additionalProperties":false}`
 `document.track.add` | `document.track` | `actions.edit.track.add` | `{"type":"object","properties":{"presetId":{"type":"string","enum":["acousticGuitar","electricGuitarClean","electricGuitarDistortion","bassGuitar","violin","acousticPiano","drumkit"]}},"required":["presetId"],"additionalProperties":false}`
 `document.track.delete` | `document.track` | `actions.edit.track.delete` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991}},"required":["trackIndex"],"additionalProperties":false}`
+`document.track.setDefaultSystemsLayout` | `document.track` | `actions.edit.track.setDefaultSystemsLayout` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"value":{"type":"integer","minimum":1,"maximum":9007199254740991}},"required":["trackIndex","value"],"additionalProperties":false}`
 `document.track.setName` | `document.track` | `actions.edit.track.setName` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"name":{"type":"string"}},"required":["trackIndex","name"],"additionalProperties":false}`
 `document.track.setPercussionArticulationOutputMidiNumber` | `document.track` | `actions.edit.track.setPercussionArticulationOutputMidiNumber` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"articulationIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"outputMidiNumber":{"type":"integer","minimum":0,"maximum":127}},"required":["trackIndex","articulationIndex","outputMidiNumber"],"additionalProperties":false}`
 `document.track.setPlaybackInfoProgram` | `document.track` | `actions.edit.track.setPlaybackInfoProgram` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"program":{"type":"integer","minimum":0,"maximum":127}},"required":["trackIndex","program"],"additionalProperties":false}`
 `document.track.setShortName` | `document.track` | `actions.edit.track.setShortName` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"shortName":{"type":"string"}},"required":["trackIndex","shortName"],"additionalProperties":false}`
+`document.track.setSystemsLayout` | `document.track` | `actions.edit.track.setSystemsLayout` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"value":{"type":"array","items":{"type":"integer","minimum":1,"maximum":9007199254740991}}},"required":["trackIndex","value"],"additionalProperties":false}`
 `document.undo` | `document.history` | `actions.edit.undo` | `{"type":"object","properties":{},"additionalProperties":false}`

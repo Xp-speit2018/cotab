@@ -4,6 +4,7 @@ import { actionArgs } from "./definition";
 export const finiteNumber = z.number().finite();
 export const integer = z.number().int();
 export const nonNegativeInteger = integer.min(0);
+export const positiveInteger = integer.min(1);
 
 export const bendPointSchema = z.strictObject({
   offset: finiteNumber,

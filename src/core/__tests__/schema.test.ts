@@ -139,6 +139,12 @@ describe("createBar", () => {
     expect(bar.get("keySignature")).toBe(0);
     expect(bar.get("keySignatureType")).toBe(0);
   });
+
+  it("uses AlphaTab's default display sizing", () => {
+    const bar = integrate(createBar());
+    expect(bar.get("displayScale")).toBe(1);
+    expect(bar.get("displayWidth")).toBe(-1);
+  });
 });
 
 describe("createMasterBar", () => {
@@ -163,6 +169,12 @@ describe("createMasterBar", () => {
     expect(mb.has("tempo")).toBe(false);
     expect(mb.has("keySignature")).toBe(false);
     expect(mb.get("tempoAutomations")).toBeInstanceOf(Y.Array);
+  });
+
+  it("uses AlphaTab's default display sizing", () => {
+    const mb = integrate(createMasterBar());
+    expect(mb.get("displayScale")).toBe(1);
+    expect(mb.get("displayWidth")).toBe(-1);
   });
 });
 
@@ -214,6 +226,14 @@ describe("createTrack", () => {
     const playbackInfo = track.get("playbackInfo") as Y.Map<unknown>;
     expect(playbackInfo.get("program")).toBe(25);
     expect(track.has("playbackProgram")).toBe(false);
+  });
+
+  it("uses AlphaTab's default system layout", () => {
+    const track = integrate(createTrack());
+    expect(track.get("defaultSystemsLayout")).toBe(3);
+    expect(
+      (track.get("systemsLayout") as Y.Array<number>).toArray(),
+    ).toEqual([]);
   });
 });
 
@@ -275,15 +295,25 @@ describe("snapshotScore", () => {
     const scoreMap = initializeScore(doc);
 
     doc.transact(() => {
+      scoreMap.set("defaultSystemsLayout", 4);
+      (scoreMap.get("systemsLayout") as Y.Array<number>).push([2, 3]);
+
       const yMasterBars = scoreMap.get("masterBars") as Y.Array<Y.Map<unknown>>;
-      yMasterBars.push([createMasterBar(3, 4)]);
+      const masterBar = createMasterBar(3, 4);
+      masterBar.set("displayScale", 1.25);
+      masterBar.set("displayWidth", 320);
+      yMasterBars.push([masterBar]);
 
       const track = createTrack("Guitar");
       const staff = createStaff();
       const bar = createBar();
+      bar.set("displayScale", 0.8);
+      bar.set("displayWidth", 240);
       const voice = createVoice();
       const beat = createBeat();
       (scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>).push([track]);
+      track.set("defaultSystemsLayout", 2);
+      (track.get("systemsLayout") as Y.Array<number>).push([1, 2]);
       (track.get("staves") as Y.Array<Y.Map<unknown>>).push([staff]);
       (staff.get("bars") as Y.Array<Y.Map<unknown>>).push([bar]);
       (bar.get("voices") as Y.Array<Y.Map<unknown>>).push([voice]);
@@ -297,15 +327,23 @@ describe("snapshotScore", () => {
     const snap = snapshotScore(scoreMap);
     expect(snap.title).toBe("Untitled");
     expect(snap.tempo).toBe(120);
+    expect(snap.defaultSystemsLayout).toBe(4);
+    expect(snap.systemsLayout).toEqual([2, 3]);
     expect(snap.masterBars).toHaveLength(1);
     expect(snap.masterBars[0].timeSignatureNumerator).toBe(3);
+    expect(snap.masterBars[0].displayScale).toBe(1.25);
+    expect(snap.masterBars[0].displayWidth).toBe(320);
     expect(snap.tracks).toHaveLength(1);
     expect(snap.tracks[0].name).toBe("Guitar");
+    expect(snap.tracks[0].defaultSystemsLayout).toBe(2);
+    expect(snap.tracks[0].systemsLayout).toEqual([1, 2]);
     expect(snap.tracks[0].playbackInfo.program).toBe(25);
     expect(snap.tracks[0].staves[0].stringTuning.tunings).toEqual([
       64, 59, 55, 50, 45, 40,
     ]);
     expect(snap.tracks[0].staves[0].bars[0].voices[0].beats[0].notes[0].fret).toBe(5);
+    expect(snap.tracks[0].staves[0].bars[0].displayScale).toBe(0.8);
+    expect(snap.tracks[0].staves[0].bars[0].displayWidth).toBe(240);
   });
 });
 
@@ -361,6 +399,10 @@ describe("initializeScore", () => {
     expect(scoreMap.has("tempo")).toBe(false);
     expect(scoreMap.has("tempoLabel")).toBe(false);
     expect(scoreMap.get("artist")).toBe("");
+    expect(scoreMap.get("defaultSystemsLayout")).toBe(3);
+    expect(
+      (scoreMap.get("systemsLayout") as Y.Array<number>).toArray(),
+    ).toEqual([]);
     expect(scoreMap.get("masterBars")).toBeInstanceOf(Y.Array);
     expect(scoreMap.get("tracks")).toBeInstanceOf(Y.Array);
   });

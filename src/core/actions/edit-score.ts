@@ -3,7 +3,11 @@ import * as z from "zod";
 import { engine } from "@/core/engine";
 import { AutomationType, createAutomation } from "@/core/schema";
 import { actionArgs, defineDocumentAction } from "./definition";
-import { finiteNumber, valueStringArgs } from "./args-schema";
+import {
+  finiteNumber,
+  positiveInteger,
+  valueStringArgs,
+} from "./args-schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
@@ -30,6 +34,21 @@ function setScoreField(
   transact(() => {
     yScore.set(field, value);
   });
+}
+
+function replaceNumberArray(
+  owner: Y.Map<unknown>,
+  key: string,
+  values: readonly number[],
+): void {
+  let array = owner.get(key) as Y.Array<number> | undefined;
+  if (!array) {
+    array = new Y.Array<number>();
+    owner.set(key, array);
+  } else if (array.length > 0) {
+    array.delete(0, array.length);
+  }
+  if (values.length > 0) array.push([...values]);
 }
 
 function getOrCreateInitialTempoAutomation(
@@ -115,10 +134,40 @@ const setTempoLabelAction = defineDocumentAction({
   },
 });
 
+const setDefaultSystemsLayoutAction = defineDocumentAction({
+  id: "document.score.setDefaultSystemsLayout",
+  i18nKey: "actions.edit.score.setDefaultSystemsLayout",
+  category: "document.score",
+  argsSchema: actionArgs({ value: positiveInteger }),
+  execute: ({ value }) => {
+    const yScore = getScoreMap();
+    if (!yScore) return;
+    transact(() => {
+      yScore.set("defaultSystemsLayout", value);
+    });
+  },
+});
+
+const setSystemsLayoutAction = defineDocumentAction({
+  id: "document.score.setSystemsLayout",
+  i18nKey: "actions.edit.score.setSystemsLayout",
+  category: "document.score",
+  argsSchema: actionArgs({ value: z.array(positiveInteger) }),
+  execute: ({ value }) => {
+    const yScore = getScoreMap();
+    if (!yScore) return;
+    transact(() => {
+      replaceNumberArray(yScore, "systemsLayout", value);
+    });
+  },
+});
+
 export const scoreDocumentActions = [
   setMetadataAction,
   setTitleAction,
   setArtistAction,
   setTempoAction,
   setTempoLabelAction,
+  setDefaultSystemsLayoutAction,
+  setSystemsLayoutAction,
 ] as const;

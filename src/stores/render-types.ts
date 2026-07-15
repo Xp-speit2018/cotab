@@ -66,13 +66,23 @@ export interface SnapPosition {
 }
 
 export interface SnapGrid {
+  systemIndex: number;
+  trackIndex: number;
+  staffIndex: number;
+  barIndexes: number[];
+  systemBounds: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  };
   positions: SnapPosition[];
   noteWidth: number;
   noteHeight: number;
   percussionMap?: Map<number, number>;
-  /** Pre-computed unique string values in Y-sorted order (top to bottom) for navigation. */
-  navigableStrings: number[];
 }
+
+export type ScoreLayout = "horizontal" | "parchment";
 
 export interface PercArticulationDef {
   id: number;
@@ -91,15 +101,7 @@ export interface PercSnapGroup {
 export interface TrackInfo {
   index: number;
   name: string;
-  volume: number;
-  isMuted: boolean;
-  isSolo: boolean;
   isPercussion: boolean;
-}
-
-export interface TrackBounds {
-  y: number;
-  height: number;
 }
 
 // ─── Selected element info ──────────────────────────────────────────────────
@@ -289,7 +291,6 @@ export interface PlayerState {
   scoreTempoLabel: string;
   tracks: TrackInfo[];
   visibleTrackIndices: number[];
-  trackBounds: TrackBounds[];
   selectedBeat: SelectedBeat | null;
   selectionRange: SelectionRange | null;
   selectedTrackInfo: SelectedTrackInfo | null;
@@ -300,6 +301,7 @@ export interface PlayerState {
   selectedNoteIndex: number;
   selectedString: number | null;
   zoom: number;
+  scoreLayout: ScoreLayout;
   sidebarVisible: boolean;
   roomDialogOpen: boolean;
   showSnapGrid: boolean;
@@ -314,14 +316,12 @@ export interface PlayerState {
   setMasterVolume: (volume: number) => void;
   toggleLoop: () => void;
   setTransportLoopRange: (range: LoopRange | null) => void;
-  setTrackVolume: (trackIndex: number, volume: number) => void;
-  setTrackMute: (trackIndex: number, muted: boolean) => void;
-  setTrackSolo: (trackIndex: number, solo: boolean) => void;
   setTrackColor: (trackIndex: number, r: number, g: number, b: number) => void;
   setTrackProgram: (trackIndex: number, program: number) => void;
   getTuningPresets: (stringCount: number) => TuningPresetInfo[];
   formatTuningNote: (midiValue: number) => string;
   setZoom: (zoom: number) => void;
+  setScoreLayout: (layout: ScoreLayout) => void;
   setShowSnapGrid: (show: boolean) => void;
   setTransportPlayhead: (args: BeatPositionArgs | null) => void;
   setTransportPlayheadToSelection: () => void;

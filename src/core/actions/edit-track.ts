@@ -16,7 +16,11 @@ import {
   type TrackPresetId,
 } from "@/core/presets";
 import { actionArgs, defineDocumentAction } from "./definition";
-import { integer, nonNegativeInteger } from "./args-schema";
+import {
+  integer,
+  nonNegativeInteger,
+  positiveInteger,
+} from "./args-schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
@@ -259,6 +263,49 @@ const setTrackPlaybackInfoProgramAction = defineDocumentAction({
   },
 });
 
+const setTrackDefaultSystemsLayoutAction = defineDocumentAction({
+  id: "document.track.setDefaultSystemsLayout",
+  i18nKey: "actions.edit.track.setDefaultSystemsLayout",
+  category: "document.track",
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    value: positiveInteger,
+  }),
+  execute: ({ trackIndex, value }) => {
+    const yTrack = engine.resolveYTrack(trackIndex);
+    if (!yTrack) return;
+    transact(() => {
+      yTrack.set("defaultSystemsLayout", value);
+    });
+  },
+});
+
+const setTrackSystemsLayoutAction = defineDocumentAction({
+  id: "document.track.setSystemsLayout",
+  i18nKey: "actions.edit.track.setSystemsLayout",
+  category: "document.track",
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    value: z.array(positiveInteger),
+  }),
+  execute: ({ trackIndex, value }) => {
+    const yTrack = engine.resolveYTrack(trackIndex);
+    if (!yTrack) return;
+    transact(() => {
+      let systemsLayout = yTrack.get("systemsLayout") as
+        | Y.Array<number>
+        | undefined;
+      if (!systemsLayout) {
+        systemsLayout = new Y.Array<number>();
+        yTrack.set("systemsLayout", systemsLayout);
+      } else if (systemsLayout.length > 0) {
+        systemsLayout.delete(0, systemsLayout.length);
+      }
+      if (value.length > 0) systemsLayout.push([...value]);
+    });
+  },
+});
+
 const setPercussionArticulationOutputMidiNumberAction = defineDocumentAction({
   id: "document.track.setPercussionArticulationOutputMidiNumber",
   i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber",
@@ -292,5 +339,7 @@ export const trackDocumentActions = [
   setTrackNameAction,
   setTrackShortNameAction,
   setTrackPlaybackInfoProgramAction,
+  setTrackDefaultSystemsLayoutAction,
+  setTrackSystemsLayoutAction,
   setPercussionArticulationOutputMidiNumberAction,
 ] as const;

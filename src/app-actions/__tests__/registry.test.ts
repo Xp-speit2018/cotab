@@ -36,6 +36,14 @@ describe("AppAction registry", () => {
     expect(action?.domain).toBe("view");
   });
 
+  it("registers score layout as a ViewAction", () => {
+    const action = getAllAppActions().find(
+      (candidate) => candidate.id === "view.setScoreLayout",
+    );
+
+    expect(action?.domain).toBe("view");
+  });
+
   it("dispatches transport actions through the player store", () => {
     const originalTogglePlayback = usePlayerStore.getState().togglePlayback;
     const togglePlayback = vi.fn();
@@ -46,6 +54,24 @@ describe("AppAction registry", () => {
       expect(togglePlayback).toHaveBeenCalledOnce();
     } finally {
       usePlayerStore.setState({ togglePlayback: originalTogglePlayback });
+    }
+  });
+
+  it("dispatches score layout without a document action", () => {
+    const originalSetScoreLayout = usePlayerStore.getState().setScoreLayout;
+    const setScoreLayout = vi.fn();
+
+    usePlayerStore.setState({ setScoreLayout });
+    try {
+      const result = executeAppActionUnsafe(
+        "view.setScoreLayout",
+        { layout: "parchment" },
+        context,
+      );
+      expect(result).toBe(true);
+      expect(setScoreLayout).toHaveBeenCalledWith("parchment");
+    } finally {
+      usePlayerStore.setState({ setScoreLayout: originalSetScoreLayout });
     }
   });
 });

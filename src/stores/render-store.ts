@@ -61,11 +61,11 @@ import type {
   PlayerState,
   RenderSelectorState,
   RenderTransportState,
+  ScoreLayout,
   SelectionRange,
   SelectedBeat,
   SelectedBeatInfo,
   SelectedNoteInfo,
-  TrackBounds,
   TrackInfo,
 } from "./render-types";
 import { GP7_DEF_BY_ID } from "./percussion-data";
@@ -81,6 +81,7 @@ import {
 } from "./render-helpers";
 import {
   getSnapGrids,
+  getSnapGridForBar,
   buildSnapGrids,
   updateSnapGridOverlay,
   setSnapGridSelection,
@@ -126,7 +127,6 @@ export type {
   TrackPreset,
   SelectedBeat,
   SelectionRange,
-  TrackBounds,
   SelectedNoteInfo,
   SelectedBeatInfo,
   SelectedBarInfo,
@@ -135,6 +135,7 @@ export type {
   TuningPresetInfo,
   SelectedVoiceInfo,
   ScoreMetadataField,
+  ScoreLayout,
   PlayerState,
   PercArticulationDef,
   DrumCategoryId,
@@ -230,8 +231,7 @@ function resolveBarAtPoint(
       const bar = targetBeat.voice.bar;
       const staff = bar.staff;
       const track = staff.track;
-      const gridKey = `${track.index}:${staff.index}`;
-      const grid = getSnapGrids().get(gridKey);
+      const grid = getSnapGridForBar(track.index, staff.index, bar.index);
       let snappedString: number | null = null;
       if (grid) {
         const snap = findNearestSnap(grid, y);
@@ -787,12 +787,22 @@ function beatAddressFromHit(hit: {
 
 function collectBeatAnchors(
   reference: BeatAddress,
-): Array<{ address: BeatAddress; left: number; right: number }> {
+): Array<{
+  address: BeatAddress;
+  left: number;
+  right: number;
+  systemIndex: number;
+}> {
   const api = getApi();
   const lookup = api?.boundsLookup;
   if (!lookup) return [];
 
-  const anchors: Array<{ address: BeatAddress; left: number; right: number }> = [];
+  const anchors: Array<{
+    address: BeatAddress;
+    left: number;
+    right: number;
+    systemIndex: number;
+  }> = [];
   for (const system of lookup.staffSystems) {
     for (const masterBar of system.bars) {
       for (const barBounds of masterBar.bars) {
@@ -808,7 +818,12 @@ function collectBeatAnchors(
           const address = beatToAddress(beat);
           const contentRange = getBeatContentXRange(address);
           if (!contentRange) continue;
-          anchors.push({ address, left: contentRange.left, right: contentRange.right });
+          anchors.push({
+            address,
+            left: contentRange.left,
+            right: contentRange.right,
+            systemIndex: system.index,
+          });
         }
       }
     }
@@ -827,24 +842,43 @@ function resolveTransportLoopEndpointAtPoint(
   },
   x: number,
   anchorX: number,
+  anchorAddress: BeatAddress,
 ): BeatAddress {
   const address = beatAddressFromHit(hit);
   const anchors = collectBeatAnchors(address);
   if (anchors.length === 0) return address;
 
-  if (x >= anchorX) {
-    let endpoint = anchors[0].address;
-    for (const anchor of anchors) {
+  const hitAnchor = anchors.find(
+    (anchor) => compareBeatAddresses(anchor.address, address) === 0,
+  );
+  if (!hitAnchor) return address;
+
+  const localAnchors = anchors.filter(
+    (anchor) => anchor.systemIndex === hitAnchor.systemIndex,
+  );
+  if (localAnchors.length === 0) return address;
+
+  const firstLocalIndex = anchors.indexOf(localAnchors[0]);
+  const lastLocalIndex = anchors.indexOf(
+    localAnchors[localAnchors.length - 1],
+  );
+  const addressOrder = compareBeatAddresses(address, anchorAddress);
+  const isForward = addressOrder > 0 || (addressOrder === 0 && x >= anchorX);
+
+  if (isForward) {
+    let endpoint =
+      anchors[firstLocalIndex - 1]?.address ?? localAnchors[0].address;
+    for (const anchor of localAnchors) {
       if (anchor.left > x) break;
       endpoint = anchor.address;
     }
     return endpoint;
   }
 
-  for (const anchor of anchors) {
+  for (const anchor of localAnchors) {
     if (anchor.right >= x) return anchor.address;
   }
-  return anchors[anchors.length - 1].address;
+  return anchors[lastLocalIndex + 1]?.address ?? localAnchors.at(-1)!.address;
 }
 
 function buildLoopRangeRects(range: LoopRange): OverlayRect[] {
@@ -1130,7 +1164,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   scoreTempoLabel: "",
   tracks: [],
   visibleTrackIndices: [],
-  trackBounds: [],
   selectedBeat: null,
   selectionRange: null,
   selectedTrackInfo: null,
@@ -1141,6 +1174,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedNoteIndex: -1,
   selectedString: null,
   zoom: 1,
+  scoreLayout: "horizontal",
   sidebarVisible: true,
   roomDialogOpen: false,
   showSnapGrid: false,
@@ -1198,7 +1232,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     settings.player.enableCursor = true;
     settings.player.enableElementHighlighting = true;
     settings.player.enableUserInteraction = true;
-    settings.display.layoutMode = alphaTab.LayoutMode.Horizontal;
+    settings.display.layoutMode = get().scoreLayout === "parchment"
+      ? alphaTab.LayoutMode.Parchment
+      : alphaTab.LayoutMode.Horizontal;
 
     const api = new alphaTab.AlphaTabApi(mainEl, settings);
     setApi(api);
@@ -1262,15 +1298,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const endBarIndex = Math.max(ds.anchorBarIndex, ds.currentBarIndex);
 
       if (ds.mode === "transport") {
-        const endpoint = resolveTransportLoopEndpointAtPoint(hit, coords.x, ds.anchorX);
+        const anchorAddress: BeatAddress = {
+          trackIndex: ds.anchorTrackIndex,
+          staffIndex: ds.anchorStaffIndex,
+          voiceIndex: ds.anchorVoiceIndex,
+          barIndex: ds.anchorBarIndex,
+          beatIndex: ds.anchorBeatIndex,
+        };
+        const endpoint = resolveTransportLoopEndpointAtPoint(
+          hit,
+          coords.x,
+          ds.anchorX,
+          anchorAddress,
+        );
         const range = normalizeLoopRange(
-          {
-            trackIndex: ds.anchorTrackIndex,
-            staffIndex: ds.anchorStaffIndex,
-            voiceIndex: ds.anchorVoiceIndex,
-            barIndex: ds.anchorBarIndex,
-            beatIndex: ds.anchorBeatIndex,
-          },
+          anchorAddress,
           endpoint,
         );
         get().setTransportLoopRange(range);
@@ -1451,32 +1493,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({ isLoading: true });
     });
 
-    // IMPORTANT: use postRenderFinished, NOT renderFinished.
     // boundsLookup is only guaranteed populated after postRenderFinished.
-    // Using renderFinished causes a "one step behind" bug where trackBounds
-    // contains data from the previous render.
     api.postRenderFinished.on(() => {
-      const api = getApi();
       // 1. Derive visibility from AlphaTab (single source of truth)
       const visibleTrackIndices = readVisibleIndices();
 
-      // 2. Extract per-track Y positions from boundsLookup
-      const lookup = api?.boundsLookup;
-      const newTrackBounds: TrackBounds[] = [];
-      if (lookup && lookup.staffSystems.length > 0) {
-        const firstSystem = lookup.staffSystems[0];
-        if (firstSystem.bars.length > 0) {
-          const firstMasterBar = firstSystem.bars[0];
-          for (const barBounds of firstMasterBar.bars) {
-            newTrackBounds.push({
-              y: barBounds.realBounds.y,
-              height: barBounds.realBounds.h,
-            });
-          }
-        }
-      }
-
-      // 3. Build snap grids for click-to-position resolution
+      // 2. Build snap grids for click-to-position resolution
       try {
         buildSnapGrids();
       } catch (e) {
@@ -1485,7 +1507,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         }
       }
 
-      // 4. Refresh snap-grid debug overlay if enabled
+      // 3. Refresh snap-grid debug overlay if enabled
       const currentSelection = get().selectedBeat;
       updateSnapGridOverlay(get().showSnapGrid, currentSelection
         ? {
@@ -1498,10 +1520,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({
         isLoading: false,
         visibleTrackIndices,
-        trackBounds: newTrackBounds,
       });
 
-      // 6. Apply pending selection (from rest insertion) with fresh bounds,
+      // 4. Apply pending selection (from rest insertion) with fresh bounds,
       //    or re-position the existing cursor if no pending change.
       const pending = engine.pendingSelection;
       if (pending) {
@@ -1518,7 +1539,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         }
       }
 
-      // 7. Reposition bar selection overlay after re-render
+      // 5. Reposition range and transport overlays after re-render
       updateBarSelectionOverlay(get().selectionRange);
       updateTransportPlayheadOverlay(get().transport.tickPosition);
       updateTransportLoopOverlay(get().transport.loopRange);
@@ -1549,9 +1570,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const tracks: TrackInfo[] = score.tracks.map((t, i) => ({
         index: i,
         name: t.name,
-        volume: existing[i]?.volume ?? 1,
-        isMuted: existing[i]?.isMuted ?? false,
-        isSolo: existing[i]?.isSolo ?? false,
         isPercussion: t.isPercussion,
       }));
 
@@ -1774,7 +1792,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       scoreTempoLabel: "",
       tracks: [],
       visibleTrackIndices: [],
-      trackBounds: [],
       selectedBeat: null,
       selectionRange: null,
       selectedTrackInfo: null,
@@ -1944,44 +1961,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     updateTransportLoopOverlay(range);
   },
 
-  // ── Track Controls ───────────────────────────────────────────────────────
-
-  setTrackVolume: (trackIndex, volume) => {
-    const track = getTrack(trackIndex);
-    const api = getApi();
-    if (!api || !track) return;
-    api.changeTrackVolume([track], volume);
-    set({
-      tracks: get().tracks.map((t) =>
-        t.index === trackIndex ? { ...t, volume } : t,
-      ),
-    });
-  },
-
-  setTrackMute: (trackIndex, muted) => {
-    const track = getTrack(trackIndex);
-    const api = getApi();
-    if (!api || !track) return;
-    api.changeTrackMute([track], muted);
-    set({
-      tracks: get().tracks.map((t) =>
-        t.index === trackIndex ? { ...t, isMuted: muted } : t,
-      ),
-    });
-  },
-
-  setTrackSolo: (trackIndex, solo) => {
-    const track = getTrack(trackIndex);
-    const api = getApi();
-    if (!api || !track) return;
-    api.changeTrackSolo([track], solo);
-    set({
-      tracks: get().tracks.map((t) =>
-        t.index === trackIndex ? { ...t, isSolo: solo } : t,
-      ),
-    });
-  },
-
   setTrackColor: (trackIndex, r, g, b) => {
     const track = getTrack(trackIndex);
     const api = getApi();
@@ -2034,6 +2013,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     set({ zoom });
   },
 
+  setScoreLayout: (scoreLayout: ScoreLayout) => {
+    if (scoreLayout === get().scoreLayout) return;
+    set({ scoreLayout });
+
+    const api = getApi();
+    if (!api) return;
+
+    invalidateCoTabRenderOverlays();
+    api.settings.display.layoutMode = scoreLayout === "parchment"
+      ? alphaTab.LayoutMode.Parchment
+      : alphaTab.LayoutMode.Horizontal;
+    api.updateSettings();
+    api.render();
+  },
+
   setShowSnapGrid: (show) => {
     set({ showSnapGrid: show });
     const sel = get().selectedBeat;
@@ -2077,8 +2071,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const selectedStr = stringArg ?? null;
 
       // Look up grid and beat bounds (needed for both cursor and note matching)
-      const gridKey = `${trackIndex}:${staffIndex}`;
-      const grid = getSnapGrids().get(gridKey) ?? null;
+      const grid = getSnapGridForBar(trackIndex, staffIndex, barIndex);
       const snap =
         grid && selectedStr !== null
           ? grid.positions.find((p) => p.string === selectedStr) ?? null

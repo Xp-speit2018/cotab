@@ -1,5 +1,6 @@
 import { getApi } from "@/stores/render-api";
 import { usePlayerStore } from "@/stores/render-store";
+import type { ScoreLayout } from "@/stores/render-types";
 import { registerAppAction } from "./registry";
 
 declare global {
@@ -8,10 +9,26 @@ declare global {
       args: { trackIndex: number; visible: boolean };
       result: boolean;
     };
+    "view.setScoreLayout": {
+      args: { layout: ScoreLayout };
+      result: boolean;
+    };
   }
 }
 
 export function registerViewActions(): void {
+  registerAppAction<{ layout: ScoreLayout }, boolean>({
+    id: "view.setScoreLayout",
+    domain: "view",
+    i18nKey: "actions.view.setScoreLayout",
+    category: "view",
+    execute: ({ layout }) => {
+      if (layout !== "horizontal" && layout !== "parchment") return false;
+      usePlayerStore.getState().setScoreLayout(layout);
+      return true;
+    },
+  });
+
   registerAppAction<
     { trackIndex: number; visible: boolean },
     boolean

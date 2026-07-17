@@ -31,8 +31,8 @@
     "cotab:cli": "tsx src/cli/cli.ts"
   },
   "dependencies": {
-    "@coderline/alphatab": "^1.8.1",
-    "@coderline/alphatab-vite": "^1.8.1",
+    "@coderline/alphatab": "^1.8.4",
+    "@coderline/alphatab-vite": "1.8.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

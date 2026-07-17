@@ -89,10 +89,9 @@ import {
   findNearestSnap,
   destroySnapGridOverlay,
 } from "./snap-grid";
-import {
-  engine,
-  importFromAlphaTab,
-} from "@/core/engine";
+import { importScoreToYDoc } from "@/core/converters";
+import { engine } from "@/core/engine";
+import { FILE_IMPORT_ORIGIN } from "@/core/origins";
 import { eventMatchesTransportModifier } from "@/shortcuts/transport-modifier";
 import {
   createWebCollaborationAdapter,
@@ -1598,7 +1597,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // originated from a Y.Doc rebuild to prevent infinite loops).
       const rebuildingFromYDoc = isRebuildingFromYDoc();
       if (shouldImportLoadedScore()) {
-        importFromAlphaTab(score);
+        const doc = engine.getDoc();
+        if (doc) {
+          importScoreToYDoc(score, doc, FILE_IMPORT_ORIGIN);
+          engine.getUndoManager()?.clear();
+        }
       }
 
       const existing = get().tracks;

@@ -29,11 +29,15 @@ import {
   createMasterBar,
 } from "./schema";
 import { HookRegistry, EngineHooks } from "./editor/hook";
-import { _setEngineRef } from "./converters";
+import {
+  documentChangeFromYEvents,
+  FULL_DOCUMENT_CHANGE,
+} from "./editor/document-change";
+import { FILE_IMPORT_ORIGIN } from "./origins";
 
 // ─── Re-exports for convenience ─────────────────────────────────────────────
 
-export const FILE_IMPORT_ORIGIN = "file-import";
+export { FILE_IMPORT_ORIGIN } from "./origins";
 
 // Re-export collaboration types for host adapters
 export type {
@@ -49,14 +53,6 @@ export type {
   YjsUpdateSource,
   YjsUpdateStats,
 } from "./editor/collaboration";
-
-// Pure converters (headless-safe)
-export {
-  importScoreToYDoc,
-  buildAlphaTabScore,
-  importTrack,
-  importFromAlphaTab,
-} from "./converters";
 
 // ─── Selection types ────────────────────────────────────────────────────────
 
@@ -657,14 +653,16 @@ export class EditorEngine {
     this.attachUndoManager();
     this.resetDocumentPeers();
     // Trigger renderer rebuild after doc swap
-    this._hookRegistry.emit('onLocalYDocEdit');
+    this._hookRegistry.emitDocumentChange(
+      "onLocalYDocEdit",
+      FULL_DOCUMENT_CHANGE,
+    );
   }
 
   localEditYDoc(fn: () => void, nextSelection?: PendingSelection | null): void {
     if (!this.doc) return;
     this.pendingSelection = nextSelection ?? null;
     this.doc.transact(fn, this.doc.clientID);
-    this._hookRegistry.emit('onLocalYDocEdit');
   }
 
   getDoc(): Y.Doc | null { return this.doc; }
@@ -676,16 +674,16 @@ export class EditorEngine {
 
   // Internal observer that dispatches peer edit notifications
   private _onYDocChange = (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    _events: Y.YEvent<any>[],
+    events: Y.YEvent<Y.AbstractType<unknown>>[],
     transaction: Y.Transaction,
   ): void => {
     if (transaction.origin === FILE_IMPORT_ORIGIN) return;
     if (!this.doc) return;
-    if (transaction.origin === this.doc.clientID) return; // Local already handled
-
-    // Peer edit (WebRTC sync, etc.)
-    this._hookRegistry.emit('onPeerYDocEdit');
+    const change = documentChangeFromYEvents(events);
+    const hook = transaction.origin === this.doc.clientID
+      ? "onLocalYDocEdit"
+      : "onPeerYDocEdit";
+    this._hookRegistry.emitDocumentChange(hook, change);
   };
 
   // ── Navigators ───────────────────────────────────────────────────────────
@@ -908,7 +906,10 @@ export class EditorEngine {
       if (this.persistence) {
         this.persistence.on("synced", () => {
           if (connectionGeneration !== this._connectionGeneration) return;
-          this._hookRegistry.emit('onPeerYDocEdit');
+          this._hookRegistry.emitDocumentChange(
+            "onPeerYDocEdit",
+            FULL_DOCUMENT_CHANGE,
+          );
         });
       }
 
@@ -924,7 +925,10 @@ export class EditorEngine {
       });
       this.provider.on("synced", () => {
         if (connectionGeneration !== this._connectionGeneration) return;
-        this._hookRegistry.emit('onPeerYDocEdit');
+        this._hookRegistry.emitDocumentChange(
+          "onPeerYDocEdit",
+          FULL_DOCUMENT_CHANGE,
+        );
       });
 
       // Swap doc (triggers observer attach + rebuild)
@@ -1042,13 +1046,3 @@ export class EditorEngine {
 // ─── Singleton ──────────────────────────────────────────────────────────────
 
 export const engine = new EditorEngine();
-
-// Set engine reference for converters (avoids circular import)
-_setEngineRef(
-  {
-    getDoc: () => engine.getDoc(),
-    getScoreMap: () => engine.getScoreMap(),
-    getUndoManager: () => engine.getUndoManager(),
-  },
-  FILE_IMPORT_ORIGIN,
-);

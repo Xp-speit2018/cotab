@@ -611,6 +611,36 @@ test("Agent drum continuation matches Y.Doc, AlphaTab, and rendered geometry", a
 
   const rightSidebar = page.locator('[data-sidebar-side="right"]');
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
+  const initialViewport = await page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(".at-viewport");
+    if (!viewport) throw new Error("AlphaTab viewport is unavailable.");
+    viewport.scrollLeft = viewport.scrollWidth - viewport.clientWidth;
+    const start = viewport.scrollLeft;
+    const trace = {
+      start,
+      minimum: start,
+      samples: [start],
+    };
+    const sample = () => {
+      trace.minimum = Math.min(trace.minimum, viewport.scrollLeft);
+      trace.samples.push(viewport.scrollLeft);
+    };
+    viewport.addEventListener("scroll", sample);
+    (window as unknown as {
+      __COTAB_VIEWPORT_TRACE__?: {
+        trace: typeof trace;
+        stop(): void;
+      };
+    }).__COTAB_VIEWPORT_TRACE__ = {
+      trace,
+      stop: () => viewport.removeEventListener("scroll", sample),
+    };
+    return {
+      scrollLeft: start,
+      maxScrollLeft: viewport.scrollWidth - viewport.clientWidth,
+    };
+  });
+  expect(initialViewport.scrollLeft).toBeGreaterThan(0);
   await rightSidebar.getByPlaceholder("Edit the current score...").fill(
     CONTINUE_DRUMS_PROMPT,
   );
@@ -622,6 +652,25 @@ test("Agent drum continuation matches Y.Doc, AlphaTab, and rendered geometry", a
   await expect(
     rightSidebar.getByText(CONTINUE_DRUMS_PROMPT, { exact: true }),
   ).toHaveCount(1);
+  // AlphaTab's default playback scroll uses a 300ms animation. Waiting past
+  // that boundary ensures a delayed jump to the first playback tick is caught.
+  await page.waitForTimeout(400);
+
+  const viewportTrace = await page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(".at-viewport");
+    const monitor = (window as unknown as {
+      __COTAB_VIEWPORT_TRACE__?: {
+        trace: { start: number; minimum: number; samples: number[] };
+        stop(): void;
+      };
+    }).__COTAB_VIEWPORT_TRACE__;
+    if (!viewport || !monitor) throw new Error("Viewport trace is unavailable.");
+    monitor.stop();
+    return {
+      ...monitor.trace,
+      final: viewport.scrollLeft,
+    };
+  });
 
   const result = await page.evaluate(() => {
     interface YMapLike {
@@ -791,6 +840,8 @@ test("Agent drum continuation matches Y.Doc, AlphaTab, and rendered geometry", a
   expect(result.geometry.every(({ valid }) => valid)).toBe(true);
   expect(result.toolResults.length).toBeGreaterThan(0);
   expect(result.toolResults.every(({ success }) => success)).toBe(true);
+  expect(viewportTrace.minimum).toBe(viewportTrace.start);
+  expect(viewportTrace.final).toBe(viewportTrace.start);
   expect(pageErrors).toEqual([]);
 });
 

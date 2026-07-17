@@ -6,6 +6,7 @@
  */
 
 import type { SelectedBeat, SelectorState, TransportState } from "@/core/engine";
+import type { DocumentChange } from "./document-change";
 
 /**
  * Event-driven hooks for engine integrations.
@@ -18,9 +19,9 @@ import type { SelectedBeat, SelectorState, TransportState } from "@/core/engine"
  */
 export interface EngineHooks {
   /** Notification: Local client edited Y.Doc (via localEditYDoc) */
-  onLocalYDocEdit?: () => void;
+  onLocalYDocEdit?: (change: DocumentChange) => void;
   /** Notification: Peer client edited Y.Doc (wired to Y.Doc observer dispatches) */
-  onPeerYDocEdit?: () => void;
+  onPeerYDocEdit?: (change: DocumentChange) => void;
   /** Notification: Local selection was set (via localSetSelection) */
   onLocalSelectionSet?: (sel: SelectedBeat) => void;
   /** Notification: Local selector state changed */
@@ -80,14 +81,23 @@ export class HookRegistry {
    * Dispatch a void hook to all listeners.
    */
   emit(
-    key:
-      | "onLocalYDocEdit"
-      | "onPeerYDocEdit"
-      | "onConnectionMetaChange",
+    key: "onConnectionMetaChange",
   ): void {
     const listeners = this._listeners[key] as Set<() => void>;
     for (const fn of listeners) {
       fn();
+    }
+  }
+
+  emitDocumentChange(
+    key: "onLocalYDocEdit" | "onPeerYDocEdit",
+    change: DocumentChange,
+  ): void {
+    const listeners = this._listeners[key] as Set<
+      (change: DocumentChange) => void
+    >;
+    for (const fn of listeners) {
+      fn(change);
     }
   }
 

@@ -7,7 +7,13 @@
  */
 
 import * as Y from "yjs";
-import { engine, buildAlphaTabScore } from "@/core/engine";
+import { ScrollMode } from "@coderline/alphatab";
+import { buildAlphaTabScore } from "@/core/converters";
+import {
+  FULL_DOCUMENT_CHANGE,
+  type DocumentChange,
+} from "@/core/editor/document-change";
+import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
 import { getApi } from "./render-api";
 
@@ -51,6 +57,7 @@ export interface RendererRevisionOutcome {
   readonly startedAt: number;
   readonly settledAt: number;
   readonly durationMs: number;
+  readonly firstChangedMasterBar: number | null;
   readonly score: RendererScoreSnapshot | null;
   readonly error: RendererErrorSnapshot | null;
 }
@@ -64,7 +71,10 @@ export interface RendererDiagnosticsSnapshot {
   readonly settledRevision: number;
   readonly lastSuccessfulRevision: number;
   readonly lastFailedRevision: number;
-  readonly activeLoadKind: "source" | "ydoc" | null;
+  readonly activeUpdateKind: "source" | "ydoc" | null;
+  readonly pendingFirstChangedMasterBar: number | null;
+  readonly activeFirstChangedMasterBar: number | null;
+  readonly lastFirstChangedMasterBar: number | null;
   readonly rendererBusy: boolean;
   readonly rebuildPending: boolean;
   readonly sourceLoadPending: boolean;
@@ -84,11 +94,12 @@ export interface RendererDiagnosticsSnapshot {
   readonly recentOutcomes: readonly RendererRevisionOutcome[];
 }
 
-type YDocLoad = {
+type YDocRender = {
   kind: "ydoc";
   revision: number;
   requestedAt: number;
   startedAt: number;
+  firstChangedMasterBar: number | null;
   score: RendererScoreSnapshot;
 };
 
@@ -98,7 +109,7 @@ type SourceLoad = {
   startedAt: number;
 };
 
-type ActiveLoad = YDocLoad | SourceLoad;
+type ActiveRendererUpdate = YDocRender | SourceLoad;
 
 type RevisionWaiter = {
   resolve: (outcome: RendererRevisionOutcome) => void;
@@ -119,11 +130,16 @@ let _rebuildPending = false;
 let _flushScheduled = false;
 let _schedulerVersion = 0;
 let _pendingRevision: number | null = null;
-let _activeLoad: ActiveLoad | null = null;
+let _pendingFirstChangedMasterBar: number | null = null;
+let _activeUpdate: ActiveRendererUpdate | null = null;
 let _pendingSourceLoad: {
   scoreData: unknown;
   trackIndexes: number[];
   document: Y.Doc | null;
+} | null = null;
+let _suppressedScroll: {
+  api: NonNullable<ReturnType<typeof getApi>>;
+  mode: ScrollMode;
 } | null = null;
 
 let _diagnostics: RendererDiagnosticsSnapshot = {
@@ -135,7 +151,10 @@ let _diagnostics: RendererDiagnosticsSnapshot = {
   settledRevision: 0,
   lastSuccessfulRevision: 0,
   lastFailedRevision: 0,
-  activeLoadKind: null,
+  activeUpdateKind: null,
+  pendingFirstChangedMasterBar: null,
+  activeFirstChangedMasterBar: null,
+  lastFirstChangedMasterBar: null,
   rendererBusy: false,
   rebuildPending: false,
   sourceLoadPending: false,
@@ -226,26 +245,29 @@ function rememberOutcome(outcome: RendererRevisionOutcome): void {
   }
 }
 
-function settleSuccess(load: YDocLoad): void {
+function settleSuccess(render: YDocRender): void {
   const settledAt = Date.now();
   const outcome: RendererRevisionOutcome = {
     status: "succeeded",
-    revision: load.revision,
+    revision: render.revision,
     stage: "render",
-    requestedAt: load.requestedAt,
-    startedAt: load.startedAt,
+    requestedAt: render.requestedAt,
+    startedAt: render.startedAt,
     settledAt,
-    durationMs: settledAt - load.startedAt,
-    score: load.score,
+    durationMs: settledAt - render.startedAt,
+    firstChangedMasterBar: render.firstChangedMasterBar,
+    score: render.score,
     error: null,
   };
   rememberOutcome(outcome);
   publishDiagnostics({
     phase: "succeeded",
     activeRevision: null,
-    settledRevision: Math.max(_diagnostics.settledRevision, load.revision),
-    lastSuccessfulRevision: load.revision,
-    activeLoadKind: null,
+    settledRevision: Math.max(_diagnostics.settledRevision, render.revision),
+    lastSuccessfulRevision: render.revision,
+    activeUpdateKind: null,
+    activeFirstChangedMasterBar: null,
+    lastFirstChangedMasterBar: render.firstChangedMasterBar,
     rendererBusy: false,
     completedCount: _diagnostics.completedCount + 1,
     lastSettledAt: settledAt,
@@ -256,18 +278,20 @@ function settleSuccess(load: YDocLoad): void {
     recentOutcomes: [..._diagnostics.recentOutcomes, outcome].slice(-20),
   });
   debugLog("debug", "RendererBridge", "rebuild complete", {
-    revision: load.revision,
+    revision: render.revision,
     durationMs: outcome.durationMs,
-    score: load.score,
+    firstChangedMasterBar: render.firstChangedMasterBar,
+    score: render.score,
   });
 }
 
 function settleFailure(
   revision: number,
-  stage: RendererFailureStage,
+  stage: RendererRevisionOutcome["stage"],
   error: unknown,
   startedAt: number,
   score: RendererScoreSnapshot | null = null,
+  firstChangedMasterBar: number | null = null,
 ): void {
   const settledAt = Date.now();
   const serialized = errorSnapshot(error);
@@ -280,6 +304,7 @@ function settleFailure(
     startedAt,
     settledAt,
     durationMs: settledAt - startedAt,
+    firstChangedMasterBar,
     score,
     error: serialized,
   };
@@ -289,7 +314,9 @@ function settleFailure(
     activeRevision: null,
     settledRevision: Math.max(_diagnostics.settledRevision, revision),
     lastFailedRevision: revision,
-    activeLoadKind: null,
+    activeUpdateKind: null,
+    activeFirstChangedMasterBar: null,
+    lastFirstChangedMasterBar: firstChangedMasterBar,
     rendererBusy: false,
     failedCount: _diagnostics.failedCount + 1,
     lastSettledAt: settledAt,
@@ -305,6 +332,7 @@ function settleFailure(
     stage,
     durationMs: outcome.durationMs,
     error: serialized,
+    firstChangedMasterBar,
     score,
   });
 }
@@ -327,14 +355,14 @@ function recordUnscopedError(
   });
 }
 
-function continueQueuedLoads(): void {
+function continueQueuedUpdates(): void {
   const sourceLoad = _pendingSourceLoad;
   _pendingSourceLoad = null;
   publishDiagnostics({ sourceLoadPending: false });
   if (sourceLoad && sourceLoad.document === engine.getDoc()) {
     const api = getApi();
     if (api) {
-      startRendererLoad(api, sourceLoad.scoreData, sourceLoad.trackIndexes, {
+      startRendererUpdate(api, sourceLoad.scoreData, sourceLoad.trackIndexes, {
         kind: "source",
         document: sourceLoad.document,
         startedAt: Date.now(),
@@ -345,75 +373,123 @@ function continueQueuedLoads(): void {
   if (_rebuildPending) scheduleRebuild();
 }
 
-function finishRendererLoad(error?: unknown): void {
-  if (!_rendererBusy && !_activeLoad) {
+function suppressRenderCursorScroll(
+  api: NonNullable<ReturnType<typeof getApi>>,
+): void {
+  if (_suppressedScroll) return;
+  _suppressedScroll = {
+    api,
+    mode: api.settings.player.scrollMode,
+  };
+  api.settings.player.scrollMode = ScrollMode.Off;
+}
+
+function restoreRenderCursorScroll(): void {
+  if (!_suppressedScroll) return;
+  const { api, mode } = _suppressedScroll;
+  _suppressedScroll = null;
+  api.settings.player.scrollMode = mode;
+}
+
+function finishRendererUpdate(error?: unknown): void {
+  if (!_rendererBusy && !_activeUpdate) {
     if (error !== undefined) recordUnscopedError("alphatab", error);
     return;
   }
-  const load = _activeLoad;
+  const update = _activeUpdate;
   _rendererBusy = false;
-  _activeLoad = null;
+  _activeUpdate = null;
+  restoreRenderCursorScroll();
 
-  if (load?.kind === "ydoc") {
+  if (update?.kind === "ydoc") {
     if (error === undefined) {
-      settleSuccess(load);
+      settleSuccess(update);
     } else {
-      settleFailure(load.revision, "alphatab", error, load.startedAt, load.score);
+      settleFailure(
+        update.revision,
+        "alphatab",
+        error,
+        update.startedAt,
+        update.score,
+        update.firstChangedMasterBar,
+      );
     }
   } else if (error !== undefined) {
     recordUnscopedError("alphatab", error);
   } else {
     publishDiagnostics({
       phase: "idle",
-      activeLoadKind: null,
+      activeUpdateKind: null,
       rendererBusy: false,
       currentError: null,
     });
   }
 
-  continueQueuedLoads();
+  continueQueuedUpdates();
 }
 
-function startRendererLoad(
+function startRendererUpdate(
   api: NonNullable<ReturnType<typeof getApi>>,
   scoreData: unknown,
   trackIndexes: number[],
-  load: ActiveLoad,
+  update: ActiveRendererUpdate,
 ): boolean {
   _rendererBusy = true;
-  _activeLoad = load;
+  _activeUpdate = update;
   publishDiagnostics({
-    phase: "loading",
-    activeRevision: load.kind === "ydoc" ? load.revision : null,
-    activeLoadKind: load.kind,
+    phase: update.kind === "ydoc" ? "rendering" : "loading",
+    activeRevision: update.kind === "ydoc" ? update.revision : null,
+    activeUpdateKind: update.kind,
     rendererBusy: true,
-    lastStartedAt: load.startedAt,
+    lastStartedAt: update.startedAt,
     currentError: null,
   });
 
   try {
+    if (update.kind === "ydoc") {
+      // AlphaTab reconciles its playback cursor after every render and scrolls
+      // to the previous playback tick even while stopped. CoTab owns the
+      // transport cursor, so suppress that render-only scroll without changing
+      // AlphaTab's normal playback-follow behavior.
+      suppressRenderCursorScroll(api);
+      const renderHints: {
+        reuseViewport: true;
+        firstChangedMasterBar?: number;
+      } = { reuseViewport: true };
+      if (update.firstChangedMasterBar !== null) {
+        renderHints.firstChangedMasterBar = update.firstChangedMasterBar;
+      }
+      api.renderScore(
+        scoreData as ReturnType<typeof buildAlphaTabScore>,
+        trackIndexes,
+        renderHints,
+      );
+      return true;
+    }
+
     const started = api.load(scoreData, trackIndexes);
     if (!started) {
       const error = new Error("AlphaTab rejected the score data passed to api.load().");
-      if (load.kind === "ydoc") {
-        _rendererBusy = false;
-        _activeLoad = null;
-        settleFailure(load.revision, "load", error, load.startedAt, load.score);
-        continueQueuedLoads();
-      } else {
-        finishRendererLoad(error);
-      }
+      finishRendererUpdate(error);
     }
     return started;
   } catch (error) {
     _rendererBusy = false;
-    _activeLoad = null;
-    if (load.kind === "ydoc") {
-      settleFailure(load.revision, "load", error, load.startedAt, load.score);
+    _activeUpdate = null;
+    restoreRenderCursorScroll();
+    if (update.kind === "ydoc") {
+      settleFailure(
+        update.revision,
+        "render",
+        error,
+        update.startedAt,
+        update.score,
+        update.firstChangedMasterBar,
+      );
     } else {
       recordUnscopedError("load", error);
     }
-    continueQueuedLoads();
+    continueQueuedUpdates();
     return false;
   }
 }
@@ -448,34 +524,39 @@ function bindRenderer(api: NonNullable<ReturnType<typeof getApi>>): void {
     publishDiagnostics({
       phase: "rendering",
       rendererBusy: true,
-      activeLoadKind: _activeLoad?.kind ?? null,
+      activeUpdateKind: _activeUpdate?.kind ?? null,
     });
   });
   _unsubscribePostRenderFinished = api.postRenderFinished.on(() => {
-    finishRendererLoad();
+    finishRendererUpdate();
   });
   _unsubscribeRendererError = api.error.on((error) => {
-    finishRendererLoad(error);
+    finishRendererUpdate(error);
   });
 }
 
 function flushRebuild(): void {
   const revision = _pendingRevision ?? _diagnostics.requestedRevision;
+  const firstChangedMasterBar = _pendingFirstChangedMasterBar;
   const requestedAt = _revisionRequestedAt.get(revision) ?? Date.now();
   const api = getApi();
   const scoreMap = engine.getScoreMap();
   if (!scoreMap || !api) {
     _rebuildPending = false;
     _pendingRevision = null;
+    _pendingFirstChangedMasterBar = null;
     publishDiagnostics({
       rebuildPending: false,
       pendingRevision: null,
+      pendingFirstChangedMasterBar: null,
     });
     settleFailure(
       revision,
       "precondition",
       new Error("Renderer rebuild requested without an active Y.Doc and AlphaTab API."),
       Date.now(),
+      null,
+      firstChangedMasterBar,
     );
     return;
   }
@@ -487,32 +568,42 @@ function flushRebuild(): void {
   if (!yTracks || yTracks.length === 0) {
     _rebuildPending = false;
     _pendingRevision = null;
+    _pendingFirstChangedMasterBar = null;
     publishDiagnostics({
       rebuildPending: false,
       pendingRevision: null,
+      pendingFirstChangedMasterBar: null,
     });
     settleFailure(
       revision,
       "precondition",
       new Error("Renderer rebuild requested for a score without tracks."),
       Date.now(),
+      null,
+      firstChangedMasterBar,
     );
     return;
   }
 
   _rebuildPending = false;
   _pendingRevision = null;
+  _pendingFirstChangedMasterBar = null;
   const startedAt = Date.now();
   publishDiagnostics({
     phase: "building",
     pendingRevision: null,
     activeRevision: revision,
-    activeLoadKind: "ydoc",
+    activeUpdateKind: "ydoc",
+    pendingFirstChangedMasterBar: null,
+    activeFirstChangedMasterBar: firstChangedMasterBar,
     rebuildPending: false,
     lastStartedAt: startedAt,
     currentError: null,
   });
-  debugLog("debug", "RendererBridge", "rebuild started", { revision });
+  debugLog("debug", "RendererBridge", "rebuild started", {
+    revision,
+    firstChangedMasterBar,
+  });
 
   _rebuildingFromYDoc = true;
   try {
@@ -527,16 +618,24 @@ function flushRebuild(): void {
     const renderedTrackIndexes = trackIndexes.length > 0
       ? [...new Set(trackIndexes)].sort((left, right) => left - right)
       : score.tracks.map((track) => track.index);
-    startRendererLoad(api, score, renderedTrackIndexes, {
+    startRendererUpdate(api, score, renderedTrackIndexes, {
       kind: "ydoc",
       revision,
       requestedAt,
       startedAt,
+      firstChangedMasterBar,
       score: scoreSnapshot(score, renderedTrackIndexes),
     });
   } catch (error) {
-    settleFailure(revision, "model-build", error, startedAt);
-    continueQueuedLoads();
+    settleFailure(
+      revision,
+      "model-build",
+      error,
+      startedAt,
+      null,
+      firstChangedMasterBar,
+    );
+    continueQueuedUpdates();
   } finally {
     _rebuildingFromYDoc = false;
   }
@@ -574,6 +673,7 @@ export function waitForRendererRevision(
           startedAt: now,
           settledAt: now,
           durationMs: timeoutMs,
+          firstChangedMasterBar: null,
           score: null,
           error: errorSnapshot(
             new Error(`Timed out waiting for renderer revision ${revision}.`),
@@ -586,18 +686,34 @@ export function waitForRendererRevision(
   });
 }
 
-/** Schedule a full Y.Doc to AlphaTab rebuild and return its revision. */
-export function rebuildFromYDoc(): number {
+/** Schedule a Y.Doc to AlphaTab rebuild and return its renderer revision. */
+export function rebuildFromYDoc(
+  change: DocumentChange = FULL_DOCUMENT_CHANGE,
+): number {
   const revision = _diagnostics.requestedRevision + 1;
   const requestedAt = Date.now();
   _revisionRequestedAt.set(revision, requestedAt);
   const coalesced = _rebuildPending;
+  if (!coalesced) {
+    _pendingFirstChangedMasterBar = change.firstChangedMasterBar;
+  } else if (
+    _pendingFirstChangedMasterBar !== null
+    && change.firstChangedMasterBar !== null
+  ) {
+    _pendingFirstChangedMasterBar = Math.min(
+      _pendingFirstChangedMasterBar,
+      change.firstChangedMasterBar,
+    );
+  } else {
+    _pendingFirstChangedMasterBar = null;
+  }
   _rebuildPending = true;
   _pendingRevision = revision;
   publishDiagnostics({
     phase: _rendererBusy ? _diagnostics.phase : "scheduled",
     requestedRevision: revision,
     pendingRevision: revision,
+    pendingFirstChangedMasterBar: _pendingFirstChangedMasterBar,
     rebuildPending: true,
     requestedCount: _diagnostics.requestedCount + 1,
     coalescedCount: _diagnostics.coalescedCount + (coalesced ? 1 : 0),
@@ -633,7 +749,7 @@ export function loadAlphaTabSource(
     publishDiagnostics({ sourceLoadPending: true });
     return true;
   }
-  return startRendererLoad(api, scoreData, trackIndexes, {
+  return startRendererUpdate(api, scoreData, trackIndexes, {
     kind: "source",
     document: sourceLoad.document,
     startedAt: Date.now(),
@@ -641,8 +757,8 @@ export function loadAlphaTabSource(
 }
 
 export function shouldImportLoadedScore(): boolean {
-  return _activeLoad?.kind === "source"
-    && _activeLoad.document === engine.getDoc();
+  return _activeUpdate?.kind === "source"
+    && _activeUpdate.document === engine.getDoc();
 }
 
 export function installRendererObserver(): void {
@@ -654,8 +770,8 @@ export function installRendererObserver(): void {
   });
 
   _unsubscribeHooks = engine.registerHooks({
-    onLocalYDocEdit: () => rebuildFromYDoc(),
-    onPeerYDocEdit: () => rebuildFromYDoc(),
+    onLocalYDocEdit: (change) => rebuildFromYDoc(change),
+    onPeerYDocEdit: (change) => rebuildFromYDoc(change),
   });
 }
 
@@ -669,31 +785,42 @@ export function uninstallRendererObserver(): void {
   _unsubscribePostRenderFinished = null;
   _unsubscribeRendererError?.();
   _unsubscribeRendererError = null;
+  restoreRenderCursorScroll();
 
   const outstandingRevision = _pendingRevision
-    ?? (_activeLoad?.kind === "ydoc" ? _activeLoad.revision : null);
+    ?? (_activeUpdate?.kind === "ydoc" ? _activeUpdate.revision : null);
+  const outstandingFirstChangedMasterBar = _pendingRevision !== null
+    ? _pendingFirstChangedMasterBar
+    : _activeUpdate?.kind === "ydoc"
+      ? _activeUpdate.firstChangedMasterBar
+      : null;
   if (outstandingRevision !== null) {
     settleFailure(
       outstandingRevision,
       "shutdown",
       new Error("Renderer bridge stopped before the rebuild settled."),
       Date.now(),
+      null,
+      outstandingFirstChangedMasterBar,
     );
   }
 
   _rendererApi = null;
   _rendererBusy = false;
-  _activeLoad = null;
+  _activeUpdate = null;
   _pendingSourceLoad = null;
   _pendingRevision = null;
+  _pendingFirstChangedMasterBar = null;
   _rebuildPending = false;
   _flushScheduled = false;
   publishDiagnostics({
     installed: false,
     phase: "unavailable",
     pendingRevision: null,
+    pendingFirstChangedMasterBar: null,
+    activeFirstChangedMasterBar: null,
     activeRevision: null,
-    activeLoadKind: null,
+    activeUpdateKind: null,
     rendererBusy: false,
     rebuildPending: false,
     sourceLoadPending: false,

@@ -1,5 +1,5 @@
 {
-  "alphaTabVersion": "1.8.1",
+  "alphaTabVersion": "1.8.4",
   "identicalMidiFields": [
     "Automation.isLinear",
     "Bar.sustainPedals",

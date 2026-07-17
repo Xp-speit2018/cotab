@@ -23,11 +23,26 @@ async function waitForLayout(page, layout, alphaTabLayoutMode) {
         layout: window.__PLAYER_STORE__.getState().scoreLayout,
         alphaTabLayoutMode:
           window.__ALPHATAB_API__?.settings?.display?.layoutMode ?? null,
-        systems:
-          window.__ALPHATAB_API__?.boundsLookup?.staffSystems?.length ?? 0,
       })),
     )
     .toMatchObject({ layout, alphaTabLayoutMode });
+
+  const renderedRowCount = () =>
+    page.evaluate(() =>
+      new Set(
+        (window.__ALPHATAB_API__?.boundsLookup?.staffSystems ?? []).map(
+          (system) => {
+            const bounds = system.realBounds;
+            return `${bounds.x}:${bounds.y}:${bounds.w}:${bounds.h}`;
+          },
+        ),
+      ).size,
+    );
+  if (layout === "parchment") {
+    await expect.poll(renderedRowCount).toBeGreaterThan(1);
+  } else {
+    await expect.poll(renderedRowCount).toBe(1);
+  }
 }
 
 async function waitForSystemRows(page, expectedRows) {
@@ -97,6 +112,207 @@ async function expectEditorOverlays(page) {
   expect(stacking.surfaceZIndex).toBe("1");
   expect(stacking.scoreZIndexes.length).toBeGreaterThan(0);
   expect(stacking.scoreZIndexes.every((zIndex) => zIndex === "1")).toBe(true);
+}
+
+async function findCrossStaffNavigationScenario(page) {
+  return page.evaluate(() => {
+    const api = window.__ALPHATAB_API__;
+    const viewport = document.querySelector(".at-viewport");
+    if (!api?.score || !viewport) throw new Error("Score is unavailable");
+
+    const renderedBars = api.boundsLookup.staffSystems.flatMap((system) =>
+      system.bars.flatMap((masterBar) => masterBar.bars),
+    );
+    const findBar = (trackIndex, barIndex) =>
+      renderedBars.find((bounds) => {
+        const bar = bounds.bar ?? bounds.beats[0]?.beat.voice.bar;
+        return bar?.staff.track.index === trackIndex
+          && bar.staff.index === 0
+          && bar.index === barIndex;
+      });
+    const findGrid = (trackIndex, barIndex) =>
+      Object.values(window.__SNAP_GRIDS__).find(
+        (grid) => grid.trackIndex === trackIndex
+          && grid.staffIndex === 0
+          && grid.barIndexes.includes(barIndex),
+      );
+
+    for (let sourceTrackIndex = 0;
+      sourceTrackIndex < api.score.tracks.length - 1;
+      sourceTrackIndex++) {
+      const sourceStaff = api.score.tracks[sourceTrackIndex].staves[0];
+      for (let barIndex = 0; barIndex < sourceStaff.bars.length; barIndex++) {
+        const sourceBar = findBar(sourceTrackIndex, barIndex);
+        const targetBar = findBar(sourceTrackIndex + 1, barIndex);
+        const sourceGrid = findGrid(sourceTrackIndex, barIndex);
+        const targetGrid = findGrid(sourceTrackIndex + 1, barIndex);
+        if (
+          !sourceBar || !targetBar || !sourceGrid || !targetGrid
+          || sourceBar.beats.length === 0 || targetBar.beats.length < 2
+          || sourceGrid.positions.length === 0 || targetGrid.positions.length === 0
+        ) continue;
+
+        for (const sourceBeat of sourceBar.beats) {
+          const targetBeat = targetBar.beats.reduce((nearest, candidate) => {
+            const nearestCenter = nearest.realBounds.x + nearest.realBounds.w / 2;
+            const candidateCenter = candidate.realBounds.x + candidate.realBounds.w / 2;
+            return Math.abs(sourceBeat.onNotesX - candidateCenter)
+              < Math.abs(sourceBeat.onNotesX - nearestCenter)
+              ? candidate
+              : nearest;
+          });
+          if (targetBeat.beat.index === 0) continue;
+
+          const sourceSnapIndex = Math.floor((sourceGrid.positions.length - 1) / 2);
+          const targetSnapIndex = sourceGrid.positions.length === 1
+            ? Math.floor((targetGrid.positions.length - 1) / 2)
+            : Math.round(
+              sourceSnapIndex
+                / (sourceGrid.positions.length - 1)
+                * (targetGrid.positions.length - 1),
+            );
+          const sourceSnap = sourceGrid.positions[sourceSnapIndex];
+          const targetSnap = targetGrid.positions[targetSnapIndex];
+
+          viewport.scrollLeft = Math.max(0, sourceBeat.onNotesX - 400);
+          viewport.scrollTop = Math.max(
+            0,
+            Math.min(sourceSnap.y, targetSnap.y) - 120,
+          );
+
+          return {
+            source: {
+              trackIndex: sourceTrackIndex,
+              staffIndex: 0,
+              voiceIndex: sourceBeat.beat.voice.index,
+              barIndex,
+              beatIndex: sourceBeat.beat.index,
+              string: sourceSnap.string,
+              x: sourceBeat.onNotesX,
+              y: sourceSnap.y,
+            },
+            target: {
+              trackIndex: sourceTrackIndex + 1,
+              staffIndex: 0,
+              voiceIndex: targetBeat.beat.voice.index,
+              barIndex,
+              beatIndex: targetBeat.beat.index,
+              string: targetSnap.string,
+              x: sourceBeat.onNotesX,
+              y: targetSnap.y,
+            },
+          };
+        }
+      }
+    }
+    throw new Error("No cross-staff variable-rhythm navigation scenario found");
+  });
+}
+
+async function clickAlphaTabPoint(page, point) {
+  const screenPoint = await page.evaluate(({ x, y }) => {
+    const api = window.__ALPHATAB_API__;
+    const main = document.querySelector(".at-main");
+    if (!api || !main) throw new Error("Score is unavailable");
+    const rect = main.getBoundingClientRect();
+    return {
+      x: rect.left + x * api.settings.display.scale,
+      y: rect.top + y * api.settings.display.scale,
+    };
+  }, point);
+  await page.mouse.click(screenPoint.x, screenPoint.y);
+}
+
+for (const layout of ["horizontal", "parchment"]) {
+  test(`Command+vertical navigation matches mouse snapping in ${layout} layout`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto("/");
+    await waitForScore(page);
+    if (layout === "parchment") {
+      await page.getByRole("button", { name: "Parchment layout" }).click();
+      await waitForLayout(page, "parchment", 2);
+    }
+
+    const scenario = await findCrossStaffNavigationScenario(page);
+    const { x: _sourceX, y: _sourceY, ...expectedSource } = scenario.source;
+    const { x: _targetX, y: _targetY, ...expectedTarget } = scenario.target;
+    const reverseMousePoint = await page.evaluate(({ source, target }) => {
+      const api = window.__ALPHATAB_API__;
+      const grids = Object.values(window.__SNAP_GRIDS__);
+      const targetBeat = api.score.tracks[target.trackIndex].staves[target.staffIndex]
+        .bars[target.barIndex].voices[target.voiceIndex].beats[target.beatIndex];
+      const targetBounds = api.boundsLookup.findBeat(targetBeat);
+      const fromGrid = grids.find((grid) =>
+        grid.trackIndex === target.trackIndex
+        && grid.staffIndex === target.staffIndex
+        && grid.barIndexes.includes(target.barIndex));
+      const toGrid = grids.find((grid) =>
+        grid.trackIndex === source.trackIndex
+        && grid.staffIndex === source.staffIndex
+        && grid.barIndexes.includes(source.barIndex));
+      if (!targetBounds || !fromGrid || !toGrid) {
+        throw new Error("Reverse navigation geometry is unavailable");
+      }
+      const fromPosition = fromGrid.positions.find(
+        (position) => position.string === target.string,
+      );
+      const fromFirst = fromGrid.positions[0].y;
+      const fromLast = fromGrid.positions.at(-1).y;
+      const relativeY = fromPosition && fromLast !== fromFirst
+        ? (fromPosition.y - fromFirst) / (fromLast - fromFirst)
+        : 0.5;
+      const toFirst = toGrid.positions[0].y;
+      const toLast = toGrid.positions.at(-1).y;
+      return {
+        x: targetBounds.onNotesX,
+        y: toFirst + relativeY * (toLast - toFirst),
+      };
+    }, scenario);
+    await page.waitForTimeout(100);
+    await clickAlphaTabPoint(page, scenario.source);
+    await expect
+      .poll(() => page.evaluate(() => window.__PLAYER_STORE__.getState().selectedBeat))
+      .toMatchObject(expectedSource);
+
+    const modifier = await page.evaluate(() =>
+      navigator.userAgent.toLowerCase().includes("mac") ? "Meta" : "Control",
+    );
+    await page.keyboard.press(`${modifier}+ArrowDown`);
+    await expect
+      .poll(() => page.evaluate(() => window.__PLAYER_STORE__.getState().selectedBeat))
+      .toMatchObject(expectedTarget);
+    const keyboardSelection = await page.evaluate(() =>
+      window.__PLAYER_STORE__.getState().selectedBeat,
+    );
+
+    await clickAlphaTabPoint(page, scenario.source);
+    await clickAlphaTabPoint(page, scenario.target);
+    const mouseSelection = await page.evaluate(() =>
+      window.__PLAYER_STORE__.getState().selectedBeat,
+    );
+    expect(keyboardSelection).toEqual(mouseSelection);
+
+    await page.keyboard.press(`${modifier}+ArrowUp`);
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          window.__PLAYER_STORE__.getState().selectedBeat?.trackIndex ?? null,
+        ),
+      )
+      .toBe(scenario.source.trackIndex);
+    const keyboardUpSelection = await page.evaluate(() =>
+      window.__PLAYER_STORE__.getState().selectedBeat,
+    );
+
+    await clickAlphaTabPoint(page, scenario.target);
+    await clickAlphaTabPoint(page, reverseMousePoint);
+    const mouseUpSelection = await page.evaluate(() =>
+      window.__PLAYER_STORE__.getState().selectedBeat,
+    );
+    expect(keyboardUpSelection).toEqual(mouseUpSelection);
+  });
 }
 
 test("switches layouts and snaps a later parchment system locally", async ({

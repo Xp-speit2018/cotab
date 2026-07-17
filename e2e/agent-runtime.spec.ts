@@ -119,127 +119,177 @@ test("agent logical peer synchronizes bidirectionally with EditorEngine", async 
   expect(result.stoppedLogicalPeerCount).toBe(0);
 });
 
-test("agent bar insertion rebuilds an imported multi-voice score", async ({ page }) => {
-  const pageErrors: string[] = [];
-  page.on("pageerror", (error) => pageErrors.push(error.message));
+for (const layout of ["horizontal", "parchment"] as const) {
+  test(`agent bar insertion is visible in ${layout} layout`, async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  await page.goto("/");
-  await page.waitForFunction(() => {
-    const runtime = window as unknown as {
-      __ALPHATAB_API__?: { score?: { masterBars?: unknown[] } };
-    };
-    return runtime.__ALPHATAB_API__?.score?.masterBars?.length === 58;
-  });
-
-  const result = await page.evaluate(async () => {
-    Object.defineProperty(window, "__TAURI_INTERNALS__", {
-      value: {},
-      configurable: true,
-    });
-    const { agentPeerRuntime } = await import("/src/agent/agent-peer-runtime.ts") as {
-      agentPeerRuntime: {
-        start(): Promise<void>;
-        stop(): void;
-        callTool(tool: string, args?: unknown): Promise<RuntimeResult>;
+    await page.goto("/");
+    await page.waitForFunction(() => {
+      const runtime = window as unknown as {
+        __ALPHATAB_API__?: { score?: { masterBars?: unknown[] } };
       };
-    };
-    const core = (window as unknown as Record<string, unknown>).__COTAB_STORE__ as {
-      engine: { getScoreMap(): import("yjs").Map<unknown> | null };
-    };
+      return runtime.__ALPHATAB_API__?.score?.masterBars?.length === 58;
+    });
+    if (layout === "parchment") {
+      await page.getByRole("button", { name: "Parchment layout" }).click();
+      await page.waitForFunction(() => {
+        const runtime = window as unknown as {
+          __ALPHATAB_API__?: {
+            settings?: { display?: { layoutMode?: number } };
+            boundsLookup?: { isFinished?: boolean };
+          };
+        };
+        return runtime.__ALPHATAB_API__?.settings?.display?.layoutMode === 2
+          && runtime.__ALPHATAB_API__?.boundsLookup?.isFinished === true;
+      });
+    }
 
-    await agentPeerRuntime.start();
-    const select = (barIndex: number) => agentPeerRuntime.callTool("set_selection", {
-      trackIndex: 5,
-      staffIndex: 0,
-      voiceIndex: 0,
-      barIndex,
-      beatIndex: 0,
-      string: null,
-    });
-    await select(57);
-    const firstInsert = await agentPeerRuntime.callTool("execute_action", {
-      id: "document.bar.insertAfter",
-      args: {},
-    });
-    await select(58);
-    const secondInsert = await agentPeerRuntime.callTool("execute_action", {
-      id: "document.bar.insertAfter",
-      args: {},
-    });
-    await agentPeerRuntime.callTool("set_selection", {
-      trackIndex: 5,
-      staffIndex: 0,
-      voiceIndex: 0,
-      barIndex: 59,
-      beatIndex: 0,
-      string: 3,
-    });
-    const placeDrumNote = await agentPeerRuntime.callTool("execute_action", {
-      id: "document.beat.placeNote",
-      args: {},
-    });
-    const yMasterBars = core.engine.getScoreMap()?.get("masterBars") as
-      | import("yjs").Array<unknown>
-      | undefined;
-    const yMasterBarCount = yMasterBars?.length ?? 0;
-    agentPeerRuntime.stop();
-    return { firstInsert, secondInsert, placeDrumNote, yMasterBarCount };
-  });
-
-  await page.waitForFunction(() => {
-    const runtime = window as unknown as {
-      __ALPHATAB_API__?: {
-        score?: {
-          masterBars?: unknown[];
-          tracks?: Array<{
-            staves: Array<{
-              bars: Array<{
-                voices: Array<{ beats: Array<{ notes: unknown[] }> }>;
-              }>;
-            }>;
-          }>;
+    const result = await page.evaluate(async () => {
+      Object.defineProperty(window, "__TAURI_INTERNALS__", {
+        value: {},
+        configurable: true,
+      });
+      const { agentPeerRuntime } = await import("/src/agent/agent-peer-runtime.ts") as {
+        agentPeerRuntime: {
+          start(): Promise<void>;
+          stop(): void;
+          callTool(tool: string, args?: unknown): Promise<RuntimeResult>;
         };
       };
-    };
-    const score = runtime.__ALPHATAB_API__?.score;
-    return score?.masterBars?.length === 60
-      && score.tracks?.[5].staves[0].bars[59]
-        .voices[0].beats[0].notes.length === 1;
-  });
-  const rendered = await page.evaluate(() => {
-    const runtime = window as unknown as {
-      __ALPHATAB_API__: {
-        score: {
-          masterBars: unknown[];
-          tracks: Array<{
-            staves: Array<{
-              bars: Array<{
-                voices: Array<{ beats: Array<{ notes: unknown[] }> }>;
+      const core = (window as unknown as Record<string, unknown>).__COTAB_STORE__ as {
+        engine: { getScoreMap(): import("yjs").Map<unknown> | null };
+      };
+
+      await agentPeerRuntime.start();
+      const select = (barIndex: number) => agentPeerRuntime.callTool("set_selection", {
+        trackIndex: 5,
+        staffIndex: 0,
+        voiceIndex: 0,
+        barIndex,
+        beatIndex: 0,
+        string: null,
+      });
+      await select(57);
+      const firstInsert = await agentPeerRuntime.callTool("execute_action", {
+        id: "document.bar.insertAfter",
+        args: {},
+      });
+      await select(58);
+      const secondInsert = await agentPeerRuntime.callTool("execute_action", {
+        id: "document.bar.insertAfter",
+        args: {},
+      });
+      await agentPeerRuntime.callTool("set_selection", {
+        trackIndex: 5,
+        staffIndex: 0,
+        voiceIndex: 0,
+        barIndex: 59,
+        beatIndex: 0,
+        string: 3,
+      });
+      const placeDrumNote = await agentPeerRuntime.callTool("execute_action", {
+        id: "document.beat.placeNote",
+        args: {},
+      });
+      const yMasterBars = core.engine.getScoreMap()?.get("masterBars") as
+        | import("yjs").Array<unknown>
+        | undefined;
+      const yMasterBarCount = yMasterBars?.length ?? 0;
+      agentPeerRuntime.stop();
+      return { firstInsert, secondInsert, placeDrumNote, yMasterBarCount };
+    });
+
+    await page.waitForFunction(() => {
+      const runtime = window as unknown as {
+        __ALPHATAB_API__?: {
+          score?: {
+            masterBars?: unknown[];
+            tracks?: Array<{
+              staves: Array<{
+                bars: Array<{
+                  voices: Array<{ beats: Array<{ notes: unknown[] }> }>;
+                }>;
               }>;
             }>;
-          }>;
+          };
+          boundsLookup?: {
+            isFinished?: boolean;
+            findBeat(beat: unknown): unknown;
+          };
         };
       };
-    };
-    return {
-      masterBars: runtime.__ALPHATAB_API__.score.masterBars.length,
-      staffBarCounts: runtime.__ALPHATAB_API__.score.tracks.flatMap((track) =>
-        track.staves.map((staff) => staff.bars.length),
-      ),
-      addedDrumNotes: runtime.__ALPHATAB_API__.score.tracks[5]
-        .staves[0].bars[59].voices[0].beats[0].notes.length,
-    };
-  });
+      const api = runtime.__ALPHATAB_API__;
+      const beat = api?.score?.tracks?.[5].staves[0].bars[59]
+        .voices[0].beats[0];
+      return api?.score?.masterBars?.length === 60
+        && beat?.notes.length === 1
+        && api.boundsLookup?.isFinished === true
+        && Boolean(api.boundsLookup?.findBeat(beat));
+    });
+    const rendered = await page.evaluate(() => {
+      const runtime = window as unknown as {
+        __ALPHATAB_API__: {
+          score: {
+            masterBars: unknown[];
+            tracks: Array<{
+              staves: Array<{
+                bars: Array<{
+                  voices: Array<{ beats: Array<{ notes: unknown[] }> }>;
+                }>;
+              }>;
+            }>;
+          };
+          boundsLookup: {
+            staffSystems: Array<{
+              realBounds: { x: number; y: number; w: number; h: number };
+            }>;
+            findBeat(beat: unknown): {
+              visualBounds: { x: number; y: number; w: number; h: number };
+            } | null;
+          };
+        };
+      };
+      const api = runtime.__ALPHATAB_API__;
+      const beat = api.score.tracks[5]
+        .staves[0].bars[59].voices[0].beats[0];
+      return {
+        masterBars: api.score.masterBars.length,
+        staffBarCounts: api.score.tracks.flatMap((track) =>
+          track.staves.map((staff) => staff.bars.length),
+        ),
+        addedDrumNotes: beat.notes.length,
+        addedBeatBounds: api.boundsLookup.findBeat(beat)?.visualBounds ?? null,
+        distinctStaffSystemCount: new Set(
+          api.boundsLookup.staffSystems.map(({ realBounds }) =>
+            `${realBounds.x}:${realBounds.y}:${realBounds.w}:${realBounds.h}`
+          ),
+        ).size,
+      };
+    });
 
-  expect(result.firstInsert.ok).toBe(true);
-  expect(result.secondInsert.ok).toBe(true);
-  expect(result.placeDrumNote.ok).toBe(true);
-  expect(result.yMasterBarCount).toBe(60);
-  expect(rendered.masterBars).toBe(60);
-  expect(rendered.staffBarCounts.every((count) => count === 60)).toBe(true);
-  expect(rendered.addedDrumNotes).toBe(1);
-  expect(pageErrors).toEqual([]);
-});
+    expect(result.firstInsert.ok).toBe(true);
+    expect(result.secondInsert.ok).toBe(true);
+    expect(result.placeDrumNote.ok).toBe(true);
+    expect(result.yMasterBarCount).toBe(60);
+    expect(rendered.masterBars).toBe(60);
+    expect(rendered.staffBarCounts.every((count) => count === 60)).toBe(true);
+    expect(rendered.addedDrumNotes).toBe(1);
+    expect(rendered.addedBeatBounds).toEqual({
+      x: expect.any(Number),
+      y: expect.any(Number),
+      w: expect.any(Number),
+      h: expect.any(Number),
+    });
+    expect(rendered.addedBeatBounds?.h).toBeGreaterThan(0);
+    if (layout === "horizontal") {
+      expect(rendered.distinctStaffSystemCount).toBe(1);
+    } else {
+      expect(rendered.distinctStaffSystemCount).toBeGreaterThan(1);
+    }
+    expect(pageErrors).toEqual([]);
+  });
+}
 
 test("agent reports a selection-scoped action that did not mutate Y.Doc", async ({ page }) => {
   await page.goto("/");

@@ -298,7 +298,7 @@ test("live document edits reuse the rendered AlphaTab viewport", async ({
   expect(result.renderScoreCalls).toBeGreaterThan(0);
   expect(result.loadCalls).toBe(0);
   expect(result.reuseViewportHints.every(Boolean)).toBe(true);
-  expect(result.firstChangedMasterBarHints).toEqual([8]);
+  expect(result.firstChangedMasterBarHints).toEqual([undefined]);
   expect(result.displayedBlankFrame).toBe(false);
   expect(result.renderedPartialsStillConnected).toBe(true);
   expect(result.scrollLeftAfter).toBe(result.scrollLeftBefore);

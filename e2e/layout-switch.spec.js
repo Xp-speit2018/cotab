@@ -69,6 +69,36 @@ async function openLayoutSettings(page) {
   await expect(page.getByText("Score layout", { exact: true })).toBeVisible();
 }
 
+async function expectEditorOverlays(page) {
+  for (const selector of [
+    ".at-edit-cursor",
+    ".at-transport-playhead",
+    ".at-bar-selection",
+    ".at-loop-range",
+  ]) {
+    await expect(page.locator(selector).first()).toBeVisible();
+  }
+
+  const stacking = await page.evaluate(() => {
+    const layer = document.querySelector(".cotab-range-background-layer");
+    const canvas = document.querySelector(".at-surface");
+    if (!layer || !canvas) throw new Error("Score range layers are unavailable");
+    return {
+      rangeLayerHost: layer.parentElement?.className ?? "",
+      rangeLayerZIndex: window.getComputedStyle(layer).zIndex,
+      surfaceZIndex: window.getComputedStyle(canvas).zIndex,
+      scoreZIndexes: Array.from(canvas.children)
+        .filter((child) => child instanceof HTMLElement)
+        .map((child) => window.getComputedStyle(child).zIndex),
+    };
+  });
+  expect(stacking.rangeLayerHost).toContain("at-main");
+  expect(stacking.rangeLayerZIndex).toBe("0");
+  expect(stacking.surfaceZIndex).toBe("1");
+  expect(stacking.scoreZIndexes.length).toBeGreaterThan(0);
+  expect(stacking.scoreZIndexes.every((zIndex) => zIndex === "1")).toBe(true);
+}
+
 test("switches layouts and snaps a later parchment system locally", async ({
   page,
 }) => {
@@ -240,6 +270,28 @@ test("switches layouts and snaps a later parchment system locally", async ({
   });
 
   await page.mouse.move(loopDrag.start.screenX, loopDrag.start.screenY);
+  await page.mouse.down();
+  await page.mouse.move(loopDrag.end.screenX, loopDrag.end.screenY, {
+    steps: 10,
+  });
+  await page.mouse.up();
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => window.__PLAYER_STORE__.getState().selectionRange),
+    )
+    .toEqual({
+      trackIndex: 0,
+      staffIndex: 0,
+      voiceIndex: 0,
+      startBarIndex: Math.min(
+        loopDrag.start.barIndex,
+        loopDrag.end.barIndex,
+      ),
+      endBarIndex: Math.max(loopDrag.start.barIndex, loopDrag.end.barIndex),
+    });
+
+  await page.mouse.move(loopDrag.start.screenX, loopDrag.start.screenY);
   await page.keyboard.down("Alt");
   await page.mouse.down();
   await page.mouse.move(loopDrag.end.screenX, loopDrag.end.screenY, {
@@ -277,6 +329,17 @@ test("switches layouts and snaps a later parchment system locally", async ({
       },
     });
 
+  const editorStateBeforeSwitch = await page.evaluate(() => {
+    const state = window.__PLAYER_STORE__.getState();
+    return {
+      selectedBeat: state.selectedBeat,
+      selectionRange: state.selectionRange,
+      transportPlayhead: state.transport.playhead,
+      loopRange: state.transport.loopRange,
+    };
+  });
+  await expectEditorOverlays(page);
+
   await page.getByRole("button", { name: "Horizontal layout" }).click();
   await waitForLayout(page, "horizontal", 1);
   await expect
@@ -291,6 +354,41 @@ test("switches layouts and snaps a later parchment system locally", async ({
       ),
     )
     .toBe(1);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const state = window.__PLAYER_STORE__.getState();
+        return {
+          selectedBeat: state.selectedBeat,
+          selectionRange: state.selectionRange,
+          transportPlayhead: state.transport.playhead,
+          loopRange: state.transport.loopRange,
+        };
+      }),
+    )
+    .toEqual(editorStateBeforeSwitch);
+  await expectEditorOverlays(page);
+
+  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await waitForLayout(page, "parchment", 2);
+  await page.locator('select[title="Zoom"]').selectOption("1.25");
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        scale: window.__ALPHATAB_API__.settings.display.scale,
+        state: (() => {
+          const current = window.__PLAYER_STORE__.getState();
+          return {
+            selectedBeat: current.selectedBeat,
+            selectionRange: current.selectionRange,
+            transportPlayhead: current.transport.playhead,
+            loopRange: current.transport.loopRange,
+          };
+        })(),
+      })),
+    )
+    .toEqual({ scale: 1.25, state: editorStateBeforeSwitch });
+  await expectEditorOverlays(page);
 });
 
 test("edits parchment rows with Guitar Pro-style layout controls", async ({

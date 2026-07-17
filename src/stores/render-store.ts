@@ -639,8 +639,7 @@ function normalizeRangeBackgroundLayerStyle(layer: HTMLDivElement): void {
 function getRangeBackgroundLayer(): HTMLElement | null {
   const mainElement = getMainElement();
   if (!mainElement) return null;
-  const surface = mainElement.querySelector(".at-surface");
-  const host = surface instanceof HTMLElement ? surface : mainElement;
+  const host = mainElement;
   if (rangeBackgroundLayer?.isConnected && rangeBackgroundLayer.parentElement === host) {
     normalizeRangeBackgroundLayerStyle(rangeBackgroundLayer);
     return rangeBackgroundLayer;
@@ -676,6 +675,9 @@ function renderRangeOverlay(kind: RangeOverlayKind, rects: OverlayRect[]): void 
   for (let i = 0; i < elements.length; i++) {
     const el = elements[i];
     if (i < rects.length) {
+      if (el.parentElement !== rangeLayer) {
+        rangeLayer.appendChild(el);
+      }
       const r = rects[i];
       el.style.display = "";
       el.style.left = `${r.x}px`;
@@ -703,11 +705,7 @@ function buildSelectorRangeRects(range: SelectionRange): OverlayRect[] {
 
     for (const masterBar of system.bars) {
       if (masterBar.bars.length === 0) continue;
-      const refBar = masterBar.bars[0].beats.length > 0
-        ? masterBar.bars[0].beats[0].beat.voice.bar
-        : null;
-      if (!refBar) continue;
-      const barIdx = refBar.index;
+      const barIdx = masterBar.index;
 
       if (barIdx < range.startBarIndex || barIdx > range.endBarIndex) continue;
 

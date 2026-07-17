@@ -7,7 +7,7 @@
  */
 
 import * as Y from "yjs";
-import { ScrollMode } from "@coderline/alphatab";
+import { LayoutMode, ScrollMode } from "@coderline/alphatab";
 import { buildAlphaTabScore } from "@/core/converters";
 import {
   FULL_DOCUMENT_CHANGE,
@@ -456,7 +456,10 @@ function startRendererUpdate(
         reuseViewport: true;
         firstChangedMasterBar?: number;
       } = { reuseViewport: true };
-      if (update.firstChangedMasterBar !== null) {
+      if (
+        update.firstChangedMasterBar !== null
+        && api.settings.display.layoutMode === LayoutMode.Parchment
+      ) {
         renderHints.firstChangedMasterBar = update.firstChangedMasterBar;
       }
       api.renderScore(

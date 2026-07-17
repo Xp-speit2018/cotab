@@ -163,7 +163,7 @@ test("transport modifier routes score mouse input to transport state", async ({ 
     .locator(".at-bar-selection")
     .first()
     .evaluate((el) => el.parentElement?.parentElement?.className ?? "");
-  expect(selectorRangeLayerHostClass).toContain("at-surface");
+  expect(selectorRangeLayerHostClass).toContain("at-main");
 
   const afterSelectorDrag = await page.evaluate(() => {
     const state = window.__PLAYER_STORE__!.getState();
@@ -412,28 +412,29 @@ test("transport modifier routes score mouse input to transport state", async ({ 
     .locator(".at-loop-range")
     .first()
     .evaluate((el) => el.parentElement?.parentElement?.className ?? "");
-  expect(loopLayerHostClass).toContain("at-surface");
+  expect(loopLayerHostClass).toContain("at-main");
   const persistentRangeStack = await page.evaluate(() => {
+    const main = document.querySelector(".at-main");
     const surface = document.querySelector(".at-surface");
-    if (!surface) throw new Error("Expected AlphaTab surface");
-    const rangeLayer = surface.querySelector(".cotab-range-background-layer");
+    if (!main || !surface) throw new Error("Expected AlphaTab score layers");
+    const rangeLayer = main.querySelector(":scope > .cotab-range-background-layer");
     if (!rangeLayer) throw new Error("Expected range background layer");
-    const surfaceChildren = Array.from(surface.children);
-    const visibleScoreChildren = surfaceChildren.filter((child) => {
-      if (child === rangeLayer) return false;
+    const visibleScoreChildren = Array.from(surface.children).filter((child) => {
       const rect = child.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     });
 
     return {
-      rangeLayerIndex: surfaceChildren.indexOf(rangeLayer),
+      rangeLayerHostClass: rangeLayer.parentElement?.className ?? "",
       rangeLayerZIndex: window.getComputedStyle(rangeLayer).zIndex,
+      surfaceZIndex: window.getComputedStyle(surface).zIndex,
       scoreChildCount: visibleScoreChildren.length,
       scoreChildZIndexes: visibleScoreChildren.map((child) => window.getComputedStyle(child).zIndex),
     };
   });
-  expect(persistentRangeStack.rangeLayerIndex).toBe(0);
+  expect(persistentRangeStack.rangeLayerHostClass).toContain("at-main");
   expect(persistentRangeStack.rangeLayerZIndex).toBe("0");
+  expect(persistentRangeStack.surfaceZIndex).toBe("1");
   expect(persistentRangeStack.scoreChildCount).toBeGreaterThan(0);
   expect(persistentRangeStack.scoreChildZIndexes.every((zIndex) => zIndex === "1")).toBe(true);
   expect(previewZIndex).toBeGreaterThan(loopZIndex);

@@ -135,6 +135,12 @@ describe("document.score.setMetadata", () => {
 });
 
 describe("score system layout actions", () => {
+  function resetSystemLayoutScore(barCount = 12) {
+    destroyDoc();
+    initDoc();
+    seedOneTrackScore(syncGetScoreMap()!, barCount);
+  }
+
   it("updates the default and explicit system layout", () => {
     executeDocumentAction(
       "document.score.setDefaultSystemsLayout",
@@ -192,5 +198,102 @@ describe("score system layout actions", () => {
         syncGetScoreMap()!.get("systemsLayout") as Y.Array<number>
       ).toArray(),
     ).toEqual([]);
+  });
+
+  it("reflows the whole score and resets explicit line breaks atomically", () => {
+    resetSystemLayoutScore();
+    executeDocumentAction(
+      "document.score.setSystemsLayout",
+      { value: [3, 5] },
+      ctx,
+    );
+    const doc = syncGetScoreMap()!.doc!;
+    let updates = 0;
+    doc.on("update", () => updates++);
+
+    expect(executeDocumentAction(
+      "document.score.reflowSystems",
+      { barsPerSystem: 4, startBarIndex: null },
+      ctx,
+    )).toBe(true);
+
+    const score = syncGetScoreMap()!;
+    expect(score.get("defaultSystemsLayout")).toBe(4);
+    expect((score.get("systemsLayout") as Y.Array<number>).toArray()).toEqual([]);
+    expect(updates).toBe(1);
+  });
+
+  it("reflows from the selected system while preserving earlier rows", () => {
+    resetSystemLayoutScore();
+    executeDocumentAction(
+      "document.score.setDefaultSystemsLayout",
+      { value: 4 },
+      ctx,
+    );
+
+    expect(executeDocumentAction(
+      "document.score.reflowSystems",
+      { barsPerSystem: 3, startBarIndex: 6 },
+      ctx,
+    )).toBe(true);
+
+    const score = syncGetScoreMap()!;
+    expect(score.get("defaultSystemsLayout")).toBe(3);
+    expect((score.get("systemsLayout") as Y.Array<number>).toArray()).toEqual([4]);
+  });
+
+  it("forces, moves, and prevents score line breaks", () => {
+    resetSystemLayoutScore();
+    executeDocumentAction(
+      "document.score.setDefaultSystemsLayout",
+      { value: 4 },
+      ctx,
+    );
+
+    expect(executeDocumentAction(
+      "document.score.forceSystemBreak",
+      { barIndex: 2 },
+      ctx,
+    )).toBe(true);
+    expect(
+      (syncGetScoreMap()!.get("systemsLayout") as Y.Array<number>).toArray(),
+    ).toEqual([3, 1]);
+
+    expect(executeDocumentAction(
+      "document.score.moveSystemBreak",
+      { barIndex: 2, direction: "left" },
+      ctx,
+    )).toBe(true);
+    expect(
+      (syncGetScoreMap()!.get("systemsLayout") as Y.Array<number>).toArray(),
+    ).toEqual([2, 2]);
+
+    expect(executeDocumentAction(
+      "document.score.preventSystemBreak",
+      { barIndex: 1 },
+      ctx,
+    )).toBe(true);
+    expect(
+      (syncGetScoreMap()!.get("systemsLayout") as Y.Array<number>).toArray(),
+    ).toEqual([]);
+  });
+
+  it("does not update Y.Doc when a requested break is already present", () => {
+    resetSystemLayoutScore();
+    executeDocumentAction(
+      "document.score.setDefaultSystemsLayout",
+      { value: 4 },
+      ctx,
+    );
+    const doc = syncGetScoreMap()!.doc!;
+    let updates = 0;
+    doc.on("update", () => updates++);
+
+    expect(executeDocumentAction(
+      "document.score.forceSystemBreak",
+      { barIndex: 3 },
+      ctx,
+    )).toBe(false);
+    expect(updates).toBe(0);
   });
 });

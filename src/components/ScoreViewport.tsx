@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { usePlayerStore } from "@/stores/render-store";
 import { useTransportModifierActive } from "@/shortcuts";
 import { cn } from "@/lib/utils";
+import { ScoreLayoutDesignOverlay } from "@/components/ScoreLayoutControls";
 
 // ─── Score Viewport ──────────────────────────────────────────────────────────
 
@@ -73,6 +74,7 @@ export function ScoreViewport() {
         {/* AlphaTab Main (rendering target) */}
         <div ref={mainRef} className="at-main" />
       </div>
+      <ScoreLayoutDesignOverlay />
     </div>
   );
 }

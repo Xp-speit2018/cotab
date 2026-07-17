@@ -41,6 +41,7 @@ import {
 } from "@/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import { cn } from "@/lib/utils";
+import { ScoreLayoutToolbarControls } from "@/components/ScoreLayoutControls";
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim() || "untitled";
@@ -372,6 +373,8 @@ export function Toolbar() {
             <TooltipContent>{t("toolbar.parchmentLayout")}</TooltipContent>
           </Tooltip>
         </div>
+
+        <ScoreLayoutToolbarControls />
 
         {/* Zoom */}
         <select

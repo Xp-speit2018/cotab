@@ -16,6 +16,10 @@ export type ShortcutBehavior =
     }
   | { type: "digitAccumulator" }
   | {
+      type: "systemLayout";
+      operation: "forceBreak" | "preventBreak";
+    }
+  | {
       type: "navigate";
       direction: "nextBeat" | "prevBeat" | "moveUp" | "moveDown" | "nextBar" | "prevBar" | "nextStaff" | "prevStaff";
     };

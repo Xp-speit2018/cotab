@@ -250,6 +250,61 @@
   cursor: crosshair;
 }
 
+/* ─── Parchment layout editing controls ─────────────────────────────────── */
+
+.at-system-layout-controls {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1200;
+}
+
+.at-system-layout-row-control {
+  position: absolute;
+  display: flex;
+  width: 72px;
+  height: 24px;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+  transform: translateY(-50%);
+  border: 1px solid color-mix(in oklab, var(--border) 85%, transparent);
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--background) 94%, transparent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 14%);
+  color: var(--foreground);
+  pointer-events: auto;
+}
+
+.at-system-layout-row-button {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.at-system-layout-row-button:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--accent) 90%, transparent);
+}
+
+.at-system-layout-row-button:disabled {
+  opacity: 0.3;
+}
+
+.at-system-layout-row-count {
+  min-width: 22px;
+  text-align: center;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+}
+
 /* ─── Snap Grid Debug Overlay ────────────────────────────────────────────── */
 
 .at-snap-grid-overlay {

@@ -22,6 +22,23 @@
     "scoreLayout": "乐谱布局",
     "horizontalLayout": "横向布局",
     "parchmentLayout": "卷轴布局",
+    "layout": {
+      "title": "乐谱排版",
+      "settings": "排版设置",
+      "designMode": "编辑乐谱排版",
+      "parchmentOnly": "仅在卷轴布局中可用",
+      "scoreTarget": "总谱",
+      "trackTarget": "音轨：{{name}}",
+      "barsPerRow": "每行小节数",
+      "applyScope": "应用范围",
+      "entireScore": "整个乐谱",
+      "fromCurrentRow": "从当前行开始",
+      "apply": "应用排版",
+      "forceBreak": "在第 {{bar}} 小节后换行",
+      "preventBreak": "合并第 {{bar}} 小节后的谱行",
+      "moveBarToNext": "将第 {{row}} 行的一个小节移到下一行",
+      "moveBarFromNext": "将下一行的一个小节移到第 {{row}} 行"
+    },
     "fpsMonitor": "帧率监视器 (Shift+F)",
     "language": "语言",
     "undo": "撤销",
@@ -616,7 +633,9 @@
       "bar": {
         "insertBefore": { "name": "在前方插入小节" },
         "insertAfter": { "name": "在后方插入小节" },
-        "delete": { "name": "删除小节" }
+        "delete": { "name": "删除小节" },
+        "forceSystemBreak": { "name": "在选中小节后换行" },
+        "preventSystemBreak": { "name": "合并选中小节后的谱行" }
       },
       "track": {
         "add": { "name": "添加音轨" },

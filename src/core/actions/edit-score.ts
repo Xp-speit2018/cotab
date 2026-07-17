@@ -5,9 +5,20 @@ import { AutomationType, createAutomation } from "@/core/schema";
 import { actionArgs, defineDocumentAction } from "./definition";
 import {
   finiteNumber,
+  nonNegativeInteger,
   positiveInteger,
   valueStringArgs,
 } from "./args-schema";
+import {
+  forceSystemBreak,
+  moveSystemBreak,
+  preventSystemBreak,
+  readYSystemLayout,
+  reflowSystems,
+  writeYSystemLayout,
+  type SystemBreakDirection,
+  type SystemLayoutState,
+} from "./system-layout";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
@@ -49,6 +60,23 @@ function replaceNumberArray(
     array.delete(0, array.length);
   }
   if (values.length > 0) array.push([...values]);
+}
+
+function mutateScoreSystemLayout(
+  mutate: (
+    totalBars: number,
+    current: SystemLayoutState,
+  ) => SystemLayoutState | null,
+): boolean {
+  const yScore = getScoreMap();
+  if (!yScore) return false;
+  const totalBars = (
+    yScore.get("masterBars") as Y.Array<Y.Map<unknown>> | undefined
+  )?.length ?? 0;
+  const next = mutate(totalBars, readYSystemLayout(yScore));
+  if (!next) return false;
+  transact(() => writeYSystemLayout(yScore, next));
+  return true;
 }
 
 function getOrCreateInitialTempoAutomation(
@@ -162,6 +190,61 @@ const setSystemsLayoutAction = defineDocumentAction({
   },
 });
 
+const reflowSystemsAction = defineDocumentAction({
+  id: "document.score.reflowSystems",
+  i18nKey: "actions.edit.score.reflowSystems",
+  category: "document.score",
+  argsSchema: actionArgs({
+    barsPerSystem: positiveInteger,
+    startBarIndex: nonNegativeInteger.nullable(),
+  }),
+  execute: ({ barsPerSystem, startBarIndex }) =>
+    mutateScoreSystemLayout((totalBars, current) =>
+      reflowSystems(totalBars, current, barsPerSystem, startBarIndex),
+    ),
+});
+
+const forceSystemBreakAction = defineDocumentAction({
+  id: "document.score.forceSystemBreak",
+  i18nKey: "actions.edit.score.forceSystemBreak",
+  category: "document.score",
+  argsSchema: actionArgs({ barIndex: nonNegativeInteger }),
+  execute: ({ barIndex }) =>
+    mutateScoreSystemLayout((totalBars, current) =>
+      forceSystemBreak(totalBars, current, barIndex),
+    ),
+});
+
+const preventSystemBreakAction = defineDocumentAction({
+  id: "document.score.preventSystemBreak",
+  i18nKey: "actions.edit.score.preventSystemBreak",
+  category: "document.score",
+  argsSchema: actionArgs({ barIndex: nonNegativeInteger }),
+  execute: ({ barIndex }) =>
+    mutateScoreSystemLayout((totalBars, current) =>
+      preventSystemBreak(totalBars, current, barIndex),
+    ),
+});
+
+const moveSystemBreakAction = defineDocumentAction({
+  id: "document.score.moveSystemBreak",
+  i18nKey: "actions.edit.score.moveSystemBreak",
+  category: "document.score",
+  argsSchema: actionArgs({
+    barIndex: nonNegativeInteger,
+    direction: z.enum(["left", "right"]),
+  }),
+  execute: ({ barIndex, direction }) =>
+    mutateScoreSystemLayout((totalBars, current) =>
+      moveSystemBreak(
+        totalBars,
+        current,
+        barIndex,
+        direction as SystemBreakDirection,
+      ),
+    ),
+});
+
 export const scoreDocumentActions = [
   setMetadataAction,
   setTitleAction,
@@ -170,4 +253,8 @@ export const scoreDocumentActions = [
   setTempoLabelAction,
   setDefaultSystemsLayoutAction,
   setSystemsLayoutAction,
+  reflowSystemsAction,
+  forceSystemBreakAction,
+  preventSystemBreakAction,
+  moveSystemBreakAction,
 ] as const;

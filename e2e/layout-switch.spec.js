@@ -30,6 +30,45 @@ async function waitForLayout(page, layout, alphaTabLayoutMode) {
     .toMatchObject({ layout, alphaTabLayoutMode });
 }
 
+async function waitForSystemRows(page, expectedRows) {
+  await expect
+    .poll(() =>
+      page.evaluate((count) =>
+        window.__PLAYER_STORE__.getState().systemLayoutRows
+          .slice(0, count)
+          .map((row) => [row.startBarIndex, row.endBarIndex]),
+      expectedRows.length),
+    )
+    .toEqual(expectedRows);
+}
+
+async function selectBar(page, barIndex) {
+  await page.evaluate((targetBarIndex) => {
+    const beat = window.__ALPHATAB_API__.score.tracks[0].staves[0]
+      .bars[targetBarIndex].voices[0].beats[0];
+    window.__PLAYER_STORE__.getState().setSelection({
+      trackIndex: 0,
+      staffIndex: 0,
+      voiceIndex: 0,
+      barIndex: targetBarIndex,
+      beatIndex: 0,
+      string: beat.notes[0]?.string ?? 1,
+    });
+  }, barIndex);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.__PLAYER_STORE__.getState().selector.barIndex,
+      ),
+    )
+    .toBe(barIndex);
+}
+
+async function openLayoutSettings(page) {
+  await page.getByRole("button", { name: "Layout settings" }).click();
+  await expect(page.getByText("Score layout", { exact: true })).toBeVisible();
+}
+
 test("switches layouts and snaps a later parchment system locally", async ({
   page,
 }) => {
@@ -252,4 +291,150 @@ test("switches layouts and snaps a later parchment system locally", async ({
       ),
     )
     .toBe(1);
+});
+
+test("edits parchment rows with Guitar Pro-style layout controls", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+  await waitForScore(page);
+
+  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await waitForLayout(page, "parchment", 2);
+  await waitForSystemRows(page, [[0, 3], [4, 7]]);
+
+  await selectBar(page, 1);
+  await openLayoutSettings(page);
+  await page.getByRole("button", { name: "End row after bar 2" }).click();
+  await waitForSystemRows(page, [[0, 1], [2, 3], [4, 7]]);
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        window.__ALPHATAB_API__.score.systemsLayout.slice(0, 3),
+      ),
+    )
+    .toEqual([2, 2, 4]);
+
+  await openLayoutSettings(page);
+  await page.getByRole("button", { name: "Merge rows after bar 2" }).click();
+  await waitForSystemRows(page, [[0, 3], [4, 7]]);
+
+  await page.getByRole("button", { name: "Edit score layout" }).click();
+  await expect(
+    page.getByRole("button", {
+      name: "Move one bar from the next row into row 1",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.getByRole("button", {
+    name: "Move one bar from the next row into row 1",
+    exact: true,
+  }).click();
+  await waitForSystemRows(page, [[0, 4], [5, 7]]);
+  await page.getByRole("button", {
+    name: "Move one bar from row 1 to the next row",
+    exact: true,
+  }).click();
+  await waitForSystemRows(page, [[0, 3], [4, 7]]);
+
+  await openLayoutSettings(page);
+  await page.getByLabel("Bars per row").fill("5");
+  await page.getByRole("button", { name: "Apply layout" }).click();
+  await waitForSystemRows(page, [[0, 4], [5, 9]]);
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        defaultSystemsLayout:
+          window.__ALPHATAB_API__.score.defaultSystemsLayout,
+        systemsLayout: [...window.__ALPHATAB_API__.score.systemsLayout],
+      })),
+    )
+    .toEqual({ defaultSystemsLayout: 5, systemsLayout: [] });
+
+  await selectBar(page, 6);
+  await openLayoutSettings(page);
+  await page.getByLabel("Bars per row").fill("3");
+  await page.getByRole("button", { name: "From current row" }).click();
+  await page.getByRole("button", { name: "Apply layout" }).click();
+  await waitForSystemRows(page, [[0, 4], [5, 7], [8, 10]]);
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        defaultSystemsLayout:
+          window.__ALPHATAB_API__.score.defaultSystemsLayout,
+        systemsLayout: [...window.__ALPHATAB_API__.score.systemsLayout],
+      })),
+    )
+    .toEqual({ defaultSystemsLayout: 3, systemsLayout: [5] });
+
+  await selectBar(page, 5);
+  const modifier = await page.evaluate(() =>
+    navigator.userAgent.toLowerCase().includes("mac") ? "Meta" : "Control",
+  );
+  await page.keyboard.press(`${modifier}+Enter`);
+  await waitForSystemRows(page, [[0, 4], [5, 5], [6, 7]]);
+  await page.keyboard.press("Shift+7");
+  await waitForSystemRows(page, [[0, 4], [5, 7], [8, 10]]);
+});
+
+test("uses track layout when only one track is visible", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+  await waitForScore(page);
+
+  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await waitForLayout(page, "parchment", 2);
+  const originalScoreLayout = await page.evaluate(() => ({
+    defaultSystemsLayout: window.__ALPHATAB_API__.score.defaultSystemsLayout,
+    systemsLayout: [...window.__ALPHATAB_API__.score.systemsLayout],
+  }));
+
+  await page.getByRole("button", { name: "Meta", exact: true }).click();
+  for (const trackName of [
+    "Baritone Guitar",
+    "Bass",
+    "Lead Violin",
+    "Baritone Violin",
+    "Drumkit",
+  ]) {
+    await page.getByRole("button", {
+      name: `Hide ${trackName}`,
+      exact: true,
+    }).click();
+  }
+  await expect
+    .poll(() =>
+      page.evaluate(() => ({
+        visibleTrackIndices:
+          window.__PLAYER_STORE__.getState().visibleTrackIndices,
+        renderedTrackIndices:
+          window.__ALPHATAB_API__.tracks.map((track) => track.index),
+      })),
+    )
+    .toEqual({ visibleTrackIndices: [0], renderedTrackIndices: [0] });
+
+  await openLayoutSettings(page);
+  await expect(page.getByText("Track: Lead Guitar", { exact: true })).toBeVisible();
+  await page.getByLabel("Bars per row").fill("5");
+  await page.getByRole("button", { name: "Apply layout" }).click();
+  await waitForSystemRows(page, [[0, 4], [5, 9]]);
+
+  const layouts = await page.evaluate(() => ({
+    score: {
+      defaultSystemsLayout: window.__ALPHATAB_API__.score.defaultSystemsLayout,
+      systemsLayout: [...window.__ALPHATAB_API__.score.systemsLayout],
+    },
+    track: {
+      defaultSystemsLayout:
+        window.__ALPHATAB_API__.score.tracks[0].defaultSystemsLayout,
+      systemsLayout: [
+        ...window.__ALPHATAB_API__.score.tracks[0].systemsLayout,
+      ],
+    },
+  }));
+  expect(layouts).toEqual({
+    score: originalScoreLayout,
+    track: { defaultSystemsLayout: 5, systemsLayout: [] },
+  });
 });

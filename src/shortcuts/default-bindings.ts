@@ -201,6 +201,24 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     keys: "mod+backspace",
     behavior: direct,
   },
+  {
+    id: "layout.forceSystemBreak",
+    actionId: "document.score.forceSystemBreak",
+    i18nKey: "shortcuts.edit.bar.forceSystemBreak",
+    category: "editing.bar",
+    defaultKeys: "mod+enter",
+    keys: "mod+enter",
+    behavior: { type: "systemLayout", operation: "forceBreak" },
+  },
+  {
+    id: "layout.preventSystemBreak",
+    actionId: "document.score.preventSystemBreak",
+    i18nKey: "shortcuts.edit.bar.preventSystemBreak",
+    category: "editing.bar",
+    defaultKeys: "shift+7",
+    keys: "shift+7",
+    behavior: { type: "systemLayout", operation: "preventBreak" },
+  },
 
   // ── Editing: Track ────────────────────────────────────────────────────────
   {

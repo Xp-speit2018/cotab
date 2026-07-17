@@ -132,6 +132,12 @@ describe("document.track.setShortName", () => {
 });
 
 describe("track system layout actions", () => {
+  function resetSystemLayoutScore(barCount = 12) {
+    destroyDoc();
+    initDoc();
+    seedOneTrackScore(getScoreMap()!, barCount);
+  }
+
   it("updates the default and explicit system layout", () => {
     executeDocumentAction(
       "document.track.setDefaultSystemsLayout",
@@ -165,6 +171,40 @@ describe("track system layout actions", () => {
     ).toThrow(DocumentActionArgumentsError);
 
     expect(updates).toBe(0);
+    expect(
+      (
+        resolveYTrackHelper(0)!.get("systemsLayout") as Y.Array<number>
+      ).toArray(),
+    ).toEqual([]);
+  });
+
+  it("supports Guitar Pro-style track reflow and break editing", () => {
+    resetSystemLayoutScore();
+    executeDocumentAction(
+      "document.track.reflowSystems",
+      {
+        trackIndex: 0,
+        barsPerSystem: 4,
+        startBarIndex: null,
+      },
+      ctx,
+    );
+    expect(executeDocumentAction(
+      "document.track.forceSystemBreak",
+      { trackIndex: 0, barIndex: 2 },
+      ctx,
+    )).toBe(true);
+    expect(
+      (
+        resolveYTrackHelper(0)!.get("systemsLayout") as Y.Array<number>
+      ).toArray(),
+    ).toEqual([3, 1]);
+
+    expect(executeDocumentAction(
+      "document.track.preventSystemBreak",
+      { trackIndex: 0, barIndex: 2 },
+      ctx,
+    )).toBe(true);
     expect(
       (
         resolveYTrackHelper(0)!.get("systemsLayout") as Y.Array<number>

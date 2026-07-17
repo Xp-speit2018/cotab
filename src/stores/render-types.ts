@@ -84,6 +84,18 @@ export interface SnapGrid {
 
 export type ScoreLayout = "horizontal" | "parchment";
 
+export interface SystemLayoutRow {
+  index: number;
+  startBarIndex: number;
+  endBarIndex: number;
+  bounds: {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+  };
+}
+
 export interface PercArticulationDef {
   id: number;
   elementType: string;
@@ -302,6 +314,8 @@ export interface PlayerState {
   selectedString: number | null;
   zoom: number;
   scoreLayout: ScoreLayout;
+  layoutDesignMode: boolean;
+  systemLayoutRows: SystemLayoutRow[];
   sidebarVisible: boolean;
   roomDialogOpen: boolean;
   showSnapGrid: boolean;
@@ -322,6 +336,7 @@ export interface PlayerState {
   formatTuningNote: (midiValue: number) => string;
   setZoom: (zoom: number) => void;
   setScoreLayout: (layout: ScoreLayout) => void;
+  setLayoutDesignMode: (enabled: boolean) => void;
   setShowSnapGrid: (show: boolean) => void;
   setTransportPlayhead: (args: BeatPositionArgs | null) => void;
   setTransportPlayheadToSelection: () => void;

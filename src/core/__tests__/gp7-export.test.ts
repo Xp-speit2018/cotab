@@ -73,6 +73,41 @@ describe("GP7 export round-trip", () => {
     expect(reimported.tracks[0].staves[0].bars).toHaveLength(3);
   });
 
+  it("preserves score and track system layouts", () => {
+    const scoreMap = getScoreMap()!;
+    seedOneTrackScore(scoreMap, 12);
+
+    transact(() => {
+      scoreMap.set("defaultSystemsLayout", 5);
+      const scoreSystemsLayout = scoreMap.get(
+        "systemsLayout",
+      ) as import("yjs").Array<number>;
+      scoreSystemsLayout.push([2, 3, 4]);
+
+      const tracks = scoreMap.get(
+        "tracks",
+      ) as import("yjs").Array<import("yjs").Map<unknown>>;
+      const track = tracks.get(0);
+      track.set("defaultSystemsLayout", 6);
+      const trackSystemsLayout = track.get(
+        "systemsLayout",
+      ) as import("yjs").Array<number>;
+      trackSystemsLayout.push([1, 5, 2]);
+    });
+
+    const original = buildAlphaTabScore(scoreMap, createSettings());
+    expect(original.defaultSystemsLayout).toBe(5);
+    expect(original.systemsLayout).toEqual([2, 3, 4]);
+    expect(original.tracks[0].defaultSystemsLayout).toBe(6);
+    expect(original.tracks[0].systemsLayout).toEqual([1, 5, 2]);
+
+    const reimported = roundTrip(original);
+    expect(reimported.defaultSystemsLayout).toBe(5);
+    expect(reimported.systemsLayout).toEqual([2, 3, 4]);
+    expect(reimported.tracks[0].defaultSystemsLayout).toBe(6);
+    expect(reimported.tracks[0].systemsLayout).toEqual([1, 5, 2]);
+  });
+
   it("preserves note fret and string values", () => {
     const scoreMap = getScoreMap()!;
     seedOneTrackScore(scoreMap, 1);

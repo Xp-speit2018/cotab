@@ -66,6 +66,7 @@ import type {
   SelectedBeat,
   SelectedBeatInfo,
   SelectedNoteInfo,
+  SystemLayoutRow,
   TrackInfo,
 } from "./render-types";
 import { GP7_DEF_BY_ID } from "./percussion-data";
@@ -136,6 +137,7 @@ export type {
   SelectedVoiceInfo,
   ScoreMetadataField,
   ScoreLayout,
+  SystemLayoutRow,
   PlayerState,
   PercArticulationDef,
   DrumCategoryId,
@@ -253,6 +255,42 @@ function resolveBarAtPoint(
     }
   }
   return null;
+}
+
+function collectRenderedSystemLayoutRows(): SystemLayoutRow[] {
+  const lookup = getApi()?.boundsLookup;
+  if (!lookup) return [];
+
+  const rows: SystemLayoutRow[] = [];
+  const signatures = new Set<string>();
+  for (const system of lookup.staffSystems) {
+    const firstBarIndex = system.bars[0]?.index;
+    const lastBarIndex = system.bars.at(-1)?.index;
+    if (firstBarIndex === undefined || lastBarIndex === undefined) continue;
+    const bounds = system.realBounds;
+    const signature = [
+      firstBarIndex,
+      lastBarIndex,
+      bounds.x,
+      bounds.y,
+      bounds.w,
+      bounds.h,
+    ].join(":");
+    if (signatures.has(signature)) continue;
+    signatures.add(signature);
+    rows.push({
+      index: rows.length,
+      startBarIndex: firstBarIndex,
+      endBarIndex: lastBarIndex,
+      bounds: {
+        x: bounds.x,
+        y: bounds.y,
+        w: bounds.w,
+        h: bounds.h,
+      },
+    });
+  }
+  return rows;
 }
 
 function createRenderSelectorState(): RenderSelectorState {
@@ -1175,6 +1213,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedString: null,
   zoom: 1,
   scoreLayout: "horizontal",
+  layoutDesignMode: false,
+  systemLayoutRows: [],
   sidebarVisible: true,
   roomDialogOpen: false,
   showSnapGrid: false,
@@ -1374,6 +1414,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     };
 
     const onMouseDown = (e: MouseEvent) => {
+      if (
+        e.target instanceof Element
+        && e.target.closest("[data-cotab-layout-control]")
+      ) {
+        return;
+      }
       const coords = toAlphaTabCoords(e);
       if (!coords) return;
 
@@ -1520,6 +1566,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       set({
         isLoading: false,
         visibleTrackIndices,
+        systemLayoutRows: collectRenderedSystemLayoutRows(),
       });
 
       // 4. Apply pending selection (from rest insertion) with fresh bounds,
@@ -1801,6 +1848,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       selectedBeatInfo: null,
       selectedNoteIndex: -1,
       selectedString: null,
+      layoutDesignMode: false,
+      systemLayoutRows: [],
     });
   },
 
@@ -2015,7 +2064,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setScoreLayout: (scoreLayout: ScoreLayout) => {
     if (scoreLayout === get().scoreLayout) return;
-    set({ scoreLayout });
+    set({
+      scoreLayout,
+      ...(scoreLayout === "horizontal" ? { layoutDesignMode: false } : {}),
+    });
 
     const api = getApi();
     if (!api) return;
@@ -2026,6 +2078,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       : alphaTab.LayoutMode.Horizontal;
     api.updateSettings();
     api.render();
+  },
+
+  setLayoutDesignMode: (layoutDesignMode) => {
+    if (get().scoreLayout !== "parchment" && layoutDesignMode) return;
+    set({ layoutDesignMode });
   },
 
   setShowSnapGrid: (show) => {

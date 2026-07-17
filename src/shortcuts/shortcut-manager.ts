@@ -17,6 +17,10 @@ import {
   computeNextStaff,
   computePrevStaff,
 } from "@/components/navigation/navigation-helpers";
+import {
+  forceActiveSystemBreak,
+  preventActiveSystemBreak,
+} from "@/app-actions/active-system-layout";
 let installed = false;
 let tFunction: TFunction | null = null;
 
@@ -109,6 +113,18 @@ function handleKeyDown(e: KeyboardEvent): void {
       if (digitMatch) {
         const digit = parseInt(digitMatch[1], 10);
         handleDigitInput(digit, context);
+      }
+      break;
+    }
+
+    case "systemLayout": {
+      cancelDigitInput();
+      const barIndex = engine.selector.barIndex;
+      if (barIndex === null) return;
+      if (behavior.operation === "forceBreak") {
+        forceActiveSystemBreak(barIndex, context);
+      } else {
+        preventActiveSystemBreak(barIndex, context);
       }
       break;
     }

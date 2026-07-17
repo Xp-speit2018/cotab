@@ -44,6 +44,14 @@ describe("AppAction registry", () => {
     expect(action?.domain).toBe("view");
   });
 
+  it("registers layout design mode as a ViewAction", () => {
+    const action = getAllAppActions().find(
+      (candidate) => candidate.id === "view.setLayoutDesignMode",
+    );
+
+    expect(action?.domain).toBe("view");
+  });
+
   it("dispatches transport actions through the player store", () => {
     const originalTogglePlayback = usePlayerStore.getState().togglePlayback;
     const togglePlayback = vi.fn();
@@ -72,6 +80,39 @@ describe("AppAction registry", () => {
       expect(setScoreLayout).toHaveBeenCalledWith("parchment");
     } finally {
       usePlayerStore.setState({ setScoreLayout: originalSetScoreLayout });
+    }
+  });
+
+  it("enables layout design mode only in parchment layout", () => {
+    const originalLayout = usePlayerStore.getState().scoreLayout;
+    const originalSetLayoutDesignMode =
+      usePlayerStore.getState().setLayoutDesignMode;
+    const setLayoutDesignMode = vi.fn();
+
+    usePlayerStore.setState({
+      scoreLayout: "horizontal",
+      setLayoutDesignMode,
+    });
+    try {
+      expect(executeAppActionUnsafe(
+        "view.setLayoutDesignMode",
+        { enabled: true },
+        context,
+      )).toBe(false);
+      expect(setLayoutDesignMode).not.toHaveBeenCalled();
+
+      usePlayerStore.setState({ scoreLayout: "parchment" });
+      expect(executeAppActionUnsafe(
+        "view.setLayoutDesignMode",
+        { enabled: true },
+        context,
+      )).toBe(true);
+      expect(setLayoutDesignMode).toHaveBeenCalledWith(true);
+    } finally {
+      usePlayerStore.setState({
+        scoreLayout: originalLayout,
+        setLayoutDesignMode: originalSetLayoutDesignMode,
+      });
     }
   });
 });

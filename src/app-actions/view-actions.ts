@@ -13,6 +13,10 @@ declare global {
       args: { layout: ScoreLayout };
       result: boolean;
     };
+    "view.setLayoutDesignMode": {
+      args: { enabled: boolean };
+      result: boolean;
+    };
   }
 }
 
@@ -25,6 +29,19 @@ export function registerViewActions(): void {
     execute: ({ layout }) => {
       if (layout !== "horizontal" && layout !== "parchment") return false;
       usePlayerStore.getState().setScoreLayout(layout);
+      return true;
+    },
+  });
+
+  registerAppAction<{ enabled: boolean }, boolean>({
+    id: "view.setLayoutDesignMode",
+    domain: "view",
+    i18nKey: "actions.view.setLayoutDesignMode",
+    category: "view",
+    execute: ({ enabled }) => {
+      const state = usePlayerStore.getState();
+      if (enabled && state.scoreLayout !== "parchment") return false;
+      state.setLayoutDesignMode(enabled);
       return true;
     },
   });

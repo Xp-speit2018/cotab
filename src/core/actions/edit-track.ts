@@ -21,9 +21,38 @@ import {
   nonNegativeInteger,
   positiveInteger,
 } from "./args-schema";
+import {
+  forceSystemBreak,
+  moveSystemBreak,
+  preventSystemBreak,
+  readYSystemLayout,
+  reflowSystems,
+  writeYSystemLayout,
+  type SystemBreakDirection,
+  type SystemLayoutState,
+} from "./system-layout";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
+
+function mutateTrackSystemLayout(
+  trackIndex: number,
+  mutate: (
+    totalBars: number,
+    current: SystemLayoutState,
+  ) => SystemLayoutState | null,
+): boolean {
+  const yScore = getScoreMap();
+  const yTrack = engine.resolveYTrack(trackIndex);
+  if (!yScore || !yTrack) return false;
+  const totalBars = (
+    yScore.get("masterBars") as Y.Array<Y.Map<unknown>> | undefined
+  )?.length ?? 0;
+  const next = mutate(totalBars, readYSystemLayout(yTrack));
+  if (!next) return false;
+  transact(() => writeYSystemLayout(yTrack, next));
+  return true;
+}
 
 function getNextChannel(yTracks: Y.Array<Y.Map<unknown>>, preset: TrackPreset): number {
   if (preset.channel !== 0) return preset.channel;
@@ -306,6 +335,69 @@ const setTrackSystemsLayoutAction = defineDocumentAction({
   },
 });
 
+const reflowTrackSystemsAction = defineDocumentAction({
+  id: "document.track.reflowSystems",
+  i18nKey: "actions.edit.track.reflowSystems",
+  category: "document.track",
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    barsPerSystem: positiveInteger,
+    startBarIndex: nonNegativeInteger.nullable(),
+  }),
+  execute: ({ trackIndex, barsPerSystem, startBarIndex }) =>
+    mutateTrackSystemLayout(trackIndex, (totalBars, current) =>
+      reflowSystems(totalBars, current, barsPerSystem, startBarIndex),
+    ),
+});
+
+const forceTrackSystemBreakAction = defineDocumentAction({
+  id: "document.track.forceSystemBreak",
+  i18nKey: "actions.edit.track.forceSystemBreak",
+  category: "document.track",
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    barIndex: nonNegativeInteger,
+  }),
+  execute: ({ trackIndex, barIndex }) =>
+    mutateTrackSystemLayout(trackIndex, (totalBars, current) =>
+      forceSystemBreak(totalBars, current, barIndex),
+    ),
+});
+
+const preventTrackSystemBreakAction = defineDocumentAction({
+  id: "document.track.preventSystemBreak",
+  i18nKey: "actions.edit.track.preventSystemBreak",
+  category: "document.track",
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    barIndex: nonNegativeInteger,
+  }),
+  execute: ({ trackIndex, barIndex }) =>
+    mutateTrackSystemLayout(trackIndex, (totalBars, current) =>
+      preventSystemBreak(totalBars, current, barIndex),
+    ),
+});
+
+const moveTrackSystemBreakAction = defineDocumentAction({
+  id: "document.track.moveSystemBreak",
+  i18nKey: "actions.edit.track.moveSystemBreak",
+  category: "document.track",
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    barIndex: nonNegativeInteger,
+    direction: z.enum(["left", "right"]),
+  }),
+  execute: ({ trackIndex, barIndex, direction }) =>
+    mutateTrackSystemLayout(trackIndex, (totalBars, current) =>
+      moveSystemBreak(
+        totalBars,
+        current,
+        barIndex,
+        direction as SystemBreakDirection,
+      ),
+    ),
+});
+
 const setPercussionArticulationOutputMidiNumberAction = defineDocumentAction({
   id: "document.track.setPercussionArticulationOutputMidiNumber",
   i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber",
@@ -341,5 +433,9 @@ export const trackDocumentActions = [
   setTrackPlaybackInfoProgramAction,
   setTrackDefaultSystemsLayoutAction,
   setTrackSystemsLayoutAction,
+  reflowTrackSystemsAction,
+  forceTrackSystemBreakAction,
+  preventTrackSystemBreakAction,
+  moveTrackSystemBreakAction,
   setPercussionArticulationOutputMidiNumberAction,
 ] as const;

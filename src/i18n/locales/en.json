@@ -22,6 +22,23 @@
     "scoreLayout": "Score layout",
     "horizontalLayout": "Horizontal layout",
     "parchmentLayout": "Parchment layout",
+    "layout": {
+      "title": "Score layout",
+      "settings": "Layout settings",
+      "designMode": "Edit score layout",
+      "parchmentOnly": "Available in parchment layout",
+      "scoreTarget": "Full score",
+      "trackTarget": "Track: {{name}}",
+      "barsPerRow": "Bars per row",
+      "applyScope": "Apply layout to",
+      "entireScore": "Entire score",
+      "fromCurrentRow": "From current row",
+      "apply": "Apply layout",
+      "forceBreak": "End row after bar {{bar}}",
+      "preventBreak": "Merge rows after bar {{bar}}",
+      "moveBarToNext": "Move one bar from row {{row}} to the next row",
+      "moveBarFromNext": "Move one bar from the next row into row {{row}}"
+    },
     "fpsMonitor": "FPS Monitor (Shift+F)",
     "language": "Language",
     "undo": "Undo",
@@ -616,7 +633,9 @@
       "bar": {
         "insertBefore": { "name": "Insert Bar Before" },
         "insertAfter": { "name": "Insert Bar After" },
-        "delete": { "name": "Delete Bar" }
+        "delete": { "name": "Delete Bar" },
+        "forceSystemBreak": { "name": "End Row After Selected Bar" },
+        "preventSystemBreak": { "name": "Merge Rows After Selected Bar" }
       },
       "track": {
         "add": { "name": "Add Track" },

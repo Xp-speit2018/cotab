@@ -7,6 +7,7 @@ import {
   finiteNumber,
   nonNegativeInteger,
   positiveInteger,
+  tempoMapSchema,
   valueStringArgs,
 } from "./args-schema";
 import {
@@ -162,6 +163,53 @@ const setTempoLabelAction = defineDocumentAction({
   },
 });
 
+const setTempoMapAction = defineDocumentAction({
+  id: "document.score.setTempoMap",
+  i18nKey: "actions.edit.score.setTempoMap",
+  category: "document.score",
+  argsSchema: actionArgs({ entries: tempoMapSchema }),
+  execute: ({ entries }) => {
+    const yScore = getScoreMap();
+    const yMasterBars = yScore?.get("masterBars") as
+      | Y.Array<Y.Map<unknown>>
+      | undefined;
+    if (!yScore || !yMasterBars) return;
+    const invalidEntry = entries.find(
+      ({ masterBarIndex }) => masterBarIndex >= yMasterBars.length,
+    );
+    if (invalidEntry) {
+      throw new RangeError(
+        `Master bar index ${invalidEntry.masterBarIndex} is outside the score`,
+      );
+    }
+
+    const entriesByMasterBar = new Map(
+      entries.map((entry) => [entry.masterBarIndex, entry.automations]),
+    );
+    transact(() => {
+      for (let masterBarIndex = 0; masterBarIndex < yMasterBars.length; masterBarIndex++) {
+        const yMasterBar = yMasterBars.get(masterBarIndex);
+        let yAutomations = yMasterBar.get("tempoAutomations") as
+          | Y.Array<Y.Map<unknown>>
+          | undefined;
+        if (!yAutomations) {
+          yAutomations = new Y.Array<Y.Map<unknown>>();
+          yMasterBar.set("tempoAutomations", yAutomations);
+        } else if (yAutomations.length > 0) {
+          yAutomations.delete(0, yAutomations.length);
+        }
+        for (const automation of entriesByMasterBar.get(masterBarIndex) ?? []) {
+          const yAutomation = new Y.Map<unknown>();
+          for (const [field, value] of Object.entries(automation)) {
+            yAutomation.set(field, value);
+          }
+          yAutomations.push([yAutomation]);
+        }
+      }
+    });
+  },
+});
+
 const setDefaultSystemsLayoutAction = defineDocumentAction({
   id: "document.score.setDefaultSystemsLayout",
   i18nKey: "actions.edit.score.setDefaultSystemsLayout",
@@ -251,6 +299,7 @@ export const scoreDocumentActions = [
   setArtistAction,
   setTempoAction,
   setTempoLabelAction,
+  setTempoMapAction,
   setDefaultSystemsLayoutAction,
   setSystemsLayoutAction,
   reflowSystemsAction,

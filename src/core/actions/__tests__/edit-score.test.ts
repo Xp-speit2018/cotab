@@ -10,6 +10,7 @@ import {
   getScoreMap as syncGetScoreMap,
   seedOneTrackScore,
 } from "@/test/setup";
+import { AutomationType } from "@/core/schema";
 
 vi.mock("@/core/engine", () => {
   const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;
@@ -114,6 +115,68 @@ describe("document.score.setTempoLabel", () => {
       .get("tempoAutomations") as Y.Array<Y.Map<unknown>>;
     expect(automations.get(0).get("text")).toBe("Allegro");
     expect(syncGetScoreMap()!.has("tempoLabel")).toBe(false);
+  });
+});
+
+describe("document.score.setTempoMap", () => {
+  const automation = (value: number, ratioPosition = 0) => ({
+    isLinear: false,
+    type: AutomationType.Tempo,
+    value,
+    ratioPosition,
+    text: "",
+    isVisible: true,
+  });
+
+  beforeEach(() => {
+    destroyDoc();
+    initDoc();
+    seedOneTrackScore(syncGetScoreMap()!, 4);
+  });
+
+  it("atomically replaces tempo points across the score", () => {
+    executeDocumentAction("document.score.setTempoMap", { entries: [
+      { masterBarIndex: 0, automations: [automation(70)] },
+      {
+        masterBarIndex: 2,
+        automations: [automation(90), automation(110, 0.5)],
+      },
+    ] }, ctx);
+
+    const masterBars = syncGetScoreMap()!.get("masterBars") as Y.Array<
+      Y.Map<unknown>
+    >;
+    expect(masterBars.map((masterBar) => {
+      const automations = masterBar.get("tempoAutomations") as Y.Array<
+        Y.Map<unknown>
+      >;
+      return automations.map((item) => [
+        item.get("value"),
+        item.get("ratioPosition"),
+      ]);
+    })).toEqual([
+      [[70, 0]],
+      [],
+      [[90, 0], [110, 0.5]],
+      [],
+    ]);
+  });
+
+  it("rejects duplicate and out-of-range bars without changing Y.Doc", () => {
+    const score = syncGetScoreMap()!;
+    const before = score.toJSON();
+    expect(() => executeDocumentAction("document.score.setTempoMap", {
+      entries: [
+        { masterBarIndex: 1, automations: [automation(80)] },
+        { masterBarIndex: 1, automations: [automation(90)] },
+      ],
+    }, ctx)).toThrow(DocumentActionArgumentsError);
+    expect(score.toJSON()).toEqual(before);
+
+    expect(() => executeDocumentAction("document.score.setTempoMap", {
+      entries: [{ masterBarIndex: 4, automations: [automation(100)] }],
+    }, ctx)).toThrow(RangeError);
+    expect(score.toJSON()).toEqual(before);
   });
 });
 

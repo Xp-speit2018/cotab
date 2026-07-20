@@ -111,6 +111,26 @@ export const tempoAutomationListSchema = z.array(tempoAutomationSchema)
   })
   .describe("Tempo changes ordered by their position within the master bar");
 
+export const tempoMapEntrySchema = z.strictObject({
+  masterBarIndex: nonNegativeInteger
+    .describe("Zero-based master bar index"),
+  automations: tempoAutomationListSchema.min(1),
+});
+
+export const tempoMapSchema = z.array(tempoMapEntrySchema)
+  .superRefine((entries, context) => {
+    for (let index = 1; index < entries.length; index++) {
+      if (entries[index].masterBarIndex <= entries[index - 1].masterBarIndex) {
+        context.addIssue({
+          code: "custom",
+          path: [index, "masterBarIndex"],
+          message: "Tempo map master bar indices must be strictly increasing",
+        });
+      }
+    }
+  })
+  .describe("Complete score tempo map grouped by master bar");
+
 export const percussionMappingSchema = z.strictObject({
   articulationIndex: nonNegativeInteger.describe(
     "Index in the track percussion articulation list",

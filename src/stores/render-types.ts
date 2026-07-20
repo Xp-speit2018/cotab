@@ -229,6 +229,11 @@ export interface SelectedMasterBarInfo {
   tempoAutomations: TempoAutomationSchema[];
 }
 
+export interface TempoMapEntryInfo {
+  masterBarIndex: number;
+  automations: TempoAutomationSchema[];
+}
+
 export interface SelectedTrackInfo {
   index: number;
   name: string;
@@ -317,6 +322,8 @@ export interface PlayerState {
   scoreNotices: string;
   scoreTempo: number;
   scoreTempoLabel: string;
+  scoreMasterBarCount: number;
+  scoreTempoMap: TempoMapEntryInfo[];
   tracks: TrackInfo[];
   visibleTrackIndices: number[];
   selectedBeat: SelectedBeat | null;

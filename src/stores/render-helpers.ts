@@ -21,6 +21,7 @@ import type {
   SelectedBarInfo,
   SelectedMasterBarInfo,
   SelectedStaffInfo,
+  TempoMapEntryInfo,
   SelectedTrackInfo,
   SelectedVoiceInfo,
 } from "./render-types";
@@ -573,4 +574,15 @@ export function extractMasterBarInfo(
       isVisible: automation.isVisible,
     })),
   };
+}
+
+export function extractTempoMap(
+  score: alphaTab.model.Score,
+): TempoMapEntryInfo[] {
+  return score.masterBars.flatMap((masterBar) => {
+    const automations = extractMasterBarInfo(masterBar).tempoAutomations;
+    return automations.length > 0
+      ? [{ masterBarIndex: masterBar.index, automations }]
+      : [];
+  });
 }

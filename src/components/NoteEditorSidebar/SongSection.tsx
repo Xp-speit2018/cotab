@@ -30,12 +30,17 @@ import {
   LongTextEditor,
   longTextSummary,
 } from "./editors/LongTextEditor";
+import {
+  TempoMapEditor,
+  tempoMapSummary,
+} from "./editors/TempoMapEditor";
 
 export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [noticesOpen, setNoticesOpen] = useState(false);
+  const [tempoMapOpen, setTempoMapOpen] = useState(false);
   const scoreTitle = usePlayerStore((s) => s.scoreTitle);
   const scoreSubTitle = usePlayerStore((s) => s.scoreSubTitle);
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
@@ -48,6 +53,8 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
   const scoreNotices = usePlayerStore((s) => s.scoreNotices);
   const scoreTempo = usePlayerStore((s) => s.scoreTempo);
   const scoreTempoLabel = usePlayerStore((s) => s.scoreTempoLabel);
+  const scoreMasterBarCount = usePlayerStore((s) => s.scoreMasterBarCount);
+  const scoreTempoMap = usePlayerStore((s) => s.scoreTempoMap);
 
   const handleMeta = useCallback(
     (field: ScoreMetadataField) => (value: string) => {
@@ -171,6 +178,44 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
               applyLabel={t("sidebar.common.apply")}
               onCommit={handleMeta("notices")}
               onDone={() => setNoticesOpen(false)}
+            />
+          </DialogPropRow>
+          <Separator className="my-1" />
+          <DialogPropRow
+            label={t("sidebar.song.tempoMap")}
+            value={tempoMapSummary(scoreTempoMap, {
+              none: t("sidebar.common.none"),
+              count: (count) => t("sidebar.song.tempoPointCount", { count }),
+            })}
+            icon={<Gauge className="h-3.5 w-3.5" />}
+            open={tempoMapOpen}
+            onOpenChange={setTempoMapOpen}
+            description={t("sidebar.song.tempoMapHelp")}
+            contentClassName="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
+          >
+            <TempoMapEditor
+              entries={scoreTempoMap}
+              masterBarCount={scoreMasterBarCount}
+              labels={{
+                none: t("sidebar.common.none"),
+                count: (count) => t("sidebar.song.tempoPointCount", { count }),
+                bar: t("sidebar.song.tempoBar"),
+                bpm: t("sidebar.song.tempoBpm"),
+                position: t("sidebar.song.tempoPosition"),
+                text: t("sidebar.song.tempoExpression"),
+                gradual: t("sidebar.song.tempoGradual"),
+                visible: t("sidebar.song.tempoVisible"),
+                add: t("sidebar.song.addTempoPoint"),
+                remove: t("sidebar.song.removeTempoPoint"),
+                apply: t("sidebar.common.apply"),
+                positionConflict: t("sidebar.song.tempoPositionConflict"),
+              }}
+              onCommit={(entries) => executeAppAction(
+                "document.score.setTempoMap",
+                { entries },
+                { t },
+              )}
+              onDone={() => setTempoMapOpen(false)}
             />
           </DialogPropRow>
           <EditableNumberPropRow

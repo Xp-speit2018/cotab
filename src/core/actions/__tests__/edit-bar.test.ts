@@ -96,7 +96,11 @@ vi.mock("@/core/engine", () => {
   };
 });
 
-import { executeDocumentAction } from "@/core/actions/registry";
+import {
+  DocumentActionArgumentsError,
+  executeDocumentAction,
+  executeDocumentActionById,
+} from "@/core/actions/registry";
 import {
   AutomationType,
   Clef,
@@ -361,29 +365,92 @@ describe("document.masterBar field actions", () => {
     });
   });
 
-  it("updates and removes only the tempo automation", () => {
+  it("replaces multiple ordered tempo automations atomically", () => {
     executeDocumentAction("document.masterBar.setTempoAutomations", { automations: [
       {
         isLinear: false,
-        type: AutomationType.Volume,
-        value: 12,
+        type: AutomationType.Tempo,
+        value: 120,
         ratioPosition: 0,
-        text: "",
+        text: "Allegro",
+        isVisible: true,
+      },
+      {
+        isLinear: true,
+        type: AutomationType.Tempo,
+        value: 90,
+        ratioPosition: 0.5,
+        text: "rit.",
         isVisible: true,
       },
     ] }, ctx);
-
-    executeDocumentAction("document.masterBar.setTempo", { tempo: 132 }, ctx);
     const automations = masterBar().get(
       "tempoAutomations",
     ) as Y.Array<Y.Map<unknown>>;
     expect(automations.length).toBe(2);
-    expect(automations.get(0).get("type")).toBe(AutomationType.Volume);
-    expect(automations.get(1).get("value")).toBe(132);
+    expect(automations.get(0).get("value")).toBe(120);
+    expect(automations.get(1).get("value")).toBe(90);
+    expect(automations.get(1).get("ratioPosition")).toBe(0.5);
+  });
 
-    executeDocumentAction("document.masterBar.setTempo", { tempo: null }, ctx);
-    expect(automations.length).toBe(1);
-    expect(automations.get(0).get("type")).toBe(AutomationType.Volume);
+  it.each([
+    [[{
+      isLinear: false,
+      type: AutomationType.Volume,
+      value: 90,
+      ratioPosition: 0,
+      text: "",
+      isVisible: true,
+    }]],
+    [[{
+      isLinear: false,
+      type: AutomationType.Tempo,
+      value: 0,
+      ratioPosition: 0,
+      text: "",
+      isVisible: true,
+    }]],
+    [[{
+      isLinear: false,
+      type: AutomationType.Tempo,
+      value: 90,
+      ratioPosition: 1.1,
+      text: "",
+      isVisible: true,
+    }]],
+    [[
+      {
+        isLinear: false,
+        type: AutomationType.Tempo,
+        value: 90,
+        ratioPosition: 0.5,
+        text: "",
+        isVisible: true,
+      },
+      {
+        isLinear: false,
+        type: AutomationType.Tempo,
+        value: 100,
+        ratioPosition: 0.5,
+        text: "",
+        isVisible: true,
+      },
+    ]],
+  ])("rejects invalid tempo automation lists before updating Y.Doc", (automations) => {
+    const yMasterBar = masterBar();
+    const before = yMasterBar.toJSON();
+    let updates = 0;
+    const listener = () => updates++;
+    yMasterBar.observeDeep(listener);
+
+    expect(() => executeDocumentActionById(
+      "document.masterBar.setTempoAutomations",
+      { automations },
+      ctx,
+    )).toThrow(DocumentActionArgumentsError);
+    expect(yMasterBar.toJSON()).toEqual(before);
+    expect(updates).toBe(0);
+    yMasterBar.unobserveDeep(listener);
   });
 
   it("does nothing without a selected bar", () => {

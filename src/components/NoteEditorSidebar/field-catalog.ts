@@ -301,7 +301,7 @@ export const INSPECTOR_FIELD_CATALOG = {
     tripletFeel: readyEnum,
     isFreeTime: readyToggle,
     section: field("popover", "section", "ready"),
-    tempoAutomations: field("dialog", "automation", "partial"),
+    tempoAutomations: field("dialog", "automation", "ready"),
     fermata: field("popover", "fermata", "missing"),
     displayScale: layout,
     displayWidth: layout,

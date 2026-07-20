@@ -33,6 +33,7 @@ import type {
   BendPointSchema,
   ChordSchema,
   AutomationSchema,
+  TempoAutomationSchema,
   TremoloPickingEffectSchema,
   Rasgueado,
   ScoreMetadataField,
@@ -219,7 +220,7 @@ export interface SelectedMasterBarInfo {
   hasSection: boolean;
   sectionText: string;
   sectionMarker: string;
-  tempo: number | null;
+  tempoAutomations: TempoAutomationSchema[];
 }
 
 export interface SelectedTrackInfo {

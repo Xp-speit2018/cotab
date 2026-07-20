@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { AutomationType } from "@/core/schema";
 import { actionArgs } from "./definition";
 
 export const finiteNumber = z.number().finite();
@@ -40,6 +41,31 @@ export const automationSchema = z.strictObject({
   text: z.string(),
   isVisible: z.boolean(),
 });
+
+export const tempoAutomationSchema = z.strictObject({
+  isLinear: z.boolean()
+    .describe("Whether the tempo transition is marked as linear"),
+  type: z.literal(AutomationType.Tempo),
+  value: finiteNumber.positive().describe("Tempo in beats per minute"),
+  ratioPosition: finiteNumber.min(0).max(1)
+    .describe("Position within the master bar, from 0 at the start to 1 at the end"),
+  text: z.string().describe("Optional tempo expression shown before the BPM"),
+  isVisible: z.boolean().describe("Whether alphaTab renders the tempo marker"),
+});
+
+export const tempoAutomationListSchema = z.array(tempoAutomationSchema)
+  .superRefine((automations, context) => {
+    for (let index = 1; index < automations.length; index++) {
+      if (automations[index].ratioPosition <= automations[index - 1].ratioPosition) {
+        context.addIssue({
+          code: "custom",
+          path: [index, "ratioPosition"],
+          message: "Tempo automation positions must be strictly increasing",
+        });
+      }
+    }
+  })
+  .describe("Tempo changes ordered by their position within the master bar");
 
 export const chordSchema = z.strictObject({
   name: z.string(),

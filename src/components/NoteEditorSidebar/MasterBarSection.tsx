@@ -15,8 +15,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
 import type { SelectedMasterBarInfo } from "@/stores/render-types";
-import { TripletFeel } from "@/core/schema";
+import { AutomationType, TripletFeel } from "@/core/schema";
 import {
+  DialogPropRow,
   EditableNumberPropRow,
   PopoverPropRow,
   SectionHeader,
@@ -32,6 +33,10 @@ import {
   SectionEditor,
   TimeSignatureEditor,
 } from "./editors/MasterBarEditors";
+import {
+  TempoAutomationsEditor,
+  tempoAutomationsSummary,
+} from "./editors/TempoAutomationsEditor";
 
 export function MasterBarSection({
   masterBar,
@@ -44,6 +49,7 @@ export function MasterBarSection({
   const [isOpen, setIsOpen] = useState(true);
   const [timeSignatureOpen, setTimeSignatureOpen] = useState(false);
   const [sectionOpen, setSectionOpen] = useState(false);
+  const [tempoOpen, setTempoOpen] = useState(false);
   const sectionSummary = masterBar.sectionText && masterBar.sectionMarker
     ? `${masterBar.sectionMarker} · ${masterBar.sectionText}`
     : masterBar.sectionText || masterBar.sectionMarker || t("sidebar.common.none");
@@ -84,10 +90,17 @@ export function MasterBarSection({
           <div className="flex flex-wrap items-center gap-0.5 px-2 pt-0.5">
             <ToggleBtn
               label={t("sidebar.masterBar.tempoMarker")}
-              pressed={masterBar.tempo !== null}
+              pressed={masterBar.tempoAutomations.length > 0}
               onPressedChange={(pressed) => executeAppAction(
-                "document.masterBar.setTempo",
-                { tempo: pressed ? 120 : null },
+                "document.masterBar.setTempoAutomations",
+                { automations: pressed ? [{
+                  isLinear: false,
+                  type: AutomationType.Tempo,
+                  value: 120,
+                  ratioPosition: 0,
+                  text: "",
+                  isVisible: true,
+                }] : [] },
                 { t },
               )}
               icon={<Gauge className="h-3.5 w-3.5" />}
@@ -114,19 +127,41 @@ export function MasterBarSection({
             />
           </div>
 
-          {masterBar.tempo !== null && (
-            <EditableNumberPropRow
-              label={t("sidebar.masterBar.tempo")}
-              value={masterBar.tempo}
-              suffix="BPM"
-              min={20}
-              max={400}
-              onCommit={(value) => executeAppAction(
-                "document.masterBar.setTempo",
-                { tempo: value },
-                { t },
+          {masterBar.tempoAutomations.length > 0 && (
+            <DialogPropRow
+              label={t("sidebar.masterBar.tempoChanges")}
+              value={tempoAutomationsSummary(
+                masterBar.tempoAutomations,
+                t("sidebar.common.none"),
+                (count) => t("sidebar.masterBar.tempoChangeCount", { count }),
               )}
-            />
+              icon={<Gauge className="h-3.5 w-3.5" />}
+              open={tempoOpen}
+              onOpenChange={setTempoOpen}
+              description={t("sidebar.masterBar.tempoChangesHelp")}
+              contentClassName="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
+            >
+              <TempoAutomationsEditor
+                automations={masterBar.tempoAutomations}
+                labels={{
+                  bpm: t("sidebar.masterBar.tempoBpm"),
+                  position: t("sidebar.masterBar.tempoPosition"),
+                  text: t("sidebar.masterBar.tempoText"),
+                  gradual: t("sidebar.masterBar.tempoGradual"),
+                  visible: t("sidebar.masterBar.tempoVisible"),
+                  add: t("sidebar.masterBar.addTempoChange"),
+                  remove: t("sidebar.masterBar.removeTempoChange"),
+                  apply: t("sidebar.common.apply"),
+                  positionConflict: t("sidebar.masterBar.tempoPositionConflict"),
+                }}
+                onCommit={(automations) => executeAppAction(
+                  "document.masterBar.setTempoAutomations",
+                  { automations },
+                  { t },
+                )}
+                onDone={() => setTempoOpen(false)}
+              />
+            </DialogPropRow>
           )}
 
           <SelectPropRow

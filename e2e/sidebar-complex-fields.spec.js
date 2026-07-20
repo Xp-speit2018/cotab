@@ -159,6 +159,45 @@ test("complex field editors commit semantic values and show matching summaries",
   await page.keyboard.press("Escape");
   await expect(alternateEndings).toContainText("1, 3");
 
+  const tempoMarker = page.getByRole("button", {
+    name: "Tempo Marker",
+    exact: true,
+  });
+  if (await tempoMarker.getAttribute("aria-pressed") !== "true") {
+    await tempoMarker.click();
+  }
+  const initialTempoCount = await page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().selectedMasterBarInfo
+      ?.tempoAutomations.length ?? 0,
+  );
+  const tempoChanges = page.getByRole("button", { name: /^Tempo Changes / });
+  await tempoChanges.click();
+  editor = page.getByRole("dialog").filter({ hasText: "Tempo Changes" });
+  await editor.getByRole("button", { name: "Add tempo change" }).click();
+  const addedTempoIndex = initialTempoCount + 1;
+  await editor.getByLabel(`Tempo (BPM) ${addedTempoIndex}`).fill("96");
+  await editor.getByLabel(`Expression ${addedTempoIndex}`).fill("rit.");
+  await editor.getByLabel(
+    `Position in bar ${addedTempoIndex}`,
+    { exact: true },
+  ).fill("50");
+  await editor.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const automations = window.__PLAYER_STORE__.getState()
+      .selectedMasterBarInfo?.tempoAutomations;
+    const added = automations?.find((automation) => automation.text === "rit.");
+    return {
+      count: automations?.length,
+      added: added
+        ? [added.value, added.ratioPosition, added.text]
+        : null,
+    };
+  })).toEqual({
+    count: initialTempoCount + 1,
+    added: [96, 0.5, "rit."],
+  });
+  await expect(tempoChanges).toContainText(`${initialTempoCount + 1} changes`);
+
   const timeSignature = page.getByRole("button", {
     name: /Time Signature/,
   });

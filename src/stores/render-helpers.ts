@@ -5,6 +5,7 @@
  */
 
 import * as alphaTab from "@coderline/alphatab";
+import { AutomationType } from "@/core/schema";
 import type {
   Clef,
   KeySignatureType,
@@ -528,7 +529,6 @@ export function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
 export function extractMasterBarInfo(
   masterBar: alphaTab.model.MasterBar,
 ): SelectedMasterBarInfo {
-  const tempoAuto = masterBar.tempoAutomations[0] ?? null;
   return {
     index: masterBar.index,
     timeSignatureNumerator: masterBar.timeSignatureNumerator,
@@ -541,6 +541,13 @@ export function extractMasterBarInfo(
     hasSection: masterBar.section !== null,
     sectionText: masterBar.section?.text ?? "",
     sectionMarker: masterBar.section?.marker ?? "",
-    tempo: tempoAuto ? tempoAuto.value : null,
+    tempoAutomations: masterBar.tempoAutomations.map((automation) => ({
+      isLinear: automation.isLinear,
+      type: AutomationType.Tempo,
+      value: automation.value,
+      ratioPosition: automation.ratioPosition,
+      text: automation.text,
+      isVisible: automation.isVisible,
+    })),
   };
 }

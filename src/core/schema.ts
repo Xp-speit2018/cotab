@@ -314,6 +314,10 @@ export interface AutomationSchema {
   isVisible: boolean;
 }
 
+export interface TempoAutomationSchema extends AutomationSchema {
+  type: AutomationType.Tempo;
+}
+
 export interface ChordSchema {
   name: string;
   firstFret: number;

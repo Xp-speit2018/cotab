@@ -1,16 +1,13 @@
 import * as Y from "yjs";
 import { engine } from "@/core/engine";
-import { AutomationType, createAutomation } from "@/core/schema";
 import { actionArgs, defineDocumentAction } from "./definition";
 import {
-  automationSchema,
-  finiteNumber,
   integer,
   sectionSchema,
+  tempoAutomationListSchema,
   valueBooleanArgs,
   valueIntegerArgs,
 } from "./args-schema";
-import * as z from "zod";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
@@ -129,7 +126,7 @@ const setTempoAutomationsAction = defineDocumentAction({
   id: "document.masterBar.setTempoAutomations",
   i18nKey: "actions.edit.masterBar.setTempoAutomations",
   category: "document.masterBar",
-  argsSchema: actionArgs({ automations: z.array(automationSchema) }),
+  argsSchema: actionArgs({ automations: tempoAutomationListSchema }),
   execute: ({ automations }) => {
     const yMasterBar = resolveSelectedMasterBar();
     if (!yMasterBar) return;
@@ -153,50 +150,6 @@ const setTempoAutomationsAction = defineDocumentAction({
   },
 });
 
-const setTempoAction = defineDocumentAction({
-  id: "document.masterBar.setTempo",
-  i18nKey: "actions.edit.masterBar.setTempo",
-  category: "document.masterBar",
-  argsSchema: actionArgs({ tempo: finiteNumber.positive().nullable() }),
-  execute: ({ tempo }) => {
-    const yMasterBar = resolveSelectedMasterBar();
-    if (!yMasterBar) return;
-    transact(() => {
-      let yAutomations = yMasterBar.get("tempoAutomations") as
-        | Y.Array<Y.Map<unknown>>
-        | undefined;
-      if (!yAutomations) {
-        if (tempo === null) return;
-        yAutomations = new Y.Array<Y.Map<unknown>>();
-        yMasterBar.set("tempoAutomations", yAutomations);
-      }
-
-      let tempoIndex = -1;
-      for (let i = 0; i < yAutomations.length; i++) {
-        if (
-          ((yAutomations.get(i).get("type") as number | undefined) ??
-            AutomationType.Tempo) === AutomationType.Tempo
-        ) {
-          tempoIndex = i;
-          break;
-        }
-      }
-
-      if (tempo === null) {
-        if (tempoIndex >= 0) yAutomations.delete(tempoIndex, 1);
-        return;
-      }
-      if (tempoIndex >= 0) {
-        yAutomations.get(tempoIndex).set("value", tempo);
-      } else {
-        yAutomations.push([
-          createAutomation(AutomationType.Tempo, tempo, 0),
-        ]);
-      }
-    });
-  },
-});
-
 export const masterBarDocumentActions = [
   setTimeSignatureNumeratorAction,
   setTimeSignatureDenominatorAction,
@@ -208,5 +161,4 @@ export const masterBarDocumentActions = [
   setIsFreeTimeAction,
   setSectionAction,
   setTempoAutomationsAction,
-  setTempoAction,
 ] as const;

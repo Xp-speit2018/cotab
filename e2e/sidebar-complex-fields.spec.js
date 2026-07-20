@@ -61,11 +61,19 @@ test("complex field editors commit semantic values and show matching summaries",
     return beat ? [beat.pickStroke, beat.tap] : null;
   })).toEqual([1, true]);
 
+  await page.getByRole("button", { name: /^Lyrics / }).click();
+  let editor = page.getByRole("dialog").filter({ hasText: "Lyrics" });
+  await editor.getByLabel("Lyrics").fill("Lead\nHarmony");
+  await editor.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().selectedBeatInfo?.lyrics,
+  )).toEqual(["Lead", "Harmony"]);
+
   await page.getByRole("button", { name: "Trill", exact: true }).click();
   const trillRow = page.getByRole("button", { name: /Trill.*Fret/ });
   await expect(trillRow).toBeVisible();
   await trillRow.click();
-  let editor = page.getByRole("dialog");
+  editor = page.getByRole("dialog");
   await editor.getByLabel("Alternate fret").fill("14");
   await editor.getByRole("button", {
     name: "Thirty-second Note",

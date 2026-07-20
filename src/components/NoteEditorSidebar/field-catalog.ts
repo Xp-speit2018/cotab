@@ -262,7 +262,7 @@ export const INSPECTOR_FIELD_CATALOG = {
     whammyBarType: field("popover", "whammy-curve", "ready"),
     whammyBarPoints: field("popover", "whammy-curve", "ready"),
     automations: field("dialog", "automation", "missing"),
-    lyrics: field("dialog", "lyrics", "missing"),
+    lyrics: field("dialog", "lyrics", "ready"),
     tremoloPicking: field("popover", "tremolo-picking", "ready"),
     rasgueado: field("popover", "rasgueado", "ready"),
     text: inlineText,

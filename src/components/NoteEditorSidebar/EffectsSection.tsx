@@ -49,6 +49,7 @@ import {
   WhammyType,
 } from "@/core/schema";
 import {
+  DialogPropRow,
   EditablePropRow,
   PopoverPropRow,
   SectionHeader,
@@ -56,6 +57,10 @@ import {
   ToggleBtn,
 } from "./primitives";
 import { ChordPickerEditor } from "./editors/ChordEditors";
+import {
+  LongTextEditor,
+  longTextSummary,
+} from "./editors/LongTextEditor";
 import {
   BrushEditor,
   GraceEditor,
@@ -152,6 +157,7 @@ export function EffectsSection({
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
   const [chordOpen, setChordOpen] = useState(false);
+  const [lyricsOpen, setLyricsOpen] = useState(false);
   const [trillOpen, setTrillOpen] = useState(false);
   const [harmonicOpen, setHarmonicOpen] = useState(false);
   const [graceOpen, setGraceOpen] = useState(false);
@@ -897,6 +903,31 @@ export function EffectsSection({
               executeAppAction("document.beat.setText", { value: value || null }, { t })
             }
           />
+          <DialogPropRow
+            label={t("sidebar.effects.lyrics")}
+            value={longTextSummary(
+              beat.lyrics?.join("\n") ?? "",
+              t("sidebar.common.none"),
+            )}
+            title={t("sidebar.effects.lyrics")}
+            description={t("sidebar.effects.lyricsHelp")}
+            open={lyricsOpen}
+            onOpenChange={setLyricsOpen}
+            contentClassName="sm:max-w-xl"
+          >
+            <LongTextEditor
+              value={beat.lyrics?.join("\n") ?? ""}
+              label={t("sidebar.effects.lyrics")}
+              placeholder={t("sidebar.effects.lyricsPlaceholder")}
+              applyLabel={t("sidebar.common.apply")}
+              onCommit={(value) => executeAppAction(
+                "document.beat.setLyrics",
+                { lyrics: value === "" ? null : value.split("\n") },
+                { t },
+              )}
+              onDone={() => setLyricsOpen(false)}
+            />
+          </DialogPropRow>
           <PopoverPropRow
             label={t("sidebar.effects.chord")}
             value={chordSummary}

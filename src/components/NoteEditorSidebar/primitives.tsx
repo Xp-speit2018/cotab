@@ -315,8 +315,10 @@ export function ToggleBtn({
           pressed={pressed}
           onPressedChange={onPressedChange}
           className={cn(
-            "h-7 w-7 p-0",
-            pressed && "bg-primary/15 text-primary ring-1 ring-primary/30",
+            "h-7 w-7 p-0 !bg-transparent text-muted-foreground/70 hover:!bg-transparent hover:text-foreground data-[state=on]:!bg-transparent [&>*]:transition-transform [&>*]:duration-150",
+            pressed
+              ? "text-blue-700 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-300 [&>*]:scale-110 hover:[&>*]:scale-110"
+              : "hover:[&>*]:scale-105",
             className,
           )}
           aria-label={label}

@@ -74,6 +74,40 @@ test("tooltips do not block hovering the next editor control", async ({ page }) 
     .toBeHidden();
 });
 
+test("toggle state emphasizes the symbol without drawing a backdrop", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await page.goto("/");
+  await waitForScore(page);
+  await selectFirstMelodicNote(page);
+
+  const selected = page.getByRole("button", { name: "Quarter Note", exact: true });
+  await expect(selected).toHaveAttribute("aria-pressed", "true");
+  const selectedStyle = await selected.evaluate((element) => ({
+    background: getComputedStyle(element).backgroundColor,
+    scale: getComputedStyle(element.firstElementChild).scale,
+  }));
+  expect(selectedStyle.background).toBe("rgba(0, 0, 0, 0)");
+  expect(Number(selectedStyle.scale)).toBeGreaterThan(1);
+
+  const inactive = page.getByRole("button", {
+    name: "Hammer-on / Pull-off",
+    exact: true,
+  });
+  await inactive.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  const colorBeforeHover = await inactive.evaluate(
+    (element) => getComputedStyle(element).color,
+  );
+  await inactive.hover();
+  const hoverStyle = await inactive.evaluate((element) => ({
+    background: getComputedStyle(element).backgroundColor,
+    color: getComputedStyle(element).color,
+    scale: getComputedStyle(element.firstElementChild).scale,
+  }));
+  expect(hoverStyle.background).toBe("rgba(0, 0, 0, 0)");
+  expect(hoverStyle.color).not.toBe(colorBeforeHover);
+  expect(Number(hoverStyle.scale)).toBeGreaterThan(1);
+});
+
 test("playing techniques use distinct notation symbols", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
   await page.goto("/");

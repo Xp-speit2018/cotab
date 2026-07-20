@@ -167,6 +167,40 @@ test("optional parameterized fields reveal details only after activation", async
   await expect(page.getByText("Alt. Endings", { exact: true })).toHaveCount(0);
 });
 
+test("articulations are visible only for percussion tracks", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await page.goto("/");
+  await waitForScore(page);
+  await selectFirstMelodicNote(page);
+
+  await expect(page.getByText("Articulations", { exact: true })).toHaveCount(0);
+
+  await page.evaluate(() => {
+    const api = window.__ALPHATAB_API__;
+    const store = window.__PLAYER_STORE__;
+    const trackIndex = api.score.tracks.findIndex((track) =>
+      track.staves.some((staff) => staff.isPercussion));
+    const staff = api.score.tracks[trackIndex].staves[0];
+    const barIndex = staff.bars.findIndex((bar) =>
+      bar.voices[0].beats.some((beat) => beat.notes.length > 0));
+    const bar = staff.bars[barIndex];
+    const beatIndex = bar.voices[0].beats.findIndex(
+      (beat) => beat.notes.length > 0,
+    );
+    const note = bar.voices[0].beats[beatIndex].notes[0];
+    store.getState().setSelection({
+      trackIndex,
+      staffIndex: 0,
+      voiceIndex: 0,
+      barIndex,
+      beatIndex,
+      string: note.string,
+    });
+  });
+
+  await expect(page.getByText("Articulations", { exact: true })).toBeVisible();
+});
+
 test("playing techniques use distinct notation symbols", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
   await page.goto("/");

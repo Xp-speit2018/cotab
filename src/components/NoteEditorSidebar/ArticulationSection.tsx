@@ -31,6 +31,8 @@ export function ArticulationSection({
       .map((note) => note.percussionGp7Id) ?? [],
   );
 
+  if (!isPercussion) return null;
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <SectionHeader
@@ -40,14 +42,7 @@ export function ArticulationSection({
         dragHandleProps={dragHandleProps}
       />
       <CollapsibleContent>
-        {!isPercussion ? (
-          <div className="px-3 py-3">
-            <span className="text-[10px] italic text-muted-foreground">
-              {t("sidebar.selector.noSelection")}
-            </span>
-          </div>
-        ) : (
-          <div className="space-y-1 px-2 pb-2">
+        <div className="space-y-1 px-2 pb-2">
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -146,8 +141,7 @@ export function ArticulationSection({
                 );
               })}
             </div>
-          </div>
-        )}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );

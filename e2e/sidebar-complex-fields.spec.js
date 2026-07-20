@@ -268,4 +268,26 @@ test("complex field editors commit semantic values and show matching summaries",
     return info ? [info.program, info.bank] : null;
   })).toEqual([30, 2]);
   await expect(instrument).toContainText("Distortion Guitar · Sound bank 2");
+
+  await page.getByRole("button", {
+    name: "Toggle Drumkit details",
+    exact: true,
+  }).click();
+  const percussionMap = page.getByRole("button", {
+    name: /^Percussion Map /,
+  });
+  await percussionMap.click();
+  editor = page.getByRole("dialog").filter({ hasText: "Percussion Map" });
+  await editor.getByLabel("Search articulations or drum sounds").fill("snare");
+  await editor.getByLabel("Snare · hit", { exact: true }).fill("40");
+  await expect(
+    editor.getByText("Electric Snare", { exact: true }).first(),
+  ).toBeVisible();
+  await editor.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const drumTrack = window.__PLAYER_STORE__.getState().tracks
+      .find((track) => track.isPercussion);
+    return drumTrack?.percussionArticulations
+      .find((articulation) => articulation.id === 38)?.outputMidiNumber;
+  })).toBe(40);
 });

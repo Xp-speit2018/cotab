@@ -325,7 +325,7 @@ export const INSPECTOR_FIELD_CATALOG = {
     color: field("popover", "color", "missing"),
     name: inlineText,
     shortName: inlineText,
-    percussionArticulations: field("dialog", "percussion-map", "partial"),
+    percussionArticulations: field("dialog", "percussion-map", "ready"),
     defaultSystemsLayout: layout,
     systemsLayout: layout,
   },

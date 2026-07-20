@@ -8,6 +8,7 @@ import * as alphaTab from "@coderline/alphatab";
 import { AutomationType } from "@/core/schema";
 import type {
   Clef,
+  InstrumentArticulationSchema,
   KeySignatureType,
   Ottavia,
   SimileMark,
@@ -485,6 +486,20 @@ export function extractTrackInfo(track: alphaTab.model.Track): SelectedTrackInfo
       isMute: pi.isMute,
       isSolo: pi.isSolo,
     },
+    percussionArticulations: track.percussionArticulations.map(
+      (articulation): InstrumentArticulationSchema => ({
+        id: articulation.id,
+        elementType: articulation.elementType,
+        staffLine: articulation.staffLine,
+        noteHeadDefault: articulation.noteHeadDefault as unknown as number,
+        noteHeadHalf: articulation.noteHeadHalf as unknown as number,
+        noteHeadWhole: articulation.noteHeadWhole as unknown as number,
+        techniqueSymbol: articulation.techniqueSymbol as unknown as number,
+        techniqueSymbolPlacement:
+          articulation.techniqueSymbolPlacement as unknown as number,
+        outputMidiNumber: articulation.outputMidiNumber,
+      }),
+    ),
     color: { r: c.r, g: c.g, b: c.b, a: c.a },
   };
 }

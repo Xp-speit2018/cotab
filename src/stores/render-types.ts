@@ -34,6 +34,7 @@ import type {
   ChordSchema,
   AutomationSchema,
   PlaybackInformationSchema,
+  InstrumentArticulationSchema,
   TempoAutomationSchema,
   TremoloPickingEffectSchema,
   Rasgueado,
@@ -119,6 +120,7 @@ export interface TrackInfo {
   shortName: string;
   isPercussion: boolean;
   playbackInfo: PlaybackInformationSchema;
+  percussionArticulations: InstrumentArticulationSchema[];
 }
 
 // ─── Selected element info ──────────────────────────────────────────────────
@@ -233,6 +235,7 @@ export interface SelectedTrackInfo {
   isPercussion: boolean;
   staffCount: number;
   playbackInfo: PlaybackInformationSchema;
+  percussionArticulations: InstrumentArticulationSchema[];
   color: { r: number; g: number; b: number; a: number };
 }
 

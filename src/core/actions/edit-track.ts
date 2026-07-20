@@ -19,6 +19,7 @@ import { actionArgs, defineDocumentAction } from "./definition";
 import {
   integer,
   nonNegativeInteger,
+  percussionMappingListSchema,
   positiveInteger,
 } from "./args-schema";
 import {
@@ -401,30 +402,32 @@ const moveTrackSystemBreakAction = defineDocumentAction({
     ),
 });
 
-const setPercussionArticulationOutputMidiNumberAction = defineDocumentAction({
-  id: "document.track.setPercussionArticulationOutputMidiNumber",
-  i18nKey: "actions.edit.track.setPercussionArticulationOutputMidiNumber",
+const setPercussionMapAction = defineDocumentAction({
+  id: "document.track.setPercussionMap",
+  i18nKey: "actions.edit.track.setPercussionMap",
   category: "document.track",
   argsSchema: actionArgs({
     trackIndex: nonNegativeInteger,
-    articulationIndex: nonNegativeInteger,
-    outputMidiNumber: integer.min(0).max(127),
+    mappings: percussionMappingListSchema,
   }),
-  execute: ({ trackIndex, articulationIndex, outputMidiNumber }) => {
+  execute: ({ trackIndex, mappings }): boolean => {
     const yTrack = engine.resolveYTrack(trackIndex);
     const yArticulations = yTrack?.get("percussionArticulations") as
       | Y.Array<Y.Map<unknown>>
       | undefined;
-    if (
-      !yArticulations ||
-      articulationIndex < 0 ||
-      articulationIndex >= yArticulations.length
-    ) return;
+    if (!yArticulations) return false;
+    if (mappings.some(
+      (mapping) => mapping.articulationIndex >= yArticulations.length,
+    )) return false;
     transact(() => {
-      yArticulations
-        .get(articulationIndex)
-        .set("outputMidiNumber", outputMidiNumber);
+      for (const mapping of mappings) {
+        yArticulations.get(mapping.articulationIndex).set(
+          "outputMidiNumber",
+          mapping.outputMidiNumber,
+        );
+      }
     });
+    return true;
   },
 });
 
@@ -440,5 +443,5 @@ export const trackDocumentActions = [
   forceTrackSystemBreakAction,
   preventTrackSystemBreakAction,
   moveTrackSystemBreakAction,
-  setPercussionArticulationOutputMidiNumberAction,
+  setPercussionMapAction,
 ] as const;

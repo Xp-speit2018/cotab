@@ -254,26 +254,69 @@ describe("document.track.setInstrument", () => {
   });
 });
 
-describe("document.track.setPercussionArticulationOutputMidiNumber", () => {
-  it("updates the selected AlphaTab articulation entry", () => {
+describe("document.track.setPercussionMap", () => {
+  function addArticulation(id: number, outputMidiNumber: number) {
     const track = resolveYTrackHelper(0)!;
     const articulations = track.get(
       "percussionArticulations",
     ) as Y.Array<Y.Map<unknown>>;
     const articulation = new Y.Map<unknown>();
-    articulation.set("id", 38);
-    articulation.set("outputMidiNumber", 38);
+    articulation.set("id", id);
+    articulation.set("outputMidiNumber", outputMidiNumber);
     getScoreMap()!.doc!.transact(() => {
       articulations.push([articulation]);
     });
+    return articulations;
+  }
 
-    executeDocumentAction("document.track.setPercussionArticulationOutputMidiNumber", {
+  it("updates multiple articulations in one action", () => {
+    const articulations = addArticulation(83, 38);
+    addArticulation(83, 42);
+
+    expect(executeDocumentAction("document.track.setPercussionMap", {
       trackIndex: 0,
-      articulationIndex: 0,
-      outputMidiNumber: 40,
-    }, ctx);
+      mappings: [
+        { articulationIndex: 0, outputMidiNumber: 40 },
+        { articulationIndex: 1, outputMidiNumber: 46 },
+      ],
+    }, ctx)).toBe(true);
 
     expect(articulations.get(0).get("outputMidiNumber")).toBe(40);
+    expect(articulations.get(1).get("outputMidiNumber")).toBe(46);
+  });
+
+  it("rejects duplicate indices before updating Y.Doc", () => {
+    const articulations = addArticulation(38, 38);
+    let updates = 0;
+    const listener = () => updates++;
+    articulations.observeDeep(listener);
+
+    expect(() => executeDocumentActionById(
+      "document.track.setPercussionMap",
+      {
+        trackIndex: 0,
+        mappings: [
+          { articulationIndex: 0, outputMidiNumber: 40 },
+          { articulationIndex: 0, outputMidiNumber: 41 },
+        ],
+      },
+      ctx,
+    )).toThrow(DocumentActionArgumentsError);
+    expect(articulations.get(0).get("outputMidiNumber")).toBe(38);
+    expect(updates).toBe(0);
+    articulations.unobserveDeep(listener);
+  });
+
+  it("does not partially update when an articulation index is unknown", () => {
+    const articulations = addArticulation(38, 38);
+    expect(executeDocumentAction("document.track.setPercussionMap", {
+      trackIndex: 0,
+      mappings: [
+        { articulationIndex: 0, outputMidiNumber: 40 },
+        { articulationIndex: 999, outputMidiNumber: 41 },
+      ],
+    }, ctx)).toBe(false);
+    expect(articulations.get(0).get("outputMidiNumber")).toBe(38);
   });
 });
 

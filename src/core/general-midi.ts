@@ -68,3 +68,27 @@ export const GENERAL_MIDI_INSTRUMENTS: readonly GeneralMidiInstrument[] =
 export function generalMidiInstrument(program: number): GeneralMidiInstrument | null {
   return GENERAL_MIDI_INSTRUMENTS[program] ?? null;
 }
+
+const PERCUSSION_NAMES = [
+  "Acoustic Bass Drum", "Bass Drum 1", "Side Stick", "Acoustic Snare",
+  "Hand Clap", "Electric Snare", "Low Floor Tom", "Closed Hi-Hat",
+  "High Floor Tom", "Pedal Hi-Hat", "Low Tom", "Open Hi-Hat",
+  "Low-Mid Tom", "Hi-Mid Tom", "Crash Cymbal 1", "High Tom",
+  "Ride Cymbal 1", "Chinese Cymbal", "Ride Bell", "Tambourine",
+  "Splash Cymbal", "Cowbell", "Crash Cymbal 2", "Vibraslap",
+  "Ride Cymbal 2", "Hi Bongo", "Low Bongo", "Mute Hi Conga",
+  "Open Hi Conga", "Low Conga", "High Timbale", "Low Timbale",
+  "High Agogo", "Low Agogo", "Cabasa", "Maracas",
+  "Short Whistle", "Long Whistle", "Short Guiro", "Long Guiro",
+  "Claves", "Hi Wood Block", "Low Wood Block", "Mute Cuica",
+  "Open Cuica", "Mute Triangle", "Open Triangle",
+] as const;
+
+export const GENERAL_MIDI_PERCUSSION = PERCUSSION_NAMES.map((name, index) => ({
+  midiNumber: index + 35,
+  name,
+}));
+
+export function generalMidiPercussionName(midiNumber: number): string | null {
+  return PERCUSSION_NAMES[midiNumber - 35] ?? null;
+}

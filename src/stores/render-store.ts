@@ -1728,23 +1728,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const visibleTrackIndices = retainedVisibleIndices.length > 0
         ? [...new Set(retainedVisibleIndices)].sort((left, right) => left - right)
         : allTrackIndices;
-      const tracks: TrackInfo[] = score.tracks.map((t, i) => ({
-        index: i,
-        name: t.name,
-        shortName: t.shortName,
-        isPercussion: t.isPercussion,
-        playbackInfo: {
-          volume: t.playbackInfo.volume,
-          balance: t.playbackInfo.balance,
-          port: t.playbackInfo.port,
-          program: t.playbackInfo.program,
-          bank: t.playbackInfo.bank,
-          primaryChannel: t.playbackInfo.primaryChannel,
-          secondaryChannel: t.playbackInfo.secondaryChannel,
-          isMute: t.playbackInfo.isMute,
-          isSolo: t.playbackInfo.isSolo,
-        },
-      }));
+      const tracks: TrackInfo[] = score.tracks.map((track) =>
+        extractTrackInfo(track));
 
       set({
         scoreTitle: score.title || "",

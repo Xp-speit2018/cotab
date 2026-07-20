@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
 import { cn } from "@/lib/utils";
 import { getApi } from "@/stores/render-api";
+import { GP7_DEF_BY_ID } from "@/stores/percussion-data";
 import { usePlayerStore } from "@/stores/render-store";
 import type {
   ChordDefinitionInfo,
@@ -39,6 +40,7 @@ import {
   InstrumentEditor,
   instrumentSummary,
 } from "./editors/InstrumentEditor";
+import { PercussionMapEditor } from "./editors/PercussionMapEditor";
 
 interface StaffEditorData {
   staffIndex: number;
@@ -336,6 +338,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
+  const [percussionMapOpen, setPercussionMapOpen] = useState(false);
   const track = usePlayerStore((state) => state.tracks[trackIndex]);
   const visibleTrackIndices = usePlayerStore((state) => state.visibleTrackIndices);
   const selectedBeat = usePlayerStore((state) => state.selectedBeat);
@@ -470,6 +473,44 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               onDone={() => setInstrumentOpen(false)}
             />
           </DialogPropRow>
+
+          {track.isPercussion && track.percussionArticulations.length > 0 && (
+            <DialogPropRow
+              label={t("sidebar.tracks.percussionMap")}
+              value={t("sidebar.tracks.percussionMapCount", {
+                count: track.percussionArticulations.length,
+              })}
+              title={t("sidebar.tracks.percussionMap")}
+              description={t("sidebar.tracks.percussionMapHelp")}
+              open={percussionMapOpen}
+              onOpenChange={setPercussionMapOpen}
+              contentClassName="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl"
+            >
+              <PercussionMapEditor
+                articulations={track.percussionArticulations.map(
+                  (articulation, articulationIndex) => ({
+                    ...articulation,
+                    articulationIndex,
+                    technique:
+                      GP7_DEF_BY_ID.get(articulation.id)?.technique ?? "",
+                  }),
+                )}
+                labels={{
+                  search: t("sidebar.tracks.percussionMapSearch"),
+                  midiNote: t("sidebar.tracks.percussionMidiNote"),
+                  customSound: t("sidebar.tracks.percussionCustomSound"),
+                  noResults: t("sidebar.tracks.noPercussionMapResults"),
+                  apply: t("sidebar.common.apply"),
+                }}
+                onCommit={(mappings) => executeAppAction(
+                  "document.track.setPercussionMap",
+                  { trackIndex, mappings },
+                  { t },
+                )}
+                onDone={() => setPercussionMapOpen(false)}
+              />
+            </DialogPropRow>
+          )}
         </div>
       )}
     </div>

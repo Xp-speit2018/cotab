@@ -67,6 +67,29 @@ export const tempoAutomationListSchema = z.array(tempoAutomationSchema)
   })
   .describe("Tempo changes ordered by their position within the master bar");
 
+export const percussionMappingSchema = z.strictObject({
+  articulationIndex: nonNegativeInteger.describe(
+    "Index in the track percussion articulation list",
+  ),
+  outputMidiNumber: integer.min(0).max(127)
+    .describe("MIDI percussion note produced during playback"),
+});
+
+export const percussionMappingListSchema = z.array(percussionMappingSchema)
+  .superRefine((mappings, context) => {
+    const seen = new Set<number>();
+    for (let index = 0; index < mappings.length; index++) {
+      if (seen.has(mappings[index].articulationIndex)) {
+        context.addIssue({
+          code: "custom",
+          path: [index, "articulationIndex"],
+          message: "Percussion articulation indices must be unique",
+        });
+      }
+      seen.add(mappings[index].articulationIndex);
+    }
+  });
+
 export const chordSchema = z.strictObject({
   name: z.string(),
   firstFret: integer,

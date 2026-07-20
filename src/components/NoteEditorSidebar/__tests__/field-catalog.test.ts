@@ -61,8 +61,8 @@ describe("inspector field catalog", () => {
     });
   });
 
-  it("keeps incomplete field UX visible to migration tooling", () => {
-    expect(inspectorFieldsByStatus("partial").length).toBeGreaterThan(0);
+  it("has no partially implemented field UX", () => {
+    expect(inspectorFieldsByStatus("partial")).toEqual([]);
     expect(inspectorFieldsByStatus("missing").length).toBeGreaterThan(0);
   });
 });

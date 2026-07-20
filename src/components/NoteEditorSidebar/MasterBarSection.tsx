@@ -2,11 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Bookmark,
-  Clock,
   Gauge,
   Infinity,
-  Repeat,
-  Triangle,
 } from "lucide-react";
 import {
   Collapsible,
@@ -37,6 +34,11 @@ import {
   TempoAutomationsEditor,
   tempoAutomationsSummary,
 } from "./editors/TempoAutomationsEditor";
+import {
+  MusicGlyph,
+  TimeSignatureIcon,
+  musicGlyphs,
+} from "./notation-icons";
 
 export function MasterBarSection({
   masterBar,
@@ -67,7 +69,12 @@ export function MasterBarSection({
           <PopoverPropRow
             label={t("sidebar.masterBar.timeSignature")}
             value={`${masterBar.timeSignatureNumerator}/${masterBar.timeSignatureDenominator}`}
-            icon={<Clock className="h-3.5 w-3.5" />}
+            icon={(
+              <TimeSignatureIcon
+                numerator={masterBar.timeSignatureNumerator}
+                denominator={masterBar.timeSignatureDenominator}
+              />
+            )}
             open={timeSignatureOpen}
             onOpenChange={setTimeSignatureOpen}
             description={t("sidebar.masterBar.timeSignatureHelp")}
@@ -96,7 +103,7 @@ export function MasterBarSection({
                 { value: pressed },
                 { t },
               )}
-              icon={<Repeat className="h-3.5 w-3.5" />}
+              icon={<MusicGlyph glyph={musicGlyphs.repeatStart} />}
             />
             <ToggleBtn
               label={t("sidebar.masterBar.freeTime")}
@@ -161,7 +168,7 @@ export function MasterBarSection({
               value,
               label: tripletFeelLabel(value, t),
             }))}
-            icon={<Triangle className="h-3.5 w-3.5" />}
+            icon={<MusicGlyph glyph={musicGlyphs.tuplet3} className="text-[16px]" />}
             onValueChange={(value) => executeAppAction(
               "document.masterBar.setTripletFeel",
               { value },

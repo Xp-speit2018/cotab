@@ -28,6 +28,14 @@ async function selectFirstMelodicNote(page) {
       string: note.string,
     });
   });
+  await expect.poll(() => page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().selectedNoteIndex,
+  )).toBeGreaterThanOrEqual(0);
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise((resolve) => requestAnimationFrame(() =>
+      requestAnimationFrame(resolve)));
+  });
 }
 
 test("tooltips do not block hovering the next editor control", async ({ page }) => {
@@ -36,18 +44,54 @@ test("tooltips do not block hovering the next editor control", async ({ page }) 
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 
-  const bend = page.getByRole("button", { name: "Bend", exact: true });
-  const vibrato = page.getByRole("button", { name: "Vibrato", exact: true });
-  await bend.hover();
-  await expect(page.getByRole("tooltip", { name: "Bend" })).toBeVisible();
-
-  const vibratoBounds = await vibrato.boundingBox();
-  expect(vibratoBounds).not.toBeNull();
+  const first = page.getByRole("button", {
+    name: "Hammer-on / Pull-off",
+    exact: true,
+  });
+  const next = page.getByRole("button", { name: "Left-hand Tap", exact: true });
+  await first.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await page.mouse.move(1000, 500);
+  const firstBounds = await first.boundingBox();
+  expect(firstBounds).not.toBeNull();
   await page.mouse.move(
-    vibratoBounds.x + vibratoBounds.width / 2,
-    vibratoBounds.y + vibratoBounds.height / 2,
+    firstBounds.x + firstBounds.width / 2,
+    firstBounds.y + firstBounds.height / 2,
+    { steps: 10 },
+  );
+  await expect(page.getByRole("tooltip", { name: "Hammer-on / Pull-off" }))
+    .toBeVisible();
+
+  const nextBounds = await next.boundingBox();
+  expect(nextBounds).not.toBeNull();
+  await page.mouse.move(
+    nextBounds.x + nextBounds.width / 2,
+    nextBounds.y + nextBounds.height / 2,
+    { steps: 4 },
   );
 
-  await expect(page.getByRole("tooltip", { name: "Vibrato" })).toBeVisible();
-  await expect(page.getByRole("tooltip", { name: "Bend" })).toBeHidden();
+  await expect(page.getByRole("tooltip", { name: "Left-hand Tap" })).toBeVisible();
+  await expect(page.getByRole("tooltip", { name: "Hammer-on / Pull-off" }))
+    .toBeHidden();
+});
+
+test("playing techniques use distinct notation symbols", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await page.goto("/");
+  await waitForScore(page);
+  await selectFirstMelodicNote(page);
+
+  await expect(page.getByRole("button", { name: "Bend", exact: true }).locator("svg"))
+    .toBeVisible();
+  await expect(page.getByRole("button", { name: "Slide In", exact: true })
+    .locator('[data-notation-icon="slide-in"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Slide Out", exact: true })
+    .locator('[data-notation-icon="slide-out"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pick Stroke Up", exact: true })
+    .locator('[data-music-glyph="E612"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pick Stroke Down", exact: true })
+    .locator('[data-music-glyph="E610"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Crescendo", exact: true })
+    .locator('[data-music-glyph="E53E"]')).toBeVisible();
+  await expect(page.getByRole("button", { name: "Decrescendo", exact: true })
+    .locator('[data-music-glyph="E53F"]')).toBeVisible();
 });

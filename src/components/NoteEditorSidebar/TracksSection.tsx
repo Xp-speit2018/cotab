@@ -8,7 +8,6 @@ import {
   Eye,
   EyeOff,
   Guitar,
-  Music2,
 } from "lucide-react";
 import {
   Collapsible,
@@ -48,6 +47,7 @@ import {
   ColorEditor,
   colorRgbToHex,
 } from "./editors/ColorEditor";
+import { MusicGlyph, musicGlyphs } from "./notation-icons";
 
 interface StaffEditorData {
   staffIndex: number;
@@ -142,7 +142,7 @@ function StaffMetaEditor({
                 showTablature: staff.showTablature,
               }, { t });
             }}
-            icon={<Music2 className="h-3.5 w-3.5" />}
+            icon={<MusicGlyph glyph={musicGlyphs.gClef} className="text-[20px]" />}
           />
           <ToggleBtn
             label={t("sidebar.tracks.tablature")}
@@ -156,7 +156,7 @@ function StaffMetaEditor({
                 showTablature,
               }, { t });
             }}
-            icon={<Guitar className="h-3.5 w-3.5" />}
+            icon={<MusicGlyph glyph={musicGlyphs.tabClef6} className="text-[20px]" />}
           />
         </div>
       </div>

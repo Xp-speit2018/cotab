@@ -1,15 +1,8 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  CircleDot,
-  Link2,
-  Pause,
-  Parentheses,
-  ChevronUp as AccentNormal,
-  ChevronsUp as AccentHeavy,
   Disc,
-  BellRing,
-  Hand,
+  Parentheses,
   X,
 } from "lucide-react";
 import {
@@ -36,12 +29,12 @@ import {
   ToggleBtn,
 } from "./primitives";
 import {
-  durationLabel,
   durationTooltip,
   dynamicLabel,
 } from "./labels";
 import { PitchEditor, pitchSummary } from "./editors/PitchEditor";
 import { TupletEditor, tupletSummary } from "./editors/TupletEditor";
+import { MusicGlyph, musicGlyphs } from "./notation-icons";
 
 const DURATION_VALUES: Duration[] = [
   Duration.Whole,
@@ -52,6 +45,26 @@ const DURATION_VALUES: Duration[] = [
   Duration.ThirtySecond,
   Duration.SixtyFourth,
 ];
+
+const DURATION_GLYPHS: Record<number, string> = {
+  [Duration.Whole]: musicGlyphs.noteWhole,
+  [Duration.Half]: musicGlyphs.noteHalf,
+  [Duration.Quarter]: musicGlyphs.noteQuarter,
+  [Duration.Eighth]: musicGlyphs.noteEighth,
+  [Duration.Sixteenth]: musicGlyphs.noteSixteenth,
+  [Duration.ThirtySecond]: musicGlyphs.noteThirtySecond,
+  [Duration.SixtyFourth]: musicGlyphs.noteSixtyFourth,
+};
+
+const REST_GLYPHS: Record<number, string> = {
+  [Duration.Whole]: musicGlyphs.restWhole,
+  [Duration.Half]: musicGlyphs.restHalf,
+  [Duration.Quarter]: musicGlyphs.restQuarter,
+  [Duration.Eighth]: musicGlyphs.restEighth,
+  [Duration.Sixteenth]: musicGlyphs.restSixteenth,
+  [Duration.ThirtySecond]: musicGlyphs.restThirtySecond,
+  [Duration.SixtyFourth]: musicGlyphs.restSixtyFourth,
+};
 
 const DYNAMIC_VALUES = [
   DynamicValue.PPP,
@@ -101,7 +114,7 @@ export function NoteSection({
                           if (pressed) executeAppAction("document.beat.setDuration", { value: d }, { t });
                         }
                   }
-                  textIcon={durationLabel(d)}
+                  icon={<MusicGlyph glyph={DURATION_GLYPHS[d]} />}
                 />
               ))}
             </div>
@@ -116,7 +129,7 @@ export function NoteSection({
                 { value },
                 { t },
               )}
-              textIcon="/"
+              icon={<MusicGlyph glyph={musicGlyphs.noteheadSlash} />}
             />
             <ToggleBtn
               label={t("sidebar.note.dotted")}
@@ -124,7 +137,7 @@ export function NoteSection({
               onPressedChange={(pressed) =>
                 executeAppAction("document.beat.setDots", { value: pressed ? Math.max(1, beat.dots) : 0 }, { t })
               }
-              icon={<CircleDot className="h-3.5 w-3.5" />}
+              textIcon="·"
             />
             <ToggleBtn
               label={t("sidebar.note.doubleDot")}
@@ -132,7 +145,7 @@ export function NoteSection({
               onPressedChange={(pressed) =>
                 executeAppAction("document.beat.setDots", { value: pressed ? 2 : 1 }, { t })
               }
-              textIcon=".."
+              textIcon="··"
             />
             <ToggleBtn
               label={t("sidebar.note.rest")}
@@ -140,7 +153,7 @@ export function NoteSection({
               onPressedChange={(pressed) =>
                 executeAppAction("document.beat.setRest", { value: pressed }, { t })
               }
-              icon={<Pause className="h-3.5 w-3.5" />}
+              icon={<MusicGlyph glyph={REST_GLYPHS[beat.duration] ?? musicGlyphs.restQuarter} />}
             />
           </div>
 
@@ -242,7 +255,7 @@ export function NoteSection({
                       onPressedChange={(pressed) =>
                         executeAppAction("document.note.setIsTieDestination", { value: pressed }, { t })
                       }
-                      icon={<Link2 className="h-3.5 w-3.5" />}
+                      textIcon="⌒"
                     />
                   )}
                   <ToggleBtn
@@ -267,7 +280,7 @@ export function NoteSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setAccentuated", { value: pressed ? AccentuationType.Normal : AccentuationType.None }, { t })
                     }
-                    icon={<AccentNormal className="h-3.5 w-3.5" />}
+                    icon={<MusicGlyph glyph={musicGlyphs.accent} />}
                   />
                   <ToggleBtn
                     label={t("sidebar.note.heavyAccent")}
@@ -275,7 +288,7 @@ export function NoteSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setAccentuated", { value: pressed ? AccentuationType.Heavy : AccentuationType.None }, { t })
                     }
-                    icon={<AccentHeavy className="h-3.5 w-3.5" />}
+                    icon={<MusicGlyph glyph={musicGlyphs.marcato} />}
                   />
                   <ToggleBtn
                     label={t("sidebar.note.tenuto")}
@@ -283,7 +296,7 @@ export function NoteSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setAccentuated", { value: pressed ? AccentuationType.Tenuto : AccentuationType.None }, { t })
                     }
-                    textIcon="-"
+                    icon={<MusicGlyph glyph={musicGlyphs.tenuto} />}
                   />
                   <ToggleBtn
                     label={t("sidebar.note.staccato")}
@@ -291,7 +304,7 @@ export function NoteSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setIsStaccato", { value: pressed }, { t })
                     }
-                    icon={<Disc className="h-3 w-3" />}
+                    icon={<MusicGlyph glyph={musicGlyphs.staccato} />}
                   />
                   {!note.isPercussion && (
                     <>
@@ -301,7 +314,7 @@ export function NoteSection({
                         onPressedChange={(pressed) =>
                           executeAppAction("document.note.setIsLetRing", { value: pressed }, { t })
                         }
-                        icon={<BellRing className="h-3.5 w-3.5" />}
+                        icon={<MusicGlyph glyph={musicGlyphs.laissezVibrer} />}
                       />
                       <ToggleBtn
                         label={t("sidebar.note.palmMute")}
@@ -309,7 +322,7 @@ export function NoteSection({
                         onPressedChange={(pressed) =>
                           executeAppAction("document.note.setIsPalmMute", { value: pressed }, { t })
                         }
-                        icon={<Hand className="h-3.5 w-3.5" />}
+                        textIcon="P.M."
                       />
                     </>
                   )}
@@ -409,7 +422,7 @@ export function NoteSection({
                 { value },
                 { t },
               )}
-              icon={<Link2 className="h-3.5 w-3.5" />}
+              textIcon="⌒"
             />
           </div>
         </div>

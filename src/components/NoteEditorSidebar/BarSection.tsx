@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Key, Music2 } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -22,6 +21,7 @@ import {
   KeySignatureEditor,
   keySignatureSummary,
 } from "./editors/KeySignatureEditor";
+import { MusicGlyph, musicGlyphs } from "./notation-icons";
 
 const CLEF_OPTIONS = [
   { value: Clef.Neutral, label: "Neutral" },
@@ -82,7 +82,7 @@ export function BarSection({
                 ? { ...option, label: t("sidebar.bar.neutral") }
                 : option,
             )}
-            icon={<Music2 className="h-3.5 w-3.5" />}
+            icon={<MusicGlyph glyph={musicGlyphs.gClef} className="text-[20px]" />}
             onValueChange={(value) =>
               executeAppAction("document.bar.setClef", { value }, { t })
             }
@@ -114,7 +114,7 @@ export function BarSection({
           <PopoverPropRow
             label={t("sidebar.bar.key")}
             value={keySignatureSummary(bar.keySignature, bar.keySignatureType)}
-            icon={<Key className="h-3.5 w-3.5" />}
+            icon={<MusicGlyph glyph={musicGlyphs.accidentalSharp} />}
             open={keyOpen}
             onOpenChange={setKeyOpen}
             description={t("sidebar.bar.keyHelp")}

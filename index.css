@@ -2,6 +2,18 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+@font-face {
+  font-family: "CoTab Bravura";
+  src: url("/font/Bravura.woff2") format("woff2");
+  font-display: swap;
+}
+
+.music-glyph {
+  font-family: "CoTab Bravura", serif;
+  font-style: normal;
+  font-weight: normal;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

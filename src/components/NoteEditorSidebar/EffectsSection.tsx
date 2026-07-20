@@ -1,23 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  AudioWaveform,
-  ArrowDown,
-  ArrowUp,
-  ChevronsDown,
-  ChevronsUp as BrushUp,
-  CornerRightUp,
-  Hand,
-  MoveRight,
-  Music,
-  RotateCcw,
-  Sparkles,
-  SunMedium,
-  TrendingUp,
-  TrendingDown,
-  Waves,
-  Zap,
-} from "lucide-react";
+import { Spline } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -79,7 +62,6 @@ import {
 import {
   brushTypeLabel,
   durationLabel,
-  dynamicLabel,
   dynamicTooltip,
   harmonicTypeLabel,
   graceTypeLabel,
@@ -88,6 +70,11 @@ import {
   slideOutTypeLabel,
   vibratoLabel,
 } from "./labels";
+import {
+  MusicGlyph,
+  SlideTechniqueIcon,
+  musicGlyphs,
+} from "./notation-icons";
 
 const VIBRATO_VALUES = [
   VibratoType.None,
@@ -118,6 +105,17 @@ const ORNAMENT_VALUES = [
   NoteOrnament.UpperMordent,
   NoteOrnament.LowerMordent,
 ] as const;
+
+const DYNAMIC_GLYPHS: Record<number, string> = {
+  [DynamicValue.PPP]: musicGlyphs.dynamicPpp,
+  [DynamicValue.PP]: musicGlyphs.dynamicPp,
+  [DynamicValue.P]: musicGlyphs.dynamicP,
+  [DynamicValue.MP]: musicGlyphs.dynamicMp,
+  [DynamicValue.MF]: musicGlyphs.dynamicMf,
+  [DynamicValue.F]: musicGlyphs.dynamicF,
+  [DynamicValue.FF]: musicGlyphs.dynamicFf,
+  [DynamicValue.FFF]: musicGlyphs.dynamicFff,
+};
 
 const OTTAVA_OPTIONS = [
   { value: Ottavia.Regular, label: "Regular" },
@@ -230,7 +228,7 @@ export function EffectsSection({
                             bendPoints: null,
                           }, { t })
                     }
-                    icon={<TrendingUp className="h-3.5 w-3.5" />}
+                    icon={<Spline className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.vibrato")}
@@ -238,7 +236,7 @@ export function EffectsSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setVibrato", { value: pressed ? VibratoType.Slight : VibratoType.None }, { t })
                     }
-                    icon={<Waves className="h-3.5 w-3.5" />}
+                    icon={<MusicGlyph glyph={musicGlyphs.vibrato} className="text-[14px]" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.slideIn")}
@@ -246,7 +244,7 @@ export function EffectsSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setSlideInType", { value: pressed ? SlideInType.IntoFromBelow : SlideInType.None }, { t })
                     }
-                    icon={<CornerRightUp className="h-3.5 w-3.5" />}
+                    icon={<SlideTechniqueIcon direction="in" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.slideOut")}
@@ -254,7 +252,7 @@ export function EffectsSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setSlideOutType", { value: pressed ? SlideOutType.Shift : SlideOutType.None }, { t })
                     }
-                    icon={<MoveRight className="h-3.5 w-3.5" />}
+                    icon={<SlideTechniqueIcon direction="out" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.hammerPullOff")}
@@ -270,7 +268,7 @@ export function EffectsSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setIsLeftHandTapped", { value: pressed }, { t })
                     }
-                    textIcon="T+"
+                    icon={<MusicGlyph glyph={musicGlyphs.leftHandTap} />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.trill")}
@@ -281,7 +279,7 @@ export function EffectsSection({
                         trillSpeed: Duration.Sixteenth,
                       }, { t })
                     }
-                    textIcon="tr"
+                    icon={<MusicGlyph glyph={musicGlyphs.trill} />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.harmonics")}
@@ -292,7 +290,7 @@ export function EffectsSection({
                         harmonicValue: note.harmonicValue,
                       }, { t })
                     }
-                    icon={<Sparkles className="h-3.5 w-3.5" />}
+                    icon={<MusicGlyph glyph={musicGlyphs.harmonic} />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.ornament")}
@@ -300,7 +298,7 @@ export function EffectsSection({
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setOrnament", { value: pressed ? NoteOrnament.Turn : NoteOrnament.None }, { t })
                     }
-                    icon={<RotateCcw className="h-3.5 w-3.5" />}
+                    icon={<MusicGlyph glyph={musicGlyphs.ornamentTurn} />}
                   />
                 </div>
               </div>
@@ -314,7 +312,7 @@ export function EffectsSection({
                     note.bendPoints,
                     t,
                   )}
-                  icon={<TrendingUp className="h-3 w-3" />}
+                  icon={<Spline className="h-3 w-3" />}
                   open={bendOpen}
                   onOpenChange={setBendOpen}
                   description={t("sidebar.effects.bendHelp")}
@@ -348,7 +346,7 @@ export function EffectsSection({
                     value,
                     label: vibratoLabel(value, t),
                   }))}
-                  icon={<Waves className="h-3 w-3" />}
+                  icon={<MusicGlyph glyph={musicGlyphs.vibrato} className="text-[13px]" />}
                   onValueChange={(value) => executeAppAction(
                     "document.note.setVibrato",
                     { value },
@@ -364,7 +362,7 @@ export function EffectsSection({
                     value,
                     label: slideInTypeLabel(value, t),
                   }))}
-                  icon={<CornerRightUp className="h-3 w-3" />}
+                  icon={<SlideTechniqueIcon direction="in" />}
                   onValueChange={(value) => executeAppAction(
                     "document.note.setSlideInType",
                     { value },
@@ -376,7 +374,7 @@ export function EffectsSection({
                 <PopoverPropRow
                   label={t("sidebar.effects.harmonic")}
                   value={`${harmonicTypeLabel(note.harmonicType, t)} · ${note.harmonicValue}`}
-                  icon={<Sparkles className="h-3 w-3" />}
+                  icon={<MusicGlyph glyph={musicGlyphs.harmonic} />}
                   open={harmonicOpen}
                   onOpenChange={setHarmonicOpen}
                   description={t("sidebar.effects.harmonicHelp")}
@@ -416,7 +414,7 @@ export function EffectsSection({
                     value,
                     label: slideOutTypeLabel(value, t),
                   }))}
-                  icon={<MoveRight className="h-3 w-3" />}
+                  icon={<SlideTechniqueIcon direction="out" />}
                   onValueChange={(value) => executeAppAction(
                     "document.note.setSlideOutType",
                     { value },
@@ -432,7 +430,7 @@ export function EffectsSection({
                     value,
                     label: ornamentLabel(value, t),
                   }))}
-                  icon={<RotateCcw className="h-3 w-3" />}
+                  icon={<MusicGlyph glyph={musicGlyphs.ornamentTurn} />}
                   onValueChange={(value) => executeAppAction(
                     "document.note.setOrnament",
                     { value },
@@ -488,7 +486,7 @@ export function EffectsSection({
                 onPressedChange={(pressed) =>
                   executeAppAction("document.beat.setVibrato", { value: pressed ? VibratoType.Slight : VibratoType.None }, { t })
                 }
-                icon={<Waves className="h-3.5 w-3.5" />}
+                icon={<MusicGlyph glyph={musicGlyphs.vibrato} className="text-[14px]" />}
               />
               <ToggleBtn
                 label={t("sidebar.effects.pickStrokeUp")}
@@ -498,7 +496,7 @@ export function EffectsSection({
                   { value: pressed ? PickStroke.Up : PickStroke.None },
                   { t },
                 )}
-                icon={<ArrowUp className="h-3.5 w-3.5" />}
+                icon={<MusicGlyph glyph={musicGlyphs.pickStrokeUp} />}
               />
               <ToggleBtn
                 label={t("sidebar.effects.pickStrokeDown")}
@@ -508,7 +506,7 @@ export function EffectsSection({
                   { value: pressed ? PickStroke.Down : PickStroke.None },
                   { t },
                 )}
-                icon={<ArrowDown className="h-3.5 w-3.5" />}
+                icon={<MusicGlyph glyph={musicGlyphs.pickStrokeDown} />}
               />
               <ToggleBtn
                 label={t("sidebar.effects.graceNote")}
@@ -516,7 +514,7 @@ export function EffectsSection({
                 onPressedChange={(pressed) =>
                   executeAppAction("document.beat.setGraceType", { value: pressed ? GraceType.BeforeBeat : GraceType.None }, { t })
                 }
-                icon={<Music className="h-3.5 w-3.5" />}
+                icon={<MusicGlyph glyph={musicGlyphs.graceNote} />}
               />
               <ToggleBtn
                 label={t("sidebar.effects.whammyBar")}
@@ -539,7 +537,7 @@ export function EffectsSection({
                         whammyBarPoints: null,
                       }, { t })
                 }
-                icon={<AudioWaveform className="h-3.5 w-3.5" />}
+                icon={<MusicGlyph glyph={musicGlyphs.whammyDip} />}
               />
               <ToggleBtn
                 label={t("sidebar.effects.brushUp")}
@@ -549,7 +547,7 @@ export function EffectsSection({
                     ? { brushType: BrushType.BrushUp, brushDuration: 120 }
                     : { brushType: BrushType.None, brushDuration: 0 }, { t })
                 }
-                icon={<BrushUp className="h-3.5 w-3.5" />}
+                icon={<MusicGlyph glyph={musicGlyphs.brushUp} />}
               />
               <ToggleBtn
                 label={t("sidebar.effects.brushDown")}
@@ -559,7 +557,7 @@ export function EffectsSection({
                     ? { brushType: BrushType.BrushDown, brushDuration: 120 }
                     : { brushType: BrushType.None, brushDuration: 0 }, { t })
                 }
-                icon={<ChevronsDown className="h-3.5 w-3.5" />}
+                icon={<MusicGlyph glyph={musicGlyphs.brushDown} />}
               />
               <ToggleBtn
                 label={t("sidebar.effects.tremoloPicking")}
@@ -571,7 +569,7 @@ export function EffectsSection({
                       : null,
                   }, { t })
                 }
-                icon={<Zap className="h-3.5 w-3.5" />}
+                icon={<MusicGlyph glyph={musicGlyphs.tremoloPicking} />}
               />
             </div>
           </div>
@@ -580,7 +578,7 @@ export function EffectsSection({
             <PopoverPropRow
               label={t("sidebar.effects.graceNote")}
               value={graceTypeLabel(beat.graceType, t)}
-              icon={<Music className="h-3 w-3" />}
+              icon={<MusicGlyph glyph={musicGlyphs.graceNote} />}
               open={graceOpen}
               onOpenChange={setGraceOpen}
               description={t("sidebar.effects.graceHelp")}
@@ -610,7 +608,7 @@ export function EffectsSection({
                 beat.whammyBarPoints,
                 t,
               )}
-              icon={<AudioWaveform className="h-3 w-3" />}
+              icon={<MusicGlyph glyph={musicGlyphs.whammyDip} />}
               open={whammyOpen}
               onOpenChange={setWhammyOpen}
               description={t("sidebar.effects.whammyHelp")}
@@ -645,7 +643,7 @@ export function EffectsSection({
                 value,
                 label: vibratoLabel(value, t),
               }))}
-              icon={<Waves className="h-3 w-3" />}
+              icon={<MusicGlyph glyph={musicGlyphs.vibrato} className="text-[13px]" />}
               onValueChange={(value) => executeAppAction(
                 "document.beat.setVibrato",
                 { value },
@@ -693,7 +691,7 @@ export function EffectsSection({
                   ? t("sidebar.effects.tremoloBuzzRoll")
                   : t("sidebar.effects.tremoloDefault")
               }`}
-              icon={<Zap className="h-3 w-3" />}
+              icon={<MusicGlyph glyph={musicGlyphs.tremoloPicking} />}
               open={tremoloOpen}
               onOpenChange={setTremoloOpen}
               description={t("sidebar.effects.tremoloHelp")}
@@ -726,7 +724,7 @@ export function EffectsSection({
                 ? { ...option, label: t("sidebar.effects.none") }
                 : option,
             )}
-            icon={<Hand className="h-3.5 w-3.5" />}
+            icon={<span className="text-[10px] font-semibold">R</span>}
             onValueChange={(value) =>
               executeAppAction("document.beat.setRasgueado", { value }, { t })
             }
@@ -758,7 +756,7 @@ export function EffectsSection({
                       executeAppAction("document.beat.setDynamics", { value: dynamic }, { t });
                     }
                   }}
-                  textIcon={dynamicLabel(dynamic)}
+                  icon={<MusicGlyph glyph={DYNAMIC_GLYPHS[dynamic]} className="text-[17px]" />}
                   className="text-[9px]"
                 />
               ))}
@@ -778,7 +776,7 @@ export function EffectsSection({
                 },
                 { t },
               )}
-              icon={<TrendingUp className="h-3.5 w-3.5" />}
+              icon={<MusicGlyph glyph={musicGlyphs.crescendo} className="text-[22px]" />}
             />
             <ToggleBtn
               label={t("sidebar.effects.decrescendo")}
@@ -792,7 +790,7 @@ export function EffectsSection({
                 },
                 { t },
               )}
-              icon={<TrendingDown className="h-3.5 w-3.5" />}
+              icon={<MusicGlyph glyph={musicGlyphs.decrescendo} className="text-[22px]" />}
             />
           </div>
 
@@ -841,7 +839,7 @@ export function EffectsSection({
               onPressedChange={(pressed) =>
                 executeAppAction("document.beat.setFade", { value: pressed ? FadeType.FadeIn : FadeType.None }, { t })
               }
-              icon={<SunMedium className="h-3.5 w-3.5" />}
+              icon={<MusicGlyph glyph={musicGlyphs.fadeIn} />}
             />
             <ToggleBtn
               label={t("sidebar.effects.fadeOut")}
@@ -849,7 +847,7 @@ export function EffectsSection({
               onPressedChange={(pressed) =>
                 executeAppAction("document.beat.setFade", { value: pressed ? FadeType.FadeOut : FadeType.None }, { t })
               }
-              textIcon="FO"
+              icon={<MusicGlyph glyph={musicGlyphs.fadeOut} />}
             />
             <ToggleBtn
               label={t("sidebar.effects.volumeSwell")}
@@ -857,7 +855,7 @@ export function EffectsSection({
               onPressedChange={(pressed) =>
                 executeAppAction("document.beat.setFade", { value: pressed ? FadeType.VolumeSwell : FadeType.None }, { t })
               }
-              textIcon="VS"
+              icon={<MusicGlyph glyph={musicGlyphs.volumeSwell} />}
             />
             <ToggleBtn
               label={t("sidebar.effects.golpeThumb")}
@@ -887,7 +885,7 @@ export function EffectsSection({
                 { value: pressed ? WahPedal.Open : WahPedal.None },
                 { t },
               )}
-              textIcon="W+"
+              icon={<MusicGlyph glyph={musicGlyphs.wahOpen} />}
             />
             <ToggleBtn
               label={t("sidebar.effects.wahClosed")}
@@ -897,7 +895,7 @@ export function EffectsSection({
                 { value: pressed ? WahPedal.Closed : WahPedal.None },
                 { t },
               )}
-              textIcon="W-"
+              icon={<MusicGlyph glyph={musicGlyphs.wahClosed} />}
             />
           </div>
 

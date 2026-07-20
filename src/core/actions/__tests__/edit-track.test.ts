@@ -86,6 +86,7 @@ import { createTrack, createStaff } from "@/core/schema";
 import {
   DocumentActionArgumentsError,
   executeDocumentAction,
+  executeDocumentActionById,
 } from "@/core/actions/registry";
 import "@/core/actions/edit-bar";
 import "@/core/actions/edit-track";
@@ -213,14 +214,43 @@ describe("track system layout actions", () => {
   });
 });
 
-describe("document.track.setPlaybackInfoProgram", () => {
-  it("updates playbackInfo.program in Y.Doc", () => {
-    executeDocumentAction("document.track.setPlaybackInfoProgram", { trackIndex: 0, program: 30 }, ctx);
+describe("document.track.setInstrument", () => {
+  it("updates playbackInfo program and bank atomically", () => {
+    executeDocumentAction("document.track.setInstrument", {
+      trackIndex: 0,
+      program: 30,
+      bank: 2,
+    }, ctx);
     const playbackInfo = resolveYTrackHelper(0)!.get(
       "playbackInfo",
     ) as Y.Map<unknown>;
     expect(playbackInfo.get("program")).toBe(30);
+    expect(playbackInfo.get("bank")).toBe(2);
     expect(resolveYTrackHelper(0)!.has("playbackProgram")).toBe(false);
+  });
+
+  it.each([
+    { trackIndex: 0, program: -1, bank: 0 },
+    { trackIndex: 0, program: 128, bank: 0 },
+    { trackIndex: 0, program: 30, bank: -1 },
+    { trackIndex: 0, program: 30, bank: 16384 },
+  ])("rejects invalid instrument args before updating Y.Doc: %o", (args) => {
+    const playbackInfo = resolveYTrackHelper(0)!.get(
+      "playbackInfo",
+    ) as Y.Map<unknown>;
+    const before = playbackInfo.toJSON();
+    let updates = 0;
+    const listener = () => updates++;
+    playbackInfo.observe(listener);
+
+    expect(() => executeDocumentActionById(
+      "document.track.setInstrument",
+      args,
+      ctx,
+    )).toThrow(DocumentActionArgumentsError);
+    expect(playbackInfo.toJSON()).toEqual(before);
+    expect(updates).toBe(0);
+    playbackInfo.unobserve(listener);
   });
 });
 

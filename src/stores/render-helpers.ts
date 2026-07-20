@@ -474,9 +474,17 @@ export function extractTrackInfo(track: alphaTab.model.Track): SelectedTrackInfo
     shortName: track.shortName,
     isPercussion: track.isPercussion,
     staffCount: track.staves.length,
-    playbackChannel: pi.primaryChannel,
-    playbackProgram: pi.program,
-    playbackPort: pi.port,
+    playbackInfo: {
+      volume: pi.volume,
+      balance: pi.balance,
+      port: pi.port,
+      program: pi.program,
+      bank: pi.bank,
+      primaryChannel: pi.primaryChannel,
+      secondaryChannel: pi.secondaryChannel,
+      isMute: pi.isMute,
+      isSolo: pi.isSolo,
+    },
     color: { r: c.r, g: c.g, b: c.b, a: c.a },
   };
 }

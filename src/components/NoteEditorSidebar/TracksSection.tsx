@@ -35,6 +35,10 @@ import {
   SectionHeader,
 } from "./primitives";
 import { ChordLibraryEditor } from "./editors/ChordEditors";
+import {
+  InstrumentEditor,
+  instrumentSummary,
+} from "./editors/InstrumentEditor";
 
 interface StaffEditorData {
   staffIndex: number;
@@ -331,6 +335,7 @@ function StaffMetaEditor({
 function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  const [instrumentOpen, setInstrumentOpen] = useState(false);
   const track = usePlayerStore((state) => state.tracks[trackIndex]);
   const visibleTrackIndices = usePlayerStore((state) => state.visibleTrackIndices);
   const selectedBeat = usePlayerStore((state) => state.selectedBeat);
@@ -343,12 +348,6 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   const staffs: StaffEditorData[] = (alphaTrack?.staves ?? []).map(
     (staff, staffIndex) => readStaffEditorData(staffIndex, staff),
   );
-  const playbackInfo = alphaTrack?.playbackInfo
-    ? {
-        program: alphaTrack.playbackInfo.program,
-        primaryChannel: alphaTrack.playbackInfo.primaryChannel,
-      }
-    : null;
   const onlyStaff = staffs[0] ?? null;
   const summary = staffs.length > 1
     ? t("sidebar.staff.count", { count: staffs.length })
@@ -420,7 +419,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
           />
           <EditablePropRow
             label={t("sidebar.tracks.shortName")}
-            value={alphaTrack?.shortName ?? ""}
+            value={track.shortName}
             placeholder={t("sidebar.tracks.placeholderShortName")}
             onCommit={(shortName) => executeAppAction(
               "document.track.setShortName",
@@ -440,30 +439,37 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
             />
           ))}
 
-          {playbackInfo && (
-            <EditableNumberPropRow
-              label={t("sidebar.tracks.midiProgram")}
-              value={playbackInfo.program}
-              min={0}
-              max={127}
-              onCommit={(program) => executeAppAction(
-                "document.track.setPlaybackInfoProgram",
-                { trackIndex, program },
+          <DialogPropRow
+            label={t("sidebar.tracks.instrument")}
+            value={instrumentSummary(
+              track.playbackInfo.program,
+              track.playbackInfo.bank,
+              t("sidebar.tracks.unknownInstrument"),
+              t("sidebar.tracks.instrumentBank"),
+            )}
+            title={t("sidebar.tracks.instrument")}
+            description={t("sidebar.tracks.instrumentHelp")}
+            open={instrumentOpen}
+            onOpenChange={setInstrumentOpen}
+            contentClassName="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl"
+          >
+            <InstrumentEditor
+              program={track.playbackInfo.program}
+              bank={track.playbackInfo.bank}
+              labels={{
+                search: t("sidebar.tracks.instrumentSearch"),
+                bank: t("sidebar.tracks.instrumentBank"),
+                apply: t("sidebar.common.apply"),
+                noResults: t("sidebar.tracks.noInstrumentResults"),
+              }}
+              onCommit={(program, bank) => executeAppAction(
+                "document.track.setInstrument",
+                { trackIndex, program, bank },
                 { t },
               )}
+              onDone={() => setInstrumentOpen(false)}
             />
-          )}
-
-          {playbackInfo && (
-            <div className="flex items-center gap-2 px-3 py-0.5">
-              <span className="whitespace-nowrap text-[11px] text-muted-foreground">
-                {t("sidebar.tracks.midiChannel")}
-              </span>
-              <span className="ml-auto text-[11px] font-medium tabular-nums">
-                {playbackInfo.primaryChannel + 1}
-              </span>
-            </div>
-          )}
+          </DialogPropRow>
         </div>
       )}
     </div>

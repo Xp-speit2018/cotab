@@ -272,22 +272,25 @@ const setTrackShortNameAction = defineDocumentAction({
   },
 });
 
-const setTrackPlaybackInfoProgramAction = defineDocumentAction({
-  id: "document.track.setPlaybackInfoProgram",
-  i18nKey: "actions.edit.track.setPlaybackInfoProgram",
+const setTrackInstrumentAction = defineDocumentAction({
+  id: "document.track.setInstrument",
+  i18nKey: "actions.edit.track.setInstrument",
   category: "document.track",
   argsSchema: actionArgs({
     trackIndex: nonNegativeInteger,
     program: integer.min(0).max(127),
+    bank: integer.min(0).max(16383),
   }),
-  execute: ({ trackIndex, program }) => {
+  execute: ({ trackIndex, program, bank }) => {
     const yTrack = engine.resolveYTrack(trackIndex);
     if (!yTrack) return;
     transact(() => {
       const yPlaybackInfo = yTrack.get("playbackInfo") as
         | Y.Map<unknown>
         | undefined;
-      yPlaybackInfo?.set("program", program);
+      if (!yPlaybackInfo) return;
+      yPlaybackInfo.set("program", program);
+      yPlaybackInfo.set("bank", bank);
     });
   },
 });
@@ -430,7 +433,7 @@ export const trackDocumentActions = [
   deleteTrackAction,
   setTrackNameAction,
   setTrackShortNameAction,
-  setTrackPlaybackInfoProgramAction,
+  setTrackInstrumentAction,
   setTrackDefaultSystemsLayoutAction,
   setTrackSystemsLayoutAction,
   reflowTrackSystemsAction,

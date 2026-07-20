@@ -321,7 +321,7 @@ export const INSPECTOR_FIELD_CATALOG = {
   track: {
     uuid: identity,
     staves: structure,
-    playbackInfo: field("popover", "playback", "partial"),
+    playbackInfo: field("dialog", "instrument", "ready"),
     color: field("popover", "color", "missing"),
     name: inlineText,
     shortName: inlineText,

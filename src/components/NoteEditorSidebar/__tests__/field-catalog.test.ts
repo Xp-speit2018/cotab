@@ -48,8 +48,8 @@ describe("inspector field catalog", () => {
       editor: "alternate-endings",
     });
     expect(INSPECTOR_FIELD_CATALOG.track.playbackInfo).toMatchObject({
-      surface: "popover",
-      editor: "playback",
+      surface: "dialog",
+      editor: "instrument",
     });
     expect(INSPECTOR_FIELD_CATALOG.beat.chordId).toMatchObject({
       surface: "resource",

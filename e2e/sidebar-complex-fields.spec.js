@@ -248,4 +248,24 @@ test("complex field editors commit semantic values and show matching summaries",
     window.__PLAYER_STORE__.getState().scoreInstructions,
   )).toBe("Play softly.\nLet the final chord ring.");
   await expect(instructions).toContainText("Play softly. Let the final chord ring.");
+
+  await page.getByRole("button", {
+    name: "Toggle Lead Guitar details",
+    exact: true,
+  }).click();
+  const instrument = page.getByRole("button", { name: /^Instrument / }).first();
+  await instrument.click();
+  editor = page.getByRole("dialog").filter({ hasText: "Instrument" });
+  await editor.getByLabel("Search instruments").fill("distortion guitar");
+  await editor.getByRole("button", {
+    name: "Distortion Guitar",
+    exact: true,
+  }).click();
+  await editor.getByLabel("Sound bank").fill("2");
+  await editor.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const info = window.__PLAYER_STORE__.getState().tracks[0]?.playbackInfo;
+    return info ? [info.program, info.bank] : null;
+  })).toEqual([30, 2]);
+  await expect(instrument).toContainText("Distortion Guitar · Sound bank 2");
 });

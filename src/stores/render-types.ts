@@ -33,6 +33,7 @@ import type {
   BendPointSchema,
   ChordSchema,
   AutomationSchema,
+  PlaybackInformationSchema,
   TempoAutomationSchema,
   TremoloPickingEffectSchema,
   Rasgueado,
@@ -115,7 +116,9 @@ export interface PercSnapGroup {
 export interface TrackInfo {
   index: number;
   name: string;
+  shortName: string;
   isPercussion: boolean;
+  playbackInfo: PlaybackInformationSchema;
 }
 
 // ─── Selected element info ──────────────────────────────────────────────────
@@ -229,9 +232,7 @@ export interface SelectedTrackInfo {
   shortName: string;
   isPercussion: boolean;
   staffCount: number;
-  playbackChannel: number;
-  playbackProgram: number;
-  playbackPort: number;
+  playbackInfo: PlaybackInformationSchema;
   color: { r: number; g: number; b: number; a: number };
 }
 

@@ -106,7 +106,6 @@ const ownedBoolean = field("hidden", "boolean", "internal");
 const inlineText = field("inline", "short-text", "ready");
 const inlineNumber = field("inline", "number", "ready");
 const readyToggle = field("choice", "boolean", "ready");
-const missingToggle = field("choice", "boolean", "missing");
 const readyEnum = field("choice", "enum", "ready");
 const layout = field("external", "layout", "external");
 
@@ -311,10 +310,10 @@ export const INSPECTOR_FIELD_CATALOG = {
     chords: field("dialog", "chord-library", "ready"),
     capo: inlineNumber,
     transpositionPitch: inlineNumber,
-    displayTranspositionPitch: field("inline", "number", "missing"),
-    showTablature: missingToggle,
-    showStandardNotation: missingToggle,
-    isPercussion: missingToggle,
+    displayTranspositionPitch: field("inline", "number", "ready"),
+    showTablature: readyToggle,
+    showStandardNotation: readyToggle,
+    isPercussion: structure,
     stringTuning: field("popover", "tuning", "ready"),
   },
   track: {

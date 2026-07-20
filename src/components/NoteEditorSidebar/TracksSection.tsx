@@ -8,6 +8,7 @@ import {
   Eye,
   EyeOff,
   Guitar,
+  Music2,
 } from "lucide-react";
 import {
   Collapsible,
@@ -34,6 +35,7 @@ import {
   EditableNumberPropRow,
   EditablePropRow,
   SectionHeader,
+  ToggleBtn,
 } from "./primitives";
 import { ChordLibraryEditor } from "./editors/ChordEditors";
 import {
@@ -48,7 +50,9 @@ interface StaffEditorData {
   tuningName: string;
   capo: number;
   transposition: number;
+  displayTransposition: number;
   showTablature: boolean;
+  showStandardNotation: boolean;
   isPercussion: boolean;
   stringCount: number;
   chords: ChordDefinitionInfo[];
@@ -64,7 +68,9 @@ function readStaffEditorData(
     tuningName: staff.tuningName,
     capo: staff.capo,
     transposition: staff.transpositionPitch,
+    displayTransposition: staff.displayTranspositionPitch,
     showTablature: staff.showTablature,
+    showStandardNotation: staff.showStandardNotation,
     isPercussion: staff.isPercussion,
     stringCount: staff.tuning.length,
     chords: staff.chords
@@ -114,6 +120,42 @@ function StaffMetaEditor({
 
   const fields = (
     <div className="space-y-0.5 pb-1">
+      <div className="px-2 py-1">
+        <div className="mb-0.5 px-1 text-[10px] font-medium text-muted-foreground">
+          {t("sidebar.tracks.notation")}
+        </div>
+        <div className="flex flex-wrap gap-0.5">
+          <ToggleBtn
+            label={t("sidebar.tracks.standardNotation")}
+            pressed={staff.showStandardNotation}
+            onPressedChange={(showStandardNotation) => {
+              if (!showStandardNotation && !staff.showTablature) return;
+              executeAppAction("document.staff.setNotationVisibility", {
+                trackIndex,
+                staffIndex: staff.staffIndex,
+                showStandardNotation,
+                showTablature: staff.showTablature,
+              }, { t });
+            }}
+            icon={<Music2 className="h-3.5 w-3.5" />}
+          />
+          <ToggleBtn
+            label={t("sidebar.tracks.tablature")}
+            pressed={staff.showTablature}
+            onPressedChange={(showTablature) => {
+              if (!showTablature && !staff.showStandardNotation) return;
+              executeAppAction("document.staff.setNotationVisibility", {
+                trackIndex,
+                staffIndex: staff.staffIndex,
+                showStandardNotation: staff.showStandardNotation,
+                showTablature,
+              }, { t });
+            }}
+            icon={<Guitar className="h-3.5 w-3.5" />}
+          />
+        </div>
+      </div>
+
       {staff.showTablature && staff.stringCount > 0 && !staff.isPercussion && (
         <>
           <div className="group flex items-center gap-2 px-3 py-0.5">
@@ -286,22 +328,42 @@ function StaffMetaEditor({
       )}
 
       {!staff.isPercussion && (
-        <EditableNumberPropRow
-          label={t("sidebar.tracks.transposition")}
-          value={staff.transposition}
-          suffix={t("sidebar.tracks.semitones")}
-          min={-24}
-          max={24}
-          onCommit={(transpositionPitch) => executeAppAction(
-            "document.staff.setTranspositionPitch",
-            {
-              trackIndex,
-              staffIndex: staff.staffIndex,
-              transpositionPitch,
-            },
-            { t },
+        <>
+          <EditableNumberPropRow
+            label={t("sidebar.tracks.transposition")}
+            value={staff.transposition}
+            suffix={t("sidebar.tracks.semitones")}
+            min={-24}
+            max={24}
+            onCommit={(transpositionPitch) => executeAppAction(
+              "document.staff.setTranspositionPitch",
+              {
+                trackIndex,
+                staffIndex: staff.staffIndex,
+                transpositionPitch,
+              },
+              { t },
+            )}
+          />
+          {staff.showStandardNotation && (
+            <EditableNumberPropRow
+              label={t("sidebar.tracks.displayTransposition")}
+              value={staff.displayTransposition}
+              suffix={t("sidebar.tracks.semitones")}
+              min={-24}
+              max={24}
+              onCommit={(displayTranspositionPitch) => executeAppAction(
+                "document.staff.setDisplayTranspositionPitch",
+                {
+                  trackIndex,
+                  staffIndex: staff.staffIndex,
+                  displayTranspositionPitch,
+                },
+                { t },
+              )}
+            />
           )}
-        />
+        </>
       )}
     </div>
   );

@@ -47,6 +47,53 @@ const setStaffTranspositionPitchAction = defineDocumentAction({
   },
 });
 
+const setStaffDisplayTranspositionPitchAction = defineDocumentAction({
+  id: "document.staff.setDisplayTranspositionPitch",
+  i18nKey: "actions.edit.staff.setDisplayTranspositionPitch",
+  category: "document.staff",
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    staffIndex: nonNegativeInteger,
+    displayTranspositionPitch: integer.min(-24).max(24),
+  }),
+  execute: ({ trackIndex, staffIndex, displayTranspositionPitch }) => {
+    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
+    if (!yStaff) return;
+    transact(() => {
+      yStaff.set("displayTranspositionPitch", displayTranspositionPitch);
+    });
+  },
+});
+
+const setStaffNotationVisibilityAction = defineDocumentAction({
+  id: "document.staff.setNotationVisibility",
+  i18nKey: "actions.edit.staff.setNotationVisibility",
+  category: "document.staff",
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    staffIndex: nonNegativeInteger,
+    showStandardNotation: z.boolean(),
+    showTablature: z.boolean(),
+  }).refine(
+    ({ showStandardNotation, showTablature }) =>
+      showStandardNotation || showTablature,
+    { message: "A staff must show at least one notation" },
+  ),
+  execute: ({
+    trackIndex,
+    staffIndex,
+    showStandardNotation,
+    showTablature,
+  }) => {
+    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
+    if (!yStaff) return;
+    transact(() => {
+      yStaff.set("showStandardNotation", showStandardNotation);
+      yStaff.set("showTablature", showTablature);
+    });
+  },
+});
+
 const setStaffStringTuningAction = defineDocumentAction({
   id: "document.staff.setStringTuning",
   i18nKey: "actions.edit.staff.setStringTuning",
@@ -72,24 +119,6 @@ const setStaffStringTuningAction = defineDocumentAction({
       yStringTuning.set("tunings", yTunings);
       yStringTuning.set("name", stringTuning.name);
       yStringTuning.set("isStandard", stringTuning.isStandard);
-    });
-  },
-});
-
-const setStaffIsPercussionAction = defineDocumentAction({
-  id: "document.staff.setIsPercussion",
-  i18nKey: "actions.edit.staff.setIsPercussion",
-  category: "document.staff",
-  argsSchema: actionArgs({
-    trackIndex: nonNegativeInteger,
-    staffIndex: nonNegativeInteger,
-    isPercussion: z.boolean(),
-  }),
-  execute: ({ trackIndex, staffIndex, isPercussion }) => {
-    const yStaff = engine.resolveYStaff(trackIndex, staffIndex);
-    if (!yStaff) return;
-    transact(() => {
-      yStaff.set("isPercussion", isPercussion);
     });
   },
 });
@@ -153,7 +182,8 @@ const setStaffChordAction = defineDocumentAction({
 export const staffDocumentActions = [
   setStaffCapoAction,
   setStaffTranspositionPitchAction,
+  setStaffDisplayTranspositionPitchAction,
+  setStaffNotationVisibilityAction,
   setStaffStringTuningAction,
-  setStaffIsPercussionAction,
   setStaffChordAction,
 ] as const;

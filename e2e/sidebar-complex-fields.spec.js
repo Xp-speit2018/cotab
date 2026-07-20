@@ -273,6 +273,13 @@ test("complex field editors commit semantic values and show matching summaries",
     name: "Toggle Lead Guitar details",
     exact: true,
   }).click();
+  await page.getByRole("button", {
+    name: "Standard notation",
+    exact: true,
+  }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].staves[0].showStandardNotation,
+  )).toBe(true);
   const instrument = page.getByRole("button", { name: /^Instrument / }).first();
   await instrument.click();
   editor = page.getByRole("dialog").filter({ hasText: "Instrument" });

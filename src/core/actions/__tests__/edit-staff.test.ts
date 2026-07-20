@@ -41,7 +41,11 @@ vi.mock("@/core/engine", () => ({
   FILE_IMPORT_ORIGIN: "file-import",
 }));
 
-import { executeDocumentAction } from "@/core/actions/registry";
+import {
+  DocumentActionArgumentsError,
+  executeDocumentAction,
+  executeDocumentActionById,
+} from "@/core/actions/registry";
 import "@/core/actions/edit-staff";
 
 beforeEach(() => {
@@ -85,6 +89,49 @@ describe("document.staff.setTranspositionPitch", () => {
   });
 });
 
+describe("document.staff notation configuration", () => {
+  it("sets display transposition independently from playback pitch", () => {
+    executeDocumentAction("document.staff.setDisplayTranspositionPitch", {
+      trackIndex: 0,
+      staffIndex: 0,
+      displayTranspositionPitch: 12,
+    }, ctx);
+    const staff = resolveYStaffHelper(0, 0)!;
+    expect(staff.get("displayTranspositionPitch")).toBe(12);
+    expect(staff.get("transpositionPitch")).toBe(0);
+  });
+
+  it("sets both notation visibility fields atomically", () => {
+    executeDocumentAction("document.staff.setNotationVisibility", {
+      trackIndex: 0,
+      staffIndex: 0,
+      showStandardNotation: true,
+      showTablature: false,
+    }, ctx);
+    const staff = resolveYStaffHelper(0, 0)!;
+    expect(staff.get("showStandardNotation")).toBe(true);
+    expect(staff.get("showTablature")).toBe(false);
+  });
+
+  it("rejects hiding both notations before updating Y.Doc", () => {
+    const staff = resolveYStaffHelper(0, 0)!;
+    let updates = 0;
+    staff.observeDeep(() => updates++);
+
+    expect(() => executeDocumentActionById(
+      "document.staff.setNotationVisibility",
+      {
+        trackIndex: 0,
+        staffIndex: 0,
+        showStandardNotation: false,
+        showTablature: false,
+      },
+      ctx,
+    )).toThrow(DocumentActionArgumentsError);
+    expect(updates).toBe(0);
+  });
+});
+
 describe("document.staff.setStringTuning", () => {
   it("replaces the complete stringTuning object", () => {
     const dropD = [64, 59, 55, 50, 45, 38];
@@ -122,18 +169,6 @@ describe("document.staff.setStringTuning", () => {
     ) as Y.Map<unknown>;
     const tunings = stringTuning.get("tunings") as Y.Array<number>;
     expect(tunings.toArray()).toEqual(sevenString);
-  });
-});
-
-describe("document.staff.setIsPercussion", () => {
-  it("updates isPercussion directly", () => {
-    executeDocumentAction("document.staff.setIsPercussion", {
-      trackIndex: 0,
-      staffIndex: 0,
-      isPercussion: true,
-    }, ctx);
-
-    expect(resolveYStaffHelper(0, 0)!.get("isPercussion")).toBe(true);
   });
 });
 

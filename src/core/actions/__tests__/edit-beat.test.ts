@@ -416,6 +416,24 @@ describe("document.beat nested playback fields", () => {
     ).toBe(2);
   });
 
+  it("rejects an invalid whammy shape before changing Y.Doc", () => {
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    const before = beat.toJSON();
+
+    expect(() => executeDocumentActionById("document.beat.setWhammyBar", {
+      whammyBarType: 2,
+      whammyStyle: BendStyle.Default,
+      isContinuedWhammy: false,
+      whammyBarPoints: [
+        { offset: 0, value: 0 },
+        { offset: 30, value: -4 },
+        { offset: 60, value: -8 },
+      ],
+    }, ctx)).toThrow(DocumentActionArgumentsError);
+
+    expect(beat.toJSON()).toEqual(before);
+  });
+
   it("replaces automations without renaming fields", () => {
     executeDocumentAction("document.beat.setAutomations", { automations: [
       {

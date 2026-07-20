@@ -5,7 +5,7 @@ import {
   defineDocumentAction,
 } from "@/core/actions/definition";
 import {
-  bendPointSchema,
+  bendPointListSchema,
   finiteNumber,
   integer,
   valueBooleanArgs,
@@ -14,7 +14,7 @@ import {
 } from "@/core/actions/args-schema";
 import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
-import { createNote, type BendPointSchema } from "@/core/schema";
+import { BendType, createNote, type BendPointSchema } from "@/core/schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
@@ -173,7 +173,7 @@ const setIsContinuedBendAction = defineBooleanNoteFieldAction(
 );
 
 const bendPointsArgs = actionArgs({
-  points: z.array(bendPointSchema).nullable(),
+  points: bendPointListSchema.nullable(),
 });
 
 const setBendPointsAction = defineDocumentAction({
@@ -216,10 +216,41 @@ const setBendPointsAction = defineDocumentAction({
 });
 
 const bendArgs = actionArgs({
-  bendType: integer,
-  bendStyle: integer,
-  isContinuedBend: z.boolean(),
-  bendPoints: z.array(bendPointSchema).nullable(),
+  bendType: integer.min(BendType.None).max(BendType.PrebendRelease),
+  bendStyle: integer.min(0).max(2),
+  isContinuedBend: z.boolean().describe("Whether the curve continues from a previous tied note"),
+  bendPoints: bendPointListSchema.nullable().describe(
+    "Null for None; BendRelease requires 4 points; Custom accepts 2-16 points; all other enabled bend types require 2 points",
+  ),
+}).superRefine(({ bendType, bendPoints }, context) => {
+  if (bendType === BendType.None) {
+    if (bendPoints !== null) {
+      context.addIssue({
+        code: "custom",
+        path: ["bendPoints"],
+        message: "A disabled bend must not have points",
+      });
+    }
+    return;
+  }
+  if (bendPoints === null) {
+    context.addIssue({
+      code: "custom",
+      path: ["bendPoints"],
+      message: "An enabled bend requires points",
+    });
+    return;
+  }
+  const expectedCount = bendType === BendType.BendRelease ? 4
+    : bendType === BendType.Custom ? null
+    : 2;
+  if (expectedCount !== null && bendPoints.length !== expectedCount) {
+    context.addIssue({
+      code: "custom",
+      path: ["bendPoints"],
+      message: `Bend type ${bendType} requires ${expectedCount} points`,
+    });
+  }
 });
 
 const setBendAction = defineDocumentAction({
@@ -276,6 +307,18 @@ const setHarmonicValueAction = defineDocumentAction({
   category: "document.note",
   argsSchema: valueNumberArgs,
   execute: ({ value }) => applyNoteUpdates({ harmonicValue: value }),
+});
+const setHarmonicAction = defineDocumentAction({
+  id: "document.note.setHarmonic",
+  i18nKey: "actions.edit.note.setHarmonic",
+  category: "document.note",
+  argsSchema: actionArgs({
+    harmonicType: integer,
+    harmonicValue: finiteNumber,
+  }),
+  execute: ({ harmonicType, harmonicValue }) => {
+    applyNoteUpdates({ harmonicType, harmonicValue });
+  },
 });
 const setDynamicsAction = defineIntegerNoteFieldAction(
   "document.note.setDynamics",
@@ -453,6 +496,7 @@ export const noteDocumentActions = [
   setSlideOutTypeAction,
   setHarmonicTypeAction,
   setHarmonicValueAction,
+  setHarmonicAction,
   setDynamicsAction,
   setFretAction,
   setStringAction,

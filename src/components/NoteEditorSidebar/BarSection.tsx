@@ -10,15 +10,18 @@ import { executeAppAction } from "@/app-actions";
 import type { SelectedBarInfo } from "@/stores/render-types";
 import {
   Clef,
-  KeySignatureType,
   Ottavia,
   SimileMark,
 } from "@/core/schema";
 import {
-  EditableNumberPropRow,
+  PopoverPropRow,
   SectionHeader,
   SelectPropRow,
 } from "./primitives";
+import {
+  KeySignatureEditor,
+  keySignatureSummary,
+} from "./editors/KeySignatureEditor";
 
 const CLEF_OPTIONS = [
   { value: Clef.Neutral, label: "Neutral" },
@@ -56,6 +59,7 @@ export function BarSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const [keyOpen, setKeyOpen] = useState(false);
   const title = staffCount > 1
     ? `${t("sidebar.bar.title")} · ${t("sidebar.staff.label", { index: staffIndex + 1 })}`
     : t("sidebar.bar.title");
@@ -107,29 +111,27 @@ export function BarSection({
               executeAppAction("document.bar.setSimileMark", { value }, { t })
             }
           />
-          <div className="grid grid-cols-2 gap-x-1">
-            <EditableNumberPropRow
-              label={t("sidebar.bar.key")}
-              value={bar.keySignature}
-              icon={<Key className="h-3.5 w-3.5" />}
-              min={-7}
-              max={7}
-              onCommit={(value) =>
-                executeAppAction("document.bar.setKeySignature", { value }, { t })
-              }
+          <PopoverPropRow
+            label={t("sidebar.bar.key")}
+            value={keySignatureSummary(bar.keySignature, bar.keySignatureType)}
+            icon={<Key className="h-3.5 w-3.5" />}
+            open={keyOpen}
+            onOpenChange={setKeyOpen}
+            description={t("sidebar.bar.keyHelp")}
+          >
+            <KeySignatureEditor
+              signature={bar.keySignature}
+              type={bar.keySignatureType}
+              majorLabel={t("sidebar.bar.major")}
+              minorLabel={t("sidebar.bar.minor")}
+              onCommit={(keySignature, keySignatureType) => executeAppAction(
+                "document.bar.setKey",
+                { keySignature, keySignatureType },
+                { t },
+              )}
+              onDone={() => setKeyOpen(false)}
             />
-            <SelectPropRow
-              label={t("sidebar.bar.keyType")}
-              value={bar.keySignatureType}
-              options={[
-                { value: KeySignatureType.Major, label: t("sidebar.bar.major") },
-                { value: KeySignatureType.Minor, label: t("sidebar.bar.minor") },
-              ]}
-              onValueChange={(value) =>
-                executeAppAction("document.bar.setKeySignatureType", { value }, { t })
-              }
-            />
-          </div>
+          </PopoverPropRow>
         </div>
         <Separator />
       </CollapsibleContent>

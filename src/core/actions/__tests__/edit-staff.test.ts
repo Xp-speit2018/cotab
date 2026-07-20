@@ -7,6 +7,7 @@ import {
   initDoc,
   destroyDoc,
   getScoreMap,
+  resolveYBeatHelper,
   resolveYStaffHelper,
 } from "@/test/setup";
 
@@ -167,5 +168,33 @@ describe("document.staff.setChord", () => {
       chord: null,
     }, ctx);
     expect(staff.get("chords")).toBeNull();
+  });
+
+  it("clears beat references when a chord definition is removed", () => {
+    executeDocumentAction("document.staff.setChord", {
+      trackIndex: 0,
+      staffIndex: 0,
+      id: "c-major",
+      chord: {
+        name: "C",
+        firstFret: 1,
+        strings: [-1, 3, 2, 0, 1, 0],
+        barreFrets: [],
+        showName: true,
+        showDiagram: true,
+        showFingering: true,
+      },
+    }, ctx);
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    beat.set("chordId", "c-major");
+
+    executeDocumentAction("document.staff.setChord", {
+      trackIndex: 0,
+      staffIndex: 0,
+      id: "c-major",
+      chord: null,
+    }, ctx);
+
+    expect(beat.get("chordId")).toBeNull();
   });
 });

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
+import { usePlayerStore } from "@/stores/render-store";
 import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/render-types";
 import {
   BendStyle,
@@ -41,19 +42,32 @@ import {
   WhammyType,
 } from "@/core/schema";
 import {
-  EditableNumberPropRow,
   EditablePropRow,
+  PopoverPropRow,
   PropRow,
   SectionHeader,
   SelectPropRow,
   ToggleBtn,
 } from "./primitives";
+import { ChordPickerEditor } from "./editors/ChordEditors";
 import {
-  bendTypeLabel,
+  BrushEditor,
+  GraceEditor,
+  HarmonicEditor,
+  TremoloPickingEditor,
+  TrillEditor,
+} from "./editors/ParameterizedEffectEditors";
+import {
+  PitchCurveEditor,
+  pitchCurveSummary,
+} from "./editors/PitchCurveEditor";
+import {
+  brushTypeLabel,
   durationLabel,
   dynamicLabel,
   dynamicTooltip,
   harmonicTypeLabel,
+  graceTypeLabel,
   slideOutTypeLabel,
 } from "./labels";
 
@@ -90,6 +104,21 @@ export function EffectsSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const [chordOpen, setChordOpen] = useState(false);
+  const [trillOpen, setTrillOpen] = useState(false);
+  const [harmonicOpen, setHarmonicOpen] = useState(false);
+  const [graceOpen, setGraceOpen] = useState(false);
+  const [brushOpen, setBrushOpen] = useState(false);
+  const [tremoloOpen, setTremoloOpen] = useState(false);
+  const [bendOpen, setBendOpen] = useState(false);
+  const [whammyOpen, setWhammyOpen] = useState(false);
+  const selectedStaff = usePlayerStore((state) => state.selectedStaffInfo);
+  const selectedChord = selectedStaff?.chords.find(
+    (definition) => definition.id === beat.chordId,
+  ) ?? null;
+  const chordSummary = beat.chordId === null
+    ? t("sidebar.common.none")
+    : selectedChord?.name || t("sidebar.effects.missingChord");
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -202,7 +231,10 @@ export function EffectsSection({
                     label={t("sidebar.effects.harmonics")}
                     pressed={note.harmonicType !== HarmonicType.None}
                     onPressedChange={(pressed) =>
-                      executeAppAction("document.note.setHarmonicType", { value: pressed ? HarmonicType.Natural : HarmonicType.None }, { t })
+                      executeAppAction("document.note.setHarmonic", {
+                        harmonicType: pressed ? HarmonicType.Natural : HarmonicType.None,
+                        harmonicValue: note.harmonicValue,
+                      }, { t })
                     }
                     icon={<Sparkles className="h-3.5 w-3.5" />}
                   />
@@ -218,29 +250,75 @@ export function EffectsSection({
               </div>
 
               {note.bendType !== BendType.None && (
-                <PropRow
-                  label={t("sidebar.effects.bendType")}
-                  value={bendTypeLabel(note.bendType, t)}
+                <PopoverPropRow
+                  label={t("sidebar.effects.bend")}
+                  value={pitchCurveSummary(
+                    "bend",
+                    note.bendType,
+                    note.bendPoints,
+                    t,
+                  )}
                   icon={<TrendingUp className="h-3 w-3" />}
-                />
+                  open={bendOpen}
+                  onOpenChange={setBendOpen}
+                  description={t("sidebar.effects.bendHelp")}
+                  contentClassName="w-80"
+                >
+                  <PitchCurveEditor
+                    kind="bend"
+                    type={note.bendType}
+                    style={note.bendStyle}
+                    isContinued={note.isContinuedBend}
+                    points={note.bendPoints}
+                    onCommit={(curve) => executeAppAction(
+                      "document.note.setBend",
+                      {
+                        bendType: curve.type,
+                        bendStyle: curve.style,
+                        isContinuedBend: curve.isContinued,
+                        bendPoints: curve.points,
+                      },
+                      { t },
+                    )}
+                    onDone={() => setBendOpen(false)}
+                  />
+                </PopoverPropRow>
               )}
               {note.harmonicType !== HarmonicType.None && (
-                <>
-                  <PropRow
-                    label={t("sidebar.effects.harmonic")}
-                    value={harmonicTypeLabel(note.harmonicType, t)}
-                    icon={<Sparkles className="h-3 w-3" />}
-                  />
-                  <EditableNumberPropRow
-                    label={t("sidebar.effects.harmonicValue")}
+                <PopoverPropRow
+                  label={t("sidebar.effects.harmonic")}
+                  value={`${harmonicTypeLabel(note.harmonicType, t)} · ${note.harmonicValue}`}
+                  icon={<Sparkles className="h-3 w-3" />}
+                  open={harmonicOpen}
+                  onOpenChange={setHarmonicOpen}
+                  description={t("sidebar.effects.harmonicHelp")}
+                >
+                  <HarmonicEditor
+                    type={note.harmonicType}
                     value={note.harmonicValue}
-                    min={0}
-                    max={24}
-                    onCommit={(value) =>
-                      executeAppAction("document.note.setHarmonicValue", { value }, { t })
+                    typeLabel={t("sidebar.effects.harmonicType")}
+                    valueLabel={t("sidebar.effects.harmonicValue")}
+                    applyLabel={t("sidebar.common.apply")}
+                    options={([
+                      HarmonicType.Natural,
+                      HarmonicType.Artificial,
+                      HarmonicType.Pinch,
+                      HarmonicType.Tap,
+                      HarmonicType.Semi,
+                      HarmonicType.Feedback,
+                    ] as const).map((value) => ({
+                      value,
+                      label: harmonicTypeLabel(value, t),
+                    }))}
+                    onCommit={(harmonicType, harmonicValue) =>
+                      executeAppAction("document.note.setHarmonic", {
+                        harmonicType,
+                        harmonicValue,
+                      }, { t })
                     }
+                    onDone={() => setHarmonicOpen(false)}
                   />
-                </>
+                </PopoverPropRow>
               )}
               {note.slideOutType !== SlideOutType.None && (
                 <PropRow
@@ -250,13 +328,36 @@ export function EffectsSection({
                 />
               )}
               {note.trillValue >= 0 && (
-                <PropRow
+                <PopoverPropRow
                   label={t("sidebar.effects.trill")}
                   value={t("sidebar.effects.trillDetail", {
                     fret: note.trillValue,
                     speed: durationLabel(note.trillSpeed),
                   })}
-                />
+                  open={trillOpen}
+                  onOpenChange={setTrillOpen}
+                  description={t("sidebar.effects.trillHelp")}
+                >
+                  <TrillEditor
+                    value={note.trillValue}
+                    speed={note.trillSpeed}
+                    fretLabel={t("sidebar.effects.trillFret")}
+                    speedLabel={t("sidebar.effects.trillSpeed")}
+                    applyLabel={t("sidebar.common.apply")}
+                    durationLabels={{
+                      [Duration.Eighth]: t("sidebar.note.durationEighth"),
+                      [Duration.Sixteenth]: t("sidebar.note.durationSixteenth"),
+                      [Duration.ThirtySecond]: t("sidebar.note.durationThirtySecond"),
+                    }}
+                    onCommit={(trillValue, trillSpeed) =>
+                      executeAppAction("document.note.setTrill", {
+                        trillValue,
+                        trillSpeed,
+                      }, { t })
+                    }
+                    onDone={() => setTrillOpen(false)}
+                  />
+                </PopoverPropRow>
               )}
 
               <Separator className="my-0.5" />
@@ -342,6 +443,131 @@ export function EffectsSection({
             </div>
           </div>
 
+          {beat.graceType !== GraceType.None && (
+            <PopoverPropRow
+              label={t("sidebar.effects.graceNote")}
+              value={graceTypeLabel(beat.graceType, t)}
+              icon={<Music className="h-3 w-3" />}
+              open={graceOpen}
+              onOpenChange={setGraceOpen}
+              description={t("sidebar.effects.graceHelp")}
+            >
+              <GraceEditor
+                value={beat.graceType}
+                options={[
+                  { value: GraceType.None, label: t("sidebar.common.none") },
+                  { value: GraceType.BeforeBeat, label: t("sidebar.effects.graceBeforeBeat") },
+                  { value: GraceType.OnBeat, label: t("sidebar.effects.graceOnBeat") },
+                  { value: GraceType.BendGrace, label: t("sidebar.effects.graceBend") },
+                ]}
+                onCommit={(value) =>
+                  executeAppAction("document.beat.setGraceType", { value }, { t })
+                }
+                onDone={() => setGraceOpen(false)}
+              />
+            </PopoverPropRow>
+          )}
+
+          {beat.whammyBarType !== WhammyType.None && (
+            <PopoverPropRow
+              label={t("sidebar.effects.whammyBar")}
+              value={pitchCurveSummary(
+                "whammy",
+                beat.whammyBarType,
+                beat.whammyBarPoints,
+                t,
+              )}
+              icon={<AudioWaveform className="h-3 w-3" />}
+              open={whammyOpen}
+              onOpenChange={setWhammyOpen}
+              description={t("sidebar.effects.whammyHelp")}
+              contentClassName="w-80"
+            >
+              <PitchCurveEditor
+                kind="whammy"
+                type={beat.whammyBarType}
+                style={beat.whammyStyle}
+                isContinued={beat.isContinuedWhammy}
+                points={beat.whammyBarPoints}
+                onCommit={(curve) => executeAppAction(
+                  "document.beat.setWhammyBar",
+                  {
+                    whammyBarType: curve.type,
+                    whammyStyle: curve.style,
+                    isContinuedWhammy: curve.isContinued,
+                    whammyBarPoints: curve.points,
+                  },
+                  { t },
+                )}
+                onDone={() => setWhammyOpen(false)}
+              />
+            </PopoverPropRow>
+          )}
+
+          {beat.brushType !== BrushType.None && (
+            <PopoverPropRow
+              label={t("sidebar.effects.brush")}
+              value={`${brushTypeLabel(beat.brushType, t)} · ${beat.brushDuration}`}
+              open={brushOpen}
+              onOpenChange={setBrushOpen}
+              description={t("sidebar.effects.brushHelp")}
+            >
+              <BrushEditor
+                type={beat.brushType}
+                duration={beat.brushDuration}
+                typeLabel={t("sidebar.effects.brushType")}
+                durationLabel={t("sidebar.effects.brushDuration")}
+                applyLabel={t("sidebar.common.apply")}
+                options={[
+                  { value: BrushType.BrushUp, label: t("sidebar.effects.brushUp") },
+                  { value: BrushType.BrushDown, label: t("sidebar.effects.brushDown") },
+                  { value: BrushType.ArpeggioUp, label: t("sidebar.effects.arpeggioUp") },
+                  { value: BrushType.ArpeggioDown, label: t("sidebar.effects.arpeggioDown") },
+                ]}
+                onCommit={(brushType, brushDuration) =>
+                  executeAppAction("document.beat.setBrush", {
+                    brushType,
+                    brushDuration,
+                  }, { t })
+                }
+                onDone={() => setBrushOpen(false)}
+              />
+            </PopoverPropRow>
+          )}
+
+          {beat.tremoloPicking !== null && (
+            <PopoverPropRow
+              label={t("sidebar.effects.tremoloPicking")}
+              value={`${beat.tremoloPicking.marks} · ${
+                beat.tremoloPicking.style === TremoloPickingStyle.BuzzRoll
+                  ? t("sidebar.effects.tremoloBuzzRoll")
+                  : t("sidebar.effects.tremoloDefault")
+              }`}
+              icon={<Zap className="h-3 w-3" />}
+              open={tremoloOpen}
+              onOpenChange={setTremoloOpen}
+              description={t("sidebar.effects.tremoloHelp")}
+            >
+              <TremoloPickingEditor
+                marks={beat.tremoloPicking.marks}
+                style={beat.tremoloPicking.style}
+                marksLabel={t("sidebar.effects.tremoloMarks")}
+                styleLabel={t("sidebar.effects.tremoloStyle")}
+                applyLabel={t("sidebar.common.apply")}
+                styleOptions={[
+                  { value: TremoloPickingStyle.Default, label: t("sidebar.effects.tremoloDefault") },
+                  { value: TremoloPickingStyle.BuzzRoll, label: t("sidebar.effects.tremoloBuzzRoll") },
+                ]}
+                onCommit={(marks, style) =>
+                  executeAppAction("document.beat.setTremoloPicking", {
+                    effect: { marks, style },
+                  }, { t })
+                }
+                onDone={() => setTremoloOpen(false)}
+              />
+            </PopoverPropRow>
+          )}
+
           <SelectPropRow
             label={t("sidebar.effects.rasgueado")}
             value={beat.rasgueado}
@@ -426,14 +652,26 @@ export function EffectsSection({
               executeAppAction("document.beat.setText", { value: value || null }, { t })
             }
           />
-          <EditablePropRow
+          <PopoverPropRow
             label={t("sidebar.effects.chord")}
-            value={beat.chordId ?? ""}
-            placeholder={t("sidebar.effects.chordPlaceholder")}
-            onCommit={(value) =>
-              executeAppAction("document.beat.setChordId", { value: value || null }, { t })
-            }
-          />
+            value={chordSummary}
+            open={chordOpen}
+            onOpenChange={setChordOpen}
+            description={t("sidebar.effects.chordHelp")}
+          >
+            <ChordPickerEditor
+              definitions={selectedStaff?.chords ?? []}
+              selectedId={beat.chordId}
+              noneLabel={t("sidebar.common.none")}
+              missingLabel={t("sidebar.effects.missingChord")}
+              onSelect={(value) => executeAppAction(
+                "document.beat.setChordId",
+                { value },
+                { t },
+              )}
+              onDone={() => setChordOpen(false)}
+            />
+          </PopoverPropRow>
         </div>
         <Separator />
       </CollapsibleContent>

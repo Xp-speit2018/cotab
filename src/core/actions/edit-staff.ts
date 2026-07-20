@@ -115,6 +115,18 @@ const setStaffChordAction = defineDocumentAction({
       if (chord === null) {
         yChords?.delete(id);
         if (yChords?.size === 0) yStaff.set("chords", null);
+        const yBars = yStaff.get("bars") as Y.Array<Y.Map<unknown>> | undefined;
+        for (const yBar of yBars?.toArray() ?? []) {
+          const yVoices = yBar.get("voices") as Y.Array<Y.Map<unknown>> | undefined;
+          for (const yVoice of yVoices?.toArray() ?? []) {
+            const yBeats = yVoice.get("beats") as Y.Array<Y.Map<unknown>> | undefined;
+            for (const yBeat of yBeats?.toArray() ?? []) {
+              if ((yBeat.get("chordId") as string | null | undefined) === id) {
+                yBeat.set("chordId", null);
+              }
+            }
+          }
+        }
         return;
       }
       if (!yChords) {

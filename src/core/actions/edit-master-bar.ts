@@ -5,6 +5,7 @@ import { actionArgs, defineDocumentAction } from "./definition";
 import {
   automationSchema,
   finiteNumber,
+  integer,
   sectionSchema,
   valueBooleanArgs,
   valueIntegerArgs,
@@ -67,6 +68,21 @@ const setTimeSignatureDenominatorAction = scalarAction(
   "document.masterBar.setTimeSignatureDenominator",
   "timeSignatureDenominator",
 );
+const setTimeSignatureAction = defineDocumentAction({
+  id: "document.masterBar.setTimeSignature",
+  i18nKey: "actions.edit.masterBar.setTimeSignature",
+  category: "document.masterBar",
+  argsSchema: actionArgs({
+    numerator: integer.min(1).max(32),
+    denominator: integer.min(1).max(64),
+  }),
+  execute: ({ numerator, denominator }) => {
+    applyMasterBarUpdates({
+      timeSignatureNumerator: numerator,
+      timeSignatureDenominator: denominator,
+    });
+  },
+});
 const setIsRepeatStartAction = booleanAction(
   "document.masterBar.setIsRepeatStart",
   "isRepeatStart",
@@ -184,6 +200,7 @@ const setTempoAction = defineDocumentAction({
 export const masterBarDocumentActions = [
   setTimeSignatureNumeratorAction,
   setTimeSignatureDenominatorAction,
+  setTimeSignatureAction,
   setIsRepeatStartAction,
   setRepeatCountAction,
   setAlternateEndingsAction,

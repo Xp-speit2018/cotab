@@ -178,12 +178,12 @@ export function tripletFeelLabel(tf: TripletFeel, t: (key: string) => string): s
   return map[tf] ?? t("sidebar.tripletFeels.none");
 }
 
-export function graceTypeLabel(g: GraceType): string {
+export function graceTypeLabel(g: GraceType, t: (key: string) => string): string {
   switch (g) {
-    case GraceType.None: return "None";
-    case GraceType.OnBeat: return "On Beat";
-    case GraceType.BeforeBeat: return "Before Beat";
-    case GraceType.BendGrace: return "Bend Grace";
+    case GraceType.None: return t("sidebar.common.none");
+    case GraceType.OnBeat: return t("sidebar.effects.graceOnBeat");
+    case GraceType.BeforeBeat: return t("sidebar.effects.graceBeforeBeat");
+    case GraceType.BendGrace: return t("sidebar.effects.graceBend");
     default: return String(g);
   }
 }
@@ -197,13 +197,13 @@ export function pickStrokeLabel(p: PickStroke): string {
   }
 }
 
-export function brushTypeLabel(b: BrushType): string {
+export function brushTypeLabel(b: BrushType, t: (key: string) => string): string {
   switch (b) {
-    case BrushType.None: return "None";
-    case BrushType.BrushUp: return "Up";
-    case BrushType.BrushDown: return "Down";
-    case BrushType.ArpeggioUp: return "Arpeggio Up";
-    case BrushType.ArpeggioDown: return "Arpeggio Down";
+    case BrushType.None: return t("sidebar.common.none");
+    case BrushType.BrushUp: return t("sidebar.effects.brushUp");
+    case BrushType.BrushDown: return t("sidebar.effects.brushDown");
+    case BrushType.ArpeggioUp: return t("sidebar.effects.arpeggioUp");
+    case BrushType.ArpeggioDown: return t("sidebar.effects.arpeggioDown");
     default: return String(b);
   }
 }
@@ -265,15 +265,15 @@ export function wahPedalLabel(w: WahPedal): string {
   }
 }
 
-export function whammyTypeLabel(w: WhammyType): string {
+export function whammyTypeLabel(w: WhammyType, t: (key: string) => string): string {
   switch (w) {
-    case WhammyType.None: return "None";
-    case WhammyType.Custom: return "Custom";
-    case WhammyType.Dive: return "Dive";
-    case WhammyType.Dip: return "Dip";
-    case WhammyType.Hold: return "Hold";
-    case WhammyType.Predive: return "Predive";
-    case WhammyType.PrediveDive: return "Predive/Dive";
+    case WhammyType.None: return t("sidebar.whammyTypes.none");
+    case WhammyType.Custom: return t("sidebar.whammyTypes.custom");
+    case WhammyType.Dive: return t("sidebar.whammyTypes.dive");
+    case WhammyType.Dip: return t("sidebar.whammyTypes.dip");
+    case WhammyType.Hold: return t("sidebar.whammyTypes.hold");
+    case WhammyType.Predive: return t("sidebar.whammyTypes.predive");
+    case WhammyType.PrediveDive: return t("sidebar.whammyTypes.prediveDive");
     default: return String(w);
   }
 }
@@ -307,11 +307,11 @@ export function slideInLabel(s: SlideInType): string {
   }
 }
 
-export function bendStyleLabel(b: BendStyle): string {
+export function bendStyleLabel(b: BendStyle, t: (key: string) => string): string {
   switch (b) {
-    case BendStyle.Default: return "Default";
-    case BendStyle.Gradual: return "Gradual";
-    case BendStyle.Fast: return "Fast";
+    case BendStyle.Default: return t("sidebar.bendStyles.default");
+    case BendStyle.Gradual: return t("sidebar.bendStyles.gradual");
+    case BendStyle.Fast: return t("sidebar.bendStyles.fast");
     default: return String(b);
   }
 }

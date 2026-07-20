@@ -67,7 +67,11 @@ import {
   DynamicValue,
   NoteOrnament,
 } from "@/core/schema";
-import { executeDocumentAction } from "@/core/actions/registry";
+import {
+  DocumentActionArgumentsError,
+  executeDocumentAction,
+  executeDocumentActionById,
+} from "@/core/actions/registry";
 import "@/core/actions/edit-note";
 
 const defaultSel = {
@@ -205,6 +209,7 @@ describe("document.note bend data", () => {
       bendPoints: [
         { offset: 0, value: 0 },
         { offset: 30, value: 4 },
+        { offset: 30, value: 4 },
         { offset: 60, value: 0 },
       ],
     }, ctx);
@@ -213,7 +218,24 @@ describe("document.note bend data", () => {
     expect(getNote().get("bendStyle")).toBe(BendStyle.Fast);
     expect(getNote().get("isContinuedBend")).toBe(true);
     const points = getNote().get("bendPoints") as Y.Array<Y.Map<unknown>>;
-    expect(points.length).toBe(3);
+    expect(points.length).toBe(4);
+  });
+
+  it("rejects a bend shape before changing Y.Doc", () => {
+    const before = getNote().toJSON();
+
+    expect(() => executeDocumentActionById("document.note.setBend", {
+      bendType: BendType.BendRelease,
+      bendStyle: BendStyle.Default,
+      isContinuedBend: false,
+      bendPoints: [
+        { offset: 0, value: 0 },
+        { offset: 30, value: 4 },
+        { offset: 60, value: 0 },
+      ],
+    }, ctx)).toThrow(DocumentActionArgumentsError);
+
+    expect(getNote().toJSON()).toEqual(before);
   });
 });
 
@@ -235,6 +257,18 @@ describe("document.note.setHarmonicType", () => {
   it("sets harmonicType enum", () => {
     executeDocumentAction("document.note.setHarmonicType", { value: HarmonicType.Natural }, ctx);
     expect(getNote().get("harmonicType")).toBe(HarmonicType.Natural);
+  });
+});
+
+describe("document.note.setHarmonic", () => {
+  it("sets the harmonic type and value atomically", () => {
+    executeDocumentAction("document.note.setHarmonic", {
+      harmonicType: HarmonicType.Artificial,
+      harmonicValue: 12,
+    }, ctx);
+
+    expect(getNote().get("harmonicType")).toBe(HarmonicType.Artificial);
+    expect(getNote().get("harmonicValue")).toBe(12);
   });
 });
 

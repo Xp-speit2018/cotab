@@ -491,6 +491,18 @@ export function extractStaffInfo(staff: alphaTab.model.Staff): SelectedStaffInfo
     displayTranspositionPitch: staff.displayTranspositionPitch,
     tuningName: staff.tuningName,
     tuningValues: [...staff.tuning],
+    chords: staff.chords
+      ? [...staff.chords.entries()].map(([id, chord]) => ({
+          id,
+          name: chord.name,
+          firstFret: chord.firstFret,
+          strings: [...chord.strings],
+          barreFrets: [...chord.barreFrets],
+          showName: chord.showName,
+          showDiagram: chord.showDiagram,
+          showFingering: chord.showFingering,
+        }))
+      : [],
   };
 }
 

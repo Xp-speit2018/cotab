@@ -31,6 +31,7 @@ import type {
   Clef,
   SimileMark,
   BendPointSchema,
+  ChordSchema,
   AutomationSchema,
   TremoloPickingEffectSchema,
   Rasgueado,
@@ -243,6 +244,11 @@ export interface SelectedStaffInfo {
   displayTranspositionPitch: number;
   tuningName: string;
   tuningValues: number[];
+  chords: ChordDefinitionInfo[];
+}
+
+export interface ChordDefinitionInfo extends ChordSchema {
+  id: string;
 }
 
 export interface TuningPresetInfo {

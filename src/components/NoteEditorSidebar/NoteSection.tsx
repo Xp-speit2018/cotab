@@ -22,11 +22,13 @@ import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/render-types";
 import { AccentuationType, GraceType, Duration } from "@/core/schema";
 import {
   EditableNumberPropRow,
+  PopoverPropRow,
   PropRow,
   SectionHeader,
   ToggleBtn,
 } from "./primitives";
 import { durationLabel, durationTooltip } from "./labels";
+import { TupletEditor, tupletSummary } from "./editors/TupletEditor";
 
 const DURATION_VALUES: Duration[] = [
   Duration.Whole,
@@ -49,6 +51,7 @@ export function NoteSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const [tupletOpen, setTupletOpen] = useState(false);
   const durationDisabled = beat.graceType !== GraceType.None;
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -104,27 +107,34 @@ export function NoteSection({
               }
               icon={<Pause className="h-3.5 w-3.5" />}
             />
-            <ToggleBtn
-              label={t("sidebar.note.triplet")}
-              pressed={beat.tupletNumerator === 3 && beat.tupletDenominator === 2}
-              onPressedChange={(pressed) =>
-                executeAppAction("document.beat.setTuplet", pressed
-                  ? { numerator: 3, denominator: 2 }
-                  : { numerator: -1, denominator: -1 }, { t })
-              }
-              textIcon="3"
-            />
-            <ToggleBtn
-              label={t("sidebar.note.quintuplet")}
-              pressed={beat.tupletNumerator === 5 && beat.tupletDenominator === 4}
-              onPressedChange={(pressed) =>
-                executeAppAction("document.beat.setTuplet", pressed
-                  ? { numerator: 5, denominator: 4 }
-                  : { numerator: -1, denominator: -1 }, { t })
-              }
-              textIcon="5"
-            />
           </div>
+
+          <PopoverPropRow
+            label={t("sidebar.note.tuplet")}
+            value={tupletSummary(
+              beat.tupletNumerator,
+              beat.tupletDenominator,
+              t("sidebar.common.none"),
+            )}
+            open={tupletOpen}
+            onOpenChange={setTupletOpen}
+            description={t("sidebar.note.tupletHelp")}
+          >
+            <TupletEditor
+              numerator={beat.tupletNumerator}
+              denominator={beat.tupletDenominator}
+              noneLabel={t("sidebar.common.none")}
+              numeratorLabel={t("sidebar.note.tupletNumerator")}
+              denominatorLabel={t("sidebar.note.tupletDenominator")}
+              applyLabel={t("sidebar.common.apply")}
+              onCommit={(numerator, denominator) => executeAppAction(
+                "document.beat.setTuplet",
+                { numerator, denominator },
+                { t },
+              )}
+              onDone={() => setTupletOpen(false)}
+            />
+          </PopoverPropRow>
 
           <Separator className="my-0.5" />
 

@@ -282,6 +282,16 @@ describe("document.bar field actions", () => {
     executeDocumentAction(actionId, { value }, ctx);
     expect(resolveYBarHelper(0, 0, 0)!.get(field)).toBe(value);
   });
+
+  it("sets the key signature and mode atomically", () => {
+    executeDocumentAction("document.bar.setKey", {
+      keySignature: 3,
+      keySignatureType: KeySignatureType.Minor,
+    }, ctx);
+    const bar = resolveYBarHelper(0, 0, 0)!;
+    expect(bar.get("keySignature")).toBe(3);
+    expect(bar.get("keySignatureType")).toBe(KeySignatureType.Minor);
+  });
 });
 
 describe("document.masterBar field actions", () => {
@@ -300,6 +310,16 @@ describe("document.masterBar field actions", () => {
   ] as const)("%s updates %s", (actionId, field, value) => {
     executeDocumentAction(actionId, { value }, ctx);
     expect(masterBar().get(field)).toBe(value);
+  });
+
+  it("sets a complete time signature atomically", () => {
+    executeDocumentAction("document.masterBar.setTimeSignature", {
+      numerator: 7,
+      denominator: 8,
+    }, ctx);
+
+    expect(masterBar().get("timeSignatureNumerator")).toBe(7);
+    expect(masterBar().get("timeSignatureDenominator")).toBe(8);
   });
 
   it("sets and clears section", () => {

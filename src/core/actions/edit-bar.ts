@@ -2,8 +2,8 @@ import * as Y from "yjs";
 import { debugLog } from "@/core/editor/action-log";
 import { engine, EditorEngine } from "@/core/engine";
 import { createMasterBar } from "@/core/schema";
-import { defineDocumentAction, emptyActionArgs } from "./definition";
-import { valueIntegerArgs } from "./args-schema";
+import { actionArgs, defineDocumentAction, emptyActionArgs } from "./definition";
+import { integer, valueIntegerArgs } from "./args-schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 const getScoreMap = () => engine.getScoreMap();
@@ -221,6 +221,19 @@ const setKeySignatureTypeAction = defineDocumentAction({
   },
 });
 
+const setKeyAction = defineDocumentAction({
+  id: "document.bar.setKey",
+  i18nKey: "actions.edit.bar.setKey",
+  category: "document.bar",
+  argsSchema: actionArgs({
+    keySignature: integer.min(-7).max(7),
+    keySignatureType: integer.min(0).max(1),
+  }),
+  execute: ({ keySignature, keySignatureType }) => {
+    applyBarUpdates({ keySignature, keySignatureType });
+  },
+});
+
 export const barDocumentActions = [
   insertBarBeforeAction,
   insertBarAfterAction,
@@ -230,4 +243,5 @@ export const barDocumentActions = [
   setSimileMarkAction,
   setKeySignatureAction,
   setKeySignatureTypeAction,
+  setKeyAction,
 ] as const;

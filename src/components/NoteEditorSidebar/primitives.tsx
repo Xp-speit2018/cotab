@@ -1,14 +1,32 @@
+import * as React from "react";
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
+  ChevronRight,
   ChevronUp,
   ChevronDown,
   HelpCircle,
   GripVertical,
   Pencil,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverDescription,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
@@ -26,6 +44,157 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
+interface InspectorDisclosureRowProps {
+  label: string;
+  value: React.ReactNode;
+  icon?: React.ReactNode;
+  open?: boolean;
+  disabled?: boolean;
+  className?: string;
+}
+
+export const InspectorDisclosureRow = React.forwardRef<
+  HTMLButtonElement,
+  InspectorDisclosureRowProps & Omit<React.ComponentPropsWithoutRef<"button">, "value">
+>(function InspectorDisclosureRow(
+  {
+    label,
+    value,
+    icon,
+    open = false,
+    disabled = false,
+    className,
+    ...props
+  },
+  ref,
+) {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      disabled={disabled}
+      aria-expanded={open}
+      className={cn(
+        "group flex min-h-7 w-full items-center gap-2 px-3 py-0.5 text-left transition-colors hover:bg-accent/40 disabled:pointer-events-none disabled:opacity-50",
+        open && "bg-accent/30",
+        className,
+      )}
+      {...props}
+    >
+      {icon && (
+        <span className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground">
+          {icon}
+        </span>
+      )}
+      <span className="whitespace-nowrap text-[11px] text-muted-foreground">
+        {label}
+      </span>
+      <span className="ml-auto min-w-0 truncate text-[11px] font-medium tabular-nums group-hover:text-primary">
+        {value}
+      </span>
+      <ChevronRight
+        className={cn(
+          "h-3 w-3 shrink-0 text-muted-foreground/60 transition-transform",
+          open && "rotate-90",
+        )}
+      />
+    </button>
+  );
+});
+
+export function PopoverPropRow({
+  label,
+  value,
+  icon,
+  title = label,
+  description,
+  children,
+  open,
+  onOpenChange,
+  contentClassName,
+}: InspectorDisclosureRowProps & {
+  title?: string;
+  description?: string;
+  children: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  contentClassName?: string;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const resolvedOpen = open ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
+  return (
+    <Popover open={resolvedOpen} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <InspectorDisclosureRow
+          label={label}
+          value={value}
+          icon={icon}
+          open={resolvedOpen}
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        align="end"
+        side="right"
+        collisionPadding={12}
+        className={cn("w-72 p-3", contentClassName)}
+      >
+        <PopoverHeader>
+          <PopoverTitle>{title}</PopoverTitle>
+          {description && (
+            <PopoverDescription>{description}</PopoverDescription>
+          )}
+        </PopoverHeader>
+        <div className="mt-3">{children}</div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function DialogPropRow({
+  label,
+  value,
+  icon,
+  title = label,
+  description,
+  children,
+  open,
+  onOpenChange,
+  contentClassName,
+}: InspectorDisclosureRowProps & {
+  title?: string;
+  description?: string;
+  children: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  contentClassName?: string;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const resolvedOpen = open ?? internalOpen;
+  const setOpen = onOpenChange ?? setInternalOpen;
+  return (
+    <Dialog open={resolvedOpen} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <InspectorDisclosureRow
+          label={label}
+          value={value}
+          icon={icon}
+          open={resolvedOpen}
+        />
+      </DialogTrigger>
+      <DialogContent className={cn("sm:max-w-xl", contentClassName)}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && (
+            <DialogDescription>{description}</DialogDescription>
+          )}
+        </DialogHeader>
+        {children}
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export function SectionHeader({
   title,

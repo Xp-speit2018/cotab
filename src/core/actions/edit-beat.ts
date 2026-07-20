@@ -7,7 +7,7 @@ import {
 } from "@/core/actions/definition";
 import {
   automationSchema,
-  bendPointSchema,
+  bendPointListSchema,
   finiteNumber,
   integer,
   tremoloPickingSchema,
@@ -19,6 +19,7 @@ import { engine, type PendingSelection, type SelectedBeat } from "@/core/engine"
 import {
   createBeat,
   createNote,
+  WhammyType,
   type BendPointSchema,
 } from "@/core/schema";
 import { formatPitch, snapPositionToPitch } from "@/core/pitch";
@@ -599,7 +600,7 @@ const setWhammyBarPointsAction = defineDocumentAction({
   id: "document.beat.setWhammyBarPoints",
   i18nKey: "actions.edit.beat.setWhammyBarPoints",
   category: "document.beat",
-  argsSchema: actionArgs({ points: z.array(bendPointSchema).nullable() }),
+  argsSchema: actionArgs({ points: bendPointListSchema.nullable() }),
   execute: ({ points }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (
@@ -637,10 +638,44 @@ const setWhammyBarAction = defineDocumentAction({
   i18nKey: "actions.edit.beat.setWhammyBar",
   category: "document.beat",
   argsSchema: actionArgs({
-    whammyBarType: integer,
-    whammyStyle: integer,
-    isContinuedWhammy: z.boolean(),
-    whammyBarPoints: z.array(bendPointSchema).nullable(),
+    whammyBarType: integer.min(WhammyType.None).max(WhammyType.PrediveDive),
+    whammyStyle: integer.min(0).max(2),
+    isContinuedWhammy: z.boolean().describe("Whether the curve continues from the previous beat"),
+    whammyBarPoints: bendPointListSchema.nullable().describe(
+      "Null for None; Dip requires 3 or 4 points; Custom accepts 2-16 points; all other enabled whammy types require 2 points",
+    ),
+  }).superRefine(({ whammyBarType, whammyBarPoints }, context) => {
+    if (whammyBarType === WhammyType.None) {
+      if (whammyBarPoints !== null) {
+        context.addIssue({
+          code: "custom",
+          path: ["whammyBarPoints"],
+          message: "A disabled whammy must not have points",
+        });
+      }
+      return;
+    }
+    if (whammyBarPoints === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["whammyBarPoints"],
+        message: "An enabled whammy requires points",
+      });
+      return;
+    }
+    if (whammyBarType === WhammyType.Custom) return;
+    const validCount = whammyBarType === WhammyType.Dip
+      ? whammyBarPoints.length === 3 || whammyBarPoints.length === 4
+      : whammyBarPoints.length === 2;
+    if (!validCount) {
+      context.addIssue({
+        code: "custom",
+        path: ["whammyBarPoints"],
+        message: whammyBarType === WhammyType.Dip
+          ? "A whammy dip requires 3 or 4 points"
+          : `Whammy type ${whammyBarType} requires 2 points`,
+      });
+    }
   }),
   execute: ({
     whammyBarType,

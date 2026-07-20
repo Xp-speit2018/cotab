@@ -24,8 +24,17 @@ import { executeAppAction } from "@/app-actions";
 import { cn } from "@/lib/utils";
 import { getApi } from "@/stores/render-api";
 import { usePlayerStore } from "@/stores/render-store";
-import type { TuningPresetInfo } from "@/stores/render-types";
-import { SectionHeader, EditablePropRow, EditableNumberPropRow } from "./primitives";
+import type {
+  ChordDefinitionInfo,
+  TuningPresetInfo,
+} from "@/stores/render-types";
+import {
+  DialogPropRow,
+  EditableNumberPropRow,
+  EditablePropRow,
+  SectionHeader,
+} from "./primitives";
+import { ChordLibraryEditor } from "./editors/ChordEditors";
 
 interface StaffEditorData {
   staffIndex: number;
@@ -36,6 +45,7 @@ interface StaffEditorData {
   showTablature: boolean;
   isPercussion: boolean;
   stringCount: number;
+  chords: ChordDefinitionInfo[];
 }
 
 function readStaffEditorData(
@@ -51,6 +61,18 @@ function readStaffEditorData(
     showTablature: staff.showTablature,
     isPercussion: staff.isPercussion,
     stringCount: staff.tuning.length,
+    chords: staff.chords
+      ? [...staff.chords.entries()].map(([id, chord]) => ({
+          id,
+          name: chord.name,
+          firstFret: chord.firstFret,
+          strings: [...chord.strings],
+          barreFrets: [...chord.barreFrets],
+          showName: chord.showName,
+          showDiagram: chord.showDiagram,
+          showFingering: chord.showFingering,
+        }))
+      : [],
   };
 }
 
@@ -207,6 +229,54 @@ function StaffMetaEditor({
             }, { t })}
           />
         </>
+      )}
+
+      {!staff.isPercussion && (
+        <DialogPropRow
+          label={t("sidebar.tracks.chordLibrary")}
+          value={t("sidebar.tracks.chordCount", { count: staff.chords.length })}
+          title={t("sidebar.tracks.chordLibrary")}
+          description={t("sidebar.tracks.chordLibraryHelp")}
+          contentClassName="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-4xl"
+        >
+          <ChordLibraryEditor
+            definitions={staff.chords}
+            stringCount={Math.max(1, staff.stringCount)}
+            labels={{
+              newChord: t("sidebar.tracks.newChord"),
+              name: t("sidebar.tracks.chordName"),
+              firstFret: t("sidebar.tracks.firstFret"),
+              strings: t("sidebar.tracks.chordStrings"),
+              barreFrets: t("sidebar.tracks.barreFrets"),
+              showName: t("sidebar.tracks.showChordName"),
+              showDiagram: t("sidebar.tracks.showChordDiagram"),
+              showFingering: t("sidebar.tracks.showChordFingering"),
+              save: t("sidebar.common.save"),
+              delete: t("sidebar.common.delete"),
+              confirmDelete: t("sidebar.common.confirmDelete"),
+            }}
+            onSave={(id, chord) => executeAppAction(
+              "document.staff.setChord",
+              {
+                trackIndex,
+                staffIndex: staff.staffIndex,
+                id,
+                chord,
+              },
+              { t },
+            )}
+            onDelete={(id) => executeAppAction(
+              "document.staff.setChord",
+              {
+                trackIndex,
+                staffIndex: staff.staffIndex,
+                id,
+                chord: null,
+              },
+              { t },
+            )}
+          />
+        </DialogPropRow>
       )}
 
       {!staff.isPercussion && (

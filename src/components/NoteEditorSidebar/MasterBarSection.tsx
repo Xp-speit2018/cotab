@@ -18,12 +18,20 @@ import type { SelectedMasterBarInfo } from "@/stores/render-types";
 import { TripletFeel } from "@/core/schema";
 import {
   EditableNumberPropRow,
-  EditablePropRow,
+  PopoverPropRow,
   SectionHeader,
   SelectPropRow,
   ToggleBtn,
 } from "./primitives";
 import { tripletFeelLabel } from "./labels";
+import {
+  AlternateEndingsEditor,
+  alternateEndingsSummary,
+} from "./editors/AlternateEndingsEditor";
+import {
+  SectionEditor,
+  TimeSignatureEditor,
+} from "./editors/MasterBarEditors";
 
 export function MasterBarSection({
   masterBar,
@@ -34,18 +42,11 @@ export function MasterBarSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
-
-  const setSectionPart = (field: "text" | "marker", value: string) => {
-    const section = {
-      text: field === "text" ? value : masterBar.sectionText,
-      marker: field === "marker" ? value : masterBar.sectionMarker,
-    };
-    executeAppAction(
-      "document.masterBar.setSection",
-      { section: section.text || section.marker ? section : null },
-      { t },
-    );
-  };
+  const [timeSignatureOpen, setTimeSignatureOpen] = useState(false);
+  const [sectionOpen, setSectionOpen] = useState(false);
+  const sectionSummary = masterBar.sectionText && masterBar.sectionMarker
+    ? `${masterBar.sectionMarker} · ${masterBar.sectionText}`
+    : masterBar.sectionText || masterBar.sectionMarker || t("sidebar.common.none");
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -57,31 +58,28 @@ export function MasterBarSection({
       />
       <CollapsibleContent>
         <div className="space-y-0.5 py-1">
-          <div className="grid grid-cols-2 gap-x-1">
-            <EditableNumberPropRow
-              label={t("sidebar.masterBar.numerator")}
-              value={masterBar.timeSignatureNumerator}
-              icon={<Clock className="h-3.5 w-3.5" />}
-              min={1}
-              max={32}
-              onCommit={(value) => executeAppAction(
-                "document.masterBar.setTimeSignatureNumerator",
-                { value },
+          <PopoverPropRow
+            label={t("sidebar.masterBar.timeSignature")}
+            value={`${masterBar.timeSignatureNumerator}/${masterBar.timeSignatureDenominator}`}
+            icon={<Clock className="h-3.5 w-3.5" />}
+            open={timeSignatureOpen}
+            onOpenChange={setTimeSignatureOpen}
+            description={t("sidebar.masterBar.timeSignatureHelp")}
+          >
+            <TimeSignatureEditor
+              numerator={masterBar.timeSignatureNumerator}
+              denominator={masterBar.timeSignatureDenominator}
+              numeratorLabel={t("sidebar.masterBar.numerator")}
+              denominatorLabel={t("sidebar.masterBar.denominator")}
+              applyLabel={t("sidebar.common.apply")}
+              onCommit={(numerator, denominator) => executeAppAction(
+                "document.masterBar.setTimeSignature",
+                { numerator, denominator },
                 { t },
               )}
+              onDone={() => setTimeSignatureOpen(false)}
             />
-            <EditableNumberPropRow
-              label={t("sidebar.masterBar.denominator")}
-              value={masterBar.timeSignatureDenominator}
-              min={1}
-              max={64}
-              onCommit={(value) => executeAppAction(
-                "document.masterBar.setTimeSignatureDenominator",
-                { value },
-                { t },
-              )}
-            />
-          </div>
+          </PopoverPropRow>
 
           <div className="flex flex-wrap items-center gap-0.5 px-2 pt-0.5">
             <ToggleBtn
@@ -154,46 +152,63 @@ export function MasterBarSection({
             )}
           />
 
-          <div className="grid grid-cols-2 gap-x-1">
-            <EditableNumberPropRow
-              label={t("sidebar.masterBar.repeatCountLabel")}
-              value={masterBar.repeatCount}
-              min={0}
-              max={32}
-              onCommit={(value) => executeAppAction(
-                "document.masterBar.setRepeatCount",
-                { value },
-                { t },
-              )}
-            />
-            <EditableNumberPropRow
-              label={t("sidebar.masterBar.altEndings")}
+          <EditableNumberPropRow
+            label={t("sidebar.masterBar.repeatCountLabel")}
+            value={masterBar.repeatCount}
+            min={0}
+            max={32}
+            onCommit={(value) => executeAppAction(
+              "document.masterBar.setRepeatCount",
+              { value },
+              { t },
+            )}
+          />
+          <PopoverPropRow
+            label={t("sidebar.masterBar.altEndings")}
+            value={alternateEndingsSummary(
+              masterBar.alternateEndings,
+              t("sidebar.common.none"),
+            )}
+            description={t("sidebar.masterBar.altEndingsHelp")}
+          >
+            <AlternateEndingsEditor
               value={masterBar.alternateEndings}
-              min={0}
-              max={255}
-              onCommit={(value) => executeAppAction(
+              clearLabel={t("sidebar.common.clear")}
+              onChange={(value) => executeAppAction(
                 "document.masterBar.setAlternateEndings",
                 { value },
                 { t },
               )}
             />
-          </div>
+          </PopoverPropRow>
 
           <Separator className="my-0.5" />
 
-          <EditablePropRow
+          <PopoverPropRow
             label={t("sidebar.masterBar.section")}
-            value={masterBar.sectionText}
-            placeholder={t("sidebar.masterBar.sectionPlaceholder")}
+            value={sectionSummary}
             icon={<Bookmark className="h-3.5 w-3.5" />}
-            onCommit={(value) => setSectionPart("text", value)}
-          />
-          <EditablePropRow
-            label={t("sidebar.masterBar.sectionMarker")}
-            value={masterBar.sectionMarker}
-            placeholder={t("sidebar.masterBar.sectionMarkerPlaceholder")}
-            onCommit={(value) => setSectionPart("marker", value)}
-          />
+            open={sectionOpen}
+            onOpenChange={setSectionOpen}
+            description={t("sidebar.masterBar.sectionHelp")}
+          >
+            <SectionEditor
+              text={masterBar.sectionText}
+              marker={masterBar.sectionMarker}
+              textLabel={t("sidebar.masterBar.sectionName")}
+              markerLabel={t("sidebar.masterBar.sectionMarker")}
+              textPlaceholder={t("sidebar.masterBar.sectionPlaceholder")}
+              markerPlaceholder={t("sidebar.masterBar.sectionMarkerPlaceholder")}
+              applyLabel={t("sidebar.common.apply")}
+              clearLabel={t("sidebar.common.clear")}
+              onCommit={(section) => executeAppAction(
+                "document.masterBar.setSection",
+                { section },
+                { t },
+              )}
+              onDone={() => setSectionOpen(false)}
+            />
+          </PopoverPropRow>
         </div>
         <Separator />
       </CollapsibleContent>

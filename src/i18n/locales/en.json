@@ -273,6 +273,7 @@
       "placeholderTab": "Transcribed by",
       "placeholderInstructions": "Playing notes",
       "placeholderNotices": "Additional info",
+      "longTextHelp": "Edit multiline score information. Changes are applied together when you confirm.",
       "placeholderTempoLabel": "e.g. Allegro, Andante"
     },
 

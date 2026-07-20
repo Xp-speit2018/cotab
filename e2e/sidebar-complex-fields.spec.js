@@ -198,4 +198,15 @@ test("complex field editors commit semantic values and show matching summaries",
     return bar ? [bar.keySignature, bar.keySignatureType] : null;
   })).toEqual([6, 1]);
   await expect(keySignature).toContainText("D♯m");
+
+  await page.getByRole("button", { name: "Meta", exact: true }).click();
+  const instructions = page.getByRole("button", { name: /^Instructions / });
+  await instructions.click();
+  editor = page.getByRole("dialog").filter({ hasText: "Instructions" });
+  await editor.getByLabel("Instructions").fill("Play softly.\nLet the final chord ring.");
+  await editor.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().scoreInstructions,
+  )).toBe("Play softly.\nLet the final chord ring.");
+  await expect(instructions).toContainText("Play softly. Let the final chord ring.");
 });

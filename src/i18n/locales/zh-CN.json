@@ -273,6 +273,7 @@
       "placeholderTab": "制谱者",
       "placeholderInstructions": "演奏说明",
       "placeholderNotices": "附加信息",
+      "longTextHelp": "编辑多行乐谱信息，确认后会一次性应用更改。",
       "placeholderTempoLabel": "如：Allegro、Andante"
     },
 

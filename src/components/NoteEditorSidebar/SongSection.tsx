@@ -20,11 +20,22 @@ import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
 import type { ScoreMetadataField } from "@/stores/render-types";
-import { SectionHeader, EditablePropRow, EditableNumberPropRow } from "./primitives";
+import {
+  DialogPropRow,
+  EditableNumberPropRow,
+  EditablePropRow,
+  SectionHeader,
+} from "./primitives";
+import {
+  LongTextEditor,
+  longTextSummary,
+} from "./editors/LongTextEditor";
 
 export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [noticesOpen, setNoticesOpen] = useState(false);
   const scoreTitle = usePlayerStore((s) => s.scoreTitle);
   const scoreSubTitle = usePlayerStore((s) => s.scoreSubTitle);
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
@@ -125,20 +136,43 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
             icon={<Guitar className="h-3.5 w-3.5" />}
             onCommit={handleMeta("tab")}
           />
-          <EditablePropRow
+          <DialogPropRow
             label={t("sidebar.song.instructions")}
-            value={scoreInstructions}
-            placeholder={t("sidebar.song.placeholderInstructions")}
+            value={longTextSummary(
+              scoreInstructions,
+              t("sidebar.common.none"),
+            )}
             icon={<Info className="h-3.5 w-3.5" />}
-            onCommit={handleMeta("instructions")}
-          />
-          <EditablePropRow
+            open={instructionsOpen}
+            onOpenChange={setInstructionsOpen}
+            description={t("sidebar.song.longTextHelp")}
+          >
+            <LongTextEditor
+              value={scoreInstructions}
+              label={t("sidebar.song.instructions")}
+              placeholder={t("sidebar.song.placeholderInstructions")}
+              applyLabel={t("sidebar.common.apply")}
+              onCommit={handleMeta("instructions")}
+              onDone={() => setInstructionsOpen(false)}
+            />
+          </DialogPropRow>
+          <DialogPropRow
             label={t("sidebar.song.notices")}
-            value={scoreNotices}
-            placeholder={t("sidebar.song.placeholderNotices")}
+            value={longTextSummary(scoreNotices, t("sidebar.common.none"))}
             icon={<MessageSquare className="h-3.5 w-3.5" />}
-            onCommit={handleMeta("notices")}
-          />
+            open={noticesOpen}
+            onOpenChange={setNoticesOpen}
+            description={t("sidebar.song.longTextHelp")}
+          >
+            <LongTextEditor
+              value={scoreNotices}
+              label={t("sidebar.song.notices")}
+              placeholder={t("sidebar.song.placeholderNotices")}
+              applyLabel={t("sidebar.common.apply")}
+              onCommit={handleMeta("notices")}
+              onDone={() => setNoticesOpen(false)}
+            />
+          </DialogPropRow>
           <EditableNumberPropRow
             label={t("sidebar.song.tempo")}
             value={scoreTempo}

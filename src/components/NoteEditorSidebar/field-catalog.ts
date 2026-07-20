@@ -320,7 +320,7 @@ export const INSPECTOR_FIELD_CATALOG = {
     uuid: identity,
     staves: structure,
     playbackInfo: field("dialog", "instrument", "ready"),
-    color: field("popover", "color", "missing"),
+    color: field("popover", "color", "ready"),
     name: inlineText,
     shortName: inlineText,
     percussionArticulations: field("dialog", "percussion-map", "ready"),

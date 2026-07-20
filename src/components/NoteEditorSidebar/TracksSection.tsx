@@ -35,6 +35,7 @@ import {
   EditableNumberPropRow,
   EditablePropRow,
   SectionHeader,
+  PopoverPropRow,
   ToggleBtn,
 } from "./primitives";
 import { ChordLibraryEditor } from "./editors/ChordEditors";
@@ -43,6 +44,10 @@ import {
   instrumentSummary,
 } from "./editors/InstrumentEditor";
 import { PercussionMapEditor } from "./editors/PercussionMapEditor";
+import {
+  ColorEditor,
+  colorRgbToHex,
+} from "./editors/ColorEditor";
 
 interface StaffEditorData {
   staffIndex: number;
@@ -401,6 +406,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   const [expanded, setExpanded] = useState(false);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [percussionMapOpen, setPercussionMapOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
   const track = usePlayerStore((state) => state.tracks[trackIndex]);
   const visibleTrackIndices = usePlayerStore((state) => state.visibleTrackIndices);
   const selectedBeat = usePlayerStore((state) => state.selectedBeat);
@@ -421,6 +427,11 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
       : onlyStaff?.stringCount
         ? t("sidebar.tracks.stringCount", { count: onlyStaff.stringCount })
         : "";
+  const colorHex = colorRgbToHex(
+    track.color.r,
+    track.color.g,
+    track.color.b,
+  );
 
   return (
     <div className="border-b border-border/30 last:border-b-0">
@@ -482,6 +493,32 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               { t },
             )}
           />
+          <PopoverPropRow
+            label={t("sidebar.tracks.trackColor")}
+            value={colorHex.toUpperCase()}
+            icon={(
+              <span
+                className="h-3 w-3 rounded-sm border border-black/10"
+                style={{ backgroundColor: colorHex }}
+              />
+            )}
+            open={colorOpen}
+            onOpenChange={setColorOpen}
+          >
+            <ColorEditor
+              value={colorHex}
+              labels={{
+                custom: t("sidebar.tracks.customColor"),
+                apply: t("sidebar.common.apply"),
+              }}
+              onCommit={(raw) => executeAppAction(
+                "document.track.setColor",
+                { trackIndex, raw },
+                { t },
+              )}
+              onDone={() => setColorOpen(false)}
+            />
+          </PopoverPropRow>
           <EditablePropRow
             label={t("sidebar.tracks.shortName")}
             value={track.shortName}

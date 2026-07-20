@@ -6,7 +6,7 @@ Every action accepts one strict JSON object. The schemas below are projected
 from the runtime `DocumentActionDefinition.argsSchema` values used for
 validation and execution.
 
-Action count: 124.
+Action count: 125.
 
 ID | Category | i18n key | Arguments JSON Schema
 --- | --- | --- | ---
@@ -127,6 +127,7 @@ ID | Category | i18n key | Arguments JSON Schema
 `document.track.moveSystemBreak` | `document.track` | `actions.edit.track.moveSystemBreak` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"barIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"direction":{"type":"string","enum":["left","right"]}},"required":["trackIndex","barIndex","direction"],"additionalProperties":false}`
 `document.track.preventSystemBreak` | `document.track` | `actions.edit.track.preventSystemBreak` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"barIndex":{"type":"integer","minimum":0,"maximum":9007199254740991}},"required":["trackIndex","barIndex"],"additionalProperties":false}`
 `document.track.reflowSystems` | `document.track` | `actions.edit.track.reflowSystems` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"barsPerSystem":{"type":"integer","minimum":1,"maximum":9007199254740991},"startBarIndex":{"anyOf":[{"type":"integer","minimum":0,"maximum":9007199254740991},{"type":"null"}]}},"required":["trackIndex","barsPerSystem","startBarIndex"],"additionalProperties":false}`
+`document.track.setColor` | `document.track` | `actions.edit.track.setColor` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"raw":{"type":"integer","minimum":-2147483648,"maximum":2147483647}},"required":["trackIndex","raw"],"additionalProperties":false}`
 `document.track.setDefaultSystemsLayout` | `document.track` | `actions.edit.track.setDefaultSystemsLayout` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"value":{"type":"integer","minimum":1,"maximum":9007199254740991}},"required":["trackIndex","value"],"additionalProperties":false}`
 `document.track.setInstrument` | `document.track` | `actions.edit.track.setInstrument` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"program":{"type":"integer","minimum":0,"maximum":127},"bank":{"type":"integer","minimum":0,"maximum":16383}},"required":["trackIndex","program","bank"],"additionalProperties":false}`
 `document.track.setName` | `document.track` | `actions.edit.track.setName` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"name":{"type":"string"}},"required":["trackIndex","name"],"additionalProperties":false}`

@@ -280,6 +280,13 @@ test("complex field editors commit semantic values and show matching summaries",
   await expect.poll(() => page.evaluate(() =>
     window.__ALPHATAB_API__.score.tracks[0].staves[0].showStandardNotation,
   )).toBe(true);
+  await page.getByRole("button", { name: /^Track color / }).click();
+  await page.getByLabel("Custom color").fill("#336699");
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const color = window.__ALPHATAB_API__.score.tracks[0].color;
+    return [color.r, color.g, color.b];
+  })).toEqual([51, 102, 153]);
   const instrument = page.getByRole("button", { name: /^Instrument / }).first();
   await instrument.click();
   editor = page.getByRole("dialog").filter({ hasText: "Instrument" });

@@ -326,6 +326,8 @@
       "showChordDiagram": "Show diagram",
       "showChordFingering": "Show fingering",
       "percussion": "Percussion",
+      "trackColor": "Track color",
+      "customColor": "Custom color",
       "stringCount_one": "{{count}} string",
       "stringCount_other": "{{count}} strings"
     },

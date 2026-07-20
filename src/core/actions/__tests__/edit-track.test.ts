@@ -132,6 +132,25 @@ describe("document.track.setShortName", () => {
   });
 });
 
+describe("document.track.setColor", () => {
+  it("updates the AlphaTab ARGB color atomically", () => {
+    executeDocumentAction("document.track.setColor", {
+      trackIndex: 0,
+      raw: -13408615,
+    }, ctx);
+    const color = resolveYTrackHelper(0)!.get("color") as Y.Map<unknown>;
+    expect(color.get("raw")).toBe(-13408615);
+  });
+
+  it("rejects values outside the signed 32-bit color range", () => {
+    expect(() => executeDocumentActionById(
+      "document.track.setColor",
+      { trackIndex: 0, raw: 2147483648 },
+      ctx,
+    )).toThrow(DocumentActionArgumentsError);
+  });
+});
+
 describe("track system layout actions", () => {
   function resetSystemLayoutScore(barCount = 12) {
     destroyDoc();

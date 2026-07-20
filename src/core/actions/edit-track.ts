@@ -273,6 +273,28 @@ const setTrackShortNameAction = defineDocumentAction({
   },
 });
 
+const setTrackColorAction = defineDocumentAction({
+  id: "document.track.setColor",
+  i18nKey: "actions.edit.track.setColor",
+  category: "document.track",
+  argsSchema: actionArgs({
+    trackIndex: nonNegativeInteger,
+    raw: integer.min(-2147483648).max(2147483647),
+  }),
+  execute: ({ trackIndex, raw }) => {
+    const yTrack = engine.resolveYTrack(trackIndex);
+    if (!yTrack) return;
+    transact(() => {
+      let color = yTrack.get("color") as Y.Map<unknown> | undefined;
+      if (!color) {
+        color = new Y.Map<unknown>();
+        yTrack.set("color", color);
+      }
+      color.set("raw", raw);
+    });
+  },
+});
+
 const setTrackInstrumentAction = defineDocumentAction({
   id: "document.track.setInstrument",
   i18nKey: "actions.edit.track.setInstrument",
@@ -436,6 +458,7 @@ export const trackDocumentActions = [
   deleteTrackAction,
   setTrackNameAction,
   setTrackShortNameAction,
+  setTrackColorAction,
   setTrackInstrumentAction,
   setTrackDefaultSystemsLayoutAction,
   setTrackSystemsLayoutAction,

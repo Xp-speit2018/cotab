@@ -121,6 +121,7 @@ export interface TrackInfo {
   isPercussion: boolean;
   playbackInfo: PlaybackInformationSchema;
   percussionArticulations: InstrumentArticulationSchema[];
+  color: { r: number; g: number; b: number; a: number };
 }
 
 // ─── Selected element info ──────────────────────────────────────────────────

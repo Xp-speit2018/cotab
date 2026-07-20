@@ -326,6 +326,8 @@
       "showChordDiagram": "显示和弦图",
       "showChordFingering": "显示指法",
       "percussion": "打击乐",
+      "trackColor": "音轨颜色",
+      "customColor": "自定义颜色",
       "stringCount_one": "{{count}} 弦",
       "stringCount_other": "{{count}} 弦"
     },

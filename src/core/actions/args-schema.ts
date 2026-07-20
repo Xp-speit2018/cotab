@@ -33,14 +33,58 @@ export const sectionSchema = z.strictObject({
   marker: z.string(),
 });
 
-export const automationSchema = z.strictObject({
+const beatAutomationMetadata = {
   isLinear: z.boolean(),
-  type: integer,
-  value: finiteNumber,
-  ratioPosition: finiteNumber,
+  ratioPosition: finiteNumber.min(0).max(1)
+    .describe("Position within the master bar retained for alphaTab round trips"),
   text: z.string(),
   isVisible: z.boolean(),
-});
+};
+
+export const beatAutomationSchema = z.discriminatedUnion("type", [
+  z.strictObject({
+    ...beatAutomationMetadata,
+    type: z.literal(AutomationType.Volume),
+    value: finiteNumber.min(0).max(16)
+      .describe("Playback volume in alphaTab's 0-16 channel range"),
+  }),
+  z.strictObject({
+    ...beatAutomationMetadata,
+    type: z.literal(AutomationType.Instrument),
+    value: integer.min(0).max(127)
+      .describe("General MIDI program number"),
+  }),
+  z.strictObject({
+    ...beatAutomationMetadata,
+    type: z.literal(AutomationType.Balance),
+    value: finiteNumber.min(0).max(16)
+      .describe("Playback pan in alphaTab's 0-16 channel range"),
+  }),
+  z.strictObject({
+    ...beatAutomationMetadata,
+    type: z.literal(AutomationType.Bank),
+    value: integer.min(0).max(16383)
+      .describe("MIDI bank number"),
+  }),
+]);
+
+export const beatAutomationListSchema = z.array(beatAutomationSchema)
+  .max(4)
+  .superRefine((automations, context) => {
+    const seen = new Set<AutomationType>();
+    for (let index = 0; index < automations.length; index++) {
+      const type = automations[index].type;
+      if (seen.has(type)) {
+        context.addIssue({
+          code: "custom",
+          path: [index, "type"],
+          message: "Beat automation types must be unique",
+        });
+      }
+      seen.add(type);
+    }
+  })
+  .describe("Unique playback parameter changes applied at the selected beat");
 
 export const tempoAutomationSchema = z.strictObject({
   isLinear: z.boolean()

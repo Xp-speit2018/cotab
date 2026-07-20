@@ -61,9 +61,9 @@ describe("inspector field catalog", () => {
     });
   });
 
-  it("has no partially implemented field UX", () => {
+  it("has no incomplete retained field UX", () => {
     expect(inspectorFieldsByStatus("partial")).toEqual([]);
-    expect(inspectorFieldsByStatus("missing").length).toBeGreaterThan(0);
+    expect(inspectorFieldsByStatus("missing")).toEqual([]);
   });
 
   it("keeps playback-unsupported roundtrip fields out of the UX backlog", () => {

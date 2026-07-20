@@ -62,6 +62,10 @@ import {
   longTextSummary,
 } from "./editors/LongTextEditor";
 import {
+  BeatAutomationsEditor,
+  beatAutomationsSummary,
+} from "./editors/BeatAutomationsEditor";
+import {
   BrushEditor,
   GraceEditor,
   HarmonicEditor,
@@ -158,6 +162,7 @@ export function EffectsSection({
   const [isOpen, setIsOpen] = useState(true);
   const [chordOpen, setChordOpen] = useState(false);
   const [lyricsOpen, setLyricsOpen] = useState(false);
+  const [automationsOpen, setAutomationsOpen] = useState(false);
   const [trillOpen, setTrillOpen] = useState(false);
   const [harmonicOpen, setHarmonicOpen] = useState(false);
   const [graceOpen, setGraceOpen] = useState(false);
@@ -172,6 +177,20 @@ export function EffectsSection({
   const chordSummary = beat.chordId === null
     ? t("sidebar.common.none")
     : selectedChord?.name || t("sidebar.effects.missingChord");
+  const automationLabels = {
+    none: t("sidebar.common.none"),
+    count: (count: number) => t("sidebar.effects.automationCount", { count }),
+    type: t("sidebar.effects.automationType"),
+    value: t("sidebar.effects.automationValue"),
+    volume: t("sidebar.effects.automationVolume"),
+    balance: t("sidebar.effects.automationBalance"),
+    instrument: t("sidebar.effects.automationInstrument"),
+    bank: t("sidebar.effects.automationBank"),
+    add: t("sidebar.effects.automationAdd"),
+    remove: t("sidebar.effects.automationRemove"),
+    apply: t("sidebar.common.apply"),
+    duplicateType: t("sidebar.effects.automationDuplicateType"),
+  };
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -903,6 +922,26 @@ export function EffectsSection({
               executeAppAction("document.beat.setText", { value: value || null }, { t })
             }
           />
+          <DialogPropRow
+            label={t("sidebar.effects.automations")}
+            value={beatAutomationsSummary(beat.automations, automationLabels)}
+            title={t("sidebar.effects.automations")}
+            description={t("sidebar.effects.automationsHelp")}
+            open={automationsOpen}
+            onOpenChange={setAutomationsOpen}
+            contentClassName="sm:max-w-xl"
+          >
+            <BeatAutomationsEditor
+              automations={beat.automations}
+              labels={automationLabels}
+              onCommit={(automations) => executeAppAction(
+                "document.beat.setAutomations",
+                { automations },
+                { t },
+              )}
+              onDone={() => setAutomationsOpen(false)}
+            />
+          </DialogPropRow>
           <DialogPropRow
             label={t("sidebar.effects.lyrics")}
             value={longTextSummary(

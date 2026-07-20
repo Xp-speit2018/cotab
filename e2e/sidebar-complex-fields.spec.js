@@ -69,6 +69,32 @@ test("complex field editors commit semantic values and show matching summaries",
     window.__PLAYER_STORE__.getState().selectedBeatInfo?.lyrics,
   )).toEqual(["Lead", "Harmony"]);
 
+  const initialPlaybackChangeCount = await page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().selectedBeatInfo?.automations.length ?? 0,
+  );
+  const playbackChanges = page.getByRole("button", {
+    name: /^Playback Changes /,
+  });
+  await playbackChanges.click();
+  editor = page.getByRole("dialog").filter({ hasText: "Playback Changes" });
+  await editor.getByRole("button", { name: "Add playback change" }).click();
+  const addedPlaybackChangeIndex = initialPlaybackChangeCount + 1;
+  await editor.getByLabel(`Value (0-16) ${addedPlaybackChangeIndex}`).fill("11.5");
+  await editor.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const automations = window.__PLAYER_STORE__.getState()
+      .selectedBeatInfo?.automations;
+    const volume = automations?.find((automation) => automation.type === 1);
+    return {
+      count: automations?.length,
+      volume: volume?.value,
+    };
+  })).toEqual({
+    count: initialPlaybackChangeCount + 1,
+    volume: 11.5,
+  });
+  await expect(playbackChanges).toContainText("Volume");
+
   await page.getByRole("button", { name: "Trill", exact: true }).click();
   const trillRow = page.getByRole("button", { name: /Trill.*Fret/ });
   await expect(trillRow).toBeVisible();

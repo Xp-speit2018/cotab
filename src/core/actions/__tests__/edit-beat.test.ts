@@ -509,11 +509,11 @@ describe("document.beat nested playback fields", () => {
     executeDocumentAction("document.beat.setAutomations", { automations: [
       {
         isLinear: true,
-        type: AutomationType.Tempo,
-        value: 144,
+        type: AutomationType.Instrument,
+        value: 40,
         ratioPosition: 0.5,
-        text: "rit.",
-        isVisible: true,
+        text: "Violin",
+        isVisible: false,
       },
     ] }, ctx);
 
@@ -522,12 +522,58 @@ describe("document.beat nested playback fields", () => {
     ) as Y.Array<Y.Map<unknown>>;
     expect(yAutomations.get(0).toJSON()).toEqual({
       isLinear: true,
-      type: AutomationType.Tempo,
-      value: 144,
+      type: AutomationType.Instrument,
+      value: 40,
       ratioPosition: 0.5,
-      text: "rit.",
-      isVisible: true,
+      text: "Violin",
+      isVisible: false,
     });
+  });
+
+  it.each([
+    [{
+      isLinear: false,
+      type: AutomationType.Tempo,
+      value: 120,
+      ratioPosition: 0,
+      text: "",
+      isVisible: true,
+    }],
+    [{
+      isLinear: false,
+      type: AutomationType.Volume,
+      value: 17,
+      ratioPosition: 0,
+      text: "",
+      isVisible: false,
+    }],
+    [
+      {
+        isLinear: false,
+        type: AutomationType.Balance,
+        value: 8,
+        ratioPosition: 0,
+        text: "",
+        isVisible: false,
+      },
+      {
+        isLinear: false,
+        type: AutomationType.Balance,
+        value: 12,
+        ratioPosition: 0,
+        text: "",
+        isVisible: false,
+      },
+    ],
+  ])("rejects invalid beat automations before changing Y.Doc", (automations) => {
+    const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+    const before = beat.toJSON();
+
+    expect(() => executeDocumentActionById("document.beat.setAutomations", {
+      automations,
+    }, ctx)).toThrow(DocumentActionArgumentsError);
+
+    expect(beat.toJSON()).toEqual(before);
   });
 
   it("sets and clears lyrics", () => {

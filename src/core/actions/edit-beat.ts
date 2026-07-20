@@ -6,7 +6,7 @@ import {
   emptyActionArgs,
 } from "@/core/actions/definition";
 import {
-  automationSchema,
+  beatAutomationListSchema,
   bendPointListSchema,
   finiteNumber,
   integer,
@@ -820,7 +820,7 @@ const setAutomationsAction = defineDocumentAction({
   id: "document.beat.setAutomations",
   i18nKey: "actions.edit.beat.setAutomations",
   category: "document.beat",
-  argsSchema: actionArgs({ automations: z.array(automationSchema) }),
+  argsSchema: actionArgs({ automations: beatAutomationListSchema }),
   execute: ({ automations }) => {
     const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string } = engine.selector;
     if (

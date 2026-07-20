@@ -66,10 +66,12 @@ const REST_GLYPHS: Record<number, string> = {
 export function NoteSection({
   beat,
   note,
+  showStandardNotation,
   dragHandleProps,
 }: {
   beat: SelectedBeatInfo;
   note: SelectedNoteInfo | null;
+  showStandardNotation: boolean;
   dragHandleProps?: Record<string, unknown>;
 }) {
   const { t } = useTranslation();
@@ -330,20 +332,22 @@ export function NoteSection({
                         )}
                         textIcon="R"
                       />
-                      <ToggleBtn
-                        label={t("sidebar.note.accidentalMode")}
-                        pressed={note.accidentalMode !== NoteAccidentalMode.Default}
-                        onPressedChange={(pressed) => executeAppAction(
-                          "document.note.setAccidentalMode",
-                          {
-                            value: pressed
-                              ? NoteAccidentalMode.ForceSharp
-                              : NoteAccidentalMode.Default,
-                          },
-                          { t },
-                        )}
-                        icon={<MusicGlyph glyph={musicGlyphs.accidentalSharp} />}
-                      />
+                      {showStandardNotation && (
+                        <ToggleBtn
+                          label={t("sidebar.note.accidentalMode")}
+                          pressed={note.accidentalMode !== NoteAccidentalMode.Default}
+                          onPressedChange={(pressed) => executeAppAction(
+                            "document.note.setAccidentalMode",
+                            {
+                              value: pressed
+                                ? NoteAccidentalMode.ForceSharp
+                                : NoteAccidentalMode.Default,
+                            },
+                            { t },
+                          )}
+                          icon={<MusicGlyph glyph={musicGlyphs.accidentalSharp} />}
+                        />
+                      )}
                     </>
                   )}
                 </div>
@@ -380,7 +384,8 @@ export function NoteSection({
                         )}
                       />
                   ))}
-                  {note.accidentalMode !== NoteAccidentalMode.Default && (
+                  {showStandardNotation
+                    && note.accidentalMode !== NoteAccidentalMode.Default && (
                     <SelectPropRow
                       label={t("sidebar.note.accidentalMode")}
                       value={note.accidentalMode}

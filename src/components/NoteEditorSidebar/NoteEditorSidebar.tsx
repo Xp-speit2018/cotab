@@ -235,6 +235,7 @@ export function EditorSidebar({ side }: { side: SidebarSide }) {
               bar={selectedBarInfo!}
               staffIndex={selectedStaffInfo.index}
               staffCount={selectedTrackInfo.staffCount}
+              showStandardNotation={selectedStaffInfo.showStandardNotation}
               dragHandleProps={dragHandleProps}
             />
           ) : null;
@@ -243,6 +244,7 @@ export function EditorSidebar({ side }: { side: SidebarSide }) {
             <NoteSection
               beat={selectedBeatInfo!}
               note={activeNote}
+              showStandardNotation={selectedStaffInfo?.showStandardNotation ?? false}
               dragHandleProps={dragHandleProps}
             />
           ) : null;

@@ -51,11 +51,13 @@ export function BarSection({
   bar,
   staffIndex,
   staffCount,
+  showStandardNotation,
   dragHandleProps,
 }: {
   bar: SelectedBarInfo;
   staffIndex: number;
   staffCount: number;
+  showStandardNotation: boolean;
   dragHandleProps?: Record<string, unknown>;
 }) {
   const { t } = useTranslation();
@@ -75,30 +77,34 @@ export function BarSection({
       />
       <CollapsibleContent>
         <div className="space-y-0.5 py-1">
-          <SelectPropRow
-            label={t("sidebar.bar.clef")}
-            value={bar.clef}
-            options={CLEF_OPTIONS.map((option) =>
-              option.value === Clef.Neutral
-                ? { ...option, label: t("sidebar.bar.neutral") }
-                : option,
-            )}
-            icon={<MusicGlyph glyph={musicGlyphs.gClef} className="text-[20px]" />}
-            onValueChange={(value) =>
-              executeAppAction("document.bar.setClef", { value }, { t })
-            }
-          />
-          <div className="flex flex-wrap items-center gap-0.5 px-2">
-            <ToggleBtn
-              label={t("sidebar.bar.clefOttava")}
-              pressed={bar.clefOttava !== Ottavia.Regular}
-              onPressedChange={(pressed) => executeAppAction(
-                "document.bar.setClefOttava",
-                { value: pressed ? Ottavia._8va : Ottavia.Regular },
-                { t },
+          {showStandardNotation && (
+            <SelectPropRow
+              label={t("sidebar.bar.clef")}
+              value={bar.clef}
+              options={CLEF_OPTIONS.map((option) =>
+                option.value === Clef.Neutral
+                  ? { ...option, label: t("sidebar.bar.neutral") }
+                  : option,
               )}
-              textIcon="8"
+              icon={<MusicGlyph glyph={musicGlyphs.gClef} className="text-[20px]" />}
+              onValueChange={(value) =>
+                executeAppAction("document.bar.setClef", { value }, { t })
+              }
             />
+          )}
+          <div className="flex flex-wrap items-center gap-0.5 px-2">
+            {showStandardNotation && (
+              <ToggleBtn
+                label={t("sidebar.bar.clefOttava")}
+                pressed={bar.clefOttava !== Ottavia.Regular}
+                onPressedChange={(pressed) => executeAppAction(
+                  "document.bar.setClefOttava",
+                  { value: pressed ? Ottavia._8va : Ottavia.Regular },
+                  { t },
+                )}
+                textIcon="8"
+              />
+            )}
             <ToggleBtn
               label={t("sidebar.bar.simileMark")}
               pressed={bar.simileMark !== SimileMark.None}
@@ -110,7 +116,7 @@ export function BarSection({
               textIcon="%"
             />
           </div>
-          {bar.clefOttava !== Ottavia.Regular && (
+          {showStandardNotation && bar.clefOttava !== Ottavia.Regular && (
             <SelectPropRow
               label={t("sidebar.bar.clefOttava")}
               value={bar.clefOttava}
@@ -138,27 +144,29 @@ export function BarSection({
               }
             />
           )}
-          <PopoverPropRow
-            label={t("sidebar.bar.key")}
-            value={keySignatureSummary(bar.keySignature, bar.keySignatureType)}
-            icon={<MusicGlyph glyph={musicGlyphs.accidentalSharp} />}
-            open={keyOpen}
-            onOpenChange={setKeyOpen}
-            description={t("sidebar.bar.keyHelp")}
-          >
-            <KeySignatureEditor
-              signature={bar.keySignature}
-              type={bar.keySignatureType}
-              majorLabel={t("sidebar.bar.major")}
-              minorLabel={t("sidebar.bar.minor")}
-              onCommit={(keySignature, keySignatureType) => executeAppAction(
-                "document.bar.setKey",
-                { keySignature, keySignatureType },
-                { t },
-              )}
-              onDone={() => setKeyOpen(false)}
-            />
-          </PopoverPropRow>
+          {showStandardNotation && (
+            <PopoverPropRow
+              label={t("sidebar.bar.key")}
+              value={keySignatureSummary(bar.keySignature, bar.keySignatureType)}
+              icon={<MusicGlyph glyph={musicGlyphs.accidentalSharp} />}
+              open={keyOpen}
+              onOpenChange={setKeyOpen}
+              description={t("sidebar.bar.keyHelp")}
+            >
+              <KeySignatureEditor
+                signature={bar.keySignature}
+                type={bar.keySignatureType}
+                majorLabel={t("sidebar.bar.major")}
+                minorLabel={t("sidebar.bar.minor")}
+                onCommit={(keySignature, keySignatureType) => executeAppAction(
+                  "document.bar.setKey",
+                  { keySignature, keySignatureType },
+                  { t },
+                )}
+                onDone={() => setKeyOpen(false)}
+              />
+            </PopoverPropRow>
+          )}
         </div>
         <Separator />
       </CollapsibleContent>

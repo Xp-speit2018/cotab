@@ -38,6 +38,26 @@ async function selectFirstMelodicNote(page) {
   });
 }
 
+async function enableFirstStaffStandardNotation(page) {
+  if (await page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].staves[0].showStandardNotation,
+  )) return;
+
+  await page.getByRole("button", { name: "Meta", exact: true }).click();
+  await page.getByRole("button", {
+    name: "Toggle Lead Guitar details",
+    exact: true,
+  }).click();
+  await page.getByRole("button", {
+    name: "Standard notation",
+    exact: true,
+  }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].staves[0].showStandardNotation,
+  )).toBe(true);
+  await page.getByRole("button", { name: "Notes", exact: true }).click();
+}
+
 test("tooltips do not block hovering the next editor control", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
   await page.goto("/");
@@ -123,11 +143,30 @@ test("selected note identity is hidden and dynamics are beat-scoped", async ({ p
   await expect(page.getByText("Dynamics", { exact: true })).toHaveCount(1);
 });
 
+test("standard notation fields follow the selected staff visibility", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await page.goto("/");
+  await waitForScore(page);
+  await selectFirstMelodicNote(page);
+
+  await expect(page.getByRole("combobox", { name: "Clef" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Key / })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Accidental" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Simile" })).toBeVisible();
+
+  await enableFirstStaffStandardNotation(page);
+
+  await expect(page.getByRole("combobox", { name: "Clef" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Key / })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accidental" })).toBeVisible();
+});
+
 test("optional parameterized fields reveal details only after activation", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 1100 });
   await page.goto("/");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
+  await enableFirstStaffStandardNotation(page);
 
   const optionalFields = [
     "Repeat Count",

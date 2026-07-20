@@ -33,6 +33,26 @@ async function selectFirstMelodicNote(page) {
   )).toBeGreaterThanOrEqual(0);
 }
 
+async function enableFirstStaffStandardNotation(page) {
+  if (await page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].staves[0].showStandardNotation,
+  )) return;
+
+  await page.getByRole("button", { name: "Meta", exact: true }).click();
+  await page.getByRole("button", {
+    name: "Toggle Lead Guitar details",
+    exact: true,
+  }).click();
+  await page.getByRole("button", {
+    name: "Standard notation",
+    exact: true,
+  }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].staves[0].showStandardNotation,
+  )).toBe(true);
+  await page.getByRole("button", { name: "Notes", exact: true }).click();
+}
+
 test("complex field editors commit semantic values and show matching summaries", async ({
   page,
 }) => {
@@ -40,7 +60,12 @@ test("complex field editors commit semantic values and show matching summaries",
   await page.goto("/");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
+  await enableFirstStaffStandardNotation(page);
 
+  await page.getByRole("button", {
+    name: "Left-hand finger",
+    exact: true,
+  }).click();
   await page.getByRole("combobox", { name: "Left-hand finger" }).click();
   await page.getByRole("option", { name: "Index", exact: true }).click();
   await page.getByRole("combobox", { name: "Accidental" }).click();

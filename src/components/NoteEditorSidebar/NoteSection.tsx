@@ -86,6 +86,16 @@ export function NoteSection({
 
           <div className="flex flex-wrap items-center gap-0.5 px-2">
             <ToggleBtn
+              label={t("sidebar.note.slashed")}
+              pressed={beat.slashed}
+              onPressedChange={(value) => executeAppAction(
+                "document.beat.setSlashed",
+                { value },
+                { t },
+              )}
+              textIcon="/"
+            />
+            <ToggleBtn
               label={t("sidebar.note.dotted")}
               pressed={beat.dots >= 1}
               onPressedChange={(pressed) =>
@@ -298,6 +308,16 @@ export function NoteSection({
                 executeAppAction("document.beat.setDeadSlapped", { value: pressed }, { t })
               }
               textIcon="DS"
+            />
+            <ToggleBtn
+              label={t("sidebar.note.legatoOrigin")}
+              pressed={beat.isLegatoOrigin}
+              onPressedChange={(value) => executeAppAction(
+                "document.beat.setIsLegatoOrigin",
+                { value },
+                { t },
+              )}
+              icon={<Link2 className="h-3.5 w-3.5" />}
             />
           </div>
         </div>

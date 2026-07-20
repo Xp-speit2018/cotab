@@ -108,7 +108,6 @@ const inlineNumber = field("inline", "number", "ready");
 const readyToggle = field("choice", "boolean", "ready");
 const missingToggle = field("choice", "boolean", "missing");
 const readyEnum = field("choice", "enum", "ready");
-const missingEnum = field("choice", "enum", "missing");
 const layout = field("external", "layout", "external");
 
 export interface InspectorFieldCatalog {
@@ -249,16 +248,16 @@ export const INSPECTOR_FIELD_CATALOG = {
     tupletNumerator: field("popover", "tuplet", "ready"),
     tupletDenominator: field("popover", "tuplet", "ready"),
     graceType: field("popover", "grace", "ready"),
-    pickStroke: missingEnum,
+    pickStroke: readyEnum,
     brushType: field("popover", "brush", "ready"),
     brushDuration: field("popover", "brush", "ready"),
     dynamics: field("choice", "dynamics", "ready"),
-    crescendo: missingEnum,
+    crescendo: readyEnum,
     vibrato: field("choice", "effect-choice", "ready"),
     fade: readyEnum,
-    ottava: missingEnum,
-    golpe: missingEnum,
-    wahPedal: missingEnum,
+    ottava: readyEnum,
+    golpe: readyEnum,
+    wahPedal: readyEnum,
     whammyStyle: field("popover", "whammy-curve", "ready"),
     isContinuedWhammy: field("popover", "whammy-curve", "ready"),
     whammyBarType: field("popover", "whammy-curve", "ready"),
@@ -269,12 +268,12 @@ export const INSPECTOR_FIELD_CATALOG = {
     rasgueado: field("popover", "rasgueado", "ready"),
     text: inlineText,
     chordId: field("resource", "chord-picker", "ready"),
-    tap: missingToggle,
-    slap: missingToggle,
-    pop: missingToggle,
-    slashed: missingToggle,
+    tap: readyToggle,
+    slap: readyToggle,
+    pop: readyToggle,
+    slashed: readyToggle,
     deadSlapped: readyToggle,
-    isLegatoOrigin: missingToggle,
+    isLegatoOrigin: readyToggle,
   },
   voice: {
     uuid: identity,

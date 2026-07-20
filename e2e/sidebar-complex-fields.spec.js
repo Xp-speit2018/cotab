@@ -41,6 +41,16 @@ test("complex field editors commit semantic values and show matching summaries",
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 
+  await page.getByRole("button", {
+    name: "Pick Stroke Up",
+    exact: true,
+  }).click();
+  await page.getByRole("button", { name: "Tap", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const beat = window.__PLAYER_STORE__.getState().selectedBeatInfo;
+    return beat ? [beat.pickStroke, beat.tap] : null;
+  })).toEqual([1, true]);
+
   await page.getByRole("button", { name: "Trill", exact: true }).click();
   const trillRow = page.getByRole("button", { name: /Trill.*Fret/ });
   await expect(trillRow).toBeVisible();

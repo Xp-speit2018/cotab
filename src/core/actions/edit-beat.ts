@@ -17,9 +17,14 @@ import {
 import { debugLog } from "@/core/editor/action-log";
 import { engine, type PendingSelection, type SelectedBeat } from "@/core/engine";
 import {
+  CrescendoType,
   createBeat,
   createNote,
+  GolpeType,
+  Ottavia,
+  PickStroke,
   VibratoType,
+  WahPedal,
   WhammyType,
   type BendPointSchema,
 } from "@/core/schema";
@@ -534,6 +539,21 @@ function defineBooleanBeatFieldAction<const Id extends `document.beat.${string}`
   });
 }
 
+function defineEnumBeatFieldAction<const Id extends `document.beat.${string}`>(
+  id: Id,
+  field: string,
+  min: number,
+  max: number,
+) {
+  return defineDocumentAction({
+    id,
+    i18nKey: beatI18nKey(id),
+    category: "document.beat",
+    argsSchema: actionArgs({ value: integer.min(min).max(max) }),
+    execute: ({ value }) => applyBeatUpdates({ [field]: value }),
+  });
+}
+
 const setDurationAction = defineIntegerBeatFieldAction(
   "document.beat.setDuration",
   "duration",
@@ -576,6 +596,36 @@ const setDynamicsAction = defineIntegerBeatFieldAction(
   "document.beat.setDynamics",
   "dynamics",
 );
+const setPickStrokeAction = defineEnumBeatFieldAction(
+  "document.beat.setPickStroke",
+  "pickStroke",
+  PickStroke.None,
+  PickStroke.Down,
+);
+const setCrescendoAction = defineEnumBeatFieldAction(
+  "document.beat.setCrescendo",
+  "crescendo",
+  CrescendoType.None,
+  CrescendoType.Decrescendo,
+);
+const setOttavaAction = defineEnumBeatFieldAction(
+  "document.beat.setOttava",
+  "ottava",
+  Ottavia._15ma,
+  Ottavia._15mb,
+);
+const setGolpeAction = defineEnumBeatFieldAction(
+  "document.beat.setGolpe",
+  "golpe",
+  GolpeType.None,
+  GolpeType.Finger,
+);
+const setWahPedalAction = defineEnumBeatFieldAction(
+  "document.beat.setWahPedal",
+  "wahPedal",
+  WahPedal.None,
+  WahPedal.Closed,
+);
 const setVibratoAction = defineDocumentAction({
   id: "document.beat.setVibrato",
   i18nKey: "actions.edit.beat.setVibrato",
@@ -588,6 +638,26 @@ const setVibratoAction = defineDocumentAction({
 const setDeadSlappedAction = defineBooleanBeatFieldAction(
   "document.beat.setDeadSlapped",
   "deadSlapped",
+);
+const setTapAction = defineBooleanBeatFieldAction(
+  "document.beat.setTap",
+  "tap",
+);
+const setSlapAction = defineBooleanBeatFieldAction(
+  "document.beat.setSlap",
+  "slap",
+);
+const setPopAction = defineBooleanBeatFieldAction(
+  "document.beat.setPop",
+  "pop",
+);
+const setSlashedAction = defineBooleanBeatFieldAction(
+  "document.beat.setSlashed",
+  "slashed",
+);
+const setIsLegatoOriginAction = defineBooleanBeatFieldAction(
+  "document.beat.setIsLegatoOrigin",
+  "isLegatoOrigin",
 );
 const setWhammyBarTypeAction = defineIntegerBeatFieldAction(
   "document.beat.setWhammyBarType",
@@ -923,8 +993,18 @@ export const beatDocumentActions = [
   setTupletAction,
   setGraceTypeAction,
   setDynamicsAction,
+  setPickStrokeAction,
+  setCrescendoAction,
+  setOttavaAction,
+  setGolpeAction,
+  setWahPedalAction,
   setVibratoAction,
   setDeadSlappedAction,
+  setTapAction,
+  setSlapAction,
+  setPopAction,
+  setSlashedAction,
+  setIsLegatoOriginAction,
   setWhammyBarTypeAction,
   setWhammyStyleAction,
   setIsContinuedWhammyAction,

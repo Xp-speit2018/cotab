@@ -66,11 +66,16 @@ vi.mock("@/core/engine", () => {
 import {
   AutomationType,
   BendStyle,
+  CrescendoType,
   Duration,
+  GolpeType,
   GraceType,
+  Ottavia,
+  PickStroke,
   Rasgueado,
   TremoloPickingStyle,
   VibratoType,
+  WahPedal,
 } from "@/core/schema";
 import {
   DocumentActionArgumentsError,
@@ -103,6 +108,51 @@ function configureBeat(opts?: { duration?: number; isEmpty?: boolean }) {
   if (opts?.duration !== undefined) yBeat.set("duration", opts.duration);
   if (opts?.isEmpty !== undefined) yBeat.set("isEmpty", opts.isEmpty);
 }
+
+describe("document.beat discrete effects", () => {
+  const enumCases = [
+    ["document.beat.setPickStroke", "pickStroke", PickStroke.Up],
+    ["document.beat.setCrescendo", "crescendo", CrescendoType.Decrescendo],
+    ["document.beat.setOttava", "ottava", Ottavia._8vb],
+    ["document.beat.setGolpe", "golpe", GolpeType.Finger],
+    ["document.beat.setWahPedal", "wahPedal", WahPedal.Open],
+  ] as const;
+
+  for (const [id, field, value] of enumCases) {
+    it(`sets ${field} through a bounded enum action`, () => {
+      executeDocumentActionById(id, { value }, ctx);
+      expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get(field)).toBe(value);
+    });
+  }
+
+  const toggleCases = [
+    ["document.beat.setTap", "tap"],
+    ["document.beat.setSlap", "slap"],
+    ["document.beat.setPop", "pop"],
+    ["document.beat.setSlashed", "slashed"],
+    ["document.beat.setIsLegatoOrigin", "isLegatoOrigin"],
+  ] as const;
+
+  for (const [id, field] of toggleCases) {
+    it(`sets ${field} through a boolean action`, () => {
+      executeDocumentActionById(id, { value: true }, ctx);
+      expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get(field)).toBe(true);
+    });
+  }
+
+  it("rejects an out-of-range enum before updating Y.Doc", () => {
+    const doc = getScoreMap()!.doc!;
+    let updates = 0;
+    doc.on("update", () => updates++);
+
+    expect(() => executeDocumentActionById(
+      "document.beat.setPickStroke",
+      { value: 99 },
+      ctx,
+    )).toThrow(DocumentActionArgumentsError);
+    expect(updates).toBe(0);
+  });
+});
 
 // ─── setDuration ──────────────────────────────────────────────────────────────
 

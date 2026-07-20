@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 // SMuFL code points rendered with the Bravura font bundled for alphaTab.
 export const musicGlyphs = {
   repeatStart: "\uE040",
+  repeatEnd: "\uE041",
   gClef: "\uE050",
   tabClef6: "\uE06D",
   noteWhole: "\uE1D2",

@@ -16,6 +16,7 @@ import {
   PopoverPropRow,
   SectionHeader,
   SelectPropRow,
+  ToggleBtn,
 } from "./primitives";
 import {
   KeySignatureEditor,
@@ -87,30 +88,56 @@ export function BarSection({
               executeAppAction("document.bar.setClef", { value }, { t })
             }
           />
-          <SelectPropRow
-            label={t("sidebar.bar.clefOttava")}
-            value={bar.clefOttava}
-            options={OTTAVA_OPTIONS.map((option) =>
-              option.value === Ottavia.Regular
-                ? { ...option, label: t("sidebar.bar.regular") }
-                : option,
-            )}
-            onValueChange={(value) =>
-              executeAppAction("document.bar.setClefOttava", { value }, { t })
-            }
-          />
-          <SelectPropRow
-            label={t("sidebar.bar.simileMark")}
-            value={bar.simileMark}
-            options={SIMILE_OPTIONS.map((option) =>
-              option.value === SimileMark.None
-                ? { ...option, label: t("sidebar.bar.none") }
-                : option,
-            )}
-            onValueChange={(value) =>
-              executeAppAction("document.bar.setSimileMark", { value }, { t })
-            }
-          />
+          <div className="flex flex-wrap items-center gap-0.5 px-2">
+            <ToggleBtn
+              label={t("sidebar.bar.clefOttava")}
+              pressed={bar.clefOttava !== Ottavia.Regular}
+              onPressedChange={(pressed) => executeAppAction(
+                "document.bar.setClefOttava",
+                { value: pressed ? Ottavia._8va : Ottavia.Regular },
+                { t },
+              )}
+              textIcon="8"
+            />
+            <ToggleBtn
+              label={t("sidebar.bar.simileMark")}
+              pressed={bar.simileMark !== SimileMark.None}
+              onPressedChange={(pressed) => executeAppAction(
+                "document.bar.setSimileMark",
+                { value: pressed ? SimileMark.Simple : SimileMark.None },
+                { t },
+              )}
+              textIcon="%"
+            />
+          </div>
+          {bar.clefOttava !== Ottavia.Regular && (
+            <SelectPropRow
+              label={t("sidebar.bar.clefOttava")}
+              value={bar.clefOttava}
+              options={OTTAVA_OPTIONS.map((option) =>
+                option.value === Ottavia.Regular
+                  ? { ...option, label: t("sidebar.bar.regular") }
+                  : option,
+              )}
+              onValueChange={(value) =>
+                executeAppAction("document.bar.setClefOttava", { value }, { t })
+              }
+            />
+          )}
+          {bar.simileMark !== SimileMark.None && (
+            <SelectPropRow
+              label={t("sidebar.bar.simileMark")}
+              value={bar.simileMark}
+              options={SIMILE_OPTIONS.map((option) =>
+                option.value === SimileMark.None
+                  ? { ...option, label: t("sidebar.bar.none") }
+                  : option,
+              )}
+              onValueChange={(value) =>
+                executeAppAction("document.bar.setSimileMark", { value }, { t })
+              }
+            />
+          )}
           <PopoverPropRow
             label={t("sidebar.bar.key")}
             value={keySignatureSummary(bar.keySignature, bar.keySignatureType)}

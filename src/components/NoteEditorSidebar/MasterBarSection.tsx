@@ -111,6 +111,30 @@ export function MasterBarSection({
               )}
             />
             <ToggleBtn
+              label={t("sidebar.masterBar.repeatEnd")}
+              pressed={masterBar.repeatCount > 0}
+              onPressedChange={(pressed) => {
+                executeAppAction(
+                  "document.masterBar.setRepeatCount",
+                  { value: pressed ? 2 : 0 },
+                  { t },
+                );
+                if (!pressed && masterBar.alternateEndings !== 0) {
+                  executeAppAction(
+                    "document.masterBar.setAlternateEndings",
+                    { value: 0 },
+                    { t },
+                  );
+                }
+              }}
+              icon={(
+                <MusicGlyph
+                  glyph={musicGlyphs.repeatEnd}
+                  className="translate-y-[2px]"
+                />
+              )}
+            />
+            <ToggleBtn
               label={t("sidebar.masterBar.freeTime")}
               pressed={masterBar.isFreeTime}
               onPressedChange={(pressed) => executeAppAction(
@@ -119,6 +143,25 @@ export function MasterBarSection({
                 { t },
               )}
               icon={<Infinity className="h-3.5 w-3.5" />}
+            />
+            <ToggleBtn
+              label={t("sidebar.masterBar.tripletFeel")}
+              pressed={masterBar.tripletFeel !== TripletFeel.NoTripletFeel}
+              onPressedChange={(pressed) => executeAppAction(
+                "document.masterBar.setTripletFeel",
+                {
+                  value: pressed
+                    ? TripletFeel.Triplet8th
+                    : TripletFeel.NoTripletFeel,
+                },
+                { t },
+              )}
+              icon={(
+                <MusicGlyph
+                  glyph={musicGlyphs.tuplet3}
+                  className="text-[16px]"
+                />
+              )}
             />
           </div>
 
@@ -158,58 +201,64 @@ export function MasterBarSection({
             />
           </DialogPropRow>
 
-          <SelectPropRow
-            label={t("sidebar.masterBar.tripletFeel")}
-            value={masterBar.tripletFeel}
-            options={([
-              TripletFeel.NoTripletFeel,
-              TripletFeel.Triplet8th,
-              TripletFeel.Triplet16th,
-              TripletFeel.Dotted8th,
-              TripletFeel.Dotted16th,
-              TripletFeel.Scottish8th,
-              TripletFeel.Scottish16th,
-            ] as const).map((value) => ({
-              value,
-              label: tripletFeelLabel(value, t),
-            }))}
-            icon={<MusicGlyph glyph={musicGlyphs.tuplet3} className="text-[16px]" />}
-            onValueChange={(value) => executeAppAction(
-              "document.masterBar.setTripletFeel",
-              { value },
-              { t },
-            )}
-          />
-
-          <EditableNumberPropRow
-            label={t("sidebar.masterBar.repeatCountLabel")}
-            value={masterBar.repeatCount}
-            min={0}
-            max={32}
-            onCommit={(value) => executeAppAction(
-              "document.masterBar.setRepeatCount",
-              { value },
-              { t },
-            )}
-          />
-          <PopoverPropRow
-            label={t("sidebar.masterBar.altEndings")}
-            value={alternateEndingsSummary(
-              masterBar.alternateEndings,
-              t("sidebar.common.none"),
-            )}
-            description={t("sidebar.masterBar.altEndingsHelp")}
-          >
-            <AlternateEndingsEditor
-              value={masterBar.alternateEndings}
-              clearLabel={t("sidebar.common.clear")}
-              onChange={(value) => executeAppAction(
-                "document.masterBar.setAlternateEndings",
+          {masterBar.tripletFeel !== TripletFeel.NoTripletFeel && (
+            <SelectPropRow
+              label={t("sidebar.masterBar.tripletFeel")}
+              value={masterBar.tripletFeel}
+              options={([
+                TripletFeel.NoTripletFeel,
+                TripletFeel.Triplet8th,
+                TripletFeel.Triplet16th,
+                TripletFeel.Dotted8th,
+                TripletFeel.Dotted16th,
+                TripletFeel.Scottish8th,
+                TripletFeel.Scottish16th,
+              ] as const).map((value) => ({
+                value,
+                label: tripletFeelLabel(value, t),
+              }))}
+              icon={<MusicGlyph glyph={musicGlyphs.tuplet3} className="text-[16px]" />}
+              onValueChange={(value) => executeAppAction(
+                "document.masterBar.setTripletFeel",
                 { value },
                 { t },
               )}
             />
-          </PopoverPropRow>
+          )}
+
+          {masterBar.repeatCount > 0 && (
+            <>
+              <EditableNumberPropRow
+                label={t("sidebar.masterBar.repeatCountLabel")}
+                value={masterBar.repeatCount}
+                min={1}
+                max={32}
+                onCommit={(value) => executeAppAction(
+                  "document.masterBar.setRepeatCount",
+                  { value },
+                  { t },
+                )}
+              />
+              <PopoverPropRow
+                label={t("sidebar.masterBar.altEndings")}
+                value={alternateEndingsSummary(
+                  masterBar.alternateEndings,
+                  t("sidebar.common.none"),
+                )}
+                description={t("sidebar.masterBar.altEndingsHelp")}
+              >
+                <AlternateEndingsEditor
+                  value={masterBar.alternateEndings}
+                  clearLabel={t("sidebar.common.clear")}
+                  onChange={(value) => executeAppAction(
+                    "document.masterBar.setAlternateEndings",
+                    { value },
+                    { t },
+                  )}
+                />
+              </PopoverPropRow>
+            </>
+          )}
 
           <Separator className="my-0.5" />
 

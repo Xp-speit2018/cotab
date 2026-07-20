@@ -365,6 +365,7 @@
       "tempoPositionConflict": "速度变化不能位于同一位置。",
       "tripletFeel": "三连音感觉",
       "repeatStart": "反复开始",
+      "repeatEnd": "反复结束",
       "freeTime": "自由节拍",
       "section": "段落",
       "sectionName": "名称",

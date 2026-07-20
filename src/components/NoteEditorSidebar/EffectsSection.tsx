@@ -716,19 +716,21 @@ export function EffectsSection({
             </PopoverPropRow>
           )}
 
-          <SelectPropRow
-            label={t("sidebar.effects.rasgueado")}
-            value={beat.rasgueado}
-            options={RASGUEADO_OPTIONS.map((option) =>
-              option.value === Rasgueado.None
-                ? { ...option, label: t("sidebar.effects.none") }
-                : option,
-            )}
-            icon={<span className="text-[10px] font-semibold">R</span>}
-            onValueChange={(value) =>
-              executeAppAction("document.beat.setRasgueado", { value }, { t })
-            }
-          />
+          {beat.rasgueado !== Rasgueado.None && (
+            <SelectPropRow
+              label={t("sidebar.effects.rasgueado")}
+              value={beat.rasgueado}
+              options={RASGUEADO_OPTIONS.map((option) =>
+                option.value === Rasgueado.None
+                  ? { ...option, label: t("sidebar.effects.none") }
+                  : option,
+              )}
+              icon={<span className="text-[10px] font-semibold">R</span>}
+              onValueChange={(value) =>
+                executeAppAction("document.beat.setRasgueado", { value }, { t })
+              }
+            />
+          )}
 
           <Separator className="my-0.5" />
 
@@ -829,6 +831,16 @@ export function EffectsSection({
                 )}
                 textIcon="P"
               />
+              <ToggleBtn
+                label={t("sidebar.effects.rasgueado")}
+                pressed={beat.rasgueado !== Rasgueado.None}
+                onPressedChange={(pressed) => executeAppAction(
+                  "document.beat.setRasgueado",
+                  { value: pressed ? Rasgueado.Ii : Rasgueado.None },
+                  { t },
+                )}
+                textIcon="R"
+              />
             </div>
           </div>
 
@@ -897,18 +909,30 @@ export function EffectsSection({
               )}
               icon={<MusicGlyph glyph={musicGlyphs.wahClosed} />}
             />
+            <ToggleBtn
+              label={t("sidebar.effects.ottava")}
+              pressed={beat.ottava !== Ottavia.Regular}
+              onPressedChange={(pressed) => executeAppAction(
+                "document.beat.setOttava",
+                { value: pressed ? Ottavia._8va : Ottavia.Regular },
+                { t },
+              )}
+              textIcon="8va"
+            />
           </div>
 
-          <SelectPropRow
-            label={t("sidebar.effects.ottava")}
-            value={beat.ottava}
-            options={OTTAVA_OPTIONS}
-            onValueChange={(value) => executeAppAction(
-              "document.beat.setOttava",
-              { value },
-              { t },
-            )}
-          />
+          {beat.ottava !== Ottavia.Regular && (
+            <SelectPropRow
+              label={t("sidebar.effects.ottava")}
+              value={beat.ottava}
+              options={OTTAVA_OPTIONS}
+              onValueChange={(value) => executeAppAction(
+                "document.beat.setOttava",
+                { value },
+                { t },
+              )}
+            />
+          )}
 
           <Separator className="my-0.5" />
 

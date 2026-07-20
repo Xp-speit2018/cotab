@@ -77,6 +77,9 @@ export function NoteSection({
   const [pitchOpen, setPitchOpen] = useState(false);
   const [tupletOpen, setTupletOpen] = useState(false);
   const durationDisabled = beat.graceType !== GraceType.None;
+  const hasTuplet = beat.tupletNumerator > 0
+    && beat.tupletDenominator > 0
+    && !(beat.tupletNumerator === 1 && beat.tupletDenominator === 1);
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <SectionHeader title={t("sidebar.note.title")} helpText={t("sidebar.note.help")} isOpen={isOpen} dragHandleProps={dragHandleProps} />
@@ -141,34 +144,48 @@ export function NoteSection({
               }
               icon={<MusicGlyph glyph={REST_GLYPHS[beat.duration] ?? musicGlyphs.restQuarter} />}
             />
-          </div>
-
-          <PopoverPropRow
-            label={t("sidebar.note.tuplet")}
-            value={tupletSummary(
-              beat.tupletNumerator,
-              beat.tupletDenominator,
-              t("sidebar.common.none"),
-            )}
-            open={tupletOpen}
-            onOpenChange={setTupletOpen}
-            description={t("sidebar.note.tupletHelp")}
-          >
-            <TupletEditor
-              numerator={beat.tupletNumerator}
-              denominator={beat.tupletDenominator}
-              noneLabel={t("sidebar.common.none")}
-              numeratorLabel={t("sidebar.note.tupletNumerator")}
-              denominatorLabel={t("sidebar.note.tupletDenominator")}
-              applyLabel={t("sidebar.common.apply")}
-              onCommit={(numerator, denominator) => executeAppAction(
+            <ToggleBtn
+              label={t("sidebar.note.tuplet")}
+              pressed={hasTuplet}
+              onPressedChange={(pressed) => executeAppAction(
                 "document.beat.setTuplet",
-                { numerator, denominator },
+                pressed
+                  ? { numerator: 3, denominator: 2 }
+                  : { numerator: -1, denominator: -1 },
                 { t },
               )}
-              onDone={() => setTupletOpen(false)}
+              icon={<MusicGlyph glyph={musicGlyphs.tuplet3} className="text-[16px]" />}
             />
-          </PopoverPropRow>
+          </div>
+
+          {hasTuplet && (
+            <PopoverPropRow
+              label={t("sidebar.note.tuplet")}
+              value={tupletSummary(
+                beat.tupletNumerator,
+                beat.tupletDenominator,
+                t("sidebar.common.none"),
+              )}
+              open={tupletOpen}
+              onOpenChange={setTupletOpen}
+              description={t("sidebar.note.tupletHelp")}
+            >
+              <TupletEditor
+                numerator={beat.tupletNumerator}
+                denominator={beat.tupletDenominator}
+                noneLabel={t("sidebar.common.none")}
+                numeratorLabel={t("sidebar.note.tupletNumerator")}
+                denominatorLabel={t("sidebar.note.tupletDenominator")}
+                applyLabel={t("sidebar.common.apply")}
+                onCommit={(numerator, denominator) => executeAppAction(
+                  "document.beat.setTuplet",
+                  { numerator, denominator },
+                  { t },
+                )}
+                onDone={() => setTupletOpen(false)}
+              />
+            </PopoverPropRow>
+          )}
 
           <Separator className="my-0.5" />
 
@@ -287,6 +304,46 @@ export function NoteSection({
                         }
                         textIcon="P.M."
                       />
+                      <ToggleBtn
+                        label={t("sidebar.note.leftHandFinger")}
+                        pressed={note.leftHandFinger !== Fingers.Unknown}
+                        onPressedChange={(pressed) => executeAppAction(
+                          "document.note.setLeftHandFinger",
+                          {
+                            value: pressed
+                              ? Fingers.IndexFinger
+                              : Fingers.Unknown,
+                          },
+                          { t },
+                        )}
+                        textIcon="L"
+                      />
+                      <ToggleBtn
+                        label={t("sidebar.note.rightHandFinger")}
+                        pressed={note.rightHandFinger !== Fingers.Unknown}
+                        onPressedChange={(pressed) => executeAppAction(
+                          "document.note.setRightHandFinger",
+                          {
+                            value: pressed ? Fingers.Thumb : Fingers.Unknown,
+                          },
+                          { t },
+                        )}
+                        textIcon="R"
+                      />
+                      <ToggleBtn
+                        label={t("sidebar.note.accidentalMode")}
+                        pressed={note.accidentalMode !== NoteAccidentalMode.Default}
+                        onPressedChange={(pressed) => executeAppAction(
+                          "document.note.setAccidentalMode",
+                          {
+                            value: pressed
+                              ? NoteAccidentalMode.ForceSharp
+                              : NoteAccidentalMode.Default,
+                          },
+                          { t },
+                        )}
+                        icon={<MusicGlyph glyph={musicGlyphs.accidentalSharp} />}
+                      />
                     </>
                   )}
                 </div>
@@ -297,53 +354,55 @@ export function NoteSection({
                   {([
                     ["leftHandFinger", note.leftHandFinger],
                     ["rightHandFinger", note.rightHandFinger],
-                  ] as const).map(([hand, value]) => (
+                  ] as const).map(([hand, value]) => value !== Fingers.Unknown && (
+                      <SelectPropRow
+                        key={hand}
+                        label={t(`sidebar.note.${hand}`)}
+                        value={value}
+                        options={([
+                          Fingers.Unknown,
+                          Fingers.NoOrDead,
+                          Fingers.Thumb,
+                          Fingers.IndexFinger,
+                          Fingers.MiddleFinger,
+                          Fingers.AnnularFinger,
+                          Fingers.LittleFinger,
+                        ] as const).map((finger) => ({
+                          value: finger,
+                          label: t(`sidebar.note.fingers.${finger}`),
+                        }))}
+                        onValueChange={(finger) => executeAppAction(
+                          hand === "leftHandFinger"
+                            ? "document.note.setLeftHandFinger"
+                            : "document.note.setRightHandFinger",
+                          { value: finger },
+                          { t },
+                        )}
+                      />
+                  ))}
+                  {note.accidentalMode !== NoteAccidentalMode.Default && (
                     <SelectPropRow
-                      key={hand}
-                      label={t(`sidebar.note.${hand}`)}
-                      value={value}
+                      label={t("sidebar.note.accidentalMode")}
+                      value={note.accidentalMode}
                       options={([
-                        Fingers.Unknown,
-                        Fingers.NoOrDead,
-                        Fingers.Thumb,
-                        Fingers.IndexFinger,
-                        Fingers.MiddleFinger,
-                        Fingers.AnnularFinger,
-                        Fingers.LittleFinger,
-                      ] as const).map((finger) => ({
-                        value: finger,
-                        label: t(`sidebar.note.fingers.${finger}`),
+                        NoteAccidentalMode.Default,
+                        NoteAccidentalMode.ForceNone,
+                        NoteAccidentalMode.ForceNatural,
+                        NoteAccidentalMode.ForceSharp,
+                        NoteAccidentalMode.ForceDoubleSharp,
+                        NoteAccidentalMode.ForceFlat,
+                        NoteAccidentalMode.ForceDoubleFlat,
+                      ] as const).map((mode) => ({
+                        value: mode,
+                        label: t(`sidebar.note.accidentals.${mode}`),
                       }))}
-                      onValueChange={(finger) => executeAppAction(
-                        hand === "leftHandFinger"
-                          ? "document.note.setLeftHandFinger"
-                          : "document.note.setRightHandFinger",
-                        { value: finger },
+                      onValueChange={(value) => executeAppAction(
+                        "document.note.setAccidentalMode",
+                        { value },
                         { t },
                       )}
                     />
-                  ))}
-                  <SelectPropRow
-                    label={t("sidebar.note.accidentalMode")}
-                    value={note.accidentalMode}
-                    options={([
-                      NoteAccidentalMode.Default,
-                      NoteAccidentalMode.ForceNone,
-                      NoteAccidentalMode.ForceNatural,
-                      NoteAccidentalMode.ForceSharp,
-                      NoteAccidentalMode.ForceDoubleSharp,
-                      NoteAccidentalMode.ForceFlat,
-                      NoteAccidentalMode.ForceDoubleFlat,
-                    ] as const).map((mode) => ({
-                      value: mode,
-                      label: t(`sidebar.note.accidentals.${mode}`),
-                    }))}
-                    onValueChange={(value) => executeAppAction(
-                      "document.note.setAccidentalMode",
-                      { value },
-                      { t },
-                    )}
-                  />
+                  )}
                 </>
               )}
 

@@ -366,6 +366,7 @@
       "tempoPositionConflict": "Tempo changes cannot share the same position.",
       "tripletFeel": "Triplet Feel",
       "repeatStart": "Repeat Start",
+      "repeatEnd": "Repeat End",
       "freeTime": "Free Time",
       "section": "Section",
       "sectionName": "Name",

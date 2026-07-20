@@ -123,6 +123,50 @@ test("selected note identity is hidden and dynamics are beat-scoped", async ({ p
   await expect(page.getByText("Dynamics", { exact: true })).toHaveCount(1);
 });
 
+test("optional parameterized fields reveal details only after activation", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 1100 });
+  await page.goto("/");
+  await waitForScore(page);
+  await selectFirstMelodicNote(page);
+
+  const optionalFields = [
+    "Repeat Count",
+    "Alt. Endings",
+    "Triplet Feel",
+    "Clef Ottava",
+    "Simile",
+    "Tuplet",
+    "Left-hand finger",
+    "Rasgueado",
+    "Ottava",
+  ];
+  for (const label of optionalFields) {
+    await expect(page.getByText(label, { exact: true })).toHaveCount(0);
+  }
+
+  const activations = [
+    ["Repeat End", "Repeat Count"],
+    ["Triplet Feel", "Triplet Feel"],
+    ["Clef Ottava", "Clef Ottava"],
+    ["Simile", "Simile"],
+    ["Tuplet", "Tuplet"],
+    ["Left-hand finger", "Left-hand finger"],
+    ["Rasgueado", "Rasgueado"],
+    ["Ottava", "Ottava"],
+  ];
+  for (const [buttonName, detailLabel] of activations) {
+    await page.getByRole("button", { name: buttonName, exact: true }).click();
+    await expect(page.getByText(detailLabel, { exact: true })).toBeVisible();
+  }
+  await expect(page.getByText("Alt. Endings", { exact: true })).toBeVisible();
+
+  for (const [buttonName, detailLabel] of [...activations].reverse()) {
+    await page.getByRole("button", { name: buttonName, exact: true }).click();
+    await expect(page.getByText(detailLabel, { exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByText("Alt. Endings", { exact: true })).toHaveCount(0);
+});
+
 test("playing techniques use distinct notation symbols", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
   await page.goto("/");

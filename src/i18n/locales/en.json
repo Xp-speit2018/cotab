@@ -386,6 +386,10 @@
       "topLevel": "AlphaTabApi"
     },
 
+    "debug": {
+      "showSnapGrid": "Snap Grid"
+    },
+
     "log": {
       "title": "Log",
       "help": "Debug log output with severity levels",

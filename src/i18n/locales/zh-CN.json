@@ -386,6 +386,10 @@
       "topLevel": "AlphaTabApi"
     },
 
+    "debug": {
+      "showSnapGrid": "吸附网格"
+    },
+
     "log": {
       "title": "日志",
       "help": "带严重级别的调试日志输出",

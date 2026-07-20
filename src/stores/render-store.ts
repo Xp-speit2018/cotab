@@ -45,6 +45,7 @@ import {
   setViewportElement,
   setCursorElement,
   getMainElement,
+  getViewportElement,
   getCursorElement,
   getDragState,
   setDragState,
@@ -112,11 +113,36 @@ import {
 // Unsubscribe function for engine hooks
 let _unsubscribeHooks: (() => void) | null = null;
 let _processingHook = false; // Guard against circular calls
+let _selectorMouseDownTarget: HTMLElement | null = null;
+let _selectorMouseDownHandler: ((event: MouseEvent) => void) | null = null;
+let _selectorFocusAnimationFrame: number | null = null;
 const LOOP_RANGE_BEAT_LEFT_PADDING = 8;
 const LOOP_RANGE_BEAT_RIGHT_PADDING = 18;
 const RANGE_PREVIEW_THRESHOLD_PX = 4;
 const TRANSPORT_DRAG_THRESHOLD_PX = 4;
 const SELECTOR_RANGE_SNAP_THRESHOLD_PX = 12;
+const SELECTOR_FOCUS_MARGIN_PX = 32;
+const SELECTOR_FOCUS_MIN_DURATION_MS = 90;
+const SELECTOR_FOCUS_MAX_DURATION_MS = 180;
+
+function removeSelectorMouseDownHandler(): void {
+  if (_selectorMouseDownTarget && _selectorMouseDownHandler) {
+    _selectorMouseDownTarget.removeEventListener(
+      "mousedown",
+      _selectorMouseDownHandler,
+      { capture: true },
+    );
+  }
+  _selectorMouseDownTarget = null;
+  _selectorMouseDownHandler = null;
+}
+
+function cancelSelectorFocusAnimation(): void {
+  if (_selectorFocusAnimationFrame !== null) {
+    cancelAnimationFrame(_selectorFocusAnimationFrame);
+    _selectorFocusAnimationFrame = null;
+  }
+}
 
 // Re-export for consumers that still import from player-store
 export type { PendingSelection } from "./render-types";
@@ -528,6 +554,86 @@ function updateCursorRect(
   cursorElement.style.top = `${y}px`;
   cursorElement.style.width = `${w}px`;
   cursorElement.style.height = `${h}px`;
+}
+
+function focusSelectorCursorInViewport(): void {
+  cancelSelectorFocusAnimation();
+
+  const viewportElement = getViewportElement();
+  const cursorElement = getCursorElement();
+  if (!viewportElement || !cursorElement || cursorElement.style.display === "none") {
+    return;
+  }
+
+  _selectorFocusAnimationFrame = requestAnimationFrame((startTime) => {
+    const viewportRect = viewportElement.getBoundingClientRect();
+    const cursorRect = cursorElement.getBoundingClientRect();
+    const horizontalMargin = Math.min(
+      SELECTOR_FOCUS_MARGIN_PX,
+      viewportRect.width / 4,
+    );
+    const verticalMargin = Math.min(
+      SELECTOR_FOCUS_MARGIN_PX,
+      viewportRect.height / 4,
+    );
+
+    let deltaX = 0;
+    if (cursorRect.left < viewportRect.left + horizontalMargin) {
+      deltaX = cursorRect.left - viewportRect.left - horizontalMargin;
+    } else if (cursorRect.right > viewportRect.right - horizontalMargin) {
+      deltaX = cursorRect.right - viewportRect.right + horizontalMargin;
+    }
+
+    let deltaY = 0;
+    if (cursorRect.top < viewportRect.top + verticalMargin) {
+      deltaY = cursorRect.top - viewportRect.top - verticalMargin;
+    } else if (cursorRect.bottom > viewportRect.bottom - verticalMargin) {
+      deltaY = cursorRect.bottom - viewportRect.bottom + verticalMargin;
+    }
+
+    const startLeft = viewportElement.scrollLeft;
+    const startTop = viewportElement.scrollTop;
+    const targetLeft = Math.max(
+      0,
+      Math.min(
+        startLeft + deltaX,
+        viewportElement.scrollWidth - viewportElement.clientWidth,
+      ),
+    );
+    const targetTop = Math.max(
+      0,
+      Math.min(
+        startTop + deltaY,
+        viewportElement.scrollHeight - viewportElement.clientHeight,
+      ),
+    );
+    const distance = Math.hypot(targetLeft - startLeft, targetTop - startTop);
+    if (distance < 0.5) {
+      _selectorFocusAnimationFrame = null;
+      return;
+    }
+
+    const duration = Math.min(
+      SELECTOR_FOCUS_MAX_DURATION_MS,
+      Math.max(SELECTOR_FOCUS_MIN_DURATION_MS, distance * 0.35),
+    );
+    const animate = (currentTime: number) => {
+      const progress = Math.min(1, (currentTime - startTime) / duration);
+      const easedProgress = 1 - Math.pow(1 - progress, 3);
+      viewportElement.scrollLeft = startLeft
+        + (targetLeft - startLeft) * easedProgress;
+      viewportElement.scrollTop = startTop
+        + (targetTop - startTop) * easedProgress;
+
+      if (progress < 1) {
+        _selectorFocusAnimationFrame = requestAnimationFrame(animate);
+      } else {
+        _selectorFocusAnimationFrame = null;
+      }
+    };
+
+    animate(startTime);
+  });
 }
 
 // ─── Transport playhead cursor ───────────────────────────────────────────────
@@ -1504,6 +1610,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         beatIndex: hit.beatIndex,
         string: hit.snappedString,
       });
+      get().focusSelection();
 
       // Initialize drag tracking
       setDragState({
@@ -1528,7 +1635,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       document.addEventListener("mousemove", onDragMove);
       document.addEventListener("mouseup", onDragEnd);
     };
+    removeSelectorMouseDownHandler();
     viewportEl.addEventListener("mousedown", onMouseDown, { capture: true });
+    _selectorMouseDownTarget = viewportEl;
+    _selectorMouseDownHandler = onMouseDown;
 
     // ── Wire Events ──────────────────────────────────────────────────────
 
@@ -1781,6 +1891,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   destroy: () => {
     uninstallRendererObserver();
+    removeSelectorMouseDownHandler();
+    cancelSelectorFocusAnimation();
     _unsubscribeHooks?.();
     _unsubscribeHooks = null;
     engine.destroyDoc();
@@ -2299,7 +2411,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
   },
 
+  focusSelection: () => {
+    focusSelectorCursorInViewport();
+  },
+
   clearSelection: () => {
+    cancelSelectorFocusAnimation();
     updateCursorRect(null, null, null);
     hideBarSelectionOverlay();
     engine.localClearSelection();

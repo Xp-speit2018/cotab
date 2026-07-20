@@ -315,6 +315,266 @@ for (const layout of ["horizontal", "parchment"]) {
   });
 }
 
+for (const layout of ["horizontal", "parchment"]) {
+  test(`Command+vertical navigation uses visible percussion lines in ${layout} layout`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1400, height: 900 });
+    await page.goto("/");
+    await waitForScore(page);
+    if (layout === "parchment") {
+      await page.getByRole("button", { name: "Parchment layout" }).click();
+      await waitForLayout(page, "parchment", 2);
+    }
+
+    const scenario = await page.evaluate(() => {
+      const api = window.__ALPHATAB_API__;
+      const targetTrackIndex = api.score.tracks.findIndex(
+        (track, index) => track.isPercussion && index > 0,
+      );
+      const sourceTrackIndex = targetTrackIndex - 1;
+      if (targetTrackIndex <= 0 || api.score.tracks[sourceTrackIndex].isPercussion) {
+        throw new Error("No adjacent melodic/percussion tracks found");
+      }
+
+      const grids = Object.values(window.__SNAP_GRIDS__);
+      for (const sourceGrid of grids) {
+        if (
+          sourceGrid.trackIndex !== sourceTrackIndex
+          || sourceGrid.staffIndex !== 0
+          || sourceGrid.positions.length === 0
+        ) continue;
+        const barIndex = sourceGrid.barIndexes[0];
+        const targetGrid = grids.find((grid) =>
+          grid.trackIndex === targetTrackIndex
+          && grid.staffIndex === 0
+          && grid.barIndexes.includes(barIndex));
+        const sourceBeat = api.score.tracks[sourceTrackIndex].staves[0]
+          .bars[barIndex]?.voices[0]?.beats[0];
+        const visibleTargetPositions = targetGrid?.positions.filter(
+          (position) => position.string >= 0 && position.string <= 8,
+        ) ?? [];
+        if (!targetGrid || !sourceBeat || visibleTargetPositions.length === 0) continue;
+
+        return {
+          source: {
+            trackIndex: sourceTrackIndex,
+            staffIndex: 0,
+            voiceIndex: 0,
+            barIndex,
+            beatIndex: sourceBeat.index,
+            string: sourceGrid.positions[0].string,
+          },
+          targetTrackIndex,
+          expectedTargetString: visibleTargetPositions[0].string,
+        };
+      }
+      throw new Error("No rendered percussion navigation scenario found");
+    });
+
+    await page.evaluate((source) => {
+      window.__PLAYER_STORE__.getState().setSelection(source);
+    }, scenario.source);
+    const modifier = await page.evaluate(() =>
+      navigator.userAgent.toLowerCase().includes("mac") ? "Meta" : "Control",
+    );
+    await page.keyboard.press(`${modifier}+ArrowDown`);
+    const percussionSelection = await page.evaluate(() =>
+      window.__PLAYER_STORE__.getState().selectedBeat,
+    );
+    expect(percussionSelection).toMatchObject({
+      trackIndex: scenario.targetTrackIndex,
+      string: scenario.expectedTargetString,
+    });
+    expect(percussionSelection.string).toBeGreaterThanOrEqual(0);
+    expect(percussionSelection.string).toBeLessThanOrEqual(8);
+
+    await page.keyboard.press(`${modifier}+ArrowUp`);
+    await expect
+      .poll(() => page.evaluate(() => window.__PLAYER_STORE__.getState().selectedBeat))
+      .toMatchObject(scenario.source);
+  });
+}
+
+test("mouse and keyboard selector moves keep the cursor in view", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 320 });
+  await page.goto("/");
+  await waitForScore(page);
+
+  const target = await page.evaluate(() => {
+    const api = window.__ALPHATAB_API__;
+    const viewport = document.querySelector(".at-viewport");
+    if (!api || !viewport) throw new Error("Score viewport is unavailable");
+    const bars = api.boundsLookup.staffSystems
+      .flatMap((system) => system.bars)
+      .flatMap((masterBar) => masterBar.bars)
+      .filter((bounds) => {
+        const bar = bounds.bar ?? bounds.beats[0]?.beat.voice.bar;
+        return bar?.staff.track.index === 0
+          && bar.staff.index === 0
+          && bounds.beats.length > 1;
+      });
+    const barBounds = bars[Math.floor(bars.length * 0.75)];
+    const beatBounds = barBounds?.beats.at(-1);
+    if (!barBounds || !beatBounds) throw new Error("No late selector target found");
+    const clickX = beatBounds.realBounds.x + beatBounds.realBounds.w / 2;
+    const clickedBeatBounds = barBounds.beats.reduce((nearest, candidate) => {
+      const nearestCenter = nearest.realBounds.x + nearest.realBounds.w / 2;
+      const candidateCenter = candidate.realBounds.x + candidate.realBounds.w / 2;
+      return Math.abs(clickX - candidateCenter) < Math.abs(clickX - nearestCenter)
+        ? candidate
+        : nearest;
+    });
+    const bar = clickedBeatBounds.beat.voice.bar;
+    const grid = Object.values(window.__SNAP_GRIDS__).find((candidate) =>
+      candidate.trackIndex === 0
+      && candidate.staffIndex === 0
+      && candidate.barIndexes.includes(bar.index));
+    if (!grid) throw new Error("No selector snap grid found");
+    const snap = grid.positions[Math.floor(grid.positions.length / 2)];
+    viewport.scrollLeft = Math.max(
+      0,
+      (clickedBeatBounds.onNotesX - grid.noteWidth / 2)
+        * api.settings.display.scale - 8,
+    );
+    viewport.scrollTop = Math.max(
+      0,
+      snap.y * api.settings.display.scale - viewport.clientHeight / 2,
+    );
+    return {
+      x: clickX,
+      y: snap.y,
+      selection: {
+        trackIndex: 0,
+        staffIndex: 0,
+        voiceIndex: clickedBeatBounds.beat.voice.index,
+        barIndex: bar.index,
+        beatIndex: clickedBeatBounds.beat.index,
+        string: snap.string,
+      },
+      initialScrollLeft: viewport.scrollLeft,
+    };
+  });
+  await page.waitForTimeout(100);
+  await page.evaluate(() => {
+    const viewport = document.querySelector(".at-viewport");
+    if (!viewport) throw new Error("Score viewport is unavailable");
+    window.__SELECTOR_SCROLL_SAMPLES__ = [viewport.scrollLeft];
+    viewport.addEventListener("scroll", () => {
+      window.__SELECTOR_SCROLL_SAMPLES__.push(viewport.scrollLeft);
+    }, { passive: true });
+  });
+
+  await clickAlphaTabPoint(page, target);
+  await expect
+    .poll(() => page.evaluate(() => window.__PLAYER_STORE__.getState().selectedBeat))
+    .toMatchObject({
+      trackIndex: target.selection.trackIndex,
+      staffIndex: target.selection.staffIndex,
+      barIndex: target.selection.barIndex,
+      string: target.selection.string,
+    });
+  await expect
+    .poll(() => page.evaluate(() => {
+      const viewport = document.querySelector(".at-viewport");
+      const cursor = document.querySelector(".at-edit-cursor");
+      if (!viewport || !cursor) return -Infinity;
+      return cursor.getBoundingClientRect().left
+        - viewport.getBoundingClientRect().left;
+    }))
+    .toBeGreaterThanOrEqual(24);
+  await page.waitForTimeout(220);
+  const mouseFocus = await page.evaluate(() => {
+    const viewport = document.querySelector(".at-viewport");
+    const cursor = document.querySelector(".at-edit-cursor");
+    if (!viewport || !cursor) throw new Error("Selector cursor is unavailable");
+    const viewportRect = viewport.getBoundingClientRect();
+    const cursorRect = cursor.getBoundingClientRect();
+    return {
+      scrollLeft: viewport.scrollLeft,
+      leftGap: cursorRect.left - viewportRect.left,
+      scrollSamples: window.__SELECTOR_SCROLL_SAMPLES__,
+    };
+  });
+  expect(mouseFocus.scrollLeft).toBeLessThan(target.initialScrollLeft);
+  expect(mouseFocus.leftGap).toBeGreaterThanOrEqual(24);
+  const distinctScrollSamples = [...new Set(mouseFocus.scrollSamples)];
+  expect(distinctScrollSamples.length).toBeGreaterThan(2);
+  expect(distinctScrollSamples.some((value) =>
+    value < target.initialScrollLeft && value > mouseFocus.scrollLeft)).toBe(true);
+
+  await page.evaluate(() => {
+    const viewport = document.querySelector(".at-viewport");
+    viewport.scrollLeft = 0;
+    viewport.scrollTop = 0;
+  });
+  await page.keyboard.press("ArrowLeft");
+  await expect
+    .poll(() => page.evaluate(() => document.querySelector(".at-viewport").scrollLeft))
+    .toBeGreaterThan(0);
+
+  const modifier = await page.evaluate(() =>
+    navigator.userAgent.toLowerCase().includes("mac") ? "Meta" : "Control",
+  );
+  for (let index = 0; index < 5; index++) {
+    await page.keyboard.press(`${modifier}+ArrowDown`);
+  }
+  await expect
+    .poll(() => page.evaluate(() => window.__PLAYER_STORE__.getState().selectedBeat))
+    .toMatchObject({ trackIndex: 5 });
+  await page.waitForTimeout(100);
+  await expect
+    .poll(() => page.evaluate(() => {
+      const viewport = document.querySelector(".at-viewport");
+      const cursor = document.querySelector(".at-edit-cursor");
+      if (!viewport || !cursor) return -Infinity;
+      return viewport.getBoundingClientRect().bottom
+        - cursor.getBoundingClientRect().bottom;
+    }))
+    .toBeGreaterThanOrEqual(24);
+  const keyboardFocus = await page.evaluate(() => {
+    const viewport = document.querySelector(".at-viewport");
+    const cursor = document.querySelector(".at-edit-cursor");
+    if (!viewport || !cursor) throw new Error("Selector cursor is unavailable");
+    const viewportRect = viewport.getBoundingClientRect();
+    const cursorRect = cursor.getBoundingClientRect();
+    return {
+      scrollTop: viewport.scrollTop,
+      topGap: cursorRect.top - viewportRect.top,
+      bottomGap: viewportRect.bottom - cursorRect.bottom,
+    };
+  });
+  expect(keyboardFocus.scrollTop).toBeGreaterThan(0);
+  expect(keyboardFocus.topGap).toBeGreaterThanOrEqual(24);
+  expect(keyboardFocus.bottomGap).toBeGreaterThanOrEqual(24);
+});
+
+test("Debug panel controls snap grid visibility", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+  await waitForScore(page);
+
+  await page.getByRole("button", { name: "Debug", exact: true }).click();
+  const toggle = page.getByRole("button", { name: "Snap Grid", exact: true });
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(0);
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(1);
+  await expect(page.locator(".at-snap-grid-marker").first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await waitForLayout(page, "parchment", 2);
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(1);
+  await expect(page.locator(".at-snap-grid-marker").first()).toBeVisible();
+
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(0);
+});
+
 test("switches layouts and snaps a later parchment system locally", async ({
   page,
 }) => {

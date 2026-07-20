@@ -9,7 +9,6 @@ import {
 import { usePlayerStore } from "@/stores/render-store";
 import { getApi } from "@/stores/render-api";
 import {
-  findNearestSnap,
   getNavigablePositions,
   getSnapGridForBar,
 } from "@/stores/snap-grid";
@@ -34,6 +33,37 @@ export function computeMoveDown(current: SelectedBeat): SelectedBeat | null {
   return computeCoreMoveDown(current, { getNavigablePositions });
 }
 
+type StaffSnapGrid = NonNullable<ReturnType<typeof getSnapGridForBar>>;
+
+function getStaffNavigationPositions(
+  trackIndex: number,
+  grid: StaffSnapGrid,
+): StaffSnapGrid["positions"] {
+  if (!getApi()?.score?.tracks[trackIndex]?.isPercussion) {
+    return grid.positions;
+  }
+  const visiblePositions = grid.positions.filter(
+    (position) => position.string >= 0 && position.string <= 8,
+  );
+  return visiblePositions.length > 0 ? visiblePositions : grid.positions;
+}
+
+function findNearestPosition(
+  positions: StaffSnapGrid["positions"],
+  y: number,
+) {
+  let nearest = positions[0];
+  let nearestDistance = Math.abs(y - nearest.y);
+  for (let index = 1; index < positions.length; index++) {
+    const distance = Math.abs(y - positions[index].y);
+    if (distance < nearestDistance) {
+      nearest = positions[index];
+      nearestDistance = distance;
+    }
+  }
+  return nearest;
+}
+
 function projectStringToStaff(
   current: SelectedBeat,
   target: SelectedBeat,
@@ -44,6 +74,7 @@ function projectStringToStaff(
     target.barIndex,
   );
   if (!targetGrid || targetGrid.positions.length === 0) return null;
+  const targetPositions = getStaffNavigationPositions(target.trackIndex, targetGrid);
 
   let relativeY = 0.5;
   const sourceGrid = getSnapGridForBar(
@@ -51,21 +82,24 @@ function projectStringToStaff(
     current.staffIndex,
     current.barIndex,
   );
+  const sourcePositions = sourceGrid
+    ? getStaffNavigationPositions(current.trackIndex, sourceGrid)
+    : null;
   const sourcePosition = current.string === null
     ? null
-    : sourceGrid?.positions.find((position) => position.string === current.string) ?? null;
-  if (sourceGrid && sourcePosition && sourceGrid.positions.length > 1) {
-    const first = sourceGrid.positions[0].y;
-    const last = sourceGrid.positions.at(-1)!.y;
+    : sourcePositions?.find((position) => position.string === current.string) ?? null;
+  if (sourcePositions && sourcePosition && sourcePositions.length > 1) {
+    const first = sourcePositions[0].y;
+    const last = sourcePositions.at(-1)!.y;
     if (last !== first) {
       relativeY = (sourcePosition.y - first) / (last - first);
     }
   }
 
-  const targetFirst = targetGrid.positions[0].y;
-  const targetLast = targetGrid.positions.at(-1)!.y;
+  const targetFirst = targetPositions[0].y;
+  const targetLast = targetPositions.at(-1)!.y;
   const targetY = targetFirst + relativeY * (targetLast - targetFirst);
-  return findNearestSnap(targetGrid, targetY)?.string ?? null;
+  return findNearestPosition(targetPositions, targetY).string;
 }
 
 function snapRenderedStaffSelection(

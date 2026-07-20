@@ -344,6 +344,7 @@ export interface PlayerState {
     noteIndex?: number;
     preserveSelectionRange?: boolean;
   }) => void;
+  focusSelection: () => void;
   clearSelection: () => void;
   clearSelectionRange: () => void;
 }

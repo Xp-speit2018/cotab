@@ -204,7 +204,6 @@
   background: rgba(0, 120, 255, 0.1);
   pointer-events: none;
   z-index: 1001;
-  transition: left 60ms ease, top 60ms ease;
 }
 
 .at-transport-playhead {

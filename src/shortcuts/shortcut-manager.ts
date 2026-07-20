@@ -7,6 +7,7 @@ import { handleDigitInput, cancelDigitInput } from "./fret-input";
 import { getNextCycleValue } from "./behaviors";
 import { debugLog } from "@/core/editor/action-log";
 import { engine } from "@/core/engine";
+import { usePlayerStore } from "@/stores/render-store";
 import {
   computeNextBeat,
   computePrevBeat,
@@ -162,6 +163,7 @@ function handleKeyDown(e: KeyboardEvent): void {
       const target = computeNavigationTarget(behavior.direction, current);
       if (target) {
         executeAppActionUnsafe("selector.set", target, context);
+        usePlayerStore.getState().focusSelection();
       }
       break;
     }

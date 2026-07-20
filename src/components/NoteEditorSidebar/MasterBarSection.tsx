@@ -103,7 +103,12 @@ export function MasterBarSection({
                 { value: pressed },
                 { t },
               )}
-              icon={<MusicGlyph glyph={musicGlyphs.repeatStart} />}
+              icon={(
+                <MusicGlyph
+                  glyph={musicGlyphs.repeatStart}
+                  className="translate-y-[2px]"
+                />
+              )}
             />
             <ToggleBtn
               label={t("sidebar.masterBar.freeTime")}

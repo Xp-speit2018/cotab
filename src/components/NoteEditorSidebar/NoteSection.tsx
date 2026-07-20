@@ -15,13 +15,11 @@ import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/render-types";
 import {
   AccentuationType,
   Duration,
-  DynamicValue,
   Fingers,
   GraceType,
   NoteAccidentalMode,
 } from "@/core/schema";
 import {
-  EditableNumberPropRow,
   PopoverPropRow,
   PropRow,
   SectionHeader,
@@ -30,7 +28,6 @@ import {
 } from "./primitives";
 import {
   durationTooltip,
-  dynamicLabel,
 } from "./labels";
 import { PitchEditor, pitchSummary } from "./editors/PitchEditor";
 import { TupletEditor, tupletSummary } from "./editors/TupletEditor";
@@ -65,17 +62,6 @@ const REST_GLYPHS: Record<number, string> = {
   [Duration.ThirtySecond]: musicGlyphs.restThirtySecond,
   [Duration.SixtyFourth]: musicGlyphs.restSixtyFourth,
 };
-
-const DYNAMIC_VALUES = [
-  DynamicValue.PPP,
-  DynamicValue.PP,
-  DynamicValue.P,
-  DynamicValue.MP,
-  DynamicValue.MF,
-  DynamicValue.F,
-  DynamicValue.FF,
-  DynamicValue.FFF,
-] as const;
 
 export function NoteSection({
   beat,
@@ -196,29 +182,6 @@ export function NoteSection({
                 />
               )}
 
-              {!note.isPercussion && note.fret >= 0 && note.string > 0 && (
-                <div className="grid grid-cols-2 gap-x-1">
-                  <EditableNumberPropRow
-                    label={t("sidebar.note.fret")}
-                    value={note.fret}
-                    min={0}
-                    max={36}
-                    onCommit={(value) =>
-                      executeAppAction("document.note.setFret", { value }, { t })
-                    }
-                  />
-                  <EditableNumberPropRow
-                    label={t("sidebar.note.string")}
-                    value={note.string}
-                    min={1}
-                    max={Math.max(1, note.stringCount)}
-                    onCommit={(value) =>
-                      executeAppAction("document.note.setString", { value }, { t })
-                    }
-                  />
-                </div>
-              )}
-
               {!note.isPercussion && note.fret < 0 && (
                 <PopoverPropRow
                   label={t("sidebar.note.pitch")}
@@ -328,20 +291,6 @@ export function NoteSection({
                   )}
                 </div>
               </div>
-
-              <SelectPropRow
-                label={t("sidebar.note.noteDynamics")}
-                value={note.dynamics}
-                options={DYNAMIC_VALUES.map((value) => ({
-                  value,
-                  label: dynamicLabel(value),
-                }))}
-                onValueChange={(value) => executeAppAction(
-                  "document.note.setDynamics",
-                  { value },
-                  { t },
-                )}
-              />
 
               {!note.isPercussion && (
                 <>

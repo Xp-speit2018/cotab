@@ -59,6 +59,21 @@ describe("inspector field catalog", () => {
       surface: "popover",
       editor: "bend-curve",
     });
+    expect(INSPECTOR_FIELD_CATALOG.note.dynamics).toMatchObject({
+      surface: "hidden",
+      editor: "derived",
+      status: "internal",
+    });
+    expect(INSPECTOR_FIELD_CATALOG.note.fret).toMatchObject({
+      surface: "hidden",
+      editor: "identity",
+      status: "internal",
+    });
+    expect(INSPECTOR_FIELD_CATALOG.note.string).toMatchObject({
+      surface: "hidden",
+      editor: "identity",
+      status: "internal",
+    });
   });
 
   it("has no incomplete retained field UX", () => {

@@ -17,7 +17,6 @@ import { debugLog } from "@/core/editor/action-log";
 import {
   BendType,
   createNote,
-  DynamicValue,
   Fingers,
   NoteAccidentalMode,
   NoteOrnament,
@@ -341,15 +340,6 @@ const setHarmonicAction = defineDocumentAction({
     applyNoteUpdates({ harmonicType, harmonicValue });
   },
 });
-const setDynamicsAction = defineDocumentAction({
-  id: "document.note.setDynamics",
-  i18nKey: "actions.edit.note.setDynamics",
-  category: "document.note",
-  argsSchema: actionArgs({
-    value: integer.min(DynamicValue.PPP).max(DynamicValue.FFF),
-  }),
-  execute: ({ value }) => applyNoteUpdates({ dynamics: value }),
-});
 const setLeftHandFingerAction = defineDocumentAction({
   id: "document.note.setLeftHandFinger",
   i18nKey: "actions.edit.note.setLeftHandFinger",
@@ -568,7 +558,6 @@ export const noteDocumentActions = [
   setHarmonicTypeAction,
   setHarmonicValueAction,
   setHarmonicAction,
-  setDynamicsAction,
   setLeftHandFingerAction,
   setRightHandFingerAction,
   setAccidentalModeAction,

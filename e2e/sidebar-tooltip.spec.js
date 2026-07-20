@@ -98,14 +98,29 @@ test("toggle state emphasizes the symbol without drawing a backdrop", async ({ p
     (element) => getComputedStyle(element).color,
   );
   await inactive.hover();
+  await expect.poll(() => inactive.evaluate(
+    (element) => getComputedStyle(element).color,
+  )).not.toBe(colorBeforeHover);
   const hoverStyle = await inactive.evaluate((element) => ({
     background: getComputedStyle(element).backgroundColor,
     color: getComputedStyle(element).color,
     scale: getComputedStyle(element.firstElementChild).scale,
   }));
   expect(hoverStyle.background).toBe("rgba(0, 0, 0, 0)");
-  expect(hoverStyle.color).not.toBe(colorBeforeHover);
   expect(Number(hoverStyle.scale)).toBeGreaterThan(1);
+});
+
+test("selected note identity is hidden and dynamics are beat-scoped", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await page.goto("/");
+  await waitForScore(page);
+  await selectFirstMelodicNote(page);
+
+  for (const label of ["Fret", "String"]) {
+    await expect(page.getByText(label, { exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByText("Note dynamics", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Dynamics", { exact: true })).toHaveCount(1);
 });
 
 test("playing techniques use distinct notation symbols", async ({ page }) => {

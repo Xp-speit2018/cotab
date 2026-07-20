@@ -6,7 +6,7 @@ Every action accepts one strict JSON object. The schemas below are projected
 from the runtime `DocumentActionDefinition.argsSchema` values used for
 validation and execution.
 
-Action count: 126.
+Action count: 125.
 
 ID | Category | i18n key | Arguments JSON Schema
 --- | --- | --- | ---
@@ -78,7 +78,6 @@ ID | Category | i18n key | Arguments JSON Schema
 `document.note.setBendPoints` | `document.note` | `actions.edit.note.setBendPoints` | `{"type":"object","properties":{"points":{"anyOf":[{"minItems":2,"maxItems":16,"type":"array","items":{"type":"object","properties":{"offset":{"type":"number","minimum":0,"maximum":60},"value":{"type":"number","minimum":-12,"maximum":12}},"required":["offset","value"],"additionalProperties":false},"description":"Ordered pitch-curve points; offsets use 0-60 note-relative units and values use quarter tones"},{"type":"null"}]}},"required":["points"],"additionalProperties":false}`
 `document.note.setBendStyle` | `document.note` | `actions.edit.note.setBendStyle` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
 `document.note.setBendType` | `document.note` | `actions.edit.note.setBendType` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
-`document.note.setDynamics` | `document.note` | `actions.edit.note.setDynamics` | `{"type":"object","properties":{"value":{"type":"integer","minimum":0,"maximum":7}},"required":["value"],"additionalProperties":false}`
 `document.note.setFret` | `document.note` | `actions.edit.note.setFret` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
 `document.note.setHarmonic` | `document.note` | `actions.edit.note.setHarmonic` | `{"type":"object","properties":{"harmonicType":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991},"harmonicValue":{"type":"number"}},"required":["harmonicType","harmonicValue"],"additionalProperties":false}`
 `document.note.setHarmonicType` | `document.note` | `actions.edit.note.setHarmonicType` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`

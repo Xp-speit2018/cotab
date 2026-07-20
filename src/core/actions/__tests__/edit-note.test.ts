@@ -64,7 +64,6 @@ import {
   SlideInType,
   HarmonicType,
   Duration,
-  DynamicValue,
   Fingers,
   NoteAccidentalMode,
   NoteOrnament,
@@ -275,12 +274,10 @@ describe("document.note.setHarmonic", () => {
 });
 
 describe("document.note playback fields", () => {
-  it("sets harmonicValue and note dynamics", () => {
+  it("sets harmonicValue", () => {
     executeDocumentAction("document.note.setHarmonicValue", { value: 12 }, ctx);
-    executeDocumentAction("document.note.setDynamics", { value: DynamicValue.PP }, ctx);
 
     expect(getNote().get("harmonicValue")).toBe(12);
-    expect(getNote().get("dynamics")).toBe(DynamicValue.PP);
   });
 
   it("sets fingering and accidental choices", () => {
@@ -302,7 +299,6 @@ describe("document.note playback fields", () => {
   });
 
   it.each([
-    ["document.note.setDynamics", 99],
     ["document.note.setLeftHandFinger", 5],
     ["document.note.setRightHandFinger", -3],
     ["document.note.setAccidentalMode", 7],

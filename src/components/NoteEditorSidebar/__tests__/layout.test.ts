@@ -30,7 +30,7 @@ describe("sidebar section layout migration", () => {
     }));
 
     expect(loadSectionLayout()).toEqual({
-      notes: ["effects", "bar", "note", "articulation"],
+      notes: ["effects", "masterBar", "bar", "note", "articulation"],
       meta: ["tracks", "song"],
       debug: ["fps", "editorState", "alphaTabState", "log", "syncState"],
     });
@@ -44,7 +44,7 @@ describe("sidebar section layout migration", () => {
     }));
 
     const layout = loadSectionLayout();
-    expect(layout.notes[0]).toBe("bar");
+    expect(layout.notes.slice(0, 2)).toEqual(["masterBar", "bar"]);
     expect(layout.notes).not.toContain("removed-section");
     expect(new Set(Object.values(layout).flat())).toEqual(
       new Set(Object.values(DEFAULT_SECTION_LAYOUT).flat()),

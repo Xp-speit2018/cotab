@@ -17,6 +17,7 @@ import { getApi } from "./render-api";
 import type { TrackPreset } from "./render-types";
 import type {
   SelectedBarInfo,
+  SelectedMasterBarInfo,
   SelectedStaffInfo,
   SelectedTrackInfo,
   SelectedVoiceInfo,
@@ -502,25 +503,32 @@ export function extractVoiceInfo(voice: alphaTab.model.Voice): SelectedVoiceInfo
 }
 
 export function extractBarInfo(bar: alphaTab.model.Bar): SelectedBarInfo {
-  const mb = bar.masterBar;
-  const tempoAuto = mb.tempoAutomations[0] ?? null;
   return {
     index: bar.index,
     clef: bar.clef as unknown as Clef,
     clefOttava: bar.clefOttava as unknown as Ottavia,
     simileMark: bar.simileMark as unknown as SimileMark,
-    timeSignatureNumerator: mb.timeSignatureNumerator,
-    timeSignatureDenominator: mb.timeSignatureDenominator,
     keySignature: bar.keySignature as unknown as number,
     keySignatureType: bar.keySignatureType as unknown as KeySignatureType,
-    isRepeatStart: mb.isRepeatStart,
-    repeatCount: mb.repeatCount,
-    alternateEndings: mb.alternateEndings,
-    tripletFeel: mb.tripletFeel as unknown as TripletFeel,
-    isFreeTime: mb.isFreeTime,
-    hasSection: mb.section !== null,
-    sectionText: mb.section?.text ?? "",
-    sectionMarker: mb.section?.marker ?? "",
+  };
+}
+
+export function extractMasterBarInfo(
+  masterBar: alphaTab.model.MasterBar,
+): SelectedMasterBarInfo {
+  const tempoAuto = masterBar.tempoAutomations[0] ?? null;
+  return {
+    index: masterBar.index,
+    timeSignatureNumerator: masterBar.timeSignatureNumerator,
+    timeSignatureDenominator: masterBar.timeSignatureDenominator,
+    isRepeatStart: masterBar.isRepeatStart,
+    repeatCount: masterBar.repeatCount,
+    alternateEndings: masterBar.alternateEndings,
+    tripletFeel: masterBar.tripletFeel as unknown as TripletFeel,
+    isFreeTime: masterBar.isFreeTime,
+    hasSection: masterBar.section !== null,
+    sectionText: masterBar.section?.text ?? "",
+    sectionMarker: masterBar.section?.marker ?? "",
     tempo: tempoAuto ? tempoAuto.value : null,
   };
 }

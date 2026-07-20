@@ -273,6 +273,7 @@
       "help": "Click a track to expand and edit its properties. Toggle visibility with the eye icon.",
       "visible": "visible",
       "hidden": "hidden",
+      "toggleDetails": "Toggle {{name}} details",
       "hideTrack": "Hide {{name}}",
       "showTrack": "Show {{name}}",
       "name": "Name",
@@ -292,12 +293,27 @@
       "stringCount_other": "{{count}} strings"
     },
 
-    "bar": {
-      "title": "Bar",
-      "help": "Time signature, key, tempo, and repeat settings for the current bar.",
-      "timeSig": "Time Sig",
+    "masterBar": {
+      "title": "MasterBar",
+      "help": "Time signature, tempo, repeats, and section metadata shared by every staff at this bar position.",
       "numerator": "Numerator",
       "denominator": "Denominator",
+      "tempo": "Tempo",
+      "tempoMarker": "Tempo Marker",
+      "tripletFeel": "Triplet Feel",
+      "repeatStart": "Repeat Start",
+      "freeTime": "Free Time",
+      "section": "Section",
+      "sectionPlaceholder": "Section name",
+      "sectionMarker": "Marker",
+      "sectionMarkerPlaceholder": "e.g. A, Verse",
+      "altEndings": "Alt. Endings",
+      "repeatCountLabel": "Repeat Count"
+    },
+
+    "bar": {
+      "title": "Bar",
+      "help": "Clef, key signature, and simile settings for the selected staff's bar.",
       "clef": "Clef",
       "clefOttava": "Clef Ottava",
       "simileMark": "Simile",
@@ -307,21 +323,13 @@
       "key": "Key",
       "keyType": "Mode",
       "major": "Major",
-      "minor": "Minor",
-      "tempo": "Tempo",
-      "tempoMarker": "Tempo Marker",
-      "bpm": "{{value}} BPM",
-      "tripletFeel": "Triplet Feel",
-      "repeatStart": "Repeat Start",
-      "freeTime": "Free Time",
-      "doubleBar": "Double Bar",
-      "section": "Section",
-      "sectionPlaceholder": "Section name",
-      "sectionMarker": "Marker",
-      "sectionMarkerPlaceholder": "e.g. A, Verse",
-      "altEndings": "Alt. Endings",
-      "repeatCountLabel": "Repeat Count",
-      "repeatCount": "x{{count}}"
+      "minor": "Minor"
+    },
+
+    "staff": {
+      "label": "Staff {{index}}",
+      "count_one": "{{count}} staff",
+      "count_other": "{{count}} staves"
     },
 
     "note": {

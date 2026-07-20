@@ -202,10 +202,14 @@ export interface SelectedBarInfo {
   clef: Clef;
   clefOttava: Ottavia;
   simileMark: SimileMark;
-  timeSignatureNumerator: number;
-  timeSignatureDenominator: number;
   keySignature: number;
   keySignatureType: KeySignatureType;
+}
+
+export interface SelectedMasterBarInfo {
+  index: number;
+  timeSignatureNumerator: number;
+  timeSignatureDenominator: number;
   isRepeatStart: boolean;
   repeatCount: number;
   alternateEndings: number;
@@ -308,6 +312,7 @@ export interface PlayerState {
   selectedTrackInfo: SelectedTrackInfo | null;
   selectedStaffInfo: SelectedStaffInfo | null;
   selectedBarInfo: SelectedBarInfo | null;
+  selectedMasterBarInfo: SelectedMasterBarInfo | null;
   selectedVoiceInfo: SelectedVoiceInfo | null;
   selectedBeatInfo: SelectedBeatInfo | null;
   selectedNoteIndex: number;

@@ -273,6 +273,7 @@
       "help": "点击音轨展开编辑属性。使用眼睛图标切换可见性。",
       "visible": "可见",
       "hidden": "隐藏",
+      "toggleDetails": "展开或收起 {{name}} 详情",
       "hideTrack": "隐藏 {{name}}",
       "showTrack": "显示 {{name}}",
       "name": "名称",
@@ -292,12 +293,27 @@
       "stringCount_other": "{{count}} 弦"
     },
 
-    "bar": {
-      "title": "小节",
-      "help": "当前小节的拍号、调号、速度和反复设置。",
-      "timeSig": "拍号",
+    "masterBar": {
+      "title": "MasterBar",
+      "help": "该小节位置由所有 Staff 共享的拍号、速度、反复与段落信息。",
       "numerator": "分子",
       "denominator": "分母",
+      "tempo": "速度",
+      "tempoMarker": "速度标记",
+      "tripletFeel": "三连音感觉",
+      "repeatStart": "反复开始",
+      "freeTime": "自由节拍",
+      "section": "段落",
+      "sectionPlaceholder": "段落名称",
+      "sectionMarker": "段落标记",
+      "sectionMarkerPlaceholder": "如：A、Verse",
+      "altEndings": "替代结尾",
+      "repeatCountLabel": "反复次数"
+    },
+
+    "bar": {
+      "title": "Bar",
+      "help": "当前 Staff 的 Bar 所拥有的谱号、调号与重复记号。",
       "clef": "谱号",
       "clefOttava": "谱号八度",
       "simileMark": "重复记号",
@@ -307,21 +323,13 @@
       "key": "调号",
       "keyType": "调式",
       "major": "大调",
-      "minor": "小调",
-      "tempo": "速度",
-      "tempoMarker": "速度标记",
-      "bpm": "{{value}} BPM",
-      "tripletFeel": "三连音感觉",
-      "repeatStart": "反复开始",
-      "freeTime": "自由节拍",
-      "doubleBar": "双小节线",
-      "section": "段落",
-      "sectionPlaceholder": "段落名称",
-      "sectionMarker": "段落标记",
-      "sectionMarkerPlaceholder": "如：A、Verse",
-      "altEndings": "替代结尾",
-      "repeatCountLabel": "反复次数",
-      "repeatCount": "x{{count}}"
+      "minor": "小调"
+    },
+
+    "staff": {
+      "label": "Staff {{index}}",
+      "count_one": "{{count}} 个 Staff",
+      "count_other": "{{count}} 个 Staff"
     },
 
     "note": {

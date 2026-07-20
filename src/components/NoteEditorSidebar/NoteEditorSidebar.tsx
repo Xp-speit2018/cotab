@@ -39,6 +39,7 @@ import { TabDroppable } from "./TabDroppable";
 import { SongSection } from "./SongSection";
 import { TracksSection } from "./TracksSection";
 import { ArticulationSection } from "./ArticulationSection";
+import { MasterBarSection } from "./MasterBarSection";
 import { BarSection } from "./BarSection";
 import { NoteSection } from "./NoteSection";
 import { EffectsSection } from "./EffectsSection";
@@ -178,7 +179,10 @@ export function EditorSidebar({ side }: { side: SidebarSide }) {
   const saveWidth = useSidebarLayoutStore((state) => state.saveWidth);
   const widthAtDragStart = useRef(width);
   const selectedBeatInfo = usePlayerStore((state) => state.selectedBeatInfo);
+  const selectedTrackInfo = usePlayerStore((state) => state.selectedTrackInfo);
+  const selectedStaffInfo = usePlayerStore((state) => state.selectedStaffInfo);
   const selectedBarInfo = usePlayerStore((state) => state.selectedBarInfo);
+  const selectedMasterBarInfo = usePlayerStore((state) => state.selectedMasterBarInfo);
   const selectedNoteIndex = usePlayerStore((state) => state.selectedNoteIndex);
   const tabs = placement[side];
   const { isOver, setNodeRef } = useDroppable({
@@ -218,9 +222,21 @@ export function EditorSidebar({ side }: { side: SidebarSide }) {
           return <SyncStateSection dragHandleProps={dragHandleProps} />;
         case "alphaTabState":
           return <AlphaTabStateSection dragHandleProps={dragHandleProps} />;
+        case "masterBar":
+          return selectedMasterBarInfo ? (
+            <MasterBarSection
+              masterBar={selectedMasterBarInfo}
+              dragHandleProps={dragHandleProps}
+            />
+          ) : null;
         case "bar":
-          return hasBeat ? (
-            <BarSection bar={selectedBarInfo!} dragHandleProps={dragHandleProps} />
+          return hasBeat && selectedTrackInfo && selectedStaffInfo ? (
+            <BarSection
+              bar={selectedBarInfo!}
+              staffIndex={selectedStaffInfo.index}
+              staffCount={selectedTrackInfo.staffCount}
+              dragHandleProps={dragHandleProps}
+            />
           ) : null;
         case "note":
           return hasBeat ? (
@@ -240,7 +256,15 @@ export function EditorSidebar({ side }: { side: SidebarSide }) {
           ) : null;
       }
     },
-    [activeNote, hasBeat, selectedBarInfo, selectedBeatInfo],
+    [
+      activeNote,
+      hasBeat,
+      selectedBarInfo,
+      selectedBeatInfo,
+      selectedMasterBarInfo,
+      selectedStaffInfo,
+      selectedTrackInfo,
+    ],
   );
 
   if (collapsed || tabs.length === 0) {
@@ -338,7 +362,10 @@ export function EditorSidebar({ side }: { side: SidebarSide }) {
                 </TabDroppable>
               </SortableContext>
               {!hasBeat && currentSections.some(
-                (id) => id === "bar" || id === "note" || id === "effects",
+                (id) => id === "masterBar"
+                  || id === "bar"
+                  || id === "note"
+                  || id === "effects",
               ) && (
                 <div className="flex items-center justify-center p-4 text-center text-xs text-muted-foreground">
                   {t("sidebar.emptyState")}

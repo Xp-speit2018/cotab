@@ -29,6 +29,7 @@ export type SectionId =
   | "editorState"
   | "syncState"
   | "alphaTabState"
+  | "masterBar"
   | "bar"
   | "note"
   | "effects";
@@ -42,6 +43,7 @@ export const ALL_SECTION_IDS: SectionId[] = [
   "editorState",
   "syncState",
   "alphaTabState",
+  "masterBar",
   "bar",
   "note",
   "effects",
@@ -55,7 +57,7 @@ export interface SidebarTabPlacement {
 export type SectionLayout = Record<SectionTabId, SectionId[]>;
 
 export const DEFAULT_SECTION_LAYOUT: SectionLayout = {
-  notes: ["bar", "note", "effects", "articulation"],
+  notes: ["masterBar", "bar", "note", "effects", "articulation"],
   meta: ["song", "tracks"],
   debug: ["editorState", "syncState", "alphaTabState", "log", "fps"],
 };
@@ -172,6 +174,12 @@ function sectionLayoutFromArrays(value: unknown): SectionLayout | null {
     meta: normalized[1],
     debug: normalized[2],
   };
+
+  if (!seen.has("masterBar")) {
+    const barIndex = layout.notes.indexOf("bar");
+    layout.notes.splice(barIndex >= 0 ? barIndex : 0, 0, "masterBar");
+    seen.add("masterBar");
+  }
 
   for (const tabId of ["notes", "meta", "debug"] as const) {
     for (const id of DEFAULT_SECTION_LAYOUT[tabId]) {

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type * as alphaTab from "@coderline/alphatab";
 import {
   ChevronDown,
   ChevronRight,
@@ -11,6 +12,7 @@ import {
 import {
   Collapsible,
   CollapsibleContent,
+  CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
   Popover,
@@ -20,56 +22,271 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
 import { cn } from "@/lib/utils";
+import { getApi } from "@/stores/render-api";
 import { usePlayerStore } from "@/stores/render-store";
 import type { TuningPresetInfo } from "@/stores/render-types";
 import { SectionHeader, EditablePropRow, EditableNumberPropRow } from "./primitives";
 
+interface StaffEditorData {
+  staffIndex: number;
+  tuningValues: number[];
+  tuningName: string;
+  capo: number;
+  transposition: number;
+  showTablature: boolean;
+  isPercussion: boolean;
+  stringCount: number;
+}
+
+function readStaffEditorData(
+  staffIndex: number,
+  staff: alphaTab.model.Staff,
+): StaffEditorData {
+  return {
+    staffIndex,
+    tuningValues: [...staff.tuning],
+    tuningName: staff.tuningName,
+    capo: staff.capo,
+    transposition: staff.transpositionPitch,
+    showTablature: staff.showTablature,
+    isPercussion: staff.isPercussion,
+    stringCount: staff.tuning.length,
+  };
+}
+
+function StaffMetaEditor({
+  trackIndex,
+  staff,
+  showHeader,
+  selected,
+}: {
+  trackIndex: number;
+  staff: StaffEditorData;
+  showHeader: boolean;
+  selected: boolean;
+}) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(selected);
+  const [tuningOpen, setTuningOpen] = useState(false);
+  const getTuningPresets = usePlayerStore((state) => state.getTuningPresets);
+
+  useEffect(() => {
+    if (selected) setExpanded(true);
+  }, [selected]);
+
+  const tuningPresets: TuningPresetInfo[] =
+    staff.showTablature && staff.stringCount > 0
+      ? getTuningPresets(staff.stringCount)
+      : [];
+  const summary = staff.isPercussion
+    ? t("sidebar.tracks.percussion")
+    : staff.stringCount > 0
+      ? t("sidebar.tracks.stringCount", { count: staff.stringCount })
+      : "";
+
+  const fields = (
+    <div className="space-y-0.5 pb-1">
+      {staff.showTablature && staff.stringCount > 0 && !staff.isPercussion && (
+        <>
+          <div className="group flex items-center gap-2 px-3 py-0.5">
+            <span className="whitespace-nowrap text-[11px] text-muted-foreground">
+              {t("sidebar.tracks.tuning")}
+            </span>
+            <Popover open={tuningOpen} onOpenChange={setTuningOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="ml-auto flex cursor-pointer items-center gap-1 text-[11px] font-medium tabular-nums transition-colors hover:text-primary"
+                >
+                  <span className="max-w-[120px] truncate">
+                    {staff.tuningName || t("sidebar.tracks.customTuning")}
+                  </span>
+                  <ChevronDown className="h-2.5 w-2.5 shrink-0 opacity-50" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="max-h-60 w-56 overflow-y-auto p-1"
+                side="left"
+                align="start"
+              >
+                {tuningPresets.map((preset, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded px-2 py-1 text-[11px] hover:bg-accent/50",
+                      preset.tunings.join(",") === staff.tuningValues.join(",") && "bg-accent",
+                    )}
+                    onClick={() => {
+                      executeAppAction("document.staff.setStringTuning", {
+                        trackIndex,
+                        staffIndex: staff.staffIndex,
+                        stringTuning: preset,
+                      }, { t });
+                      setTuningOpen(false);
+                    }}
+                  >
+                    <span className="truncate font-medium">{preset.name}</span>
+                    {preset.isStandard && (
+                      <span className="ml-auto text-[9px] text-muted-foreground">
+                        {t("sidebar.tracks.standard")}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          </div>
+          <div className="px-3 py-1">
+            <div className="flex flex-col gap-0.5">
+              {staff.tuningValues.map((value, index) => {
+                const noteName = usePlayerStore.getState().formatTuningNote(value);
+                return (
+                  <div key={index} className="flex items-center gap-1">
+                    <span className="w-3 text-right text-[9px] tabular-nums text-muted-foreground/60">
+                      {index + 1}
+                    </span>
+                    <button
+                      type="button"
+                      className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={() => {
+                        const next = [...staff.tuningValues];
+                        next[index] = Math.max(0, next[index] - 1);
+                        executeAppAction("document.staff.setStringTuning", {
+                          trackIndex,
+                          staffIndex: staff.staffIndex,
+                          stringTuning: {
+                            tunings: next,
+                            name: "",
+                            isStandard: false,
+                          },
+                        }, { t });
+                      }}
+                    >
+                      <ChevronDown className="h-2.5 w-2.5" />
+                    </button>
+                    <span className="w-7 rounded bg-muted/50 px-0.5 text-center font-mono text-[10px] tabular-nums">
+                      {noteName}
+                    </span>
+                    <button
+                      type="button"
+                      className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                      onClick={() => {
+                        const next = [...staff.tuningValues];
+                        next[index] = Math.min(127, next[index] + 1);
+                        executeAppAction("document.staff.setStringTuning", {
+                          trackIndex,
+                          staffIndex: staff.staffIndex,
+                          stringTuning: {
+                            tunings: next,
+                            name: "",
+                            isStandard: false,
+                          },
+                        }, { t });
+                      }}
+                    >
+                      <ChevronUp className="h-2.5 w-2.5" />
+                    </button>
+                    <span className="text-[9px] tabular-nums text-muted-foreground/40">
+                      {value}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          <EditableNumberPropRow
+            label={t("sidebar.tracks.capo")}
+            value={staff.capo}
+            min={0}
+            max={24}
+            onCommit={(capo) => executeAppAction("document.staff.setCapo", {
+              trackIndex,
+              staffIndex: staff.staffIndex,
+              capo,
+            }, { t })}
+          />
+        </>
+      )}
+
+      {!staff.isPercussion && (
+        <EditableNumberPropRow
+          label={t("sidebar.tracks.transposition")}
+          value={staff.transposition}
+          suffix={t("sidebar.tracks.semitones")}
+          min={-24}
+          max={24}
+          onCommit={(transpositionPitch) => executeAppAction(
+            "document.staff.setTranspositionPitch",
+            {
+              trackIndex,
+              staffIndex: staff.staffIndex,
+              transpositionPitch,
+            },
+            { t },
+          )}
+        />
+      )}
+    </div>
+  );
+
+  if (!showHeader) return fields;
+
+  return (
+    <Collapsible open={expanded} onOpenChange={setExpanded}>
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex w-full items-center gap-1 border-t border-border/40 px-3 py-1 text-[10px] font-medium hover:bg-accent/40",
+            selected ? "text-primary" : "text-muted-foreground",
+          )}
+        >
+          {expanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+          <span>{t("sidebar.staff.label", { index: staff.staffIndex + 1 })}</span>
+          <span className="ml-auto text-[9px] font-normal text-muted-foreground">
+            {summary}
+          </span>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>{fields}</CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const [tuningOpen, setTuningOpen] = useState(false);
-  const track = usePlayerStore((s) => s.tracks[trackIndex]);
-  const visibleTrackIndices = usePlayerStore((s) => s.visibleTrackIndices);
-  const getTuningPresets = usePlayerStore((s) => s.getTuningPresets);
+  const track = usePlayerStore((state) => state.tracks[trackIndex]);
+  const visibleTrackIndices = usePlayerStore((state) => state.visibleTrackIndices);
+  const selectedBeat = usePlayerStore((state) => state.selectedBeat);
 
   if (!track) return null;
 
   const isVisible = new Set(visibleTrackIndices).has(trackIndex);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const alphaTabApi = (window as unknown as Record<string, any>).__ALPHATAB_API__;
-  const staffInfo = (() => {
-    const selected = usePlayerStore.getState().selectedBeat;
-    const staffIndex = selected?.trackIndex === trackIndex ? selected.staffIndex : 0;
-    const staff = alphaTabApi?.score?.tracks?.[trackIndex]?.staves?.[staffIndex ?? 0];
-    if (!staff) return null;
-    return {
-      staffIndex: staffIndex ?? 0,
-      tuningValues: [...staff.stringTuning.tunings] as number[],
-      tuningName: staff.stringTuning.name as string,
-      tuningIsStandard: staff.stringTuning.isStandard as boolean,
-      capo: staff.capo as number,
-      transposition: staff.transpositionPitch as number,
-      showTablature: staff.showTablature as boolean,
-      showStandardNotation: staff.showStandardNotation as boolean,
-      isPercussion: staff.isPercussion as boolean,
-      stringCount: (staff.tuning as number[]).length,
-    };
-  })();
-
-  const playbackInfo = (() => {
-    const pi = alphaTabApi?.score?.tracks?.[trackIndex]?.playbackInfo;
-    if (!pi) return null;
-    return {
-      program: pi.program as number,
-      primaryChannel: pi.primaryChannel as number,
-    };
-  })();
-
-  const tuningPresets: TuningPresetInfo[] =
-    staffInfo && staffInfo.showTablature && staffInfo.stringCount > 0
-      ? getTuningPresets(staffInfo.stringCount)
-      : [];
+  const alphaTrack = getApi()?.score?.tracks[trackIndex];
+  const staffs: StaffEditorData[] = (alphaTrack?.staves ?? []).map(
+    (staff, staffIndex) => readStaffEditorData(staffIndex, staff),
+  );
+  const playbackInfo = alphaTrack?.playbackInfo
+    ? {
+        program: alphaTrack.playbackInfo.program,
+        primaryChannel: alphaTrack.playbackInfo.primaryChannel,
+      }
+    : null;
+  const onlyStaff = staffs[0] ?? null;
+  const summary = staffs.length > 1
+    ? t("sidebar.staff.count", { count: staffs.length })
+    : onlyStaff?.isPercussion
+      ? t("sidebar.tracks.percussion")
+      : onlyStaff?.stringCount
+        ? t("sidebar.tracks.stringCount", { count: onlyStaff.stringCount })
+        : "";
 
   return (
     <div className="border-b border-border/30 last:border-b-0">
@@ -77,6 +294,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
         <button
           type="button"
           className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
+          aria-label={t("sidebar.tracks.toggleDetails", { name: track.name })}
           onClick={() => setExpanded(!expanded)}
         >
           {expanded ? (
@@ -92,7 +310,11 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
             isVisible ? "sidebar.tracks.hideTrack" : "sidebar.tracks.showTrack",
             { name: track.name },
           )}
-          onClick={() => executeAppAction("view.setTrackVisible", { trackIndex, visible: !isVisible }, { t })}
+          onClick={() => executeAppAction(
+            "view.setTrackVisible",
+            { trackIndex, visible: !isVisible },
+            { t },
+          )}
         >
           {isVisible ? (
             <Eye className="h-3 w-3" />
@@ -108,12 +330,8 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
         >
           {track.name}
         </span>
-        <span className="text-[9px] text-muted-foreground tabular-nums">
-          {staffInfo?.isPercussion
-            ? t("sidebar.tracks.percussion")
-            : staffInfo?.stringCount
-              ? t("sidebar.tracks.stringCount", { count: staffInfo.stringCount })
-              : ""}
+        <span className="text-[9px] tabular-nums text-muted-foreground">
+          {summary}
         </span>
       </div>
 
@@ -124,151 +342,33 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
             value={track.name}
             placeholder={t("sidebar.tracks.placeholderName")}
             icon={<Guitar className="h-3 w-3" />}
-            onCommit={(v) => executeAppAction("document.track.setName", { trackIndex, name: v }, { t })}
+            onCommit={(name) => executeAppAction(
+              "document.track.setName",
+              { trackIndex, name },
+              { t },
+            )}
           />
           <EditablePropRow
             label={t("sidebar.tracks.shortName")}
-            value={(alphaTabApi?.score?.tracks?.[trackIndex]?.shortName as string) ?? ""}
+            value={alphaTrack?.shortName ?? ""}
             placeholder={t("sidebar.tracks.placeholderShortName")}
-            onCommit={(v) => executeAppAction("document.track.setShortName", { trackIndex, shortName: v }, { t })}
+            onCommit={(shortName) => executeAppAction(
+              "document.track.setShortName",
+              { trackIndex, shortName },
+              { t },
+            )}
           />
 
-          {staffInfo &&
-            staffInfo.showTablature &&
-            staffInfo.stringCount > 0 &&
-            !staffInfo.isPercussion && (
-            <>
-              <div className="group flex items-center gap-2 px-3 py-0.5">
-                <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                  {t("sidebar.tracks.tuning")}
-                </span>
-                <Popover open={tuningOpen} onOpenChange={setTuningOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="ml-auto flex items-center gap-1 text-[11px] font-medium tabular-nums hover:text-primary transition-colors cursor-pointer"
-                    >
-                      <span className="truncate max-w-[120px]">
-                        {staffInfo.tuningName || t("sidebar.tracks.customTuning")}
-                      </span>
-                      <ChevronDown className="h-2.5 w-2.5 shrink-0 opacity-50" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent
-                    className="w-56 p-1 max-h-60 overflow-y-auto"
-                    side="left"
-                    align="start"
-                  >
-                    {tuningPresets.map((preset, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        className={cn(
-                          "flex w-full items-center gap-2 rounded px-2 py-1 text-[11px] hover:bg-accent/50",
-                          preset.tunings.join(",") === staffInfo.tuningValues.join(",") && "bg-accent",
-                        )}
-                        onClick={() => {
-                          executeAppAction("document.staff.setStringTuning", {
-                            trackIndex,
-                            staffIndex: staffInfo.staffIndex,
-                            stringTuning: preset,
-                          }, { t });
-                          setTuningOpen(false);
-                        }}
-                      >
-                        <span className="font-medium truncate">{preset.name}</span>
-                        {preset.isStandard && (
-                          <span className="ml-auto text-[9px] text-muted-foreground">
-                            {t("sidebar.tracks.standard")}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="px-3 py-1">
-                <div className="flex flex-col gap-0.5">
-                  {staffInfo.tuningValues.map((val, i) => {
-                    const noteName = usePlayerStore.getState().formatTuningNote(val);
-                    return (
-                      <div key={i} className="flex items-center gap-1">
-                        <span className="text-[9px] text-muted-foreground/60 w-3 text-right tabular-nums">
-                          {i + 1}
-                        </span>
-                        <button
-                          type="button"
-                          className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                          onClick={() => {
-                            const next = [...staffInfo.tuningValues];
-                            next[i] = Math.max(0, next[i] - 1);
-                            executeAppAction("document.staff.setStringTuning", {
-                              trackIndex,
-                              staffIndex: staffInfo.staffIndex,
-                              stringTuning: {
-                                tunings: next,
-                                name: "",
-                                isStandard: false,
-                              },
-                            }, { t });
-                          }}
-                        >
-                          <ChevronDown className="h-2.5 w-2.5" />
-                        </button>
-                        <span className="text-[10px] font-mono tabular-nums w-7 text-center bg-muted/50 rounded px-0.5">
-                          {noteName}
-                        </span>
-                        <button
-                          type="button"
-                          className="h-4 w-4 flex items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                          onClick={() => {
-                            const next = [...staffInfo.tuningValues];
-                            next[i] = Math.min(127, next[i] + 1);
-                            executeAppAction("document.staff.setStringTuning", {
-                              trackIndex,
-                              staffIndex: staffInfo.staffIndex,
-                              stringTuning: {
-                                tunings: next,
-                                name: "",
-                                isStandard: false,
-                              },
-                            }, { t });
-                          }}
-                        >
-                          <ChevronUp className="h-2.5 w-2.5" />
-                        </button>
-                        <span className="text-[9px] text-muted-foreground/40 tabular-nums">
-                          {val}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <EditableNumberPropRow
-                label={t("sidebar.tracks.capo")}
-                value={staffInfo.capo}
-                min={0}
-                max={24}
-                onCommit={(v) => executeAppAction("document.staff.setCapo", { trackIndex, staffIndex: staffInfo.staffIndex, capo: v }, { t })}
-              />
-            </>
-          )}
-
-          {staffInfo && !staffInfo.isPercussion && (
-            <EditableNumberPropRow
-              label={t("sidebar.tracks.transposition")}
-              value={staffInfo.transposition}
-              suffix={t("sidebar.tracks.semitones")}
-              min={-24}
-              max={24}
-              onCommit={(v) => executeAppAction("document.staff.setTranspositionPitch", {
-                trackIndex,
-                staffIndex: staffInfo.staffIndex,
-                transpositionPitch: v,
-              }, { t })}
+          {staffs.map((staff) => (
+            <StaffMetaEditor
+              key={staff.staffIndex}
+              trackIndex={trackIndex}
+              staff={staff}
+              showHeader={staffs.length > 1}
+              selected={selectedBeat?.trackIndex === trackIndex
+                && selectedBeat.staffIndex === staff.staffIndex}
             />
-          )}
+          ))}
 
           {playbackInfo && (
             <EditableNumberPropRow
@@ -276,13 +376,17 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               value={playbackInfo.program}
               min={0}
               max={127}
-              onCommit={(v) => executeAppAction("document.track.setPlaybackInfoProgram", { trackIndex, program: v }, { t })}
+              onCommit={(program) => executeAppAction(
+                "document.track.setPlaybackInfoProgram",
+                { trackIndex, program },
+                { t },
+              )}
             />
           )}
 
           {playbackInfo && (
             <div className="flex items-center gap-2 px-3 py-0.5">
-              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+              <span className="whitespace-nowrap text-[11px] text-muted-foreground">
                 {t("sidebar.tracks.midiChannel")}
               </span>
               <span className="ml-auto text-[11px] font-medium tabular-nums">
@@ -296,10 +400,14 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   );
 }
 
-export function TracksSection({ dragHandleProps }: { dragHandleProps?: Record<string, unknown> }) {
+export function TracksSection({
+  dragHandleProps,
+}: {
+  dragHandleProps?: Record<string, unknown>;
+}) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
-  const tracks = usePlayerStore((s) => s.tracks);
+  const tracks = usePlayerStore((state) => state.tracks);
 
   if (tracks.length === 0) return null;
 

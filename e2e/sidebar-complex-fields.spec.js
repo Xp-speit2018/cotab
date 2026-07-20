@@ -41,6 +41,16 @@ test("complex field editors commit semantic values and show matching summaries",
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 
+  await page.getByRole("combobox", { name: "Left-hand finger" }).click();
+  await page.getByRole("option", { name: "Index", exact: true }).click();
+  await page.getByRole("combobox", { name: "Accidental" }).click();
+  await page.getByRole("option", { name: "Sharp", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const state = window.__PLAYER_STORE__.getState();
+    const note = state.selectedBeatInfo?.notes[state.selectedNoteIndex];
+    return note ? [note.leftHandFinger, note.accidentalMode] : null;
+  })).toEqual([1, 3]);
+
   await page.getByRole("button", {
     name: "Pick Stroke Up",
     exact: true,

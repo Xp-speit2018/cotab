@@ -19,15 +19,27 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
 import type { SelectedBeatInfo, SelectedNoteInfo } from "@/stores/render-types";
-import { AccentuationType, GraceType, Duration } from "@/core/schema";
+import {
+  AccentuationType,
+  Duration,
+  DynamicValue,
+  Fingers,
+  GraceType,
+  NoteAccidentalMode,
+} from "@/core/schema";
 import {
   EditableNumberPropRow,
   PopoverPropRow,
   PropRow,
   SectionHeader,
+  SelectPropRow,
   ToggleBtn,
 } from "./primitives";
-import { durationLabel, durationTooltip } from "./labels";
+import {
+  durationLabel,
+  durationTooltip,
+  dynamicLabel,
+} from "./labels";
 import { PitchEditor, pitchSummary } from "./editors/PitchEditor";
 import { TupletEditor, tupletSummary } from "./editors/TupletEditor";
 
@@ -40,6 +52,17 @@ const DURATION_VALUES: Duration[] = [
   Duration.ThirtySecond,
   Duration.SixtyFourth,
 ];
+
+const DYNAMIC_VALUES = [
+  DynamicValue.PPP,
+  DynamicValue.PP,
+  DynamicValue.P,
+  DynamicValue.MP,
+  DynamicValue.MF,
+  DynamicValue.F,
+  DynamicValue.FF,
+  DynamicValue.FFF,
+] as const;
 
 export function NoteSection({
   beat,
@@ -292,6 +315,75 @@ export function NoteSection({
                   )}
                 </div>
               </div>
+
+              <SelectPropRow
+                label={t("sidebar.note.noteDynamics")}
+                value={note.dynamics}
+                options={DYNAMIC_VALUES.map((value) => ({
+                  value,
+                  label: dynamicLabel(value),
+                }))}
+                onValueChange={(value) => executeAppAction(
+                  "document.note.setDynamics",
+                  { value },
+                  { t },
+                )}
+              />
+
+              {!note.isPercussion && (
+                <>
+                  {([
+                    ["leftHandFinger", note.leftHandFinger],
+                    ["rightHandFinger", note.rightHandFinger],
+                  ] as const).map(([hand, value]) => (
+                    <SelectPropRow
+                      key={hand}
+                      label={t(`sidebar.note.${hand}`)}
+                      value={value}
+                      options={([
+                        Fingers.Unknown,
+                        Fingers.NoOrDead,
+                        Fingers.Thumb,
+                        Fingers.IndexFinger,
+                        Fingers.MiddleFinger,
+                        Fingers.AnnularFinger,
+                        Fingers.LittleFinger,
+                      ] as const).map((finger) => ({
+                        value: finger,
+                        label: t(`sidebar.note.fingers.${finger}`),
+                      }))}
+                      onValueChange={(finger) => executeAppAction(
+                        hand === "leftHandFinger"
+                          ? "document.note.setLeftHandFinger"
+                          : "document.note.setRightHandFinger",
+                        { value: finger },
+                        { t },
+                      )}
+                    />
+                  ))}
+                  <SelectPropRow
+                    label={t("sidebar.note.accidentalMode")}
+                    value={note.accidentalMode}
+                    options={([
+                      NoteAccidentalMode.Default,
+                      NoteAccidentalMode.ForceNone,
+                      NoteAccidentalMode.ForceNatural,
+                      NoteAccidentalMode.ForceSharp,
+                      NoteAccidentalMode.ForceDoubleSharp,
+                      NoteAccidentalMode.ForceFlat,
+                      NoteAccidentalMode.ForceDoubleFlat,
+                    ] as const).map((mode) => ({
+                      value: mode,
+                      label: t(`sidebar.note.accidentals.${mode}`),
+                    }))}
+                    onValueChange={(value) => executeAppAction(
+                      "document.note.setAccidentalMode",
+                      { value },
+                      { t },
+                    )}
+                  />
+                </>
+              )}
 
             </>
           ) : (

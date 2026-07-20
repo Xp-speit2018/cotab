@@ -396,6 +396,28 @@
       "durationSixtyFourth": "Sixty-fourth Note",
 
       "noteProperties": "Note Properties",
+      "noteDynamics": "Note dynamics",
+      "leftHandFinger": "Left-hand finger",
+      "rightHandFinger": "Right-hand finger",
+      "accidentalMode": "Accidental",
+      "fingers": {
+        "-2": "Unspecified",
+        "-1": "None / dead note",
+        "0": "Thumb",
+        "1": "Index",
+        "2": "Middle",
+        "3": "Ring",
+        "4": "Little"
+      },
+      "accidentals": {
+        "0": "Automatic",
+        "1": "Hide accidental",
+        "2": "Natural",
+        "3": "Sharp",
+        "4": "Double sharp",
+        "5": "Flat",
+        "6": "Double flat"
+      },
       "fret": "Fret",
       "string": "String",
       "pitch": "Pitch",

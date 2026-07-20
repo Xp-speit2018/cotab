@@ -65,6 +65,8 @@ import {
   HarmonicType,
   Duration,
   DynamicValue,
+  Fingers,
+  NoteAccidentalMode,
   NoteOrnament,
 } from "@/core/schema";
 import {
@@ -279,6 +281,35 @@ describe("document.note playback fields", () => {
 
     expect(getNote().get("harmonicValue")).toBe(12);
     expect(getNote().get("dynamics")).toBe(DynamicValue.PP);
+  });
+
+  it("sets fingering and accidental choices", () => {
+    executeDocumentAction("document.note.setLeftHandFinger", {
+      value: Fingers.IndexFinger,
+    }, ctx);
+    executeDocumentAction("document.note.setRightHandFinger", {
+      value: Fingers.Thumb,
+    }, ctx);
+    executeDocumentAction("document.note.setAccidentalMode", {
+      value: NoteAccidentalMode.ForceSharp,
+    }, ctx);
+
+    expect(getNote().get("leftHandFinger")).toBe(Fingers.IndexFinger);
+    expect(getNote().get("rightHandFinger")).toBe(Fingers.Thumb);
+    expect(getNote().get("accidentalMode")).toBe(
+      NoteAccidentalMode.ForceSharp,
+    );
+  });
+
+  it.each([
+    ["document.note.setDynamics", 99],
+    ["document.note.setLeftHandFinger", 5],
+    ["document.note.setRightHandFinger", -3],
+    ["document.note.setAccidentalMode", 7],
+  ] as const)("%s rejects an out-of-range value", (id, value) => {
+    expect(() => executeDocumentActionById(id, { value }, ctx)).toThrow(
+      DocumentActionArgumentsError,
+    );
   });
 
   it.each([

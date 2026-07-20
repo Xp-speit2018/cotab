@@ -396,6 +396,28 @@
       "durationSixtyFourth": "六十四分音符",
 
       "noteProperties": "音符属性",
+      "noteDynamics": "单音力度",
+      "leftHandFinger": "左手指法",
+      "rightHandFinger": "右手指法",
+      "accidentalMode": "临时记号",
+      "fingers": {
+        "-2": "未指定",
+        "-1": "无 / 闷音",
+        "0": "拇指",
+        "1": "食指",
+        "2": "中指",
+        "3": "无名指",
+        "4": "小指"
+      },
+      "accidentals": {
+        "0": "自动",
+        "1": "隐藏临时记号",
+        "2": "还原",
+        "3": "升号",
+        "4": "重升号",
+        "5": "降号",
+        "6": "重降号"
+      },
       "fret": "品位",
       "string": "琴弦",
       "pitch": "音高",

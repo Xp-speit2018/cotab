@@ -17,6 +17,9 @@ import { debugLog } from "@/core/editor/action-log";
 import {
   BendType,
   createNote,
+  DynamicValue,
+  Fingers,
+  NoteAccidentalMode,
   NoteOrnament,
   SlideInType,
   SlideOutType,
@@ -338,10 +341,44 @@ const setHarmonicAction = defineDocumentAction({
     applyNoteUpdates({ harmonicType, harmonicValue });
   },
 });
-const setDynamicsAction = defineIntegerNoteFieldAction(
-  "document.note.setDynamics",
-  "dynamics",
-);
+const setDynamicsAction = defineDocumentAction({
+  id: "document.note.setDynamics",
+  i18nKey: "actions.edit.note.setDynamics",
+  category: "document.note",
+  argsSchema: actionArgs({
+    value: integer.min(DynamicValue.PPP).max(DynamicValue.FFF),
+  }),
+  execute: ({ value }) => applyNoteUpdates({ dynamics: value }),
+});
+const setLeftHandFingerAction = defineDocumentAction({
+  id: "document.note.setLeftHandFinger",
+  i18nKey: "actions.edit.note.setLeftHandFinger",
+  category: "document.note",
+  argsSchema: actionArgs({
+    value: integer.min(Fingers.Unknown).max(Fingers.LittleFinger),
+  }),
+  execute: ({ value }) => applyNoteUpdates({ leftHandFinger: value }),
+});
+const setRightHandFingerAction = defineDocumentAction({
+  id: "document.note.setRightHandFinger",
+  i18nKey: "actions.edit.note.setRightHandFinger",
+  category: "document.note",
+  argsSchema: actionArgs({
+    value: integer.min(Fingers.Unknown).max(Fingers.LittleFinger),
+  }),
+  execute: ({ value }) => applyNoteUpdates({ rightHandFinger: value }),
+});
+const setAccidentalModeAction = defineDocumentAction({
+  id: "document.note.setAccidentalMode",
+  i18nKey: "actions.edit.note.setAccidentalMode",
+  category: "document.note",
+  argsSchema: actionArgs({
+    value: integer
+      .min(NoteAccidentalMode.Default)
+      .max(NoteAccidentalMode.ForceDoubleFlat),
+  }),
+  execute: ({ value }) => applyNoteUpdates({ accidentalMode: value }),
+});
 const setFretAction = defineIntegerNoteFieldAction(
   "document.note.setFret",
   "fret",
@@ -532,6 +569,9 @@ export const noteDocumentActions = [
   setHarmonicValueAction,
   setHarmonicAction,
   setDynamicsAction,
+  setLeftHandFingerAction,
+  setRightHandFingerAction,
+  setAccidentalModeAction,
   setFretAction,
   setStringAction,
   setPitchAction,

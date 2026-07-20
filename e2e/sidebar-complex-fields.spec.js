@@ -77,6 +77,29 @@ test("complex field editors commit semantic values and show matching summaries",
     name: /Harmonic.*Artificial.*12/,
   })).toBeVisible();
 
+  await page.getByRole("button", { name: "Slide Out", exact: true }).click();
+  await page.getByRole("combobox", { name: "Slide Out" }).click();
+  await page.getByRole("option", { name: "Pick Slide Up", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const state = window.__PLAYER_STORE__.getState();
+    return state.selectedBeatInfo?.notes[state.selectedNoteIndex]?.slideOutType;
+  })).toBe(6);
+
+  await page.getByRole("button", { name: "Ornament", exact: true }).click();
+  await page.getByRole("combobox", { name: "Ornament" }).click();
+  await page.getByRole("option", { name: "Lower Mordent", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const state = window.__PLAYER_STORE__.getState();
+    return state.selectedBeatInfo?.notes[state.selectedNoteIndex]?.ornament;
+  })).toBe(4);
+
+  await page.getByRole("button", { name: "Beat Vibrato", exact: true }).click();
+  await page.getByRole("combobox", { name: "Beat Vibrato" }).click();
+  await page.getByRole("option", { name: "Wide", exact: true }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().selectedBeatInfo?.vibrato,
+  )).toBe(2);
+
   await page.getByRole("button", { name: "Bend", exact: true }).click();
   const bendRow = page.getByRole("button", { name: /Bend.*\+1 tones/ });
   await expect(bendRow).toBeVisible();

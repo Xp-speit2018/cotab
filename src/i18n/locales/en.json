@@ -450,8 +450,10 @@
       "bend": "Bend",
       "bendType": "Bend Type",
       "bendHelp": "Choose a bend shape, then adjust its pitch curve without triggering intermediate score renders.",
+      "vibrato": "Vibrato",
       "vibratoSlight": "Vibrato (Slight)",
       "vibratoWide": "Vibrato (Wide)",
+      "slideIn": "Slide In",
       "slideInBelow": "Slide In (Below)",
       "slideInAbove": "Slide In (Above)",
       "slideOut": "Slide Out",
@@ -589,6 +591,26 @@
       "outDown": "Out Down",
       "pickSlideDown": "Pick Slide Down",
       "pickSlideUp": "Pick Slide Up"
+    },
+
+    "slideInTypes": {
+      "none": "None",
+      "intoFromBelow": "From Below",
+      "intoFromAbove": "From Above"
+    },
+
+    "vibratoTypes": {
+      "none": "None",
+      "slight": "Slight",
+      "wide": "Wide"
+    },
+
+    "ornamentTypes": {
+      "none": "None",
+      "invertedTurn": "Inverted Turn",
+      "turn": "Turn",
+      "upperMordent": "Upper Mordent",
+      "lowerMordent": "Lower Mordent"
     },
 
     "tripletFeels": {

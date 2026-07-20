@@ -19,6 +19,7 @@ import { engine, type PendingSelection, type SelectedBeat } from "@/core/engine"
 import {
   createBeat,
   createNote,
+  VibratoType,
   WhammyType,
   type BendPointSchema,
 } from "@/core/schema";
@@ -575,10 +576,15 @@ const setDynamicsAction = defineIntegerBeatFieldAction(
   "document.beat.setDynamics",
   "dynamics",
 );
-const setVibratoAction = defineIntegerBeatFieldAction(
-  "document.beat.setVibrato",
-  "vibrato",
-);
+const setVibratoAction = defineDocumentAction({
+  id: "document.beat.setVibrato",
+  i18nKey: "actions.edit.beat.setVibrato",
+  category: "document.beat",
+  argsSchema: actionArgs({
+    value: integer.min(VibratoType.None).max(VibratoType.Wide),
+  }),
+  execute: ({ value }) => applyBeatUpdates({ vibrato: value }),
+});
 const setDeadSlappedAction = defineBooleanBeatFieldAction(
   "document.beat.setDeadSlapped",
   "deadSlapped",

@@ -4,7 +4,6 @@ import {
   AudioWaveform,
   ChevronsDown,
   ChevronsUp as BrushUp,
-  CornerRightDown,
   CornerRightUp,
   Hand,
   MoveRight,
@@ -44,7 +43,6 @@ import {
 import {
   EditablePropRow,
   PopoverPropRow,
-  PropRow,
   SectionHeader,
   SelectPropRow,
   ToggleBtn,
@@ -68,8 +66,41 @@ import {
   dynamicTooltip,
   harmonicTypeLabel,
   graceTypeLabel,
+  ornamentLabel,
+  slideInTypeLabel,
   slideOutTypeLabel,
+  vibratoLabel,
 } from "./labels";
+
+const VIBRATO_VALUES = [
+  VibratoType.None,
+  VibratoType.Slight,
+  VibratoType.Wide,
+] as const;
+
+const SLIDE_IN_VALUES = [
+  SlideInType.None,
+  SlideInType.IntoFromBelow,
+  SlideInType.IntoFromAbove,
+] as const;
+
+const SLIDE_OUT_VALUES = [
+  SlideOutType.None,
+  SlideOutType.Shift,
+  SlideOutType.Legato,
+  SlideOutType.OutUp,
+  SlideOutType.OutDown,
+  SlideOutType.PickSlideDown,
+  SlideOutType.PickSlideUp,
+] as const;
+
+const ORNAMENT_VALUES = [
+  NoteOrnament.None,
+  NoteOrnament.InvertedTurn,
+  NoteOrnament.Turn,
+  NoteOrnament.UpperMordent,
+  NoteOrnament.LowerMordent,
+] as const;
 
 const RASGUEADO_OPTIONS = [
   { value: Rasgueado.None, label: "None" },
@@ -161,36 +192,20 @@ export function EffectsSection({
                     icon={<TrendingUp className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
-                    label={t("sidebar.effects.vibratoSlight")}
-                    pressed={note.vibrato === VibratoType.Slight}
+                    label={t("sidebar.effects.vibrato")}
+                    pressed={note.vibrato !== VibratoType.None}
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setVibrato", { value: pressed ? VibratoType.Slight : VibratoType.None }, { t })
                     }
                     icon={<Waves className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
-                    label={t("sidebar.effects.vibratoWide")}
-                    pressed={note.vibrato === VibratoType.Wide}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("document.note.setVibrato", { value: pressed ? VibratoType.Wide : VibratoType.None }, { t })
-                    }
-                    icon={<Waves className="h-3.5 w-3.5" strokeWidth={3} />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.slideInBelow")}
-                    pressed={note.slideInType === SlideInType.IntoFromBelow}
+                    label={t("sidebar.effects.slideIn")}
+                    pressed={note.slideInType !== SlideInType.None}
                     onPressedChange={(pressed) =>
                       executeAppAction("document.note.setSlideInType", { value: pressed ? SlideInType.IntoFromBelow : SlideInType.None }, { t })
                     }
                     icon={<CornerRightUp className="h-3.5 w-3.5" />}
-                  />
-                  <ToggleBtn
-                    label={t("sidebar.effects.slideInAbove")}
-                    pressed={note.slideInType === SlideInType.IntoFromAbove}
-                    onPressedChange={(pressed) =>
-                      executeAppAction("document.note.setSlideInType", { value: pressed ? SlideInType.IntoFromAbove : SlideInType.None }, { t })
-                    }
-                    icon={<CornerRightDown className="h-3.5 w-3.5" />}
                   />
                   <ToggleBtn
                     label={t("sidebar.effects.slideOut")}
@@ -284,6 +299,38 @@ export function EffectsSection({
                   />
                 </PopoverPropRow>
               )}
+              {note.vibrato !== VibratoType.None && (
+                <SelectPropRow
+                  label={t("sidebar.effects.vibrato")}
+                  value={note.vibrato}
+                  options={VIBRATO_VALUES.map((value) => ({
+                    value,
+                    label: vibratoLabel(value, t),
+                  }))}
+                  icon={<Waves className="h-3 w-3" />}
+                  onValueChange={(value) => executeAppAction(
+                    "document.note.setVibrato",
+                    { value },
+                    { t },
+                  )}
+                />
+              )}
+              {note.slideInType !== SlideInType.None && (
+                <SelectPropRow
+                  label={t("sidebar.effects.slideIn")}
+                  value={note.slideInType}
+                  options={SLIDE_IN_VALUES.map((value) => ({
+                    value,
+                    label: slideInTypeLabel(value, t),
+                  }))}
+                  icon={<CornerRightUp className="h-3 w-3" />}
+                  onValueChange={(value) => executeAppAction(
+                    "document.note.setSlideInType",
+                    { value },
+                    { t },
+                  )}
+                />
+              )}
               {note.harmonicType !== HarmonicType.None && (
                 <PopoverPropRow
                   label={t("sidebar.effects.harmonic")}
@@ -321,10 +368,35 @@ export function EffectsSection({
                 </PopoverPropRow>
               )}
               {note.slideOutType !== SlideOutType.None && (
-                <PropRow
+                <SelectPropRow
                   label={t("sidebar.effects.slideOut")}
-                  value={slideOutTypeLabel(note.slideOutType, t)}
+                  value={note.slideOutType}
+                  options={SLIDE_OUT_VALUES.map((value) => ({
+                    value,
+                    label: slideOutTypeLabel(value, t),
+                  }))}
                   icon={<MoveRight className="h-3 w-3" />}
+                  onValueChange={(value) => executeAppAction(
+                    "document.note.setSlideOutType",
+                    { value },
+                    { t },
+                  )}
+                />
+              )}
+              {note.ornament !== NoteOrnament.None && (
+                <SelectPropRow
+                  label={t("sidebar.effects.ornament")}
+                  value={note.ornament}
+                  options={ORNAMENT_VALUES.map((value) => ({
+                    value,
+                    label: ornamentLabel(value, t),
+                  }))}
+                  icon={<RotateCcw className="h-3 w-3" />}
+                  onValueChange={(value) => executeAppAction(
+                    "document.note.setOrnament",
+                    { value },
+                    { t },
+                  )}
                 />
               )}
               {note.trillValue >= 0 && (
@@ -502,6 +574,23 @@ export function EffectsSection({
                 onDone={() => setWhammyOpen(false)}
               />
             </PopoverPropRow>
+          )}
+
+          {beat.vibrato !== VibratoType.None && (
+            <SelectPropRow
+              label={t("sidebar.effects.beatVibrato")}
+              value={beat.vibrato}
+              options={VIBRATO_VALUES.map((value) => ({
+                value,
+                label: vibratoLabel(value, t),
+              }))}
+              icon={<Waves className="h-3 w-3" />}
+              onValueChange={(value) => executeAppAction(
+                "document.beat.setVibrato",
+                { value },
+                { t },
+              )}
+            />
           )}
 
           {beat.brushType !== BrushType.None && (

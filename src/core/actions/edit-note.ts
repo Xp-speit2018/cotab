@@ -14,7 +14,15 @@ import {
 } from "@/core/actions/args-schema";
 import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
-import { BendType, createNote, type BendPointSchema } from "@/core/schema";
+import {
+  BendType,
+  createNote,
+  NoteOrnament,
+  SlideInType,
+  SlideOutType,
+  VibratoType,
+  type BendPointSchema,
+} from "@/core/schema";
 
 const transact = (fn: () => void) => engine.localEditYDoc(fn);
 
@@ -155,10 +163,15 @@ const setIsHammerPullOriginAction = defineBooleanNoteFieldAction(
   "document.note.setIsHammerPullOrigin",
   "isHammerPullOrigin",
 );
-const setVibratoAction = defineIntegerNoteFieldAction(
-  "document.note.setVibrato",
-  "vibrato",
-);
+const setVibratoAction = defineDocumentAction({
+  id: "document.note.setVibrato",
+  i18nKey: "actions.edit.note.setVibrato",
+  category: "document.note",
+  argsSchema: actionArgs({
+    value: integer.min(VibratoType.None).max(VibratoType.Wide),
+  }),
+  execute: ({ value }) => applyNoteUpdates({ vibrato: value }),
+});
 const setBendTypeAction = defineIntegerNoteFieldAction(
   "document.note.setBendType",
   "bendType",
@@ -293,10 +306,15 @@ const setBendAction = defineDocumentAction({
   },
 });
 
-const setSlideOutTypeAction = defineIntegerNoteFieldAction(
-  "document.note.setSlideOutType",
-  "slideOutType",
-);
+const setSlideOutTypeAction = defineDocumentAction({
+  id: "document.note.setSlideOutType",
+  i18nKey: "actions.edit.note.setSlideOutType",
+  category: "document.note",
+  argsSchema: actionArgs({
+    value: integer.min(SlideOutType.None).max(SlideOutType.PickSlideUp),
+  }),
+  execute: ({ value }) => applyNoteUpdates({ slideOutType: value }),
+});
 const setHarmonicTypeAction = defineIntegerNoteFieldAction(
   "document.note.setHarmonicType",
   "harmonicType",
@@ -391,10 +409,15 @@ const setPercussionArticulationAction = defineIntegerNoteFieldAction(
   "document.note.setPercussionArticulation",
   "percussionArticulation",
 );
-const setSlideInTypeAction = defineIntegerNoteFieldAction(
-  "document.note.setSlideInType",
-  "slideInType",
-);
+const setSlideInTypeAction = defineDocumentAction({
+  id: "document.note.setSlideInType",
+  i18nKey: "actions.edit.note.setSlideInType",
+  category: "document.note",
+  argsSchema: actionArgs({
+    value: integer.min(SlideInType.None).max(SlideInType.IntoFromAbove),
+  }),
+  execute: ({ value }) => applyNoteUpdates({ slideInType: value }),
+});
 
 const setTrillAction = defineDocumentAction({
   id: "document.note.setTrill",
@@ -409,10 +432,15 @@ const setTrillAction = defineDocumentAction({
   },
 });
 
-const setOrnamentAction = defineIntegerNoteFieldAction(
-  "document.note.setOrnament",
-  "ornament",
-);
+const setOrnamentAction = defineDocumentAction({
+  id: "document.note.setOrnament",
+  i18nKey: "actions.edit.note.setOrnament",
+  category: "document.note",
+  argsSchema: actionArgs({
+    value: integer.min(NoteOrnament.None).max(NoteOrnament.LowerMordent),
+  }),
+  execute: ({ value }) => applyNoteUpdates({ ornament: value }),
+});
 const setIsLeftHandTappedAction = defineBooleanNoteFieldAction(
   "document.note.setIsLeftHandTapped",
   "isLeftHandTapped",

@@ -384,6 +384,7 @@ export function SelectPropRow({
       >
         <SelectTrigger
           size="sm"
+          aria-label={label}
           className="ml-auto h-6 min-w-24 max-w-36 border-0 px-1.5 text-[11px] shadow-none"
         >
           <SelectValue />

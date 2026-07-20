@@ -335,6 +335,28 @@ describe("document.note.setOrnament", () => {
   });
 });
 
+describe("document.note choice action validation", () => {
+  it.each([
+    ["document.note.setVibrato", -1, "vibrato"],
+    ["document.note.setVibrato", 3, "vibrato"],
+    ["document.note.setSlideInType", 3, "slideInType"],
+    ["document.note.setSlideOutType", 7, "slideOutType"],
+    ["document.note.setOrnament", 5, "ornament"],
+  ])("%s rejects %i for %s before updating Y.Doc", (actionId, value, field) => {
+    const note = getNote();
+    const before = note.get(field);
+    let updates = 0;
+    const listener = () => updates++;
+    note.observe(listener);
+
+    expect(() => executeDocumentActionById(actionId, { value }, ctx))
+      .toThrow(DocumentActionArgumentsError);
+    expect(note.get(field)).toBe(before);
+    expect(updates).toBe(0);
+    note.unobserve(listener);
+  });
+});
+
 describe("document.note.setIsLeftHandTapped", () => {
   it("toggles isLeftHandTapped", () => {
     executeDocumentAction("document.note.setIsLeftHandTapped", { value: true }, ctx);

@@ -70,6 +70,7 @@ import {
   GraceType,
   Rasgueado,
   TremoloPickingStyle,
+  VibratoType,
 } from "@/core/schema";
 import {
   DocumentActionArgumentsError,
@@ -354,6 +355,26 @@ describe("applyBeatUpdates property setters", () => {
     executeDocumentAction("document.beat.setVibrato", { value: 1 }, ctx);
     expect(resolveYBeatHelper(0, 0, 0, 0, 0)!.get("vibrato")).toBe(before);
   });
+
+  it.each([-1, VibratoType.Wide + 1])(
+    "rejects invalid beat vibrato %i before updating Y.Doc",
+    (value) => {
+      const beat = resolveYBeatHelper(0, 0, 0, 0, 0)!;
+      const before = beat.get("vibrato");
+      let updates = 0;
+      const listener = () => updates++;
+      beat.observe(listener);
+
+      expect(() => executeDocumentActionById(
+        "document.beat.setVibrato",
+        { value },
+        ctx,
+      )).toThrow(DocumentActionArgumentsError);
+      expect(beat.get("vibrato")).toBe(before);
+      expect(updates).toBe(0);
+      beat.unobserve(listener);
+    },
+  );
 });
 
 describe("document.beat nested playback fields", () => {

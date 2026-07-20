@@ -165,6 +165,15 @@ export function slideOutTypeLabel(st: SlideOutType, t: (key: string) => string):
   return map[st] ?? String(st);
 }
 
+export function slideInTypeLabel(st: SlideInType, t: (key: string) => string): string {
+  const map: Record<number, string> = {
+    [SlideInType.None]: t("sidebar.slideInTypes.none"),
+    [SlideInType.IntoFromBelow]: t("sidebar.slideInTypes.intoFromBelow"),
+    [SlideInType.IntoFromAbove]: t("sidebar.slideInTypes.intoFromAbove"),
+  };
+  return map[st] ?? String(st);
+}
+
 export function tripletFeelLabel(tf: TripletFeel, t: (key: string) => string): string {
   const map: Record<number, string> = {
     [TripletFeel.NoTripletFeel]: t("sidebar.tripletFeels.none"),
@@ -217,11 +226,11 @@ export function crescendoLabel(c: CrescendoType): string {
   }
 }
 
-export function vibratoLabel(v: VibratoType): string {
+export function vibratoLabel(v: VibratoType, t: (key: string) => string): string {
   switch (v) {
-    case VibratoType.None: return "None";
-    case VibratoType.Slight: return "Slight";
-    case VibratoType.Wide: return "Wide";
+    case VibratoType.None: return t("sidebar.vibratoTypes.none");
+    case VibratoType.Slight: return t("sidebar.vibratoTypes.slight");
+    case VibratoType.Wide: return t("sidebar.vibratoTypes.wide");
     default: return String(v);
   }
 }
@@ -328,13 +337,13 @@ export function fingerLabel(f: Fingers): string {
   }
 }
 
-export function ornamentLabel(o: NoteOrnament): string {
+export function ornamentLabel(o: NoteOrnament, t: (key: string) => string): string {
   switch (o) {
-    case NoteOrnament.None: return "None";
-    case NoteOrnament.InvertedTurn: return "Inverted Turn";
-    case NoteOrnament.Turn: return "Turn";
-    case NoteOrnament.UpperMordent: return "Upper Mordent";
-    case NoteOrnament.LowerMordent: return "Lower Mordent";
+    case NoteOrnament.None: return t("sidebar.ornamentTypes.none");
+    case NoteOrnament.InvertedTurn: return t("sidebar.ornamentTypes.invertedTurn");
+    case NoteOrnament.Turn: return t("sidebar.ornamentTypes.turn");
+    case NoteOrnament.UpperMordent: return t("sidebar.ornamentTypes.upperMordent");
+    case NoteOrnament.LowerMordent: return t("sidebar.ornamentTypes.lowerMordent");
     default: return String(o);
   }
 }

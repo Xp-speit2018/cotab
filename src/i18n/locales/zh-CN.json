@@ -450,8 +450,10 @@
       "bend": "推弦",
       "bendType": "推弦类型",
       "bendHelp": "选择推弦形状后调整音高曲线，编辑过程中不会反复触发谱面渲染。",
+      "vibrato": "揉弦",
       "vibratoSlight": "揉弦 (轻微)",
       "vibratoWide": "揉弦 (宽幅)",
+      "slideIn": "滑入",
       "slideInBelow": "滑入 (从下方)",
       "slideInAbove": "滑入 (从上方)",
       "slideOut": "滑出",
@@ -589,6 +591,26 @@
       "outDown": "向下滑出",
       "pickSlideDown": "拨片向下滑",
       "pickSlideUp": "拨片向上滑"
+    },
+
+    "slideInTypes": {
+      "none": "无",
+      "intoFromBelow": "从下方",
+      "intoFromAbove": "从上方"
+    },
+
+    "vibratoTypes": {
+      "none": "无",
+      "slight": "轻微",
+      "wide": "宽幅"
+    },
+
+    "ornamentTypes": {
+      "none": "无",
+      "invertedTurn": "倒回音",
+      "turn": "回音",
+      "upperMordent": "上波音",
+      "lowerMordent": "下波音"
     },
 
     "tripletFeels": {

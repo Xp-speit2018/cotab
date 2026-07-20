@@ -30,7 +30,6 @@ import {
 import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Toggle } from "@/components/ui/toggle";
 import {
   Select,
   SelectContent,
@@ -287,10 +286,8 @@ export function SortableSection({
 /**
  * A single toggle button with icon + tooltip.
  *
- * NOTE: We apply active styling via the `pressed` prop directly instead of
- * using Radix Toggle's `data-[state=on]` CSS selectors because wrapping
- * the Toggle inside `<TooltipTrigger asChild>` causes the tooltip's
- * `data-state` (open/closed) to override the toggle's `data-state` (on/off).
+ * TooltipTrigger owns `data-state`, so this uses an explicitly controlled
+ * button instead of relying on Radix Toggle's conflicting state attribute.
  */
 export function ToggleBtn({
   label,
@@ -310,12 +307,13 @@ export function ToggleBtn({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Toggle
-          size="sm"
-          pressed={pressed}
-          onPressedChange={onPressedChange}
+        <button
+          type="button"
+          onClick={() => onPressedChange?.(!pressed)}
+          disabled={!onPressedChange}
+          aria-pressed={pressed}
           className={cn(
-            "h-7 w-7 p-0 !bg-transparent text-muted-foreground/70 hover:!bg-transparent hover:text-foreground data-[state=on]:!bg-transparent [&>*]:transition-transform [&>*]:duration-150",
+            "inline-flex h-7 w-7 items-center justify-center p-0 text-muted-foreground/70 transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50 [&>*]:transition-transform [&>*]:duration-150",
             pressed
               ? "text-blue-700 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-300 [&>*]:scale-110 hover:[&>*]:scale-110"
               : "hover:[&>*]:scale-105",
@@ -328,7 +326,7 @@ export function ToggleBtn({
               {textIcon}
             </span>
           )}
-        </Toggle>
+        </button>
       </TooltipTrigger>
       <TooltipContent side="top" sideOffset={4}>{label}</TooltipContent>
     </Tooltip>

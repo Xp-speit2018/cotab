@@ -12,7 +12,7 @@ import {
   valueIntegerArgs,
   valueNumberArgs,
 } from "@/core/actions/args-schema";
-import { engine } from "@/core/engine";
+import { engine, type PendingSelection } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
 import {
   BendType,
@@ -26,7 +26,29 @@ import {
   type BendPointSchema,
 } from "@/core/schema";
 
-const transact = (fn: () => void) => engine.localEditYDoc(fn);
+function pendingSelectionFromSelector(): PendingSelection | null {
+  const {
+    trackIndex,
+    staffIndex,
+    barIndex,
+    voiceIndex,
+    beatIndex,
+    string,
+  } = engine.selector;
+  if (
+    trackIndex === null
+    || staffIndex === null
+    || barIndex === null
+    || voiceIndex === null
+    || beatIndex === null
+  ) return null;
+  return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
+}
+
+const transact = (
+  fn: () => void,
+  nextSelection: PendingSelection | null = pendingSelectionFromSelector(),
+) => engine.localEditYDoc(fn, nextSelection);
 
 function applyNoteUpdates(updates: Record<string, unknown>): void {
   const {

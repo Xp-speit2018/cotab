@@ -45,6 +45,7 @@ type RuntimeWindow = Window & {
                 notes: Array<{
                   fret: number;
                   string: number;
+                  isGhost: boolean;
                   bendType: number;
                   bendPoints: Array<{ offset: number; value: number }> | null;
                 }>;
@@ -148,7 +149,7 @@ test("keyboard editing projects shortcut values into document action objects", a
   expect(updated).toEqual({ duration: 2, fret: 0 });
 });
 
-test("live document edits reuse the rendered AlphaTab viewport", async ({
+test("note property edits reuse the rendered AlphaTab viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
@@ -182,7 +183,7 @@ test("live document edits reuse the rendered AlphaTab viewport", async ({
       viewport.scrollWidth - viewport.clientWidth,
     );
     return {
-      duration: beat.duration,
+      isGhost: note.isGhost,
       scrollLeft: viewport.scrollLeft,
     };
   });
@@ -261,17 +262,16 @@ test("live document edits reuse the rendered AlphaTab viewport", async ({
     return renderedPartials.length;
   });
 
-  expect(initial.duration).not.toBe(2);
   expect(initial.scrollLeft).toBeGreaterThan(0);
   expect(renderedPartialCount).toBeGreaterThan(0);
 
-  await page.keyboard.press("-");
-  await page.waitForFunction(() => {
+  await page.getByRole("button", { name: "Ghost Note", exact: true }).click();
+  await page.waitForFunction((wasGhost) => {
     const runtime = window as unknown as RuntimeWindow;
-    return runtime.__ALPHATAB_API__.score.tracks[0].staves[0]
-      .bars[8].voices[0].beats[0].duration === 2
+    return runtime.__ALPHATAB_API__.score.tracks[0].staves[0].bars[8]
+      .voices[0].beats[0].notes[0].isGhost === !wasGhost
       && (runtime.__RENDER_REUSE_PROBE__?.completedRenders ?? 0) > 0;
-  });
+  }, initial.isGhost);
   await page.waitForTimeout(400);
 
   const result = await page.evaluate(() => {

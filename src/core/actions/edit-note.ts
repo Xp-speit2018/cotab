@@ -373,14 +373,20 @@ const setStringAction = defineDocumentAction({
   },
 });
 
-const setOctaveAction = defineIntegerNoteFieldAction(
-  "document.note.setOctave",
-  "octave",
-);
-const setToneAction = defineIntegerNoteFieldAction(
-  "document.note.setTone",
-  "tone",
-);
+const setPitchAction = defineDocumentAction({
+  id: "document.note.setPitch",
+  i18nKey: "actions.edit.note.setPitch",
+  category: "document.note",
+  argsSchema: actionArgs({
+    octave: integer.min(0).max(9)
+      .describe("Scientific pitch octave number"),
+    tone: integer.min(0).max(11)
+      .describe("Chromatic pitch class where C=0, C-sharp=1, and B=11"),
+  }),
+  execute: ({ octave, tone }) => {
+    applyNoteUpdates({ octave, tone });
+  },
+});
 const setPercussionArticulationAction = defineIntegerNoteFieldAction(
   "document.note.setPercussionArticulation",
   "percussionArticulation",
@@ -500,8 +506,7 @@ export const noteDocumentActions = [
   setDynamicsAction,
   setFretAction,
   setStringAction,
-  setOctaveAction,
-  setToneAction,
+  setPitchAction,
   setPercussionArticulationAction,
   setSlideInTypeAction,
   setTrillAction,

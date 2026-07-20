@@ -283,12 +283,35 @@ describe("document.note playback fields", () => {
 
   it.each([
     ["document.note.setFret", "fret", 9],
-    ["document.note.setOctave", "octave", 5],
-    ["document.note.setTone", "tone", 7],
     ["document.note.setPercussionArticulation", "percussionArticulation", 42],
   ] as const)("%s writes %s directly", (actionId, field, value) => {
     executeDocumentAction(actionId, { value }, ctx);
     expect(getNote().get(field)).toBe(value);
+  });
+
+  it("sets octave and tone atomically", () => {
+    executeDocumentAction("document.note.setPitch", { octave: 5, tone: 7 }, ctx);
+    expect(getNote().get("octave")).toBe(5);
+    expect(getNote().get("tone")).toBe(7);
+  });
+
+  it.each([
+    { octave: -1, tone: 0 },
+    { octave: 10, tone: 0 },
+    { octave: 4, tone: -1 },
+    { octave: 4, tone: 12 },
+  ])("rejects an invalid pitch before updating Y.Doc: %o", (args) => {
+    const note = getNote();
+    const before = [note.get("octave"), note.get("tone")];
+    let updates = 0;
+    const listener = () => updates++;
+    note.observe(listener);
+
+    expect(() => executeDocumentAction("document.note.setPitch", args, ctx))
+      .toThrow(DocumentActionArgumentsError);
+    expect([note.get("octave"), note.get("tone")]).toEqual(before);
+    expect(updates).toBe(0);
+    note.unobserve(listener);
   });
 
   it("sets string directly", () => {

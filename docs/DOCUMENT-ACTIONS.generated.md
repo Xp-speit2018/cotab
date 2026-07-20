@@ -6,7 +6,7 @@ Every action accepts one strict JSON object. The schemas below are projected
 from the runtime `DocumentActionDefinition.argsSchema` values used for
 validation and execution.
 
-Action count: 112.
+Action count: 111.
 
 ID | Category | i18n key | Arguments JSON Schema
 --- | --- | --- | ---
@@ -82,13 +82,12 @@ ID | Category | i18n key | Arguments JSON Schema
 `document.note.setIsPalmMute` | `document.note` | `actions.edit.note.setIsPalmMute` | `{"type":"object","properties":{"value":{"type":"boolean"}},"required":["value"],"additionalProperties":false}`
 `document.note.setIsStaccato` | `document.note` | `actions.edit.note.setIsStaccato` | `{"type":"object","properties":{"value":{"type":"boolean"}},"required":["value"],"additionalProperties":false}`
 `document.note.setIsTieDestination` | `document.note` | `actions.edit.note.setIsTieDestination` | `{"type":"object","properties":{"value":{"type":"boolean"}},"required":["value"],"additionalProperties":false}`
-`document.note.setOctave` | `document.note` | `actions.edit.note.setOctave` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
 `document.note.setOrnament` | `document.note` | `actions.edit.note.setOrnament` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
 `document.note.setPercussionArticulation` | `document.note` | `actions.edit.note.setPercussionArticulation` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
+`document.note.setPitch` | `document.note` | `actions.edit.note.setPitch` | `{"type":"object","properties":{"octave":{"type":"integer","minimum":0,"maximum":9,"description":"Scientific pitch octave number"},"tone":{"type":"integer","minimum":0,"maximum":11,"description":"Chromatic pitch class where C=0, C-sharp=1, and B=11"}},"required":["octave","tone"],"additionalProperties":false}`
 `document.note.setSlideInType` | `document.note` | `actions.edit.note.setSlideInType` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
 `document.note.setSlideOutType` | `document.note` | `actions.edit.note.setSlideOutType` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
 `document.note.setString` | `document.note` | `actions.edit.note.setString` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
-`document.note.setTone` | `document.note` | `actions.edit.note.setTone` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
 `document.note.setTrill` | `document.note` | `actions.edit.note.setTrill` | `{"type":"object","properties":{"trillValue":{"type":"number"},"trillSpeed":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["trillValue","trillSpeed"],"additionalProperties":false}`
 `document.note.setVibrato` | `document.note` | `actions.edit.note.setVibrato` | `{"type":"object","properties":{"value":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["value"],"additionalProperties":false}`
 `document.paste` | `document.clipboard` | `shortcuts.clipboard.paste` | `{"type":"object","properties":{},"additionalProperties":false}`

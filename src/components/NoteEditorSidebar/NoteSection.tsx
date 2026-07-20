@@ -28,6 +28,7 @@ import {
   ToggleBtn,
 } from "./primitives";
 import { durationLabel, durationTooltip } from "./labels";
+import { PitchEditor, pitchSummary } from "./editors/PitchEditor";
 import { TupletEditor, tupletSummary } from "./editors/TupletEditor";
 
 const DURATION_VALUES: Duration[] = [
@@ -51,6 +52,7 @@ export function NoteSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const [pitchOpen, setPitchOpen] = useState(false);
   const [tupletOpen, setTupletOpen] = useState(false);
   const durationDisabled = beat.graceType !== GraceType.None;
   return (
@@ -172,26 +174,27 @@ export function NoteSection({
               )}
 
               {!note.isPercussion && note.fret < 0 && (
-                <div className="grid grid-cols-2 gap-x-1">
-                  <EditableNumberPropRow
-                    label={t("sidebar.note.octave")}
-                    value={note.octave}
-                    min={0}
-                    max={9}
-                    onCommit={(value) =>
-                      executeAppAction("document.note.setOctave", { value }, { t })
-                    }
+                <PopoverPropRow
+                  label={t("sidebar.note.pitch")}
+                  value={pitchSummary(note.octave, note.tone)}
+                  open={pitchOpen}
+                  onOpenChange={setPitchOpen}
+                  description={t("sidebar.note.pitchHelp")}
+                >
+                  <PitchEditor
+                    octave={note.octave}
+                    tone={note.tone}
+                    pitchClassLabel={t("sidebar.note.pitchClass")}
+                    octaveLabel={t("sidebar.note.octave")}
+                    applyLabel={t("sidebar.common.apply")}
+                    onCommit={(octave, tone) => executeAppAction(
+                      "document.note.setPitch",
+                      { octave, tone },
+                      { t },
+                    )}
+                    onDone={() => setPitchOpen(false)}
                   />
-                  <EditableNumberPropRow
-                    label={t("sidebar.note.tone")}
-                    value={note.tone}
-                    min={0}
-                    max={11}
-                    onCommit={(value) =>
-                      executeAppAction("document.note.setTone", { value }, { t })
-                    }
-                  />
-                </div>
+                </PopoverPropRow>
               )}
 
               <div className="px-2">

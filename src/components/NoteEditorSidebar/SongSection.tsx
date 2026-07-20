@@ -22,7 +22,6 @@ import { usePlayerStore } from "@/stores/render-store";
 import type { ScoreMetadataField } from "@/stores/render-types";
 import {
   DialogPropRow,
-  EditableNumberPropRow,
   EditablePropRow,
   SectionHeader,
 } from "./primitives";
@@ -51,28 +50,12 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
   const scoreTab = usePlayerStore((s) => s.scoreTab);
   const scoreInstructions = usePlayerStore((s) => s.scoreInstructions);
   const scoreNotices = usePlayerStore((s) => s.scoreNotices);
-  const scoreTempo = usePlayerStore((s) => s.scoreTempo);
-  const scoreTempoLabel = usePlayerStore((s) => s.scoreTempoLabel);
   const scoreMasterBarCount = usePlayerStore((s) => s.scoreMasterBarCount);
   const scoreTempoMap = usePlayerStore((s) => s.scoreTempoMap);
 
   const handleMeta = useCallback(
     (field: ScoreMetadataField) => (value: string) => {
       executeAppAction("document.score.setMetadata", { field, value }, { t });
-    },
-    [t],
-  );
-
-  const handleTempo = useCallback(
-    (tempo: number) => {
-      executeAppAction("document.score.setTempo", { tempo }, { t });
-    },
-    [t],
-  );
-
-  const handleTempoLabel = useCallback(
-    (label: string) => {
-      executeAppAction("document.score.setTempoLabel", { label }, { t });
     },
     [t],
   );
@@ -219,22 +202,6 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
               onDone={() => setTempoMapOpen(false)}
             />
           </DialogPropRow>
-          <EditableNumberPropRow
-            label={t("sidebar.song.tempo")}
-            value={scoreTempo}
-            suffix="BPM"
-            icon={<Gauge className="h-3.5 w-3.5" />}
-            min={20}
-            max={400}
-            onCommit={handleTempo}
-          />
-          <EditablePropRow
-            label={t("sidebar.song.tempoLabel")}
-            value={scoreTempoLabel}
-            placeholder={t("sidebar.song.placeholderTempoLabel")}
-            icon={<Gauge className="h-3.5 w-3.5" />}
-            onCommit={handleTempoLabel}
-          />
         </div>
         <Separator />
       </CollapsibleContent>

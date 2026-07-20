@@ -258,8 +258,6 @@
       "tab": "制谱",
       "instructions": "说明",
       "notices": "备注",
-      "tempo": "初始速度",
-      "tempoLabel": "初始速度标记",
       "tempoMap": "全曲速度图",
       "tempoMapHelp": "编辑全曲所有速度点。Allegro、rit.、accel. 等速度术语放在速度说明中；Intro、Verse、Chorus 等结构名称应放在 Section 中。",
       "tempoPointCount": "{{count}} 个速度点",
@@ -286,8 +284,7 @@
       "placeholderTab": "制谱者",
       "placeholderInstructions": "演奏说明",
       "placeholderNotices": "附加信息",
-      "longTextHelp": "编辑多行乐谱信息，确认后会一次性应用更改。",
-      "placeholderTempoLabel": "如：Allegro、Andante"
+      "longTextHelp": "编辑多行乐谱信息，确认后会一次性应用更改。"
     },
 
     "tracks": {

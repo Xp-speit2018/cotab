@@ -26,6 +26,9 @@ test("shows and edits the complete Taijin Kyofusho tempo map", async ({ page }) 
   await page.getByRole("button", { name: "Meta", exact: true }).click();
   const tempoMap = page.getByRole("button", { name: /^Tempo Map / });
   await expect(tempoMap).toContainText("7 points · 70–85 BPM");
+  await expect(page.getByText("Initial Tempo", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Initial Tempo Label", { exact: true }))
+    .toHaveCount(0);
   await tempoMap.click();
 
   const dialog = page.getByRole("dialog").filter({ hasText: "Tempo Map" });

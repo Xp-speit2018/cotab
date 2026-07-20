@@ -258,8 +258,6 @@
       "tab": "Tablature",
       "instructions": "Instructions",
       "notices": "Notices",
-      "tempo": "Initial Tempo",
-      "tempoLabel": "Initial Tempo Label",
       "tempoMap": "Tempo Map",
       "tempoMapHelp": "Edit every tempo point in the score. Use tempo terms such as Allegro, rit., or accel.; structural labels such as Intro or Chorus belong in Section.",
       "tempoPointCount_one": "{{count}} point",
@@ -287,8 +285,7 @@
       "placeholderTab": "Transcribed by",
       "placeholderInstructions": "Playing notes",
       "placeholderNotices": "Additional info",
-      "longTextHelp": "Edit multiline score information. Changes are applied together when you confirm.",
-      "placeholderTempoLabel": "e.g. Allegro, Andante"
+      "longTextHelp": "Edit multiline score information. Changes are applied together when you confirm."
     },
 
     "tracks": {

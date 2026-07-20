@@ -203,6 +203,7 @@ export function SongSection({ dragHandleProps }: { dragHandleProps?: Record<stri
                 bpm: t("sidebar.song.tempoBpm"),
                 position: t("sidebar.song.tempoPosition"),
                 text: t("sidebar.song.tempoExpression"),
+                textPlaceholder: t("sidebar.song.tempoInstructionPlaceholder"),
                 gradual: t("sidebar.song.tempoGradual"),
                 visible: t("sidebar.song.tempoVisible"),
                 add: t("sidebar.song.addTempoPoint"),

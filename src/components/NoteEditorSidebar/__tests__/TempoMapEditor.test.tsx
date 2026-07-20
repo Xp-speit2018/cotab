@@ -20,6 +20,7 @@ const labels: TempoMapLabels = {
   bpm: "Tempo (BPM)",
   position: "Position in bar",
   text: "Expression",
+  textPlaceholder: "e.g. Allegro, rit., accel.",
   gradual: "Linear transition",
   visible: "Show marker",
   add: "Add tempo point",

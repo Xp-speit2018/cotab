@@ -59,6 +59,7 @@ export function TempoAutomationsEditor({
     bpm: string;
     position: string;
     text: string;
+    textPlaceholder: string;
     gradual: string;
     visible: string;
     add: string;
@@ -131,6 +132,7 @@ export function TempoAutomationsEditor({
                     type="text"
                     value={draft.text}
                     aria-label={`${labels.text} ${index + 1}`}
+                    placeholder={labels.textPlaceholder}
                     className="h-8 w-full rounded border bg-background px-2 text-sm text-foreground outline-none focus:border-primary"
                     onChange={(event) => update(draft.draftId, {
                       text: event.currentTarget.value,

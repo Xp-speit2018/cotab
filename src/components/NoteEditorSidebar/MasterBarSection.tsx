@@ -129,6 +129,7 @@ export function MasterBarSection({
                 bpm: t("sidebar.masterBar.tempoBpm"),
                 position: t("sidebar.masterBar.tempoPosition"),
                 text: t("sidebar.masterBar.tempoText"),
+                textPlaceholder: t("sidebar.masterBar.tempoTextPlaceholder"),
                 gradual: t("sidebar.masterBar.tempoGradual"),
                 visible: t("sidebar.masterBar.tempoVisible"),
                 add: t("sidebar.masterBar.addTempoChange"),

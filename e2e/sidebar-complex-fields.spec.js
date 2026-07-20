@@ -225,7 +225,7 @@ test("complex field editors commit semantic values and show matching summaries",
   await editor.getByRole("button", { name: "Add tempo change" }).click();
   const addedTempoIndex = initialTempoCount + 1;
   await editor.getByLabel(`Tempo (BPM) ${addedTempoIndex}`).fill("96");
-  await editor.getByLabel(`Expression ${addedTempoIndex}`).fill("rit.");
+  await editor.getByLabel(`Tempo instruction ${addedTempoIndex}`).fill("rit.");
   await editor.getByLabel(
     `Position in bar ${addedTempoIndex}`,
     { exact: true },

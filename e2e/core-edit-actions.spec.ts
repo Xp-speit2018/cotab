@@ -447,19 +447,29 @@ test("core edit controls refresh the selected AlphaTab snapshot", async ({ page 
     });
   });
 
-  const tempoMarker = page.getByRole("button", {
-    name: "Tempo Marker",
-    exact: true,
+  const tempoPoints = page.getByRole("button", {
+    name: /^Tempo Points in Bar /,
   });
-  await expect(tempoMarker).toBeVisible();
-
-  await tempoMarker.click();
+  await expect(tempoPoints).toBeVisible();
+  await tempoPoints.click();
+  let tempoDialog = page.getByRole("dialog").filter({
+    hasText: "Tempo Points in Bar",
+  });
+  await tempoDialog.getByRole("button", {
+    name: "Remove tempo change 1",
+  }).click();
+  await tempoDialog.getByRole("button", { name: "Apply", exact: true }).click();
   await page.waitForFunction(() =>
     (window as unknown as RuntimeWindow)
       .__ALPHATAB_API__.score.masterBars[8].tempoAutomations.length === 0,
   );
 
-  await tempoMarker.click();
+  await tempoPoints.click();
+  tempoDialog = page.getByRole("dialog").filter({
+    hasText: "Tempo Points in Bar",
+  });
+  await tempoDialog.getByRole("button", { name: "Add tempo change" }).click();
+  await tempoDialog.getByRole("button", { name: "Apply", exact: true }).click();
   await page.waitForFunction(() =>
     (window as unknown as RuntimeWindow)
       .__ALPHATAB_API__.score.masterBars[8].tempoAutomations

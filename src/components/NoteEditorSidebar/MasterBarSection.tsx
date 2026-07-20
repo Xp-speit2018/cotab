@@ -15,7 +15,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
 import type { SelectedMasterBarInfo } from "@/stores/render-types";
-import { AutomationType, TripletFeel } from "@/core/schema";
+import { TripletFeel } from "@/core/schema";
 import {
   DialogPropRow,
   EditableNumberPropRow,
@@ -89,23 +89,6 @@ export function MasterBarSection({
 
           <div className="flex flex-wrap items-center gap-0.5 px-2 pt-0.5">
             <ToggleBtn
-              label={t("sidebar.masterBar.tempoMarker")}
-              pressed={masterBar.tempoAutomations.length > 0}
-              onPressedChange={(pressed) => executeAppAction(
-                "document.masterBar.setTempoAutomations",
-                { automations: pressed ? [{
-                  isLinear: false,
-                  type: AutomationType.Tempo,
-                  value: 120,
-                  ratioPosition: 0,
-                  text: "",
-                  isVisible: true,
-                }] : [] },
-                { t },
-              )}
-              icon={<Gauge className="h-3.5 w-3.5" />}
-            />
-            <ToggleBtn
               label={t("sidebar.masterBar.repeatStart")}
               pressed={masterBar.isRepeatStart}
               onPressedChange={(pressed) => executeAppAction(
@@ -127,42 +110,40 @@ export function MasterBarSection({
             />
           </div>
 
-          {masterBar.tempoAutomations.length > 0 && (
-            <DialogPropRow
-              label={t("sidebar.masterBar.tempoChanges")}
-              value={tempoAutomationsSummary(
-                masterBar.tempoAutomations,
-                t("sidebar.common.none"),
-                (count) => t("sidebar.masterBar.tempoChangeCount", { count }),
+          <DialogPropRow
+            label={t("sidebar.masterBar.tempoChanges")}
+            value={tempoAutomationsSummary(
+              masterBar.tempoAutomations,
+              t("sidebar.common.none"),
+              (count) => t("sidebar.masterBar.tempoChangeCount", { count }),
+            )}
+            icon={<Gauge className="h-3.5 w-3.5" />}
+            open={tempoOpen}
+            onOpenChange={setTempoOpen}
+            description={t("sidebar.masterBar.tempoChangesHelp")}
+            contentClassName="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
+          >
+            <TempoAutomationsEditor
+              automations={masterBar.tempoAutomations}
+              labels={{
+                bpm: t("sidebar.masterBar.tempoBpm"),
+                position: t("sidebar.masterBar.tempoPosition"),
+                text: t("sidebar.masterBar.tempoText"),
+                gradual: t("sidebar.masterBar.tempoGradual"),
+                visible: t("sidebar.masterBar.tempoVisible"),
+                add: t("sidebar.masterBar.addTempoChange"),
+                remove: t("sidebar.masterBar.removeTempoChange"),
+                apply: t("sidebar.common.apply"),
+                positionConflict: t("sidebar.masterBar.tempoPositionConflict"),
+              }}
+              onCommit={(automations) => executeAppAction(
+                "document.masterBar.setTempoAutomations",
+                { automations },
+                { t },
               )}
-              icon={<Gauge className="h-3.5 w-3.5" />}
-              open={tempoOpen}
-              onOpenChange={setTempoOpen}
-              description={t("sidebar.masterBar.tempoChangesHelp")}
-              contentClassName="max-h-[85vh] overflow-y-auto sm:max-w-2xl"
-            >
-              <TempoAutomationsEditor
-                automations={masterBar.tempoAutomations}
-                labels={{
-                  bpm: t("sidebar.masterBar.tempoBpm"),
-                  position: t("sidebar.masterBar.tempoPosition"),
-                  text: t("sidebar.masterBar.tempoText"),
-                  gradual: t("sidebar.masterBar.tempoGradual"),
-                  visible: t("sidebar.masterBar.tempoVisible"),
-                  add: t("sidebar.masterBar.addTempoChange"),
-                  remove: t("sidebar.masterBar.removeTempoChange"),
-                  apply: t("sidebar.common.apply"),
-                  positionConflict: t("sidebar.masterBar.tempoPositionConflict"),
-                }}
-                onCommit={(automations) => executeAppAction(
-                  "document.masterBar.setTempoAutomations",
-                  { automations },
-                  { t },
-                )}
-                onDone={() => setTempoOpen(false)}
-              />
-            </DialogPropRow>
-          )}
+              onDone={() => setTempoOpen(false)}
+            />
+          </DialogPropRow>
 
           <SelectPropRow
             label={t("sidebar.masterBar.tripletFeel")}

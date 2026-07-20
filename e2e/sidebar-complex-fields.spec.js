@@ -213,20 +213,15 @@ test("complex field editors commit semantic values and show matching summaries",
   await page.keyboard.press("Escape");
   await expect(alternateEndings).toContainText("1, 3");
 
-  const tempoMarker = page.getByRole("button", {
-    name: "Tempo Marker",
-    exact: true,
-  });
-  if (await tempoMarker.getAttribute("aria-pressed") !== "true") {
-    await tempoMarker.click();
-  }
   const initialTempoCount = await page.evaluate(() =>
     window.__PLAYER_STORE__.getState().selectedMasterBarInfo
       ?.tempoAutomations.length ?? 0,
   );
-  const tempoChanges = page.getByRole("button", { name: /^Tempo Changes / });
+  const tempoChanges = page.getByRole("button", {
+    name: /^Tempo Points in Bar /,
+  });
   await tempoChanges.click();
-  editor = page.getByRole("dialog").filter({ hasText: "Tempo Changes" });
+  editor = page.getByRole("dialog").filter({ hasText: "Tempo Points in Bar" });
   await editor.getByRole("button", { name: "Add tempo change" }).click();
   const addedTempoIndex = initialTempoCount + 1;
   await editor.getByLabel(`Tempo (BPM) ${addedTempoIndex}`).fill("96");

@@ -328,7 +328,7 @@ export function ToggleBtn({
           )}
         </Toggle>
       </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
+      <TooltipContent side="top" sideOffset={4}>{label}</TooltipContent>
     </Tooltip>
   );
 }

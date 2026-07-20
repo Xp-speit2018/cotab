@@ -34,7 +34,8 @@ export type InspectorFieldStatus =
   | "partial"
   | "missing"
   | "external"
-  | "internal";
+  | "internal"
+  | "roundtrip";
 
 export type InspectorEditorId =
   | "accidental"
@@ -236,7 +237,7 @@ export const INSPECTOR_FIELD_CATALOG = {
     accidentalMode: field("choice", "accidental", "ready"),
     trillValue: field("popover", "trill", "ready"),
     trillSpeed: field("popover", "trill", "ready"),
-    durationPercent: field("popover", "duration", "missing"),
+    durationPercent: field("hidden", "duration", "roundtrip"),
   },
   beat: {
     uuid: identity,
@@ -300,7 +301,7 @@ export const INSPECTOR_FIELD_CATALOG = {
     isFreeTime: readyToggle,
     section: field("popover", "section", "ready"),
     tempoAutomations: field("dialog", "automation", "ready"),
-    fermata: field("popover", "fermata", "missing"),
+    fermata: field("hidden", "fermata", "roundtrip"),
     displayScale: layout,
     displayWidth: layout,
   },

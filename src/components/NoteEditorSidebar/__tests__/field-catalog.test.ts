@@ -65,4 +65,12 @@ describe("inspector field catalog", () => {
     expect(inspectorFieldsByStatus("partial")).toEqual([]);
     expect(inspectorFieldsByStatus("missing").length).toBeGreaterThan(0);
   });
+
+  it("keeps playback-unsupported roundtrip fields out of the UX backlog", () => {
+    expect(inspectorFieldsByStatus("roundtrip").map(({ model, field }) =>
+      `${model}.${field}`)).toEqual([
+      "note.durationPercent",
+      "masterBar.fermata",
+    ]);
+  });
 });

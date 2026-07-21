@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Check } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -25,11 +26,31 @@ import {
 import { MusicGlyph, musicGlyphs } from "./notation-icons";
 
 const CLEF_OPTIONS = [
-  { value: Clef.Neutral, label: "Neutral" },
-  { value: Clef.C3, label: "C3" },
-  { value: Clef.C4, label: "C4" },
-  { value: Clef.F4, label: "F4" },
-  { value: Clef.G2, label: "G2" },
+  {
+    value: Clef.Neutral,
+    labelKey: "sidebar.bar.clefNeutral",
+    glyph: musicGlyphs.percussionClef,
+  },
+  {
+    value: Clef.C3,
+    labelKey: "sidebar.bar.clefAlto",
+    glyph: musicGlyphs.cClef,
+  },
+  {
+    value: Clef.C4,
+    labelKey: "sidebar.bar.clefTenor",
+    glyph: musicGlyphs.cClef,
+  },
+  {
+    value: Clef.F4,
+    labelKey: "sidebar.bar.clefBass",
+    glyph: musicGlyphs.fClef,
+  },
+  {
+    value: Clef.G2,
+    labelKey: "sidebar.bar.clefTreble",
+    glyph: musicGlyphs.gClef,
+  },
 ] as const;
 
 const OTTAVA_OPTIONS = [
@@ -62,10 +83,13 @@ export function BarSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
+  const [clefOpen, setClefOpen] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
   const title = staffCount > 1
     ? `${t("sidebar.bar.title")} · ${t("sidebar.staff.label", { index: staffIndex + 1 })}`
     : t("sidebar.bar.title");
+  const selectedClef = CLEF_OPTIONS.find((option) => option.value === bar.clef)
+    ?? CLEF_OPTIONS[CLEF_OPTIONS.length - 1];
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -77,21 +101,6 @@ export function BarSection({
       />
       <CollapsibleContent>
         <div className="space-y-0.5 py-1">
-          {showStandardNotation && (
-            <SelectPropRow
-              label={t("sidebar.bar.clef")}
-              value={bar.clef}
-              options={CLEF_OPTIONS.map((option) =>
-                option.value === Clef.Neutral
-                  ? { ...option, label: t("sidebar.bar.neutral") }
-                  : option,
-              )}
-              icon={<MusicGlyph glyph={musicGlyphs.gClef} className="text-[20px]" />}
-              onValueChange={(value) =>
-                executeAppAction("document.bar.setClef", { value }, { t })
-              }
-            />
-          )}
           <div className="flex flex-wrap items-center gap-0.5 px-2">
             {showStandardNotation && (
               <ToggleBtn
@@ -116,6 +125,48 @@ export function BarSection({
               textIcon="%"
             />
           </div>
+          {showStandardNotation && (
+            <PopoverPropRow
+              label={t("sidebar.bar.clef")}
+              value={t(selectedClef.labelKey)}
+              open={clefOpen}
+              onOpenChange={setClefOpen}
+              description={t("sidebar.bar.clefHelp")}
+              contentClassName="w-64 p-2"
+            >
+              <div role="radiogroup" aria-label={t("sidebar.bar.clef")}>
+                {CLEF_OPTIONS.map((option) => {
+                  const selected = option.value === bar.clef;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className="flex min-h-9 w-full items-center gap-2 px-2 text-left text-xs transition-colors hover:bg-accent/50"
+                      onClick={() => {
+                        executeAppAction(
+                          "document.bar.setClef",
+                          { value: option.value },
+                          { t },
+                        );
+                        setClefOpen(false);
+                      }}
+                    >
+                      <span className="flex h-4 w-4 items-center justify-center">
+                        {selected && <Check className="h-3.5 w-3.5" />}
+                      </span>
+                      <MusicGlyph
+                        glyph={option.glyph}
+                        className="w-5 text-[18px]"
+                      />
+                      <span>{t(option.labelKey)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </PopoverPropRow>
+          )}
           {showStandardNotation && bar.clefOttava !== Ottavia.Regular && (
             <SelectPropRow
               label={t("sidebar.bar.clefOttava")}
@@ -148,7 +199,6 @@ export function BarSection({
             <PopoverPropRow
               label={t("sidebar.bar.key")}
               value={keySignatureSummary(bar.keySignature, bar.keySignatureType)}
-              icon={<MusicGlyph glyph={musicGlyphs.accidentalSharp} />}
               open={keyOpen}
               onOpenChange={setKeyOpen}
               description={t("sidebar.bar.keyHelp")}
@@ -156,8 +206,11 @@ export function BarSection({
               <KeySignatureEditor
                 signature={bar.keySignature}
                 type={bar.keySignatureType}
+                modeLabel={t("sidebar.bar.keyType")}
+                tonicLabel={t("sidebar.bar.keyTonic")}
                 majorLabel={t("sidebar.bar.major")}
                 minorLabel={t("sidebar.bar.minor")}
+                applyLabel={t("sidebar.common.apply")}
                 onCommit={(keySignature, keySignatureType) => executeAppAction(
                   "document.bar.setKey",
                   { keySignature, keySignatureType },

@@ -343,6 +343,21 @@ test("complex field editors commit semantic values and show matching summaries",
   await expect(section).toContainText("B · Bridge");
 
   await enableFirstStaffStandardNotation(page);
+  const clef = page.getByRole("button", { name: /^Clef (?!Ottava)/ });
+  await clef.click();
+  const clefOptions = page.getByRole("radiogroup", { name: "Clef" });
+  await expect(clefOptions.getByRole("radio", {
+    name: "Treble (G2)",
+    checked: true,
+  })).toBeVisible();
+  await clickAndWaitForRender(page, clefOptions.getByRole("radio", {
+    name: "Bass (F4)",
+  }));
+  await expect.poll(() => page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().selectedBarInfo?.clef,
+  )).toBe(3);
+  await expect(clef).toContainText("Bass (F4)");
+
   await page.getByRole("combobox", { name: "Accidental" }).click();
   await clickAndWaitForRender(
     page,
@@ -357,8 +372,11 @@ test("complex field editors commit semantic values and show matching summaries",
   const keySignature = page.getByRole("button", { name: /^Key / });
   await keySignature.click();
   editor = page.getByRole("dialog");
-  await editor.getByRole("radio", { name: "Minor", exact: true }).click();
-  await editor.getByRole("button", { name: "D♯m", exact: true }).click();
+  await editor.getByRole("combobox", { name: "Mode" }).click();
+  await page.getByRole("option", { name: "Minor", exact: true }).click();
+  await editor.getByRole("combobox", { name: "Tonic" }).click();
+  await page.getByRole("option", { name: "D♯", exact: true }).click();
+  await editor.getByRole("button", { name: "Apply", exact: true }).click();
   await expect.poll(() => page.evaluate(() => {
     const bar = window.__PLAYER_STORE__.getState().selectedBarInfo;
     return bar ? [bar.keySignature, bar.keySignatureType] : null;

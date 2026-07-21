@@ -8,6 +8,27 @@ async function waitForScore(page) {
     .toBeGreaterThan(0);
 }
 
+async function enableFirstStaffStandardNotation(page) {
+  if (await page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].staves[0].showStandardNotation,
+  )) return;
+
+  await page.getByRole("button", { name: "Meta", exact: true }).click();
+  await page.getByRole("button", {
+    name: "Toggle Lead Guitar details",
+    exact: true,
+  }).click();
+  await page.getByRole("button", { name: /^Staves/ }).click();
+  await page.getByRole("menuitemcheckbox", {
+    name: "Standard notation",
+    exact: true,
+  }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].staves[0].showStandardNotation,
+  )).toBe(true);
+  await page.getByRole("button", { name: "Notes", exact: true }).click();
+}
+
 test("separates MasterBar, Bar, Track, and Staff ownership in the sidebar", async ({
   page,
 }) => {
@@ -31,11 +52,14 @@ test("separates MasterBar, Bar, Track, and Staff ownership in the sidebar", asyn
       string: grid?.positions[0]?.string ?? null,
     });
   });
+  await enableFirstStaffStandardNotation(page);
 
   await expect(page.getByText("MasterBar", { exact: true })).toBeVisible();
   await expect(page.getByText("Bar", { exact: true })).toBeVisible();
   await expect(page.getByText("Time Signature", { exact: true })).toBeVisible();
-  await expect(page.getByText("Clef", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", {
+    name: /^Clef (?!Ottava)/,
+  })).toBeVisible();
 
   await page.getByRole("button", { name: "Meta", exact: true }).click();
   await page.getByRole("button", {

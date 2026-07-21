@@ -94,7 +94,11 @@ test("dual notation staff snaps and navigates by visible staff", async ({ page }
         y: tablatureSnap.y,
         string: tablatureSnap.string,
         barIndex,
+        beatIndex: tablatureBounds.beats[0].beat.index,
+        voiceIndex: tablatureBounds.beats[0].beat.voice.index,
       },
+      tablatureTopString: tablature.positions[0].string,
+      tablatureBottomString: tablature.positions.at(-1).string,
       standardPositionCount: standard.positions.length,
       tablaturePositionCount: tablature.positions.length,
     };
@@ -133,6 +137,37 @@ test("dual notation staff snaps and navigates by visible staff", async ({ page }
     renderedStave: "tablature",
   });
 
+  const modifier = await page.evaluate(() =>
+    navigator.userAgent.toLowerCase().includes("mac") ? "Meta" : "Control"
+  );
+  for (const [sourceString, expectedString] of [
+    [scenario.tablatureTopString, 7],
+    [scenario.tablatureBottomString, 15],
+  ]) {
+    await page.evaluate(({ sourceString, tablature }) => {
+      window.__PLAYER_STORE__.getState().setSelection({
+        trackIndex: 0,
+        staffIndex: 0,
+        voiceIndex: tablature.voiceIndex,
+        barIndex: tablature.barIndex,
+        beatIndex: tablature.beatIndex,
+        string: sourceString,
+        renderedStave: "tablature",
+      });
+    }, { sourceString, tablature: scenario.tablature });
+    await page.keyboard.press(`${modifier}+ArrowUp`);
+    await expect.poll(() => page.evaluate(() => {
+      const selection = window.__PLAYER_STORE__.getState().selectedBeat;
+      return selection && {
+        string: selection.string,
+        renderedStave: selection.renderedStave,
+      };
+    })).toEqual({
+      string: expectedString,
+      renderedStave: "standard",
+    });
+  }
+
   await clickAlphaTabPoint(page, scenario.standard);
   await page.keyboard.press("ArrowDown");
   await expect.poll(() => page.evaluate(() => {
@@ -146,9 +181,6 @@ test("dual notation staff snaps and navigates by visible staff", async ({ page }
     renderedStave: "standard",
   });
   await page.keyboard.press("ArrowUp");
-  const modifier = await page.evaluate(() =>
-    navigator.userAgent.toLowerCase().includes("mac") ? "Meta" : "Control"
-  );
   await page.keyboard.press(`${modifier}+ArrowDown`);
   await expect.poll(() => page.evaluate(() => {
     const selection = window.__PLAYER_STORE__.getState().selectedBeat;

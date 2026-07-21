@@ -37,12 +37,16 @@ function getStaffNavigationPositions(
   trackIndex: number,
   grid: StaffSnapGrid,
 ): StaffSnapGrid["positions"] {
-  if (!getApi()?.score?.tracks[trackIndex]?.isPercussion) {
-    return grid.positions;
-  }
-  const visiblePositions = grid.positions.filter(
-    (position) => position.string >= 0 && position.string <= 8,
-  );
+  const track = getApi()?.score?.tracks[trackIndex];
+  const visiblePositions = track?.isPercussion
+    ? grid.positions.filter(
+        (position) => position.string >= 0 && position.string <= 8,
+      )
+    : grid.renderedStave === "standard"
+      ? grid.positions.filter(
+          (position) => position.string >= 7 && position.string <= 15,
+        )
+      : grid.positions;
   return visiblePositions.length > 0 ? visiblePositions : grid.positions;
 }
 
@@ -85,14 +89,19 @@ function projectStringToStaff(
   const sourcePositions = sourceGrid
     ? getStaffNavigationPositions(current.trackIndex, sourceGrid)
     : null;
-  const sourcePosition = current.string === null
+  const sourcePosition = current.string === null || !sourceGrid
     ? null
-    : sourcePositions?.find((position) => position.string === current.string) ?? null;
+    : sourceGrid.positions.find(
+        (position) => position.string === current.string,
+      ) ?? null;
   if (sourcePositions && sourcePosition && sourcePositions.length > 1) {
     const first = sourcePositions[0].y;
     const last = sourcePositions.at(-1)!.y;
     if (last !== first) {
-      relativeY = (sourcePosition.y - first) / (last - first);
+      relativeY = Math.max(
+        0,
+        Math.min(1, (sourcePosition.y - first) / (last - first)),
+      );
     }
   }
 

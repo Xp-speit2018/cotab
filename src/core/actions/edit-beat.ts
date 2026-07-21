@@ -30,7 +30,10 @@ import {
 } from "@/core/schema";
 import { formatPitch, snapPositionToPitch } from "@/core/pitch";
 
-const transact = (fn: () => void, nextSelection?: PendingSelection | null) => engine.localEditYDoc(fn, nextSelection);
+const transact = (
+  fn: () => void,
+  nextSelection: PendingSelection | null = pendingSelectionFromSelector(),
+) => engine.localEditYDoc(fn, nextSelection);
 
 const DRUM_STAFFLINE_DEFAULTS: Record<number, number> = {
   [-3]: 52,
@@ -85,6 +88,32 @@ function pendingFromSelection(sel: SelectedBeat): PendingSelection {
     voiceIndex: sel.voiceIndex,
     string: sel.string,
   };
+}
+
+function pendingSelectionFromSelector(): PendingSelection | null {
+  const {
+    trackIndex,
+    staffIndex,
+    barIndex,
+    voiceIndex,
+    beatIndex,
+    string,
+  } = engine.selector;
+  if (
+    trackIndex === null
+    || staffIndex === null
+    || barIndex === null
+    || voiceIndex === null
+    || beatIndex === null
+  ) return null;
+  return pendingFromSelection({
+    trackIndex,
+    staffIndex,
+    barIndex,
+    voiceIndex,
+    beatIndex,
+    string,
+  });
 }
 
 function getStaffMode(sel: SelectedBeat): {

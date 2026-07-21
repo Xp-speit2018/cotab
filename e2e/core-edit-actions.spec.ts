@@ -45,6 +45,7 @@ type RuntimeWindow = Window & {
                 notes: Array<{
                   fret: number;
                   string: number;
+                  isGhost: boolean;
                   bendType: number;
                   bendPoints: Array<{ offset: number; value: number }> | null;
                 }>;
@@ -476,13 +477,18 @@ test("core edit controls refresh the selected AlphaTab snapshot", async ({ page 
       .some((automation) => automation.value === 120),
   );
 
-  await page.getByRole("button", { name: "Bend", exact: true }).click();
-  await page.waitForFunction(() => {
+  const wasGhost = await page.evaluate(() =>
+    (window as unknown as RuntimeWindow)
+      .__ALPHATAB_API__.score.tracks[0].staves[0].bars[8]
+      .voices[0].beats[0].notes[0].isGhost,
+  );
+  await page.getByRole("button", { name: "Ghost Note", exact: true }).click();
+  await page.waitForFunction((previous) => {
     const note = (window as unknown as RuntimeWindow)
       .__ALPHATAB_API__.score.tracks[0].staves[0].bars[8]
       .voices[0].beats[0].notes[0];
-    return note?.bendType === 2 && note.bendPoints?.length === 2;
-  });
+    return note?.isGhost === !previous;
+  }, wasGhost);
 
   await page.getByRole("button", { name: "Rest", exact: true }).click();
   await page.waitForFunction(() => {

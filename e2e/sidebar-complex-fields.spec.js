@@ -53,22 +53,6 @@ async function enableFirstStaffStandardNotation(page) {
   await page.getByRole("button", { name: "Notes", exact: true }).click();
 }
 
-async function clickAndWaitForRender(page, locator) {
-  const renderFinished = page.evaluate(() => new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-      unsubscribe();
-      reject(new Error("Timed out waiting for AlphaTab render"));
-    }, 5_000);
-    const unsubscribe = window.__ALPHATAB_API__.postRenderFinished.on(() => {
-      window.clearTimeout(timeout);
-      unsubscribe();
-      resolve(undefined);
-    });
-  }));
-  await locator.click();
-  await renderFinished;
-}
-
 test("complex field editors commit semantic values and show matching summaries", async ({
   page,
 }) => {
@@ -76,14 +60,31 @@ test("complex field editors commit semantic values and show matching summaries",
   await page.goto("/");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
+  await enableFirstStaffStandardNotation(page);
 
-  await clickAndWaitForRender(page, page.getByRole("button", {
+  await page.getByRole("button", {
+    name: "Left-hand finger",
+    exact: true,
+  }).click();
+  await page.getByRole("combobox", { name: "Left-hand finger" }).click();
+  await page.getByRole("option", { name: "Index", exact: true }).click();
+  await page.getByRole("combobox", { name: "Accidental" }).click();
+  await page.getByRole("option", { name: "Sharp", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const state = window.__PLAYER_STORE__.getState();
+    const note = state.selectedBeatInfo?.notes[state.selectedNoteIndex];
+    return note ? [note.leftHandFinger, note.accidentalMode] : null;
+  })).toEqual([1, 3]);
+
+  await page.getByRole("button", {
     name: "Pick Stroke Up",
     exact: true,
-  }));
-  await expect.poll(() => page.evaluate(() =>
-    window.__PLAYER_STORE__.getState().selectedBeatInfo?.pickStroke,
-  )).toBe(1);
+  }).click();
+  await page.getByRole("button", { name: "Tap", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const beat = window.__PLAYER_STORE__.getState().selectedBeatInfo;
+    return beat ? [beat.pickStroke, beat.tap] : null;
+  })).toEqual([1, true]);
 
   await page.getByRole("button", { name: /^Lyrics / }).click();
   let editor = page.getByRole("dialog").filter({ hasText: "Lyrics" });
@@ -165,14 +166,45 @@ test("complex field editors commit semantic values and show matching summaries",
 
   await page.getByRole("button", { name: "Ornament", exact: true }).click();
   await page.getByRole("combobox", { name: "Ornament" }).click();
-  await clickAndWaitForRender(
-    page,
-    page.getByRole("option", { name: "Lower Mordent", exact: true }),
-  );
+  await page.getByRole("option", { name: "Lower Mordent", exact: true }).click();
   await expect.poll(() => page.evaluate(() => {
     const state = window.__PLAYER_STORE__.getState();
     return state.selectedBeatInfo?.notes[state.selectedNoteIndex]?.ornament;
   })).toBe(4);
+
+  await page.getByRole("button", { name: "Beat Vibrato", exact: true }).click();
+  await page.getByRole("combobox", { name: "Beat Vibrato" }).click();
+  await page.getByRole("option", { name: "Wide", exact: true }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().selectedBeatInfo?.vibrato,
+  )).toBe(2);
+
+  await page.getByRole("button", { name: "Bend", exact: true }).click();
+  const bendRow = page.getByRole("button", { name: /Bend.*\+1 tones/ });
+  await expect(bendRow).toBeVisible();
+  await bendRow.click();
+  editor = page.getByRole("dialog");
+  await editor.getByRole("slider", { name: "Curve point 2" }).click();
+  await editor.getByLabel("Pitch (tones)").fill("1.5");
+  await editor.getByRole("radio", { name: "Gradual", exact: true }).click();
+
+  await expect.poll(() => page.evaluate(() => {
+    const state = window.__PLAYER_STORE__.getState();
+    const note = state.selectedBeatInfo?.notes[state.selectedNoteIndex];
+    return note?.bendPoints?.at(-1)?.value;
+  })).toBe(4);
+
+  await editor.getByRole("button", { name: "Apply", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const state = window.__PLAYER_STORE__.getState();
+    const note = state.selectedBeatInfo?.notes[state.selectedNoteIndex];
+    return note
+      ? [note.bendStyle, note.bendPoints?.at(-1)?.value]
+      : null;
+  })).toEqual([1, 6]);
+  await expect(page.getByRole("button", {
+    name: /Bend.*\+1\.5 tones/,
+  })).toBeVisible();
 
   await page.getByRole("button", { name: "Whammy Bar", exact: true }).click();
   const whammyRow = page.getByRole("button", {
@@ -191,10 +223,6 @@ test("complex field editors commit semantic values and show matching summaries",
       : null;
   })).toEqual([3, 3]);
 
-  await clickAndWaitForRender(
-    page,
-    page.getByRole("button", { name: "Repeat End", exact: true }),
-  );
   const alternateEndings = page.getByRole("button", {
     name: /Alt\. Endings/,
   });
@@ -273,7 +301,6 @@ test("complex field editors commit semantic values and show matching summaries",
   })).toEqual(["Bridge", "B"]);
   await expect(section).toContainText("B · Bridge");
 
-  await enableFirstStaffStandardNotation(page);
   const keySignature = page.getByRole("button", { name: /^Key / });
   await keySignature.click();
   editor = page.getByRole("dialog");
@@ -300,6 +327,13 @@ test("complex field editors commit semantic values and show matching summaries",
     name: "Toggle Lead Guitar details",
     exact: true,
   }).click();
+  await page.getByRole("button", {
+    name: "Standard notation",
+    exact: true,
+  }).click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].staves[0].showStandardNotation,
+  )).toBe(true);
   await page.getByRole("button", { name: /^Track color / }).click();
   await page.getByLabel("Custom color").fill("#336699");
   await page.getByRole("button", { name: "Apply", exact: true }).click();

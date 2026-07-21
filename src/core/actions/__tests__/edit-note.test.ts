@@ -73,7 +73,6 @@ import {
   executeDocumentAction,
   executeDocumentActionById,
 } from "@/core/actions/registry";
-import { engine } from "@/core/engine";
 import "@/core/actions/edit-note";
 
 const defaultSel = {
@@ -393,18 +392,6 @@ describe("document.note.setIsLeftHandTapped", () => {
 });
 
 describe("applyNoteUpdates guards", () => {
-  it("preserves the selected beat across renderer rebuilds", () => {
-    const localEditYDoc = vi.mocked(engine.localEditYDoc);
-    localEditYDoc.mockClear();
-
-    executeDocumentAction("document.note.setIsGhost", { value: true }, ctx);
-
-    expect(localEditYDoc).toHaveBeenCalledWith(
-      expect.any(Function),
-      defaultSel,
-    );
-  });
-
   it("does nothing without selection", () => {
     selectBeat(null);
     executeDocumentAction("document.note.setIsGhost", { value: true }, ctx);

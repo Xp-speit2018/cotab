@@ -64,7 +64,7 @@ export function ColorEditor({
           type="color"
           value={draft}
           aria-label={labels.custom}
-          className="ml-auto h-8 w-16 cursor-pointer rounded border bg-background p-1"
+          className="ml-auto h-8 w-16 cursor-default rounded border bg-background p-1"
           onChange={(event) => setDraft(event.currentTarget.value)}
         />
         <span className="font-mono text-foreground">{draft.toUpperCase()}</span>

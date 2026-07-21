@@ -436,29 +436,26 @@ export function EditablePropRow({
     if (trimmed !== value) onCommit(trimmed);
   }, [draft, value, onCommit]);
 
-  const cancel = useCallback(() => {
-    setEditing(false);
-    setDraft(value);
-  }, [value]);
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" || e.key === "Escape") {
         e.preventDefault();
         commit();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        cancel();
       }
     },
-    [commit, cancel],
+    [commit],
   );
 
   return (
     <div
-      className="group flex items-center gap-2 px-3 py-0.5 cursor-text"
-      onClick={() => {
-        if (!editing) setEditing(true);
+      className="group flex items-center gap-2 px-3 py-0.5 transition-colors hover:bg-accent/40"
+      onMouseDown={(event) => {
+        if (!editing) return;
+        const target = event.target;
+        if (target instanceof Element
+          && target.closest("[data-single-line-edit-field]")) return;
+        event.preventDefault();
+        commit();
       }}
     >
       {icon && (
@@ -466,10 +463,14 @@ export function EditablePropRow({
           {icon}
         </span>
       )}
-      <span className="text-[11px] text-muted-foreground whitespace-nowrap">{label}</span>
+      <span className="cursor-default whitespace-nowrap text-[11px] text-muted-foreground">
+        {label}
+      </span>
       {editing ? (
         <input
           ref={inputRef}
+          data-single-line-edit-field
+          aria-label={label}
           className="ml-auto w-0 min-w-0 flex-1 bg-transparent text-right text-[11px] font-medium outline-none border-b border-primary/40 py-0 px-0"
           value={draft}
           placeholder={placeholder}
@@ -480,16 +481,19 @@ export function EditablePropRow({
           onKeyDown={handleKeyDown}
         />
       ) : (
-        <span
+        <button
+          type="button"
+          data-single-line-edit-field
+          aria-label={label}
           className={cn(
-            "ml-auto text-[11px] font-medium tabular-nums truncate",
+            "ml-auto flex w-0 min-w-0 flex-1 cursor-text items-center justify-end border-b border-transparent text-[11px] font-medium tabular-nums transition-colors group-hover:border-border group-hover:text-primary",
             !value && placeholder && "text-muted-foreground/50 italic",
-            "group-hover:text-primary transition-colors",
           )}
+          onClick={() => setEditing(true)}
         >
-          {value || placeholder}
-          <Pencil className="ml-1 inline-block h-2.5 w-2.5 opacity-0 group-hover:opacity-50 transition-opacity" />
-        </span>
+          <span className="truncate">{value || placeholder}</span>
+          <Pencil className="ml-1 h-2.5 w-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" />
+        </button>
       )}
     </div>
   );
@@ -532,29 +536,26 @@ export function EditableNumberPropRow({
     if (clamped !== value) onCommit(clamped);
   }, [draft, value, onCommit, min, max]);
 
-  const cancel = useCallback(() => {
-    setEditing(false);
-    setDraft(String(value));
-  }, [value]);
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" || e.key === "Escape") {
         e.preventDefault();
         commit();
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        cancel();
       }
     },
-    [commit, cancel],
+    [commit],
   );
 
   return (
     <div
-      className="group flex items-center gap-2 px-3 py-0.5 cursor-text"
-      onClick={() => {
-        if (!editing) setEditing(true);
+      className="group flex items-center gap-2 px-3 py-0.5 transition-colors hover:bg-accent/40"
+      onMouseDown={(event) => {
+        if (!editing) return;
+        const target = event.target;
+        if (target instanceof Element
+          && target.closest("[data-single-line-edit-field]")) return;
+        event.preventDefault();
+        commit();
       }}
     >
       {icon && (
@@ -562,10 +563,14 @@ export function EditableNumberPropRow({
           {icon}
         </span>
       )}
-      <span className="text-[11px] text-muted-foreground whitespace-nowrap">{label}</span>
+      <span className="cursor-default whitespace-nowrap text-[11px] text-muted-foreground">
+        {label}
+      </span>
       {editing ? (
         <input
           ref={inputRef}
+          data-single-line-edit-field
+          aria-label={label}
           type="number"
           className="ml-auto w-16 bg-transparent text-right text-[11px] font-medium outline-none border-b border-primary/40 py-0 px-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           value={draft}
@@ -578,10 +583,16 @@ export function EditableNumberPropRow({
           onKeyDown={handleKeyDown}
         />
       ) : (
-        <span className="ml-auto text-[11px] font-medium tabular-nums group-hover:text-primary transition-colors">
-          {`${value}${suffix ? ` ${suffix}` : ""}`}
-          <Pencil className="ml-1 inline-block h-2.5 w-2.5 opacity-0 group-hover:opacity-50 transition-opacity" />
-        </span>
+        <button
+          type="button"
+          data-single-line-edit-field
+          aria-label={label}
+          className="ml-auto inline-flex min-w-16 cursor-text items-center justify-end border-b border-transparent text-[11px] font-medium tabular-nums transition-colors group-hover:border-border group-hover:text-primary"
+          onClick={() => setEditing(true)}
+        >
+          <span>{`${value}${suffix ? ` ${suffix}` : ""}`}</span>
+          <Pencil className="ml-1 h-2.5 w-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" />
+        </button>
       )}
     </div>
   );

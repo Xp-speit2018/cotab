@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type * as alphaTab from "@coderline/alphatab";
 import {
@@ -8,7 +8,7 @@ import {
   ChevronUp,
   Eye,
   EyeOff,
-  Guitar,
+  Pencil,
 } from "lucide-react";
 import {
   Collapsible,
@@ -16,6 +16,13 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Separator } from "@/components/ui/separator";
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { executeAppAction } from "@/app-actions";
 import { cn } from "@/lib/utils";
 import { getApi } from "@/stores/render-api";
@@ -455,9 +462,20 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [percussionMapOpen, setPercussionMapOpen] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
+  const [nameEditing, setNameEditing] = useState(false);
   const track = usePlayerStore((state) => state.tracks[trackIndex]);
   const visibleTrackIndices = usePlayerStore((state) => state.visibleTrackIndices);
   const selectedBeat = usePlayerStore((state) => state.selectedBeat);
+  const [nameDraft, setNameDraft] = useState(track?.name ?? "");
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (track && !nameEditing) setNameDraft(track.name);
+  }, [track?.name, nameEditing]);
+
+  useEffect(() => {
+    if (nameEditing) nameInputRef.current?.focus();
+  }, [nameEditing]);
 
   if (!track) return null;
 
@@ -480,10 +498,34 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
     track.color.g,
     track.color.b,
   );
+  const commitName = () => {
+    setNameEditing(false);
+    const name = nameDraft.trim();
+    setNameDraft(name);
+    if (name !== track.name) {
+      executeAppAction("document.track.setName", { trackIndex, name }, { t });
+    }
+  };
 
   return (
     <div className="border-b border-border/30 last:border-b-0">
-      <div className="flex items-center gap-1 px-2 py-1">
+      <div
+        data-track-header
+        className="group flex items-center gap-1 px-2 py-1 transition-colors hover:bg-accent/40"
+        onMouseDownCapture={(event) => {
+          if (!nameEditing) return;
+          const target = event.target;
+          if (target instanceof Element
+            && target.closest("[data-track-name-edit-field]")) return;
+          commitName();
+        }}
+        onClick={(event) => {
+          const target = event.target;
+          if (target instanceof Element
+            && target.closest("button, input")) return;
+          setExpanded(!expanded);
+        }}
+      >
         <button
           type="button"
           className="flex h-4 w-4 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
@@ -515,58 +557,101 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
             <EyeOff className="h-3 w-3 opacity-50" />
           )}
         </button>
+        <Popover open={colorOpen} onOpenChange={setColorOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label={`${t("sidebar.tracks.trackColor")}: ${track.name} ${colorHex.toUpperCase()}`}
+              className="group/color flex h-4 w-4 shrink-0 cursor-default items-center justify-center outline-none focus-visible:ring-1 focus-visible:ring-primary"
+            >
+              <span
+                className={cn(
+                  "h-2.5 w-2.5 border border-black/10 transition-[transform,box-shadow] group-hover/color:scale-110 group-hover/color:ring-1 group-hover/color:ring-foreground/30",
+                  colorOpen && "scale-110 ring-1 ring-primary ring-offset-1",
+                )}
+                style={{ backgroundColor: colorHex }}
+              />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            side="right"
+            align="start"
+            collisionPadding={12}
+            className="w-72 p-3"
+          >
+            <PopoverHeader>
+              <PopoverTitle>{t("sidebar.tracks.trackColor")}</PopoverTitle>
+            </PopoverHeader>
+            <div className="mt-3">
+              <ColorEditor
+                value={colorHex}
+                labels={{
+                  custom: t("sidebar.tracks.customColor"),
+                  apply: t("sidebar.common.apply"),
+                }}
+                onCommit={(raw) => executeAppAction(
+                  "document.track.setColor",
+                  { trackIndex, raw },
+                  { t },
+                )}
+                onDone={() => setColorOpen(false)}
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
+        {nameEditing ? (
+          <input
+            ref={nameInputRef}
+            data-track-name-edit-field
+            type="text"
+            aria-label={t("sidebar.tracks.name")}
+            value={nameDraft}
+            placeholder={t("sidebar.tracks.placeholderName")}
+            spellCheck={false}
+            autoComplete="off"
+            className={cn(
+              "h-5 min-w-0 flex-1 border-b border-primary/40 bg-transparent px-0 text-[11px] font-medium outline-none",
+              !isVisible && "text-muted-foreground opacity-50",
+            )}
+            onChange={(event) => setNameDraft(event.currentTarget.value)}
+            onBlur={commitName}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === "Escape") {
+                event.preventDefault();
+                commitName();
+              }
+            }}
+          />
+        ) : (
+          <button
+            type="button"
+            data-track-name-edit-field
+            aria-label={t("sidebar.tracks.editTrackName", { name: track.name })}
+            className={cn(
+              "flex h-5 min-w-0 flex-1 cursor-text items-center border-b border-transparent text-left transition-colors group-hover:border-border",
+              !isVisible && "text-muted-foreground opacity-50",
+            )}
+            onClick={() => setNameEditing(true)}
+          >
+            <span className="truncate text-[11px] font-medium">
+              {track.name || t("sidebar.tracks.placeholderName")}
+            </span>
+            <Pencil
+              data-track-name-edit-icon
+              className="ml-auto h-2.5 w-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-50"
+            />
+          </button>
+        )}
         <span
-          className={cn(
-            "flex-1 truncate text-[11px] font-medium",
-            !isVisible && "text-muted-foreground opacity-50",
-          )}
+          data-track-summary
+          className="cursor-default select-none text-[9px] tabular-nums text-muted-foreground"
         >
-          {track.name}
-        </span>
-        <span className="text-[9px] tabular-nums text-muted-foreground">
           {summary}
         </span>
       </div>
 
       {expanded && (
         <div className="space-y-0.5 pb-2">
-          <EditablePropRow
-            label={t("sidebar.tracks.name")}
-            value={track.name}
-            placeholder={t("sidebar.tracks.placeholderName")}
-            icon={<Guitar className="h-3 w-3" />}
-            onCommit={(name) => executeAppAction(
-              "document.track.setName",
-              { trackIndex, name },
-              { t },
-            )}
-          />
-          <PopoverPropRow
-            label={t("sidebar.tracks.trackColor")}
-            value={colorHex.toUpperCase()}
-            icon={(
-              <span
-                className="h-3 w-3 rounded-sm border border-black/10"
-                style={{ backgroundColor: colorHex }}
-              />
-            )}
-            open={colorOpen}
-            onOpenChange={setColorOpen}
-          >
-            <ColorEditor
-              value={colorHex}
-              labels={{
-                custom: t("sidebar.tracks.customColor"),
-                apply: t("sidebar.common.apply"),
-              }}
-              onCommit={(raw) => executeAppAction(
-                "document.track.setColor",
-                { trackIndex, raw },
-                { t },
-              )}
-              onDone={() => setColorOpen(false)}
-            />
-          </PopoverPropRow>
           <EditablePropRow
             label={t("sidebar.tracks.shortName")}
             value={track.shortName}
@@ -577,17 +662,6 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               { t },
             )}
           />
-
-          {staffs.map((staff) => (
-            <StaffMetaEditor
-              key={staff.staffIndex}
-              trackIndex={trackIndex}
-              staff={staff}
-              showHeader={staffs.length > 1}
-              selected={selectedBeat?.trackIndex === trackIndex
-                && selectedBeat.staffIndex === staff.staffIndex}
-            />
-          ))}
 
           {track.isPercussion ? (
             <PropRow
@@ -627,6 +701,17 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               />
             </DialogPropRow>
           )}
+
+          {staffs.map((staff) => (
+            <StaffMetaEditor
+              key={staff.staffIndex}
+              trackIndex={trackIndex}
+              staff={staff}
+              showHeader={staffs.length > 1}
+              selected={selectedBeat?.trackIndex === trackIndex
+                && selectedBeat.staffIndex === staff.staffIndex}
+            />
+          ))}
 
           {track.isPercussion && track.percussionArticulations.length > 0 && (
             <DialogPropRow

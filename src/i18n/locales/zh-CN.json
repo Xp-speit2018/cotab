@@ -296,6 +296,7 @@
       "hideTrack": "隐藏 {{name}}",
       "showTrack": "显示 {{name}}",
       "name": "名称",
+      "editTrackName": "编辑音轨名称：{{name}}",
       "shortName": "缩写",
       "placeholderName": "音轨名称",
       "placeholderShortName": "如：Gtr、Bass",

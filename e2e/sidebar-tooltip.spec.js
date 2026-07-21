@@ -95,6 +95,56 @@ test("tooltips do not block hovering the next editor control", async ({ page }) 
     .toBeHidden();
 });
 
+test("single-line property rows reveal their edit range without changing label cursor", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await page.goto("/");
+  await waitForScore(page);
+  await page.getByRole("button", { name: "Meta", exact: true }).click();
+
+  const label = page.getByText("Title", { exact: true });
+  const row = label.locator("..");
+  const field = row.locator("[data-single-line-edit-field]");
+  const backgroundBefore = await row.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  );
+  const borderBefore = await field.evaluate(
+    (element) => getComputedStyle(element).borderBottomColor,
+  );
+
+  await label.hover();
+  await expect.poll(() => row.evaluate(
+    (element) => getComputedStyle(element).backgroundColor,
+  )).not.toBe(backgroundBefore);
+  await expect.poll(() => field.evaluate(
+    (element) => getComputedStyle(element).borderBottomColor,
+  )).not.toBe(borderBefore);
+  expect(await label.evaluate((element) => getComputedStyle(element).cursor))
+    .toBe("default");
+
+  await field.hover();
+  expect(await field.evaluate((element) => getComputedStyle(element).cursor))
+    .toBe("text");
+
+  await label.click();
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveCount(0);
+
+  const originalTitle = await page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().scoreTitle,
+  );
+  await field.click();
+  const input = page.getByRole("textbox", { name: "Title" });
+  await expect(input).toBeVisible();
+  await input.fill("Loosely committed title");
+  await label.click();
+  await expect(input).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() =>
+    window.__PLAYER_STORE__.getState().scoreTitle,
+  )).toBe("Loosely committed title");
+  expect(originalTitle).not.toBe("Loosely committed title");
+});
+
 test("toggle state emphasizes the symbol without drawing a backdrop", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
   await page.goto("/");

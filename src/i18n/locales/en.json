@@ -297,6 +297,7 @@
       "hideTrack": "Hide {{name}}",
       "showTrack": "Show {{name}}",
       "name": "Name",
+      "editTrackName": "Edit track name: {{name}}",
       "shortName": "Abbreviation",
       "placeholderName": "Track name",
       "placeholderShortName": "e.g. Gtr, Bass",

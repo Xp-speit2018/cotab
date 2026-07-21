@@ -398,14 +398,107 @@ test("complex field editors commit semantic values and show matching summaries",
     name: "Toggle Lead Guitar details",
     exact: true,
   }).click();
-  await page.getByRole("button", { name: /^Track color / }).click();
+  const abbreviation = page.getByText("Abbreviation", { exact: true }).first();
+  const instrument = page.getByRole("button", { name: /^Instrument / }).first();
+  const [abbreviationBox, instrumentBox] = await Promise.all([
+    abbreviation.boundingBox(),
+    instrument.boundingBox(),
+  ]);
+  expect(abbreviationBox?.y).toBeLessThan(instrumentBox?.y ?? 0);
+
+  const trackColor = page.getByRole("button", {
+    name: /^Track color: Lead Guitar /,
+  });
+  await trackColor.hover();
+  await expect.poll(() => trackColor.evaluate(
+    (element) => getComputedStyle(element).cursor,
+  )).toBe("default");
+  await expect.poll(() => trackColor.locator("span").evaluate(
+    (element) => Number(getComputedStyle(element).scale),
+  )).toBeGreaterThan(1);
+  await trackColor.click();
   await page.getByLabel("Custom color").fill("#336699");
-  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await clickAndWaitForRender(
+    page,
+    page.getByRole("button", { name: "Apply", exact: true }),
+  );
   await expect.poll(() => page.evaluate(() => {
     const color = window.__ALPHATAB_API__.score.tracks[0].color;
     return [color.r, color.g, color.b];
   })).toEqual([51, 102, 153]);
-  const instrument = page.getByRole("button", { name: /^Instrument / }).first();
+
+  const editTrackName = page.getByRole("button", {
+    name: "Edit track name: Lead Guitar",
+    exact: true,
+  });
+  await editTrackName.hover();
+  await expect.poll(() => editTrackName.locator(
+    "[data-track-name-edit-icon]",
+  ).evaluate((element) => Number(getComputedStyle(element).opacity)))
+    .toBeGreaterThan(0);
+  await expect.poll(() => editTrackName.evaluate(
+    (element) => getComputedStyle(element).cursor,
+  )).toBe("text");
+  const trackSummary = page.locator("[data-track-summary]").first();
+  await expect(trackSummary).toHaveText("6 strings");
+  await expect.poll(() => trackSummary.evaluate(
+    (element) => getComputedStyle(element).cursor,
+  )).toBe("default");
+  await trackSummary.click();
+  await expect(abbreviation).toBeHidden();
+  await trackSummary.click();
+  await expect(abbreviation).toBeVisible();
+  const [editTrackNameBox, editTrackNameIconBox] = await Promise.all([
+    editTrackName.boundingBox(),
+    editTrackName.locator("[data-track-name-edit-icon]").boundingBox(),
+  ]);
+  expect(editTrackNameBox).not.toBeNull();
+  expect(editTrackNameIconBox).not.toBeNull();
+  expect(Math.abs(
+    (editTrackNameBox?.x ?? 0) + (editTrackNameBox?.width ?? 0)
+      - (editTrackNameIconBox?.x ?? 0) - (editTrackNameIconBox?.width ?? 0),
+  )).toBeLessThanOrEqual(1);
+
+  await editTrackName.click();
+  let trackName = page.getByRole("textbox", {
+    name: "Name",
+    exact: true,
+  });
+  await trackName.fill("Loosely Committed Guitar");
+  let toggleLeadGuitar = page.getByRole("button", {
+    name: "Toggle Lead Guitar details",
+    exact: true,
+  });
+  await toggleLeadGuitar.click();
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].name,
+  )).toBe("Loosely Committed Guitar");
+  toggleLeadGuitar = page.getByRole("button", {
+    name: "Toggle Loosely Committed Guitar details",
+    exact: true,
+  });
+  await toggleLeadGuitar.click();
+
+  const editLooselyCommittedName = page.getByRole("button", {
+    name: "Edit track name: Loosely Committed Guitar",
+    exact: true,
+  });
+  await editLooselyCommittedName.click();
+  trackName = page.getByRole("textbox", {
+    name: "Name",
+    exact: true,
+  });
+  await expect(trackName).toHaveValue("Loosely Committed Guitar");
+  await trackName.fill("Lead Guitar Edited");
+  await trackName.press("Enter");
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks[0].name,
+  )).toBe("Lead Guitar Edited");
+  await expect(page.getByRole("button", {
+    name: "Toggle Lead Guitar Edited details",
+    exact: true,
+  })).toBeVisible();
+
   await instrument.click();
   editor = page.getByRole("dialog").filter({ hasText: "Instrument" });
   await editor.getByLabel("Search instruments").fill("distortion guitar");

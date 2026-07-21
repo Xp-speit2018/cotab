@@ -50,6 +50,7 @@ export type {
   LoopRange,
   SelectedBeat,
   SelectionRange,
+  RenderedStave,
   SelectorState,
   TransportState,
 } from "@/core/engine";
@@ -57,6 +58,7 @@ import type {
   LoopRange,
   SelectedBeat,
   SelectionRange,
+  RenderedStave,
   SelectorState,
   TransportState,
 } from "@/core/engine";
@@ -73,6 +75,7 @@ export interface SnapGrid {
   systemIndex: number;
   trackIndex: number;
   staffIndex: number;
+  renderedStave: RenderedStave;
   barIndexes: number[];
   systemBounds: {
     x: number;
@@ -287,6 +290,7 @@ export interface BeatPositionArgs {
   staffIndex?: number;
   voiceIndex?: number;
   string?: number | null;
+  renderedStave?: RenderedStave;
 }
 
 export type RenderSelectorState = SelectorState;

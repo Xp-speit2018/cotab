@@ -62,6 +62,7 @@ import type {
   PlayerState,
   RenderSelectorState,
   RenderTransportState,
+  RenderedStave,
   ScoreLayout,
   SelectionRange,
   SelectedBeat,
@@ -86,6 +87,7 @@ import {
 import {
   getSnapGrids,
   getSnapGridForBar,
+  getRenderedStaveForBarBounds,
   buildSnapGrids,
   updateSnapGridOverlay,
   setSnapGridSelection,
@@ -201,6 +203,7 @@ function findBeatBounds(
   staffIndex: number,
   barIndex: number,
   beatIndex: number,
+  renderedStave?: RenderedStave,
 ): alphaTab.rendering.BeatBounds | null {
   const api = getApi();
   const lookup = api?.boundsLookup;
@@ -215,6 +218,10 @@ function findBeatBounds(
           refBar.staff.track.index !== trackIndex ||
           refBar.staff.index !== staffIndex ||
           refBar.index !== barIndex
+        ) continue;
+        if (
+          renderedStave
+          && getRenderedStaveForBarBounds(barBounds) !== renderedStave
         ) continue;
         for (const bb of barBounds.beats) {
           if (bb.beat.index === beatIndex) return bb;
@@ -237,6 +244,7 @@ function resolveBarAtPoint(
   beatIndex: number;
   beat: alphaTab.model.Beat;
   snappedString: number | null;
+  renderedStave: RenderedStave;
 } | null {
   const api = getApi();
   if (!api) return null;
@@ -281,7 +289,14 @@ function resolveBarAtPoint(
       const bar = targetBeat.voice.bar;
       const staff = bar.staff;
       const track = staff.track;
-      const grid = getSnapGridForBar(track.index, staff.index, bar.index);
+      const renderedStave = getRenderedStaveForBarBounds(closestBarBounds)
+        ?? (staff.showTablature ? "tablature" : "standard");
+      const grid = getSnapGridForBar(
+        track.index,
+        staff.index,
+        bar.index,
+        renderedStave,
+      );
       let snappedString: number | null = null;
       if (grid) {
         const snap = findNearestSnap(grid, y);
@@ -299,6 +314,7 @@ function resolveBarAtPoint(
         beatIndex: targetBeat.index,
         beat: targetBeat,
         snappedString,
+        renderedStave,
       };
     }
   }
@@ -355,6 +371,7 @@ function createRenderSelectorState(): RenderSelectorState {
     barIndex: null,
     beatIndex: null,
     string: null,
+    renderedStave: null,
     beatUuid: null,
     noteIndex: -1,
     selectionRange: null,
@@ -381,6 +398,7 @@ function normalizeBeatPosition(args: BeatPositionArgs): SelectedBeat {
     barIndex: args.barIndex,
     beatIndex: args.beatIndex,
     string: args.string ?? null,
+    ...(args.renderedStave ? { renderedStave: args.renderedStave } : {}),
   };
 }
 
@@ -1578,6 +1596,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           beatIndex: hit.beatIndex,
           noteCount: hit.beat.notes.length,
           snappedString: hit.snappedString,
+          renderedStave: hit.renderedStave,
           pointerMode: mode,
         };
       }
@@ -1592,6 +1611,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           barIndex: hit.barIndex,
           beatIndex: hit.beatIndex,
           string: hit.snappedString,
+          renderedStave: hit.renderedStave,
         });
 
         setDragState({
@@ -1639,6 +1659,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         barIndex: hit.barIndex,
         beatIndex: hit.beatIndex,
         string: hit.snappedString,
+        renderedStave: hit.renderedStave,
       });
       get().focusSelection();
 
@@ -1697,6 +1718,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             selectedString: currentSelection.string ?? null,
             trackIndex: currentSelection.trackIndex,
             staffIndex: currentSelection.staffIndex,
+            renderedStave: currentSelection.renderedStave ?? null,
           }
         : undefined);
 
@@ -2251,6 +2273,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
             selectedString: sel.string ?? null,
             trackIndex: sel.trackIndex,
             staffIndex: sel.staffIndex,
+            renderedStave: sel.renderedStave ?? null,
           }
         : undefined,
     );
@@ -2266,6 +2289,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     voiceIndex = 0,
     noteIndex,
     string: stringArg,
+    renderedStave: renderedStaveArg,
     preserveSelectionRange = false,
   }) => {
     try {
@@ -2283,8 +2307,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
       const selectedStr = stringArg ?? null;
 
+      const staff = beat.voice.bar.staff;
+      const renderedStave: RenderedStave = renderedStaveArg
+        ?? (staff.showTablature ? "tablature" : "standard");
+
       // Look up grid and beat bounds (needed for both cursor and note matching)
-      const grid = getSnapGridForBar(trackIndex, staffIndex, barIndex);
+      const grid = getSnapGridForBar(
+        trackIndex,
+        staffIndex,
+        barIndex,
+        renderedStave,
+      );
       const snap =
         grid && selectedStr !== null
           ? grid.positions.find((p) => p.string === selectedStr) ?? null
@@ -2294,11 +2327,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         staffIndex,
         barIndex,
         beatIndex,
+        renderedStave,
       );
 
       // Determine if this track uses a notation grid (not tab)
-      const staff = beat.voice.bar.staff;
-      const isNotationGrid = !staff.showTablature || staff.track.isPercussion;
+      const isNotationGrid = renderedStave === "standard"
+        || staff.track.isPercussion;
 
       // Derive noteIndex from the selected position
       let resolvedNoteIndex: number;
@@ -2378,6 +2412,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         barIndex,
         beatIndex,
         string: selectedStr,
+        renderedStave,
       };
 
       // Selector and transport are separate local states. Selection updates the
@@ -2405,6 +2440,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         barIndex,
         beatIndex,
         string: selectedStr,
+        renderedStave,
         beatUuid: engine.selector.beatUuid,
         noteIndex: resolvedNoteIndex,
         selectionRange: nextSelectionRange,
@@ -2425,6 +2461,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
           barIndex: nextSelector.barIndex,
           beatIndex: nextSelector.beatIndex,
           string: nextSelector.string,
+          renderedStave: nextSelector.renderedStave,
           beatUuid: nextSelector.beatUuid,
           noteIndex: nextSelector.noteIndex,
           selectionRange: nextSelector.selectionRange,
@@ -2446,7 +2483,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       });
 
       if (get().showSnapGrid) {
-        setSnapGridSelection(selectedStr, trackIndex, staffIndex);
+        setSnapGridSelection(
+          selectedStr,
+          trackIndex,
+          staffIndex,
+          renderedStave,
+        );
       }
     } catch (e) {
       if (import.meta.env.DEV) {

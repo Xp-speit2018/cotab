@@ -34,6 +34,7 @@ function pendingSelectionFromSelector(): PendingSelection | null {
     voiceIndex,
     beatIndex,
     string,
+    renderedStave,
   } = engine.selector;
   if (
     trackIndex === null
@@ -42,7 +43,15 @@ function pendingSelectionFromSelector(): PendingSelection | null {
     || voiceIndex === null
     || beatIndex === null
   ) return null;
-  return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string };
+  return {
+    trackIndex,
+    staffIndex,
+    barIndex,
+    voiceIndex,
+    beatIndex,
+    string,
+    ...(renderedStave ? { renderedStave } : {}),
+  };
 }
 
 const transact = (

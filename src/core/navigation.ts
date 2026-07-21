@@ -1,9 +1,17 @@
 import * as Y from "yjs";
 
-import { engine, type SelectedBeat } from "@/core/engine";
+import {
+  engine,
+  type RenderedStave,
+  type SelectedBeat,
+} from "@/core/engine";
 
 export interface NavigationOptions {
-  getNavigablePositions?: (trackIndex: number, staffIndex: number) => readonly number[] | null;
+  getNavigablePositions?: (
+    trackIndex: number,
+    staffIndex: number,
+    renderedStave?: RenderedStave,
+  ) => readonly number[] | null;
   visibleTrackIndices?: readonly number[] | null;
 }
 
@@ -77,11 +85,17 @@ function getVisibleTrackIndices(options: NavigationOptions): readonly number[] {
   return Array.from({ length: getTrackCount() }, (_value, index) => index);
 }
 
-function getFallbackPositions(trackIndex: number, staffIndex: number): readonly number[] | null {
+function getFallbackPositions(
+  trackIndex: number,
+  staffIndex: number,
+  renderedStave?: RenderedStave,
+): readonly number[] | null {
   if (isPercussionStaff(trackIndex, staffIndex)) {
     return PERCUSSION_FALLBACK_POSITIONS;
   }
-  const stringCount = getStringCount(trackIndex, staffIndex);
+  const stringCount = renderedStave === "standard"
+    ? 0
+    : getStringCount(trackIndex, staffIndex);
   if (stringCount > 0) {
     return Array.from({ length: stringCount }, (_value, index) => stringCount - index);
   }
@@ -92,11 +106,16 @@ function getMovePositions(
   trackIndex: number,
   staffIndex: number,
   options: NavigationOptions,
+  renderedStave?: RenderedStave,
 ): readonly number[] | null {
-  const snapPositions = options.getNavigablePositions?.(trackIndex, staffIndex);
+  const snapPositions = options.getNavigablePositions?.(
+    trackIndex,
+    staffIndex,
+    renderedStave,
+  );
   return snapPositions && snapPositions.length > 0
     ? snapPositions
-    : getFallbackPositions(trackIndex, staffIndex);
+    : getFallbackPositions(trackIndex, staffIndex, renderedStave);
 }
 
 /** Compute next beat target (moves to next bar if at end). */
@@ -141,18 +160,23 @@ export function computeMoveUp(
   current: SelectedBeat,
   options: NavigationOptions = {},
 ): SelectedBeat | null {
-  const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: currentString } = current;
-  const positions = getMovePositions(trackIndex, staffIndex, options);
+  const { trackIndex, staffIndex, string: currentString } = current;
+  const positions = getMovePositions(
+    trackIndex,
+    staffIndex,
+    options,
+    current.renderedStave,
+  );
   if (!positions || positions.length === 0) return null;
 
   if (currentString === null) {
     const idx = Math.max(0, Math.floor(positions.length / 2) - 1);
-    return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: positions[idx] };
+    return { ...current, string: positions[idx] };
   }
 
   const idx = positions.indexOf(currentString);
   if (idx > 0) {
-    return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: positions[idx - 1] };
+    return { ...current, string: positions[idx - 1] };
   }
   return null;
 }
@@ -161,18 +185,23 @@ export function computeMoveDown(
   current: SelectedBeat,
   options: NavigationOptions = {},
 ): SelectedBeat | null {
-  const { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: currentString } = current;
-  const positions = getMovePositions(trackIndex, staffIndex, options);
+  const { trackIndex, staffIndex, string: currentString } = current;
+  const positions = getMovePositions(
+    trackIndex,
+    staffIndex,
+    options,
+    current.renderedStave,
+  );
   if (!positions || positions.length === 0) return null;
 
   if (currentString === null) {
     const idx = Math.min(positions.length - 1, Math.floor(positions.length / 2) + 1);
-    return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: positions[idx] };
+    return { ...current, string: positions[idx] };
   }
 
   const idx = positions.indexOf(currentString);
   if (idx >= 0 && idx < positions.length - 1) {
-    return { trackIndex, staffIndex, barIndex, voiceIndex, beatIndex, string: positions[idx + 1] };
+    return { ...current, string: positions[idx + 1] };
   }
   return null;
 }

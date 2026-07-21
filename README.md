@@ -91,7 +91,7 @@ Current target boundaries:
 - [x] **Layout-independent snap grid** — Remove the snap grid's historical
   single-system technical debt. This is a prerequisite for dual layout support
   and fixed-system incremental rendering.
-- [ ] **Rendered-stave-aware snap grid** — Split a logical Staff's standard and
+- [x] **Rendered-stave-aware snap grid** — Split a logical Staff's standard and
   tablature render surfaces so pointer and keyboard snapping target the visible
   stave that the user is editing.
 - [x] **Fixed-system incremental rendering** — Reuse unchanged parchment

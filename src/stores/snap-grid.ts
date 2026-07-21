@@ -5,16 +5,18 @@
 
 import { getApi, getMainElement, getViewportElement } from "./render-api";
 import { GP7_ARTICULATION_MAP } from "./percussion-data";
-import type { SnapGrid, SnapPosition } from "./render-types";
+import type { RenderedStave, SnapGrid, SnapPosition } from "./render-types";
 
 const snapGrids = new Map<string, SnapGrid>();
 const snapGridsByBar = new Map<string, SnapGrid>();
 const navigablePositions = new Map<string, number[]>();
+let renderedStaveByBarBounds = new WeakMap<object, RenderedStave>();
 
 type CollectedSnapGrid = {
   systemIndex: number;
   trackIndex: number;
   staffIndex: number;
+  renderedStave: RenderedStave;
   barIndexes: Set<number>;
   systemBounds: { x: number; y: number; w: number; h: number };
   stringYs: Map<number, number>;
@@ -29,7 +31,15 @@ type CollectedSnapGrid = {
 
 let snapGridOverlayContainer: HTMLDivElement | null = null;
 let snapGridLabelContainer: HTMLDivElement | null = null;
-let snapGridEntries: { marker: HTMLElement; label: HTMLElement; string: number; y: number; trackIndex: number; staffIndex: number }[] = [];
+let snapGridEntries: {
+  marker: HTMLElement;
+  label: HTMLElement;
+  string: number;
+  y: number;
+  trackIndex: number;
+  staffIndex: number;
+  renderedStave: RenderedStave;
+}[] = [];
 let snapGridScrollHandler: (() => void) | null = null;
 
 export function getSnapGrids(): Map<string, SnapGrid> {
@@ -40,16 +50,51 @@ export function getSnapGridForBar(
   trackIndex: number,
   staffIndex: number,
   barIndex: number,
+  renderedStave?: RenderedStave,
 ): SnapGrid | null {
-  return snapGridsByBar.get(`${trackIndex}:${staffIndex}:${barIndex}`) ?? null;
+  if (renderedStave) {
+    return snapGridsByBar.get(
+      `${trackIndex}:${staffIndex}:${barIndex}:${renderedStave}`,
+    ) ?? null;
+  }
+  return getSnapGridsForBar(trackIndex, staffIndex, barIndex)[0] ?? null;
+}
+
+export function getSnapGridsForBar(
+  trackIndex: number,
+  staffIndex: number,
+  barIndex: number,
+): SnapGrid[] {
+  return (["standard", "tablature"] as const)
+    .map((renderedStave) => snapGridsByBar.get(
+      `${trackIndex}:${staffIndex}:${barIndex}:${renderedStave}`,
+    ))
+    .filter((grid): grid is SnapGrid => grid !== undefined);
+}
+
+export function getRenderedStaveForBarBounds(
+  barBounds: object,
+): RenderedStave | null {
+  return renderedStaveByBarBounds.get(barBounds) ?? null;
 }
 
 /**
  * Get the pre-computed navigable string values for a staff.
  * Returns unique string values in Y-sorted order (top to bottom), or null if grid not built.
  */
-export function getNavigablePositions(trackIndex: number, staffIndex: number): number[] | null {
-  return navigablePositions.get(`${trackIndex}:${staffIndex}`) ?? null;
+export function getNavigablePositions(
+  trackIndex: number,
+  staffIndex: number,
+  renderedStave?: RenderedStave,
+): number[] | null {
+  if (renderedStave) {
+    return navigablePositions.get(
+      `${trackIndex}:${staffIndex}:${renderedStave}`,
+    ) ?? null;
+  }
+  return navigablePositions.get(`${trackIndex}:${staffIndex}:standard`)
+    ?? navigablePositions.get(`${trackIndex}:${staffIndex}:tablature`)
+    ?? null;
 }
 
 export function findNearestSnap(grid: SnapGrid, y: number): SnapPosition | null {
@@ -104,6 +149,7 @@ function registerSnapGrid(
     systemIndex: entry.systemIndex,
     trackIndex: entry.trackIndex,
     staffIndex: entry.staffIndex,
+    renderedStave: entry.renderedStave,
     barIndexes,
     systemBounds: entry.systemBounds,
     positions,
@@ -113,17 +159,17 @@ function registerSnapGrid(
   };
 
   snapGrids.set(
-    `${entry.systemIndex}:${entry.trackIndex}:${entry.staffIndex}`,
+    `${entry.systemIndex}:${entry.trackIndex}:${entry.staffIndex}:${entry.renderedStave}`,
     grid,
   );
   for (const barIndex of barIndexes) {
     snapGridsByBar.set(
-      `${entry.trackIndex}:${entry.staffIndex}:${barIndex}`,
+      `${entry.trackIndex}:${entry.staffIndex}:${barIndex}:${entry.renderedStave}`,
       grid,
     );
   }
 
-  const staffKey = `${entry.trackIndex}:${entry.staffIndex}`;
+  const staffKey = `${entry.trackIndex}:${entry.staffIndex}:${entry.renderedStave}`;
   const merged = new Set([
     ...(navigablePositions.get(staffKey) ?? []),
     ...systemStrings,
@@ -142,6 +188,7 @@ export function buildSnapGrids(): void {
   snapGrids.clear();
   snapGridsByBar.clear();
   navigablePositions.clear();
+  renderedStaveByBarBounds = new WeakMap<object, RenderedStave>();
   const api = getApi();
   const lookup = api?.boundsLookup;
   const score = api?.score;
@@ -168,21 +215,57 @@ export function buildSnapGrids(): void {
     }
 
     for (const masterBar of system.bars) {
+      const groupedBounds = new Map<string, typeof masterBar.bars>();
+      for (const barBounds of masterBar.bars) {
+        const refBar = barBounds.bar ?? barBounds.beats[0]?.beat.voice.bar;
+        if (!refBar) continue;
+        const groupKey = [
+          refBar.staff.track.index,
+          refBar.staff.index,
+          refBar.index,
+        ].join(":");
+        const group = groupedBounds.get(groupKey) ?? [];
+        group.push(barBounds);
+        groupedBounds.set(groupKey, group);
+      }
+      // AlphaTab emits one BarBounds per rendered stave, ordered top-to-bottom:
+      // standard notation first, then tablature for a dual-notation Staff.
+      for (const group of groupedBounds.values()) {
+        group.sort((a, b) => a.realBounds.y - b.realBounds.y);
+        const refBar = group[0].bar ?? group[0].beats[0]?.beat.voice.bar;
+        if (!refBar) continue;
+        const staff = score.tracks[refBar.staff.track.index]
+          ?.staves[refBar.staff.index];
+        const showTablature = staff?.showTablature ?? false;
+        const showStandardNotation = staff?.showStandardNotation
+          ?? !showTablature;
+        for (let index = 0; index < group.length; index++) {
+          const renderedStave: RenderedStave = showStandardNotation && showTablature
+            ? index === 0 ? "standard" : "tablature"
+            : showTablature
+              ? "tablature"
+              : "standard";
+          renderedStaveByBarBounds.set(group[index], renderedStave);
+        }
+      }
+
       for (const barBounds of masterBar.bars) {
         const refBar =
           barBounds.bar ?? barBounds.beats[0]?.beat.voice.bar;
         if (!refBar) continue;
         const ti = refBar.staff.track.index;
         const si = refBar.staff.index;
-        const key = `${systemIndex}:${ti}:${si}`;
+        const renderedStave = renderedStaveByBarBounds.get(barBounds)
+          ?? "standard";
+        const key = `${systemIndex}:${ti}:${si}:${renderedStave}`;
         let entry = collected.get(key);
         if (!entry) {
           const trackObj = score.tracks[ti];
-          const staffObj = trackObj?.staves[si];
           entry = {
             systemIndex,
             trackIndex: ti,
             staffIndex: si,
+            renderedStave,
             barIndexes: new Set(),
             systemBounds: {
               x: system.realBounds.x,
@@ -195,7 +278,7 @@ export function buildSnapGrids(): void {
             percYArticulations: [],
             widths: [],
             heights: [],
-            isTab: staffObj?.showTablature ?? true,
+            isTab: renderedStave === "tablature",
             isPercussion: trackObj?.isPercussion ?? false,
             barRealBounds: null,
           };
@@ -401,6 +484,7 @@ export type SnapGridSelection = {
   selectedString: number | null;
   trackIndex: number | null;
   staffIndex: number | null;
+  renderedStave?: RenderedStave | null;
 };
 
 /**
@@ -474,6 +558,7 @@ export function updateSnapGridOverlay(
         y: pos.y,
         trackIndex: grid.trackIndex,
         staffIndex: grid.staffIndex,
+        renderedStave: grid.renderedStave,
       });
     }
   }
@@ -505,6 +590,7 @@ export function updateSnapGridOverlay(
       selection.selectedString,
       selection.trackIndex,
       selection.staffIndex,
+      selection.renderedStave,
     );
   }
 }
@@ -513,12 +599,16 @@ export function setSnapGridSelection(
   selectedString: number | null,
   trackIndex: number | null = null,
   staffIndex: number | null = null,
+  renderedStave: RenderedStave | null = null,
 ): void {
   for (const entry of snapGridEntries) {
     const stringMatches = selectedString === null || entry.string === selectedString;
     const trackMatches = trackIndex === null || entry.trackIndex === trackIndex;
     const staffMatches = staffIndex === null || entry.staffIndex === staffIndex;
-    const active = stringMatches && trackMatches && staffMatches;
+    const renderedStaveMatches = renderedStave === null
+      || entry.renderedStave === renderedStave;
+    const active = stringMatches && trackMatches && staffMatches
+      && renderedStaveMatches;
     entry.marker.classList.toggle("at-snap-grid--dim", !active);
     entry.label.classList.toggle("at-snap-grid--dim", !active);
   }
@@ -543,4 +633,5 @@ export function destroySnapGridOverlay(): void {
   snapGrids.clear();
   snapGridsByBar.clear();
   navigablePositions.clear();
+  renderedStaveByBarBounds = new WeakMap<object, RenderedStave>();
 }

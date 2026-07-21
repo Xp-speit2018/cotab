@@ -1,15 +1,13 @@
-import type * as alphaTab from "@coderline/alphatab";
-import type { SelectedBeat } from "@/core/engine";
+import type { RenderedStave, SelectedBeat } from "@/core/engine";
 import {
   computeMoveDown as computeCoreMoveDown,
   computeMoveUp as computeCoreMoveUp,
-  computeNextStaff as computeCoreNextStaff,
-  computePrevStaff as computeCorePrevStaff,
 } from "@/core/navigation";
 import { usePlayerStore } from "@/stores/render-store";
 import { getApi } from "@/stores/render-api";
 import {
   getNavigablePositions,
+  getRenderedStaveForBarBounds,
   getSnapGridForBar,
 } from "@/stores/snap-grid";
 
@@ -72,6 +70,7 @@ function projectStringToStaff(
     target.trackIndex,
     target.staffIndex,
     target.barIndex,
+    target.renderedStave,
   );
   if (!targetGrid || targetGrid.positions.length === 0) return null;
   const targetPositions = getStaffNavigationPositions(target.trackIndex, targetGrid);
@@ -81,6 +80,7 @@ function projectStringToStaff(
     current.trackIndex,
     current.staffIndex,
     current.barIndex,
+    current.renderedStave,
   );
   const sourcePositions = sourceGrid
     ? getStaffNavigationPositions(current.trackIndex, sourceGrid)
@@ -107,34 +107,29 @@ function snapRenderedStaffSelection(
   fallback: SelectedBeat,
 ): SelectedBeat {
   const api = getApi();
-  const lookup = api?.boundsLookup;
-  const score = api?.score;
   const snappedString = projectStringToStaff(current, fallback);
-  if (!lookup || !score || current.barIndex !== fallback.barIndex) {
+  if (!api?.boundsLookup || !api.score || current.barIndex !== fallback.barIndex) {
     return { ...fallback, string: snappedString };
   }
 
-  const sourceBeat = score.tracks[current.trackIndex]?.staves[current.staffIndex]
-    ?.bars[current.barIndex]?.voices[current.voiceIndex]?.beats[current.beatIndex];
-  const sourceBounds = sourceBeat ? lookup.findBeat(sourceBeat) : null;
-  const targetBar = score.tracks[fallback.trackIndex]?.staves[fallback.staffIndex]
-    ?.bars[fallback.barIndex];
-  if (!sourceBounds || !targetBar) {
+  const sourceBarBounds = findRenderedBarBounds(current);
+  const targetBarBounds = findRenderedBarBounds(fallback);
+  const sourceBounds = sourceBarBounds?.beats.find((bounds) =>
+    bounds.beat.voice.index === current.voiceIndex
+    && bounds.beat.index === current.beatIndex
+  ) ?? null;
+  if (!sourceBounds || !targetBarBounds) {
     return { ...fallback, string: snappedString };
   }
 
-  let nearestBeat: alphaTab.model.Beat | null = null;
+  let nearestBeat = null as typeof sourceBounds.beat | null;
   let nearestDistance = Infinity;
-  for (const voice of targetBar.voices) {
-    for (const beat of voice.beats) {
-      const bounds = lookup.findBeat(beat);
-      if (!bounds) continue;
-      const centerX = bounds.realBounds.x + bounds.realBounds.w / 2;
-      const distance = Math.abs(sourceBounds.onNotesX - centerX);
-      if (distance < nearestDistance) {
-        nearestBeat = beat;
-        nearestDistance = distance;
-      }
+  for (const bounds of targetBarBounds.beats) {
+    const centerX = bounds.realBounds.x + bounds.realBounds.w / 2;
+    const distance = Math.abs(sourceBounds.onNotesX - centerX);
+    if (distance < nearestDistance) {
+      nearestBeat = bounds.beat;
+      nearestDistance = distance;
     }
   }
 
@@ -146,19 +141,108 @@ function snapRenderedStaffSelection(
     barIndex: fallback.barIndex,
     beatIndex: nearestBeat.index,
     string: snappedString,
+    renderedStave: fallback.renderedStave,
   };
 }
 
-export function computeNextStaff(current: SelectedBeat): SelectedBeat | null {
-  const target = computeCoreNextStaff(current, {
-    visibleTrackIndices: usePlayerStore.getState().visibleTrackIndices,
-  });
+type VisibleStaff = {
+  trackIndex: number;
+  staffIndex: number;
+  renderedStave: RenderedStave;
+};
+
+function findRenderedBarBounds(selection: SelectedBeat) {
+  const lookup = getApi()?.boundsLookup;
+  if (!lookup || !selection.renderedStave) return null;
+  for (const system of lookup.staffSystems) {
+    for (const masterBar of system.bars) {
+      for (const barBounds of masterBar.bars) {
+        const bar = barBounds.bar ?? barBounds.beats[0]?.beat.voice.bar;
+        if (
+          bar?.staff.track.index === selection.trackIndex
+          && bar.staff.index === selection.staffIndex
+          && bar.index === selection.barIndex
+          && getRenderedStaveForBarBounds(barBounds) === selection.renderedStave
+        ) {
+          return barBounds;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function getVisibleStaffs(): VisibleStaff[] {
+  const score = getApi()?.score;
+  if (!score) return [];
+  const visibleTracks = new Set(
+    usePlayerStore.getState().visibleTrackIndices,
+  );
+  const result: VisibleStaff[] = [];
+  for (const track of score.tracks) {
+    if (!visibleTracks.has(track.index)) continue;
+    for (const staff of track.staves) {
+      if (staff.showStandardNotation) {
+        result.push({
+          trackIndex: track.index,
+          staffIndex: staff.index,
+          renderedStave: "standard",
+        });
+      }
+      if (staff.showTablature) {
+        result.push({
+          trackIndex: track.index,
+          staffIndex: staff.index,
+          renderedStave: "tablature",
+        });
+      }
+    }
+  }
+  return result;
+}
+
+function buildVisibleStaffSelection(
+  current: SelectedBeat,
+  target: VisibleStaff,
+): SelectedBeat | null {
+  const staff = getApi()?.score?.tracks[target.trackIndex]
+    ?.staves[target.staffIndex];
+  if (!staff || staff.bars.length === 0) return null;
+  const barIndex = Math.min(current.barIndex, staff.bars.length - 1);
+  return {
+    trackIndex: target.trackIndex,
+    staffIndex: target.staffIndex,
+    voiceIndex: 0,
+    barIndex,
+    beatIndex: 0,
+    string: null,
+    renderedStave: target.renderedStave,
+  };
+}
+
+function computeVisibleStaffTarget(
+  current: SelectedBeat,
+  offset: -1 | 1,
+): SelectedBeat | null {
+  const visibleStaffs = getVisibleStaffs();
+  const currentStaff = current.renderedStave
+    ?? (getApi()?.score?.tracks[current.trackIndex]?.staves[current.staffIndex]
+      ?.showTablature ? "tablature" : "standard");
+  const currentIndex = visibleStaffs.findIndex((staff) =>
+    staff.trackIndex === current.trackIndex
+    && staff.staffIndex === current.staffIndex
+    && staff.renderedStave === currentStaff
+  );
+  const target = visibleStaffs[currentIndex + offset];
+  return target ? buildVisibleStaffSelection(current, target) : null;
+}
+
+export function computeNextVisibleStaff(current: SelectedBeat): SelectedBeat | null {
+  const target = computeVisibleStaffTarget(current, 1);
   return target ? snapRenderedStaffSelection(current, target) : null;
 }
 
-export function computePrevStaff(current: SelectedBeat): SelectedBeat | null {
-  const target = computeCorePrevStaff(current, {
-    visibleTrackIndices: usePlayerStore.getState().visibleTrackIndices,
-  });
+export function computePreviousVisibleStaff(current: SelectedBeat): SelectedBeat | null {
+  const target = computeVisibleStaffTarget(current, -1);
   return target ? snapRenderedStaffSelection(current, target) : null;
 }

@@ -9,10 +9,14 @@ import {
   destroySnapGridOverlay,
   getNavigablePositions,
   getSnapGridForBar,
+  getSnapGridsForBar,
   getSnapGrids,
 } from "@/stores/snap-grid";
 
-function createFakeApi(systemYs: number[]): alphaTab.AlphaTabApi {
+function createFakeApi(
+  systemYs: number[],
+  options: { showStandardNotation?: boolean } = {},
+): alphaTab.AlphaTabApi {
   const track = {
     index: 0,
     isPercussion: false,
@@ -22,6 +26,7 @@ function createFakeApi(systemYs: number[]): alphaTab.AlphaTabApi {
   const staff = {
     index: 0,
     track,
+    showStandardNotation: options.showStandardNotation ?? false,
     showTablature: true,
     tuning: [64, 59, 55, 50, 45, 40],
   };
@@ -32,19 +37,33 @@ function createFakeApi(systemYs: number[]): alphaTab.AlphaTabApi {
       index: systemIndex,
       staff,
     };
+    const tabBounds = {
+      bar,
+      realBounds: {
+        x: 40,
+        y: y + (options.showStandardNotation ? 80 : 20),
+        w: 720,
+        h: 60,
+      },
+      beats: [],
+    };
+    const renderedBars = options.showStandardNotation
+      ? [
+          {
+            bar,
+            realBounds: { x: 40, y: y + 20, w: 720, h: 40 },
+            beats: [],
+          },
+          tabBounds,
+        ]
+      : [tabBounds];
     return {
       index: systemIndex,
       realBounds: { x: 40, y, w: 720, h: 120 },
       bars: [
         {
           realBounds: { x: 40, y, w: 720, h: 120 },
-          bars: [
-            {
-              bar,
-              realBounds: { x: 40, y: y + 20, w: 720, h: 60 },
-              beats: [],
-            },
-          ],
+          bars: renderedBars,
         },
       ],
     };
@@ -78,7 +97,10 @@ describe("system-scoped snap grids", () => {
 
     buildSnapGrids();
 
-    expect([...getSnapGrids().keys()]).toEqual(["0:0:0", "1:0:0"]);
+    expect([...getSnapGrids().keys()]).toEqual([
+      "0:0:0:tablature",
+      "1:0:0:tablature",
+    ]);
     const firstSystem = getSnapGridForBar(0, 0, 0);
     const secondSystem = getSnapGridForBar(0, 0, 1);
     expect(firstSystem?.systemIndex).toBe(0);
@@ -95,9 +117,37 @@ describe("system-scoped snap grids", () => {
     vi.mocked(getApi).mockReturnValue(createFakeApi([250]));
     buildSnapGrids();
 
-    expect([...getSnapGrids().keys()]).toEqual(["0:0:0"]);
+    expect([...getSnapGrids().keys()]).toEqual(["0:0:0:tablature"]);
     expect(getSnapGridForBar(0, 0, 0)?.positions[0].y).toBe(269.5);
     expect(getSnapGridForBar(0, 0, 1)).toBeNull();
     expect(getNavigablePositions(0, 0)).toEqual([6, 5, 4, 3, 2, 1]);
+  });
+
+  it("keeps standard notation and tablature as separate rendered staves", () => {
+    vi.mocked(getApi).mockReturnValue(createFakeApi([100], {
+      showStandardNotation: true,
+    }));
+
+    buildSnapGrids();
+
+    expect([...getSnapGrids().keys()]).toEqual([
+      "0:0:0:standard",
+      "0:0:0:tablature",
+    ]);
+    const standard = getSnapGridForBar(0, 0, 0, "standard");
+    const tablature = getSnapGridForBar(0, 0, 0, "tablature");
+    expect(getSnapGridsForBar(0, 0, 0)).toEqual([standard, tablature]);
+    expect(standard?.renderedStave).toBe("standard");
+    expect(standard?.positions).toHaveLength(21);
+    expect(tablature?.renderedStave).toBe("tablature");
+    expect(tablature?.positions).toHaveLength(6);
+    expect(standard?.positions[0]).toEqual({ string: 1, y: 89.5 });
+    expect(tablature?.positions[0]).toEqual({ string: 6, y: 179.5 });
+    expect(getNavigablePositions(0, 0, "standard")).toEqual(
+      Array.from({ length: 21 }, (_value, index) => index + 1),
+    );
+    expect(getNavigablePositions(0, 0, "tablature")).toEqual([
+      6, 5, 4, 3, 2, 1,
+    ]);
   });
 });

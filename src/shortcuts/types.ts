@@ -21,7 +21,7 @@ export type ShortcutBehavior =
     }
   | {
       type: "navigate";
-      direction: "nextBeat" | "prevBeat" | "moveUp" | "moveDown" | "nextBar" | "prevBar" | "nextStaff" | "prevStaff";
+      direction: "nextBeat" | "prevBeat" | "moveUp" | "moveDown" | "nextBar" | "prevBar" | "nextVisibleStaff" | "previousVisibleStaff";
     };
 
 export interface ShortcutBinding {

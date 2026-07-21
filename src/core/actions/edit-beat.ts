@@ -80,6 +80,7 @@ const STAFF_LINE_FIRST_GP7_ID: Record<number, number> = {
 };
 
 function pendingFromSelection(sel: SelectedBeat): PendingSelection {
+  const renderedStave = sel.renderedStave ?? engine.selector.renderedStave;
   return {
     trackIndex: sel.trackIndex,
     barIndex: sel.barIndex,
@@ -87,6 +88,7 @@ function pendingFromSelection(sel: SelectedBeat): PendingSelection {
     staffIndex: sel.staffIndex,
     voiceIndex: sel.voiceIndex,
     string: sel.string,
+    ...(renderedStave ? { renderedStave } : {}),
   };
 }
 
@@ -98,6 +100,7 @@ function pendingSelectionFromSelector(): PendingSelection | null {
     voiceIndex,
     beatIndex,
     string,
+    renderedStave,
   } = engine.selector;
   if (
     trackIndex === null
@@ -113,6 +116,7 @@ function pendingSelectionFromSelector(): PendingSelection | null {
     voiceIndex,
     beatIndex,
     string,
+    ...(renderedStave ? { renderedStave } : {}),
   });
 }
 
@@ -131,7 +135,9 @@ function getStaffMode(sel: SelectedBeat): {
     | undefined;
   return {
     isPercussion: (yStaff.get("isPercussion") as boolean) ?? false,
-    showTablature: (yStaff.get("showTablature") as boolean) ?? true,
+    showTablature: sel.renderedStave
+      ? sel.renderedStave === "tablature"
+      : (yStaff.get("showTablature") as boolean) ?? true,
     tuningLength: tunings?.length ?? 0,
   };
 }

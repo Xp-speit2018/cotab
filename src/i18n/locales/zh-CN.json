@@ -811,8 +811,8 @@
       "moveDown": { "name": "下移" },
       "nextBar": { "name": "下一小节" },
       "prevBar": { "name": "上一小节" },
-      "nextStaff": { "name": "下一谱表" },
-      "prevStaff": { "name": "上一谱表" }
+      "nextStaff": { "name": "下一个可见谱表" },
+      "prevStaff": { "name": "上一个可见谱表" }
     },
     "edit": {
       "beat": {

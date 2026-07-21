@@ -56,6 +56,8 @@ export type {
 
 // ─── Selection types ────────────────────────────────────────────────────────
 
+export type RenderedStave = "standard" | "tablature";
+
 export interface SelectedBeat {
   trackIndex: number;
   staffIndex: number;
@@ -63,6 +65,7 @@ export interface SelectedBeat {
   barIndex: number;
   beatIndex: number;
   string: number | null;
+  renderedStave?: RenderedStave;
   beatUuid?: string; // UUID for stable lookup across re-renders
 }
 
@@ -74,7 +77,8 @@ function selectionsEqual(a: SelectedBeat, b: SelectedBeat): boolean {
     a.voiceIndex === b.voiceIndex &&
     a.barIndex === b.barIndex &&
     a.beatIndex === b.beatIndex &&
-    a.string === b.string
+    a.string === b.string &&
+    (a.renderedStave ?? null) === (b.renderedStave ?? null)
   );
 }
 
@@ -112,6 +116,7 @@ export interface SelectorState {
   barIndex: number | null;
   beatIndex: number | null;
   string: number | null;
+  renderedStave: RenderedStave | null;
   beatUuid: string | null;
   noteIndex: number;
   selectionRange: SelectionRange | null;
@@ -135,6 +140,7 @@ export interface PendingSelection {
   staffIndex: number;
   voiceIndex: number;
   string: number | null;
+  renderedStave?: RenderedStave;
 }
 
 function createEmptySelectorState(): SelectorState {
@@ -151,6 +157,7 @@ function createEmptySelectorState(): SelectorState {
     barIndex: null,
     beatIndex: null,
     string: null,
+    renderedStave: null,
     beatUuid: null,
     noteIndex: -1,
     selectionRange: null,
@@ -382,7 +389,8 @@ export class EditorEngine {
       this.selector.voiceIndex === sel.voiceIndex &&
       this.selector.barIndex === sel.barIndex &&
       this.selector.beatIndex === sel.beatIndex &&
-      this.selector.string === sel.string;
+      this.selector.string === sel.string &&
+      this.selector.renderedStave === (sel.renderedStave ?? null);
     // Skip if same value (prevent circular notifications)
     if (
       sameSelection &&
@@ -404,6 +412,7 @@ export class EditorEngine {
       barIndex: sel.barIndex,
       beatIndex: sel.beatIndex,
       string: sel.string,
+      renderedStave: sel.renderedStave ?? null,
       beatUuid,
       noteIndex: selectedNoteIndex,
       selectionRange: preserveSelectionRange
@@ -789,6 +798,9 @@ export class EditorEngine {
                   voiceIndex,
                   beatIndex,
                   string: currentString,
+                  ...(this.selector.renderedStave
+                    ? { renderedStave: this.selector.renderedStave }
+                    : {}),
                   beatUuid,
                 };
               }

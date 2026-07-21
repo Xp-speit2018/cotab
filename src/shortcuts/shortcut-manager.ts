@@ -15,8 +15,8 @@ import {
   computeMoveDown,
   computeNextBar,
   computePrevBar,
-  computeNextStaff,
-  computePrevStaff,
+  computeNextVisibleStaff,
+  computePreviousVisibleStaff,
 } from "@/components/navigation/navigation-helpers";
 import {
   forceActiveSystemBreak,
@@ -31,7 +31,7 @@ function getContext(): AppActionExecutionContext {
 
 /** Map navigation direction to target computation function. */
 function computeNavigationTarget(
-  direction: "nextBeat" | "prevBeat" | "moveUp" | "moveDown" | "nextBar" | "prevBar" | "nextStaff" | "prevStaff",
+  direction: "nextBeat" | "prevBeat" | "moveUp" | "moveDown" | "nextBar" | "prevBar" | "nextVisibleStaff" | "previousVisibleStaff",
   current: import("@/core/engine").SelectedBeat,
 ): import("@/core/engine").SelectedBeat | null {
   switch (direction) {
@@ -41,8 +41,8 @@ function computeNavigationTarget(
     case "moveDown": return computeMoveDown(current);
     case "nextBar": return computeNextBar(current);
     case "prevBar": return computePrevBar(current);
-    case "nextStaff": return computeNextStaff(current);
-    case "prevStaff": return computePrevStaff(current);
+    case "nextVisibleStaff": return computeNextVisibleStaff(current);
+    case "previousVisibleStaff": return computePreviousVisibleStaff(current);
     default: return null;
   }
 }
@@ -139,6 +139,7 @@ function handleKeyDown(e: KeyboardEvent): void {
         barIndex,
         beatIndex,
         string,
+        renderedStave,
         beatUuid,
       } = engine.selector;
       if (
@@ -157,6 +158,7 @@ function handleKeyDown(e: KeyboardEvent): void {
         barIndex,
         beatIndex,
         string,
+        ...(renderedStave ? { renderedStave } : {}),
         ...(beatUuid ? { beatUuid } : {}),
       };
 

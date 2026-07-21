@@ -70,7 +70,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     category: "navigation",
     defaultKeys: "mod+arrowdown",
     keys: "mod+arrowdown",
-    behavior: { type: "navigate", direction: "nextStaff" },
+    behavior: { type: "navigate", direction: "nextVisibleStaff" },
   },
   {
     id: "nav.prevStaff",
@@ -79,7 +79,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     category: "navigation",
     defaultKeys: "mod+arrowup",
     keys: "mod+arrowup",
-    behavior: { type: "navigate", direction: "prevStaff" },
+    behavior: { type: "navigate", direction: "previousVisibleStaff" },
   },
 
   // ── Transport ────────────────────────────────────────────────────────────

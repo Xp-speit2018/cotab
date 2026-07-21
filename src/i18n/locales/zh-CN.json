@@ -315,6 +315,7 @@
       "standardNotation": "标准谱",
       "tablature": "六线谱",
       "instrument": "乐器音色",
+      "drumKit": "鼓组",
       "instrumentHelp": "选择 AlphaTab 播放使用的 General MIDI 音色和音色库。",
       "instrumentSearch": "搜索乐器",
       "instrumentBank": "音色库",

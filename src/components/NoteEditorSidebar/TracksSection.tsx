@@ -31,6 +31,7 @@ import {
   EditablePropRow,
   SectionHeader,
   PopoverPropRow,
+  PropRow,
 } from "./primitives";
 import { ChordLibraryEditor } from "./editors/ChordEditors";
 import {
@@ -588,37 +589,44 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
             />
           ))}
 
-          <DialogPropRow
-            label={t("sidebar.tracks.instrument")}
-            value={instrumentSummary(
-              track.playbackInfo.program,
-              track.playbackInfo.bank,
-              t("sidebar.tracks.unknownInstrument"),
-              t("sidebar.tracks.instrumentBank"),
-            )}
-            title={t("sidebar.tracks.instrument")}
-            description={t("sidebar.tracks.instrumentHelp")}
-            open={instrumentOpen}
-            onOpenChange={setInstrumentOpen}
-            contentClassName="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl"
-          >
-            <InstrumentEditor
-              program={track.playbackInfo.program}
-              bank={track.playbackInfo.bank}
-              labels={{
-                search: t("sidebar.tracks.instrumentSearch"),
-                bank: t("sidebar.tracks.instrumentBank"),
-                apply: t("sidebar.common.apply"),
-                noResults: t("sidebar.tracks.noInstrumentResults"),
-              }}
-              onCommit={(program, bank) => executeAppAction(
-                "document.track.setInstrument",
-                { trackIndex, program, bank },
-                { t },
-              )}
-              onDone={() => setInstrumentOpen(false)}
+          {track.isPercussion ? (
+            <PropRow
+              label={t("sidebar.tracks.instrument")}
+              value={t("sidebar.tracks.drumKit")}
             />
-          </DialogPropRow>
+          ) : (
+            <DialogPropRow
+              label={t("sidebar.tracks.instrument")}
+              value={instrumentSummary(
+                track.playbackInfo.program,
+                track.playbackInfo.bank,
+                t("sidebar.tracks.unknownInstrument"),
+                t("sidebar.tracks.instrumentBank"),
+              )}
+              title={t("sidebar.tracks.instrument")}
+              description={t("sidebar.tracks.instrumentHelp")}
+              open={instrumentOpen}
+              onOpenChange={setInstrumentOpen}
+              contentClassName="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl"
+            >
+              <InstrumentEditor
+                program={track.playbackInfo.program}
+                bank={track.playbackInfo.bank}
+                labels={{
+                  search: t("sidebar.tracks.instrumentSearch"),
+                  bank: t("sidebar.tracks.instrumentBank"),
+                  apply: t("sidebar.common.apply"),
+                  noResults: t("sidebar.tracks.noInstrumentResults"),
+                }}
+                onCommit={(program, bank) => executeAppAction(
+                  "document.track.setInstrument",
+                  { trackIndex, program, bank },
+                  { t },
+                )}
+                onDone={() => setInstrumentOpen(false)}
+              />
+            </DialogPropRow>
+          )}
 
           {track.isPercussion && track.percussionArticulations.length > 0 && (
             <DialogPropRow

@@ -316,6 +316,7 @@
       "standardNotation": "Standard notation",
       "tablature": "Tablature",
       "instrument": "Instrument",
+      "drumKit": "Drum Kit",
       "instrumentHelp": "Choose the General MIDI instrument and sound bank used by alphaTab playback.",
       "instrumentSearch": "Search instruments",
       "instrumentBank": "Sound bank",

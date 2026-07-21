@@ -407,6 +407,10 @@ test("complex field editors commit semantic values and show matching summaries",
     name: "Toggle Drumkit details",
     exact: true,
   }).click();
+  await expect(page.getByText("Drum Kit", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", {
+    name: /^Instrument Acoustic Grand Piano/,
+  })).toHaveCount(0);
   const percussionMap = page.getByRole("button", {
     name: /^Percussion Map /,
   });

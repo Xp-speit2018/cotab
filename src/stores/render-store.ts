@@ -101,12 +101,17 @@ import {
   parseIceServers,
 } from "@/adapters/web/collaboration";
 import {
+  getRendererDiagnostics,
   isRebuildingFromYDoc,
   installRendererObserver,
   loadAlphaTabSource,
   shouldImportLoadedScore,
   uninstallRendererObserver,
 } from "./renderer-bridge";
+import {
+  createRenderLoadingController,
+  type RenderLoadingController,
+} from "./render-loading";
 import {
   resolvePlaybackFinishedState,
   togglePlayback as toggleApiPlayback,
@@ -118,6 +123,7 @@ let _processingHook = false; // Guard against circular calls
 let _selectorMouseDownTarget: HTMLElement | null = null;
 let _selectorMouseDownHandler: ((event: MouseEvent) => void) | null = null;
 let _selectorFocusAnimationFrame: number | null = null;
+let _renderLoadingController: RenderLoadingController | null = null;
 const LOOP_RANGE_BEAT_LEFT_PADDING = 8;
 const LOOP_RANGE_BEAT_RIGHT_PADDING = 18;
 const RANGE_PREVIEW_THRESHOLD_PX = 4;
@@ -126,6 +132,20 @@ const SELECTOR_RANGE_SNAP_THRESHOLD_PX = 12;
 const SELECTOR_FOCUS_MARGIN_PX = 32;
 const SELECTOR_FOCUS_MIN_DURATION_MS = 90;
 const SELECTOR_FOCUS_MAX_DURATION_MS = 180;
+
+function finishRenderLoadingWhenRendererSettles(): void {
+  queueMicrotask(() => {
+    if (getRendererDiagnostics().rendererBusy) return;
+    _renderLoadingController?.finish();
+  });
+}
+
+function loadScoreSource(scoreData: unknown): boolean {
+  _renderLoadingController?.start();
+  const started = loadAlphaTabSource(scoreData);
+  if (!started) _renderLoadingController?.finish();
+  return started;
+}
 
 function removeSelectorMouseDownHandler(): void {
   if (_selectorMouseDownTarget && _selectorMouseDownHandler) {
@@ -1283,7 +1303,8 @@ function extractBeatInfo(beat: alphaTab.model.Beat): SelectedBeatInfo {
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
   // Initial state
-  isLoading: false,
+  isRendering: false,
+  showLoadingOverlay: false,
   isPlayerReady: false,
   soundFontProgress: 0,
   selector: createRenderSelectorState(),
@@ -1367,7 +1388,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         updateTransportLoopOverlay(transport.loopRange);
       },
     });
-    set({ isLoading: true });
+    _renderLoadingController = createRenderLoadingController({
+      publish: (state) => set(state),
+    });
+    _renderLoadingController.start();
 
     setMainElement(mainEl);
     setViewportElement(viewportEl);
@@ -1649,7 +1673,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     // ── Wire Events ──────────────────────────────────────────────────────
 
     api.renderStarted.on(() => {
-      set({ isLoading: true });
+      _renderLoadingController?.start();
     });
 
     // boundsLookup is only guaranteed populated after postRenderFinished.
@@ -1677,7 +1701,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         : undefined);
 
       set({
-        isLoading: false,
         visibleTrackIndices,
         systemLayoutRows: collectRenderedSystemLayoutRows(),
       });
@@ -1704,6 +1727,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       updateTransportPlayheadOverlay(get().transport.tickPosition);
       updateTransportLoopOverlay(get().transport.loopRange);
       clearNativePlaybackRange();
+      finishRenderLoadingWhenRendererSettles();
+    });
+
+    api.error.on(() => {
+      finishRenderLoadingWhenRendererSettles();
     });
 
     api.scoreLoaded.on((score: alphaTab.model.Score) => {
@@ -1891,10 +1919,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     });
 
     // Load the demo file
-    loadAlphaTabSource("/demos/Taijin_kyofusho.gp");
+    loadScoreSource("/demos/Taijin_kyofusho.gp");
   },
 
   destroy: () => {
+    _renderLoadingController?.dispose();
+    _renderLoadingController = null;
     uninstallRendererObserver();
     removeSelectorMouseDownHandler();
     cancelSelectorFocusAnimation();
@@ -1935,7 +1965,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       transport: engine.transport,
     });
     set({
-      isLoading: false,
+      isRendering: false,
+      showLoadingOverlay: false,
       isPlayerReady: false,
       soundFontProgress: 0,
       selector: createRenderSelectorState(),
@@ -1980,22 +2011,26 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     const api = getApi();
     if (!api) return;
     if (data instanceof File) {
+      _renderLoadingController?.start();
       const reader = new FileReader();
       reader.onload = () => {
         if (reader.result instanceof ArrayBuffer) {
-          loadAlphaTabSource(new Uint8Array(reader.result));
+          loadScoreSource(new Uint8Array(reader.result));
+        } else {
+          _renderLoadingController?.finish();
         }
       };
+      reader.onerror = () => _renderLoadingController?.finish();
       reader.readAsArrayBuffer(data);
     } else {
-      loadAlphaTabSource(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
+      loadScoreSource(data instanceof ArrayBuffer ? new Uint8Array(data) : data);
     }
   },
 
   loadUrl: (url) => {
     const api = getApi();
     if (!api) return;
-    loadAlphaTabSource(url);
+    loadScoreSource(url);
   },
 
   // ── Playback Controls ────────────────────────────────────────────────────

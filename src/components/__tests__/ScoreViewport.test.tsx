@@ -9,6 +9,7 @@ import { ScoreViewport } from "../ScoreViewport";
 
 const viewportState = vi.hoisted(() => ({
   scoreLayout: "horizontal" as "horizontal" | "parchment",
+  showLoadingOverlay: false,
 }));
 
 vi.mock("@/stores/render-store", () => ({
@@ -16,7 +17,7 @@ vi.mock("@/stores/render-store", () => ({
     const mockState = {
       initialize: vi.fn(),
       destroy: vi.fn(),
-      isLoading: false,
+      showLoadingOverlay: viewportState.showLoadingOverlay,
       scoreLayout: viewportState.scoreLayout,
     };
     return selector(mockState);
@@ -34,6 +35,7 @@ describe("ScoreViewport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     viewportState.scoreLayout = "horizontal";
+    viewportState.showLoadingOverlay = false;
   });
 
   it("mounts without throwing", () => {
@@ -44,6 +46,14 @@ describe("ScoreViewport", () => {
     render(<ScoreViewport />);
     const viewport = document.querySelector(".at-viewport");
     expect(viewport).toBeInTheDocument();
+  });
+
+  it("shows the loading overlay only when its delayed state is visible", () => {
+    viewportState.showLoadingOverlay = true;
+
+    render(<ScoreViewport />);
+
+    expect(document.body).toHaveTextContent("viewport.loadingScore");
   });
 
   it("renders the main AlphaTab div", () => {

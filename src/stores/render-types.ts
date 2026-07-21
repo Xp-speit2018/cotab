@@ -299,7 +299,8 @@ export interface RenderTransportState extends TransportState {
 }
 
 export interface PlayerState {
-  isLoading: boolean;
+  isRendering: boolean;
+  showLoadingOverlay: boolean;
   isPlayerReady: boolean;
   soundFontProgress: number;
   selector: RenderSelectorState;

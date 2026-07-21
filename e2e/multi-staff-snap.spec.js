@@ -17,13 +17,14 @@ async function enableFirstStaffStandardNotation(page) {
     name: "Toggle Lead Guitar details",
     exact: true,
   }).click();
+  await page.getByRole("button", { name: /^Staves/ }).click();
   const renderFinished = page.evaluate(() => new Promise((resolve) => {
     const unsubscribe = window.__ALPHATAB_API__.postRenderFinished.on(() => {
       unsubscribe();
       resolve(undefined);
     });
   }));
-  await page.getByRole("button", {
+  await page.getByRole("menuitemcheckbox", {
     name: "Standard notation",
     exact: true,
   }).click();

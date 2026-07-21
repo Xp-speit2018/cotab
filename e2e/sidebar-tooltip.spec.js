@@ -48,7 +48,8 @@ async function enableFirstStaffStandardNotation(page) {
     name: "Toggle Lead Guitar details",
     exact: true,
   }).click();
-  await page.getByRole("button", {
+  await page.getByRole("button", { name: /^Staves/ }).click();
+  await page.getByRole("menuitemcheckbox", {
     name: "Standard notation",
     exact: true,
   }).click();

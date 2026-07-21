@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type * as alphaTab from "@coderline/alphatab";
 import {
+  Check,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -14,11 +15,6 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
 import { cn } from "@/lib/utils";
@@ -35,7 +31,6 @@ import {
   EditablePropRow,
   SectionHeader,
   PopoverPropRow,
-  ToggleBtn,
 } from "./primitives";
 import { ChordLibraryEditor } from "./editors/ChordEditors";
 import {
@@ -52,7 +47,6 @@ import { MusicGlyph, musicGlyphs } from "./notation-icons";
 interface StaffEditorData {
   staffIndex: number;
   tuningValues: number[];
-  tuningName: string;
   capo: number;
   transposition: number;
   displayTransposition: number;
@@ -63,6 +57,16 @@ interface StaffEditorData {
   chords: ChordDefinitionInfo[];
 }
 
+function findMatchingTuningPreset(
+  tunings: readonly number[],
+  presets: readonly TuningPresetInfo[],
+): TuningPresetInfo | null {
+  return presets.find((preset) =>
+    preset.tunings.length === tunings.length
+    && preset.tunings.every((value, index) => value === tunings[index])
+  ) ?? null;
+}
+
 function readStaffEditorData(
   staffIndex: number,
   staff: alphaTab.model.Staff,
@@ -70,7 +74,6 @@ function readStaffEditorData(
   return {
     staffIndex,
     tuningValues: [...staff.tuning],
-    tuningName: staff.tuningName,
     capo: staff.capo,
     transposition: staff.transpositionPitch,
     displayTransposition: staff.displayTranspositionPitch,
@@ -108,6 +111,7 @@ function StaffMetaEditor({
   const [expanded, setExpanded] = useState(selected);
   const [tuningOpen, setTuningOpen] = useState(false);
   const getTuningPresets = usePlayerStore((state) => state.getTuningPresets);
+  const formatTuningNote = usePlayerStore((state) => state.formatTuningNote);
 
   useEffect(() => {
     if (selected) setExpanded(true);
@@ -117,159 +121,202 @@ function StaffMetaEditor({
     staff.showTablature && staff.stringCount > 0
       ? getTuningPresets(staff.stringCount)
       : [];
+  const matchingTuningPreset = findMatchingTuningPreset(
+    staff.tuningValues,
+    tuningPresets,
+  );
   const summary = staff.isPercussion
     ? t("sidebar.tracks.percussion")
     : staff.stringCount > 0
       ? t("sidebar.tracks.stringCount", { count: staff.stringCount })
       : "";
+  const notationSummary = [
+    staff.showStandardNotation
+      ? t("sidebar.tracks.standardNotation")
+      : null,
+    staff.showTablature ? t("sidebar.tracks.tablature") : null,
+  ].filter(Boolean).join(", ");
+
+  const setNotationVisibility = (
+    showStandardNotation: boolean,
+    showTablature: boolean,
+  ) => {
+    if (!showStandardNotation && !showTablature) return;
+    executeAppAction("document.staff.setNotationVisibility", {
+      trackIndex,
+      staffIndex: staff.staffIndex,
+      showStandardNotation,
+      showTablature,
+    }, { t });
+  };
+
+  const setTuningValues = (tunings: number[]) => {
+    const matchingPreset = findMatchingTuningPreset(tunings, tuningPresets);
+    executeAppAction("document.staff.setStringTuning", {
+      trackIndex,
+      staffIndex: staff.staffIndex,
+      stringTuning: matchingPreset ?? {
+        tunings,
+        name: "",
+        isStandard: false,
+      },
+    }, { t });
+  };
 
   const fields = (
     <div className="space-y-0.5 pb-1">
-      <div className="px-2 py-1">
-        <div className="mb-0.5 px-1 text-[10px] font-medium text-muted-foreground">
-          {t("sidebar.tracks.notation")}
+      <PopoverPropRow
+        label={t("sidebar.tracks.notation")}
+        value={notationSummary}
+        title={t("sidebar.tracks.notation")}
+        description={t("sidebar.tracks.notationHelp")}
+        contentClassName="w-64 p-2"
+      >
+        <div role="menu" aria-label={t("sidebar.tracks.notation")}>
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-label={t("sidebar.tracks.standardNotation")}
+            aria-checked={staff.showStandardNotation}
+            disabled={staff.showStandardNotation && !staff.showTablature}
+            className="flex min-h-9 w-full items-center gap-2 px-2 text-left text-xs transition-colors hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => setNotationVisibility(
+              !staff.showStandardNotation,
+              staff.showTablature,
+            )}
+          >
+            <span className="flex h-4 w-4 items-center justify-center">
+              {staff.showStandardNotation && <Check className="h-3.5 w-3.5" />}
+            </span>
+            <MusicGlyph glyph={musicGlyphs.gClef} className="w-5 text-[18px]" />
+            <span>{t("sidebar.tracks.standardNotation")}</span>
+          </button>
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-label={t("sidebar.tracks.tablature")}
+            aria-checked={staff.showTablature}
+            disabled={staff.showTablature && !staff.showStandardNotation}
+            className="flex min-h-9 w-full items-center gap-2 px-2 text-left text-xs transition-colors hover:bg-accent/50 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => setNotationVisibility(
+              staff.showStandardNotation,
+              !staff.showTablature,
+            )}
+          >
+            <span className="flex h-4 w-4 items-center justify-center">
+              {staff.showTablature && <Check className="h-3.5 w-3.5" />}
+            </span>
+            <MusicGlyph glyph={musicGlyphs.tabClef6} className="w-5 text-[18px]" />
+            <span>{t("sidebar.tracks.tablature")}</span>
+          </button>
         </div>
-        <div className="flex flex-wrap gap-0.5">
-          <ToggleBtn
-            label={t("sidebar.tracks.standardNotation")}
-            pressed={staff.showStandardNotation}
-            onPressedChange={(showStandardNotation) => {
-              if (!showStandardNotation && !staff.showTablature) return;
-              executeAppAction("document.staff.setNotationVisibility", {
-                trackIndex,
-                staffIndex: staff.staffIndex,
-                showStandardNotation,
-                showTablature: staff.showTablature,
-              }, { t });
-            }}
-            icon={<MusicGlyph glyph={musicGlyphs.gClef} className="text-[20px]" />}
-          />
-          <ToggleBtn
-            label={t("sidebar.tracks.tablature")}
-            pressed={staff.showTablature}
-            onPressedChange={(showTablature) => {
-              if (!showTablature && !staff.showStandardNotation) return;
-              executeAppAction("document.staff.setNotationVisibility", {
-                trackIndex,
-                staffIndex: staff.staffIndex,
-                showStandardNotation: staff.showStandardNotation,
-                showTablature,
-              }, { t });
-            }}
-            icon={<MusicGlyph glyph={musicGlyphs.tabClef6} className="text-[20px]" />}
-          />
-        </div>
-      </div>
+      </PopoverPropRow>
 
       {staff.showTablature && staff.stringCount > 0 && !staff.isPercussion && (
         <>
-          <div className="group flex items-center gap-2 px-3 py-0.5">
-            <span className="whitespace-nowrap text-[11px] text-muted-foreground">
-              {t("sidebar.tracks.tuning")}
-            </span>
-            <Popover open={tuningOpen} onOpenChange={setTuningOpen}>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="ml-auto flex cursor-pointer items-center gap-1 text-[11px] font-medium tabular-nums transition-colors hover:text-primary"
+          <PopoverPropRow
+            label={t("sidebar.tracks.tuning")}
+            value={matchingTuningPreset?.name ?? t("sidebar.tracks.customTuning")}
+            title={t("sidebar.tracks.tuning")}
+            description={t("sidebar.tracks.tuningHelp")}
+            open={tuningOpen}
+            onOpenChange={setTuningOpen}
+            contentClassName="w-72"
+          >
+            <div className="space-y-3">
+              <div>
+                <div className="mb-1 text-[10px] font-medium text-muted-foreground">
+                  {t("sidebar.tracks.tuningPreset")}
+                </div>
+                <div
+                  role="radiogroup"
+                  aria-label={t("sidebar.tracks.tuningPreset")}
+                  className="max-h-36 overflow-y-auto border-y py-1"
                 >
-                  <span className="max-w-[120px] truncate">
-                    {staff.tuningName || t("sidebar.tracks.customTuning")}
-                  </span>
-                  <ChevronDown className="h-2.5 w-2.5 shrink-0 opacity-50" />
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                className="max-h-60 w-56 overflow-y-auto p-1"
-                side="left"
-                align="start"
-              >
-                {tuningPresets.map((preset, index) => (
-                  <button
-                    key={index}
-                    type="button"
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded px-2 py-1 text-[11px] hover:bg-accent/50",
-                      preset.tunings.join(",") === staff.tuningValues.join(",") && "bg-accent",
-                    )}
-                    onClick={() => {
-                      executeAppAction("document.staff.setStringTuning", {
-                        trackIndex,
-                        staffIndex: staff.staffIndex,
-                        stringTuning: preset,
-                      }, { t });
-                      setTuningOpen(false);
-                    }}
-                  >
-                    <span className="truncate font-medium">{preset.name}</span>
-                    {preset.isStandard && (
-                      <span className="ml-auto text-[9px] text-muted-foreground">
-                        {t("sidebar.tracks.standard")}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </PopoverContent>
-            </Popover>
-          </div>
-          <div className="px-3 py-1">
-            <div className="flex flex-col gap-0.5">
-              {staff.tuningValues.map((value, index) => {
-                const noteName = usePlayerStore.getState().formatTuningNote(value);
-                return (
-                  <div key={index} className="flex items-center gap-1">
-                    <span className="w-3 text-right text-[9px] tabular-nums text-muted-foreground/60">
-                      {index + 1}
-                    </span>
-                    <button
-                      type="button"
-                      className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      onClick={() => {
-                        const next = [...staff.tuningValues];
-                        next[index] = Math.max(0, next[index] - 1);
-                        executeAppAction("document.staff.setStringTuning", {
-                          trackIndex,
-                          staffIndex: staff.staffIndex,
-                          stringTuning: {
-                            tunings: next,
-                            name: "",
-                            isStandard: false,
-                          },
-                        }, { t });
-                      }}
-                    >
-                      <ChevronDown className="h-2.5 w-2.5" />
-                    </button>
-                    <span className="w-7 rounded bg-muted/50 px-0.5 text-center font-mono text-[10px] tabular-nums">
-                      {noteName}
-                    </span>
-                    <button
-                      type="button"
-                      className="flex h-4 w-4 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                      onClick={() => {
-                        const next = [...staff.tuningValues];
-                        next[index] = Math.min(127, next[index] + 1);
-                        executeAppAction("document.staff.setStringTuning", {
-                          trackIndex,
-                          staffIndex: staff.staffIndex,
-                          stringTuning: {
-                            tunings: next,
-                            name: "",
-                            isStandard: false,
-                          },
-                        }, { t });
-                      }}
-                    >
-                      <ChevronUp className="h-2.5 w-2.5" />
-                    </button>
-                    <span className="text-[9px] tabular-nums text-muted-foreground/40">
-                      {value}
-                    </span>
-                  </div>
-                );
-              })}
+                  {tuningPresets.map((preset, index) => {
+                    const selected = preset === matchingTuningPreset;
+                    return (
+                      <button
+                        key={index}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        className={cn(
+                          "flex min-h-7 w-full items-center gap-2 px-2 text-left text-[11px] hover:bg-accent/50",
+                          selected && "text-primary",
+                        )}
+                        onClick={() => setTuningValues([...preset.tunings])}
+                      >
+                        <span className="flex h-4 w-4 items-center justify-center">
+                          {selected && <Check className="h-3.5 w-3.5" />}
+                        </span>
+                        <span className="truncate font-medium">{preset.name}</span>
+                        {preset.isStandard && (
+                          <span className="ml-auto text-[9px] text-muted-foreground">
+                            {t("sidebar.tracks.standard")}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-1 text-[10px] font-medium text-muted-foreground">
+                  {t("sidebar.tracks.customTuning")}
+                </div>
+                <div className="space-y-0.5">
+                  {staff.tuningValues.map((value, index) => {
+                    const noteName = formatTuningNote(value);
+                    return (
+                      <div key={index} className="flex h-7 items-center gap-1">
+                        <span className="w-4 text-right text-[9px] tabular-nums text-muted-foreground/60">
+                          {index + 1}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={t("sidebar.tracks.lowerStringTuning", {
+                            string: index + 1,
+                          })}
+                          disabled={value <= 0}
+                          className="flex h-6 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                          onClick={() => {
+                            const next = [...staff.tuningValues];
+                            next[index] = Math.max(0, next[index] - 1);
+                            setTuningValues(next);
+                          }}
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
+                        <span className="w-10 border-b px-0.5 text-center font-mono text-[11px] tabular-nums">
+                          {noteName}
+                        </span>
+                        <button
+                          type="button"
+                          aria-label={t("sidebar.tracks.raiseStringTuning", {
+                            string: index + 1,
+                          })}
+                          disabled={value >= 127}
+                          className="flex h-6 w-6 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                          onClick={() => {
+                            const next = [...staff.tuningValues];
+                            next[index] = Math.min(127, next[index] + 1);
+                            setTuningValues(next);
+                          }}
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                        <span className="ml-auto text-[9px] tabular-nums text-muted-foreground/50">
+                          MIDI {value}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
+          </PopoverPropRow>
           <EditableNumberPropRow
             label={t("sidebar.tracks.capo")}
             value={staff.capo}

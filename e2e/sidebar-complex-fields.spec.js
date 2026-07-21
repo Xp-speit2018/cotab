@@ -59,7 +59,8 @@ async function enableFirstStaffStandardNotation(page) {
     name: "Toggle Lead Guitar details",
     exact: true,
   }).click();
-  await clickAndWaitForRender(page, page.getByRole("button", {
+  await page.getByRole("button", { name: /^Staves/ }).click();
+  await clickAndWaitForRender(page, page.getByRole("menuitemcheckbox", {
     name: "Standard notation",
     exact: true,
   }));
@@ -68,6 +69,46 @@ async function enableFirstStaffStandardNotation(page) {
   )).toBe(true);
   await page.getByRole("button", { name: "Notes", exact: true }).click();
 }
+
+test("tuning presets and custom string pitches stay bidirectionally synchronized", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await page.goto("/");
+  await waitForScore(page);
+
+  await page.getByRole("button", { name: "Meta", exact: true }).click();
+  await page.getByRole("button", {
+    name: "Toggle Lead Guitar details",
+    exact: true,
+  }).click();
+
+  const tuningRow = page.getByRole("button", { name: /^Tuning / });
+  const initialSummary = await tuningRow.textContent();
+  await tuningRow.click();
+
+  const presetGroup = page.getByRole("radiogroup", { name: "Preset" });
+  const selectedPreset = presetGroup.getByRole("radio", { checked: true });
+  const selectedPresetName = await selectedPreset.textContent();
+  expect(selectedPresetName).toBeTruthy();
+
+  await clickAndWaitForRender(
+    page,
+    page.getByRole("button", { name: "Raise string 1 tuning" }),
+  );
+  await expect(tuningRow).toContainText("Custom");
+  await expect(presetGroup).toBeVisible();
+  await expect(presetGroup.getByRole("radio", { checked: true })).toHaveCount(0);
+
+  await clickAndWaitForRender(
+    page,
+    page.getByRole("button", { name: "Lower string 1 tuning" }),
+  );
+  await expect(tuningRow).toHaveText(initialSummary ?? "");
+  await expect(presetGroup.getByRole("radio", { checked: true })).toContainText(
+    selectedPresetName ?? "",
+  );
+});
 
 test("complex field editors commit semantic values and show matching summaries", async ({
   page,

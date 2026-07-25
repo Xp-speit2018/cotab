@@ -31,18 +31,15 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import {
+  PresetCombobox,
+  type PresetOption,
+} from "./PresetCombobox";
 
 interface InspectorDisclosureRowProps {
   label: string;
@@ -72,10 +69,11 @@ export const InspectorDisclosureRow = React.forwardRef<
     <button
       ref={ref}
       type="button"
+      data-interaction="disclosure"
       disabled={disabled}
       aria-expanded={open}
       className={cn(
-        "group flex min-h-7 w-full items-center gap-2 px-3 py-0.5 text-left transition-colors hover:bg-accent/40 disabled:pointer-events-none disabled:opacity-50",
+        "group flex min-h-7 w-full cursor-default items-center gap-2 px-3 py-0.5 text-left transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-50",
         open && "bg-accent/30",
         className,
       )}
@@ -218,7 +216,10 @@ export function SectionHeader({
       >
         <GripVertical className="h-3 w-3 text-muted-foreground" />
       </button>
-      <CollapsibleTrigger className="flex flex-1 items-center justify-between py-1.5 pr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/50">
+      <CollapsibleTrigger
+        data-interaction="disclosure"
+        className="flex flex-1 cursor-default items-center justify-between py-1.5 pr-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-accent/50"
+      >
         <span className="flex items-center gap-1">
           {title}
         </span>
@@ -284,6 +285,45 @@ export function SortableSection({
 }
 
 /**
+ * An immediate command represented by an icon. Commands use the default
+ * desktop cursor; links are the only interaction that uses a pointer cursor.
+ */
+export function IconCommand({
+  label,
+  onClick,
+  icon,
+  disabled = false,
+  className,
+}: {
+  label: string;
+  onClick?: () => void;
+  icon: React.ReactNode;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          data-interaction="command"
+          aria-label={label}
+          disabled={disabled}
+          onClick={onClick}
+          className={cn(
+            "inline-flex h-7 w-7 cursor-default items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50",
+            className,
+          )}
+        >
+          {icon}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={4}>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
  * A single toggle button with icon + tooltip.
  *
  * TooltipTrigger owns `data-state`, so this uses an explicitly controlled
@@ -309,11 +349,12 @@ export function ToggleBtn({
       <TooltipTrigger asChild>
         <button
           type="button"
+          data-interaction="toggle"
           onClick={() => onPressedChange?.(!pressed)}
           disabled={!onPressedChange}
           aria-pressed={pressed}
           className={cn(
-            "inline-flex h-7 w-7 items-center justify-center p-0 text-muted-foreground/70 transition-colors hover:text-foreground disabled:pointer-events-none disabled:opacity-50 [&>*]:transition-transform [&>*]:duration-150",
+            "inline-flex h-7 w-7 cursor-default items-center justify-center p-0 text-muted-foreground/70 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 [&>*]:transition-transform [&>*]:duration-150",
             pressed
               ? "text-blue-700 hover:text-blue-700 dark:text-blue-300 dark:hover:text-blue-300 [&>*]:scale-110 hover:[&>*]:scale-110"
               : "hover:[&>*]:scale-105",
@@ -364,7 +405,7 @@ export function SelectPropRow({
 }: {
   label: string;
   value: number;
-  options: readonly { value: number; label: string }[];
+  options: readonly PresetOption<number>[];
   icon?: React.ReactNode;
   onValueChange: (value: number) => void;
 }) {
@@ -378,29 +419,13 @@ export function SelectPropRow({
       <span className="text-[11px] text-muted-foreground whitespace-nowrap">
         {label}
       </span>
-      <Select
-        value={String(value)}
-        onValueChange={(next) => onValueChange(Number(next))}
-      >
-        <SelectTrigger
-          size="sm"
-          aria-label={label}
-          className="ml-auto h-6 min-w-24 max-w-36 border-0 px-1.5 text-[11px] shadow-none"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent align="end">
-          {options.map((option) => (
-            <SelectItem
-              key={option.value}
-              value={String(option.value)}
-              className="text-[11px]"
-            >
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <PresetCombobox
+        value={value}
+        options={options}
+        ariaLabel={label}
+        onValueChange={onValueChange}
+        triggerClassName="ml-auto h-6 min-w-24 max-w-36 border-0 px-1.5 text-[11px] shadow-none"
+      />
     </div>
   );
 }
@@ -448,6 +473,7 @@ export function EditablePropRow({
 
   return (
     <div
+      data-interaction="inline-edit"
       className="group flex items-center gap-2 px-3 py-0.5 transition-colors hover:bg-accent/40"
       onMouseDown={(event) => {
         if (!editing) return;
@@ -548,6 +574,7 @@ export function EditableNumberPropRow({
 
   return (
     <div
+      data-interaction="inline-edit"
       className="group flex items-center gap-2 px-3 py-0.5 transition-colors hover:bg-accent/40"
       onMouseDown={(event) => {
         if (!editing) return;

@@ -51,6 +51,7 @@ import {
   colorRgbToHex,
 } from "./editors/ColorEditor";
 import { MusicGlyph, musicGlyphs } from "./notation-icons";
+import { PresetCombobox } from "./PresetCombobox";
 
 interface StaffEditorData {
   staffIndex: number;
@@ -236,38 +237,25 @@ function StaffMetaEditor({
                 <div className="mb-1 text-[10px] font-medium text-muted-foreground">
                   {t("sidebar.tracks.tuningPreset")}
                 </div>
-                <div
-                  role="radiogroup"
-                  aria-label={t("sidebar.tracks.tuningPreset")}
-                  className="max-h-36 overflow-y-auto border-y py-1"
-                >
-                  {tuningPresets.map((preset, index) => {
-                    const selected = preset === matchingTuningPreset;
-                    return (
-                      <button
-                        key={index}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        className={cn(
-                          "flex min-h-7 w-full items-center gap-2 px-2 text-left text-[11px] hover:bg-accent/50",
-                          selected && "text-primary",
-                        )}
-                        onClick={() => setTuningValues([...preset.tunings])}
-                      >
-                        <span className="flex h-4 w-4 items-center justify-center">
-                          {selected && <Check className="h-3.5 w-3.5" />}
-                        </span>
-                        <span className="truncate font-medium">{preset.name}</span>
-                        {preset.isStandard && (
-                          <span className="ml-auto text-[9px] text-muted-foreground">
-                            {t("sidebar.tracks.standard")}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                <PresetCombobox
+                  value={matchingTuningPreset
+                    ? tuningPresets.indexOf(matchingTuningPreset)
+                    : -1}
+                  valueLabel={t("sidebar.tracks.customTuning")}
+                  ariaLabel={t("sidebar.tracks.tuningPreset")}
+                  options={tuningPresets.map((preset, index) => ({
+                    value: index,
+                    label: preset.name,
+                    keywords: preset.isStandard
+                      ? [t("sidebar.tracks.standard")]
+                      : undefined,
+                  }))}
+                  onValueChange={(index) => {
+                    const preset = tuningPresets[index];
+                    if (preset) setTuningValues([...preset.tunings]);
+                  }}
+                  align="start"
+                />
               </div>
 
               <div>
@@ -688,9 +676,9 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
                 bank={track.playbackInfo.bank}
                 labels={{
                   search: t("sidebar.tracks.instrumentSearch"),
+                  common: t("sidebar.tracks.commonInstruments"),
                   bank: t("sidebar.tracks.instrumentBank"),
                   apply: t("sidebar.common.apply"),
-                  noResults: t("sidebar.tracks.noInstrumentResults"),
                 }}
                 onCommit={(program, bank) => executeAppAction(
                   "document.track.setInstrument",

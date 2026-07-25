@@ -3,6 +3,7 @@
  */
 
 import "@testing-library/jest-dom/vitest";
+import "@/i18n";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -70,12 +71,10 @@ describe("BeatAutomationsEditor", () => {
       target: { value: "14" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add playback change" }));
-    fireEvent.change(screen.getByLabelText("Parameter 2"), {
-      target: { value: String(AutomationType.Instrument) },
-    });
-    fireEvent.change(screen.getByLabelText("Value 2"), {
-      target: { value: "40" },
-    });
+    fireEvent.click(screen.getByRole("combobox", { name: "Parameter 2" }));
+    fireEvent.click(screen.getByRole("option", { name: "Instrument" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Value 2" }));
+    fireEvent.click(screen.getByRole("option", { name: "Violin" }));
 
     expect(onCommit).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Apply" }));

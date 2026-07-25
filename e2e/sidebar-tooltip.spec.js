@@ -200,18 +200,16 @@ test("standard notation fields follow the selected staff visibility", async ({ p
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 
-  await expect(page.getByRole("button", {
-    name: /^Clef (?!Ottava)/,
-  })).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Clef", exact: true }))
+    .toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Key / })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Accidental" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Simile" })).toBeVisible();
 
   await enableFirstStaffStandardNotation(page);
 
-  await expect(page.getByRole("button", {
-    name: /^Clef (?!Ottava)/,
-  })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Clef", exact: true }))
+    .toBeVisible();
   await expect(page.getByRole("button", { name: /^Key / })).toBeVisible();
   await expect(page.getByRole("button", { name: "Accidental" })).toBeVisible();
 });

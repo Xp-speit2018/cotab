@@ -1,5 +1,40 @@
 # CoTab Agent Guide
 
+## UI Interaction Harness
+
+The app-native UI interaction harness is available in development builds at
+`/__ui-harness`. Start Vite with `npm run dev`, then open
+`http://localhost:5173/__ui-harness`. The harness uses CoTab's real providers,
+styles, i18n setup, and inspector primitives; do not create a parallel mock
+component library for UI review.
+
+Before changing inspector or sidebar interactions, inspect this harness and
+preserve its interaction contracts:
+
+- Commands, toggles, disclosures, and choices use the default desktop cursor.
+- Inline-edit labels use the default cursor; only the editable value uses the
+  text cursor. Leaving edit mode commits the current draft.
+- Pointer cursors are reserved for links and navigation.
+- Drag, resize, and disabled controls use their corresponding semantic cursor.
+- Icon-only commands require a tooltip and an accessible label.
+- Every preset dropdown, including controls nested in popovers and dialogs,
+  uses `PresetCombobox`. Its input is a regular-expression filter, but only a
+  chosen preset or one unique exact label match may update state. Free-form,
+  ambiguous, unmatched, and invalid-regex input must leave the previous value
+  unchanged.
+
+This preset-only rule includes selectors implemented inside custom popovers or
+dialogs, not only HTML or Radix select elements. Multi-select checklists and
+numeric shortcut grids are not preset dropdowns: they may remain direct
+controls because they do not accept text or project free-form input into state.
+
+Add new reusable interaction patterns to the production primitives first, then
+render those same primitives in `src/ui-harness/UiHarness.tsx`. Do not duplicate
+their markup inside the harness. Run `npm run test:e2e:ui-harness` after changes.
+The static interaction test rejects `cursor-pointer` inside the inspector
+component tree so ordinary controls cannot silently drift back to web-link
+semantics.
+
 ## Document Rendering
 
 Y.Doc is the source of truth for score edits. DocumentActions must mutate Y.Doc

@@ -22,6 +22,7 @@
     "verify:targets": "npm run typecheck:targets && npm run test && npm run desktop:build",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:e2e": "playwright test",
+    "test:e2e:ui-harness": "playwright test e2e/ui-harness.spec.js",
     "test:e2e:ui": "playwright test --ui",
     "audit:alphatab-fields": "tsx scripts/audit-alphatab-fields.ts --audit > docs/ALPHATAB-FIELD-AUDIT.tmp.md && tsx scripts/audit-alphatab-fields.ts --selection > docs/CORE-FIELD-SELECTION.tmp.md",
     "docs:actions": "tsx scripts/generate-document-actions.ts",

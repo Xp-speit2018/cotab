@@ -87,9 +87,8 @@ test("tuning presets and custom string pitches stay bidirectionally synchronized
   const initialSummary = await tuningRow.textContent();
   await tuningRow.click();
 
-  const presetGroup = page.getByRole("radiogroup", { name: "Preset" });
-  const selectedPreset = presetGroup.getByRole("radio", { checked: true });
-  const selectedPresetName = await selectedPreset.textContent();
+  const presetCombobox = page.getByRole("combobox", { name: "Preset" });
+  const selectedPresetName = await presetCombobox.textContent();
   expect(selectedPresetName).toBeTruthy();
 
   await clickAndWaitForRender(
@@ -97,17 +96,15 @@ test("tuning presets and custom string pitches stay bidirectionally synchronized
     page.getByRole("button", { name: "Raise string 1 tuning" }),
   );
   await expect(tuningRow).toContainText("Custom");
-  await expect(presetGroup).toBeVisible();
-  await expect(presetGroup.getByRole("radio", { checked: true })).toHaveCount(0);
+  await expect(presetCombobox).toBeVisible();
+  await expect(presetCombobox).toContainText("Custom");
 
   await clickAndWaitForRender(
     page,
     page.getByRole("button", { name: "Lower string 1 tuning" }),
   );
   await expect(tuningRow).toHaveText(initialSummary ?? "");
-  await expect(presetGroup.getByRole("radio", { checked: true })).toContainText(
-    selectedPresetName ?? "",
-  );
+  await expect(presetCombobox).toContainText(selectedPresetName ?? "");
 });
 
 test("complex field editors commit semantic values and show matching summaries", async ({
@@ -343,15 +340,14 @@ test("complex field editors commit semantic values and show matching summaries",
   await expect(section).toContainText("B · Bridge");
 
   await enableFirstStaffStandardNotation(page);
-  const clef = page.getByRole("button", { name: /^Clef (?!Ottava)/ });
+  const clef = page.getByRole("combobox", { name: "Clef", exact: true });
+  await expect(clef).toContainText("Treble (G2)");
   await clef.click();
-  const clefOptions = page.getByRole("radiogroup", { name: "Clef" });
-  await expect(clefOptions.getByRole("radio", {
-    name: "Treble (G2)",
-    checked: true,
-  })).toBeVisible();
-  await clickAndWaitForRender(page, clefOptions.getByRole("radio", {
+  await page.getByRole("searchbox", { name: "Search presets" })
+    .fill("^Bass");
+  await clickAndWaitForRender(page, page.getByRole("option", {
     name: "Bass (F4)",
+    exact: true,
   }));
   await expect.poll(() => page.evaluate(() =>
     window.__PLAYER_STORE__.getState().selectedBarInfo?.clef,
@@ -501,8 +497,15 @@ test("complex field editors commit semantic values and show matching summaries",
 
   await instrument.click();
   editor = page.getByRole("dialog").filter({ hasText: "Instrument" });
-  await editor.getByLabel("Search instruments").fill("distortion guitar");
-  await editor.getByRole("button", {
+  await editor.getByRole("combobox", { name: "Search instruments" }).click();
+  const instrumentList = page.getByRole("listbox", { name: "Search instruments" });
+  await instrumentList.hover();
+  await page.mouse.wheel(0, 500);
+  await expect.poll(() => instrumentList.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await page.getByRole("searchbox", { name: "Search presets" })
+    .fill("^Distortion Guitar$");
+  await page.getByRole("group", { name: "Common" }).getByRole("option", {
     name: "Distortion Guitar",
     exact: true,
   }).click();

@@ -999,6 +999,7 @@ export function EffectsSection({
             <ChordPickerEditor
               definitions={selectedStaff?.chords ?? []}
               selectedId={beat.chordId}
+              label={t("sidebar.effects.chord")}
               noneLabel={t("sidebar.common.none")}
               missingLabel={t("sidebar.effects.missingChord")}
               onSelect={(value) => executeAppAction(

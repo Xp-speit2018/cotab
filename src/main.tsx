@@ -1,9 +1,15 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import App from "./App";
 import "./i18n";
 import "../index.css";
+
+const UiHarness = import.meta.env.DEV
+  ? lazy(() => import("./ui-harness/UiHarness"))
+  : null;
+const isUiHarness = import.meta.env.DEV
+  && window.location.pathname.replace(/\/+$/, "") === "/__ui-harness";
 
 // Expose internals for E2E tests (dev/test builds only)
 if (import.meta.env.DEV) {
@@ -31,7 +37,9 @@ if (import.meta.env.DEV) {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <TooltipProvider>
-      <App />
+      <Suspense fallback={null}>
+        {isUiHarness && UiHarness ? <UiHarness /> : <App />}
+      </Suspense>
     </TooltipProvider>
   </React.StrictMode>,
 );

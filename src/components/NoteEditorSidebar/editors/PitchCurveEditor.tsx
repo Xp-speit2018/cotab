@@ -4,13 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group";
@@ -25,6 +18,7 @@ import {
   bendTypeLabel,
   whammyTypeLabel,
 } from "../labels";
+import { PresetCombobox } from "../PresetCombobox";
 
 const GRAPH_WIDTH = 264;
 const GRAPH_HEIGHT = 132;
@@ -242,10 +236,11 @@ export function PitchCurveEditor({
     <div className="space-y-3">
       <label className="block space-y-1 text-[10px] text-muted-foreground">
         <span>{t("sidebar.effects.curveType")}</span>
-        <Select
-          value={String(draftType)}
-          onValueChange={(value) => {
-            const nextType = Number(value);
+        <PresetCombobox
+          value={draftType}
+          ariaLabel={t("sidebar.effects.curveType")}
+          options={options}
+          onValueChange={(nextType) => {
             setDraftType(nextType);
             if (!isCustom(kind, nextType)) {
               const nextPoints = presetFor(kind, nextType);
@@ -257,18 +252,8 @@ export function PitchCurveEditor({
               setSelectedIndex(extremePointIndex(nextPoints));
             }
           }}
-        >
-          <SelectTrigger className="h-8 w-full text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((option) => (
-              <SelectItem key={option.value} value={String(option.value)}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          align="start"
+        />
       </label>
 
       <div className="space-y-1">

@@ -56,7 +56,11 @@
       "apply": "Apply",
       "save": "Save",
       "delete": "Delete",
-      "confirmDelete": "Confirm delete"
+      "confirmDelete": "Confirm delete",
+      "searchPresets": "Search presets",
+      "regexSearch": "Filter presets with a regular expression",
+      "invalidRegex": "Invalid regular expression",
+      "noPresetMatches": "No matching presets"
     },
     "expandSidebar": "Expand sidebar",
     "collapseSidebar": "Collapse sidebar",
@@ -320,9 +324,9 @@
       "drumKit": "Drum Kit",
       "instrumentHelp": "Choose the General MIDI instrument and sound bank used by alphaTab playback.",
       "instrumentSearch": "Search instruments",
+      "commonInstruments": "Common",
       "instrumentBank": "Sound bank",
       "unknownInstrument": "Unknown instrument",
-      "noInstrumentResults": "No instruments match this search.",
       "percussionMap": "Percussion Map",
       "percussionMapHelp": "Map each track articulation to the MIDI drum sound produced by alphaTab playback.",
       "percussionMapCount_one": "{{count}} mapping",

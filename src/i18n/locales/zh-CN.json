@@ -56,7 +56,11 @@
       "apply": "应用",
       "save": "保存",
       "delete": "删除",
-      "confirmDelete": "确认删除"
+      "confirmDelete": "确认删除",
+      "searchPresets": "搜索预设",
+      "regexSearch": "使用正则表达式筛选预设",
+      "invalidRegex": "正则表达式无效",
+      "noPresetMatches": "没有匹配的预设"
     },
     "expandSidebar": "展开侧边栏",
     "collapseSidebar": "收起侧边栏",
@@ -319,9 +323,9 @@
       "drumKit": "鼓组",
       "instrumentHelp": "选择 AlphaTab 播放使用的 General MIDI 音色和音色库。",
       "instrumentSearch": "搜索乐器",
+      "commonInstruments": "常用",
       "instrumentBank": "音色库",
       "unknownInstrument": "未知乐器",
-      "noInstrumentResults": "没有匹配的乐器。",
       "percussionMap": "打击乐映射",
       "percussionMapHelp": "将音轨中的每个打击演奏法映射到 AlphaTab 播放的 MIDI 鼓组音色。",
       "percussionMapCount_one": "{{count}} 个映射",

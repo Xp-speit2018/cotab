@@ -3,7 +3,8 @@
  */
 
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import "@/i18n";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import {
   GENERAL_MIDI_INSTRUMENTS,
@@ -16,9 +17,9 @@ import {
 
 const labels = {
   search: "Search instruments",
+  common: "Common",
   bank: "Sound bank",
   apply: "Apply",
-  noResults: "No results",
 };
 
 describe("InstrumentEditor", () => {
@@ -50,10 +51,15 @@ describe("InstrumentEditor", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Search instruments"), {
+    fireEvent.click(screen.getByRole("combobox", { name: "Search instruments" }));
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search presets" }), {
       target: { value: "distortion" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Distortion Guitar" }));
+    const common = screen.getByRole("group", { name: "Common" });
+    const guitar = screen.getByRole("group", { name: "Guitar" });
+    expect(common).toHaveTextContent("Distortion Guitar");
+    expect(guitar).toHaveTextContent("Distortion Guitar");
+    fireEvent.click(within(common).getByRole("option", { name: "Distortion Guitar" }));
     fireEvent.change(screen.getByLabelText("Sound bank"), {
       target: { value: "2" },
     });
@@ -63,5 +69,26 @@ describe("InstrumentEditor", () => {
     expect(onCommit).toHaveBeenCalledOnce();
     expect(onCommit).toHaveBeenCalledWith(30, 2);
     expect(onDone).toHaveBeenCalledOnce();
+  });
+
+  it("treats common and family copies as one exact preset", () => {
+    const onCommit = vi.fn();
+    render(
+      <InstrumentEditor
+        program={27}
+        bank={0}
+        labels={labels}
+        onCommit={onCommit}
+        onDone={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Search instruments" }));
+    const search = screen.getByRole("searchbox", { name: "Search presets" });
+    fireEvent.change(search, { target: { value: "Distortion Guitar" } });
+    fireEvent.keyDown(search, { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(onCommit).toHaveBeenCalledWith(30, 0);
   });
 });

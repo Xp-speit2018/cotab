@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GENERAL_MIDI_INSTRUMENTS, generalMidiInstrument } from "@/core/general-midi";
+import { PresetCombobox } from "../PresetCombobox";
 import {
   AutomationType,
   type AutomationSchema,
@@ -178,44 +179,36 @@ export function BeatAutomationsEditor({
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className="space-y-1 text-[11px] text-muted-foreground">
                   <span>{labels.type}</span>
-                  <select
+                  <PresetCombobox
                     value={resolvedType}
-                    aria-label={`${labels.type} ${index + 1}`}
-                    className="h-8 w-full rounded border bg-background px-2 text-sm text-foreground outline-none focus:border-primary"
-                    onChange={(event) => {
-                      const type = Number(event.currentTarget.value) as BeatAutomationType;
+                    ariaLabel={`${labels.type} ${index + 1}`}
+                    options={BEAT_AUTOMATION_TYPES.map((type) => ({
+                      value: type,
+                      label: typeLabel(type, labels),
+                      disabled: type !== draft.type && usedTypes.has(type),
+                    }))}
+                    onValueChange={(type) => {
                       update(draft.draftId, { type, value: defaultValue(type) });
                     }}
-                  >
-                    {BEAT_AUTOMATION_TYPES.map((type) => (
-                      <option
-                        key={type}
-                        value={type}
-                        disabled={type !== draft.type && usedTypes.has(type)}
-                      >
-                        {typeLabel(type, labels)}
-                      </option>
-                    ))}
-                  </select>
+                    align="start"
+                  />
                 </label>
 
                 {resolvedType === AutomationType.Instrument ? (
                   <label className="space-y-1 text-[11px] text-muted-foreground">
                     <span>{labels.instrument}</span>
-                    <select
+                    <PresetCombobox
                       value={draft.value}
-                      aria-label={`${labels.value} ${index + 1}`}
-                      className="h-8 w-full rounded border bg-background px-2 text-sm text-foreground outline-none focus:border-primary"
-                      onChange={(event) => update(draft.draftId, {
-                        value: Number(event.currentTarget.value),
-                      })}
-                    >
-                      {GENERAL_MIDI_INSTRUMENTS.map((instrument) => (
-                        <option key={instrument.program} value={instrument.program}>
-                          {instrument.program + 1}. {instrument.name}
-                        </option>
-                      ))}
-                    </select>
+                      ariaLabel={`${labels.value} ${index + 1}`}
+                      options={GENERAL_MIDI_INSTRUMENTS.map((instrument) => ({
+                        value: instrument.program,
+                        label: instrument.name,
+                        keywords: [String(instrument.program + 1), instrument.family],
+                        description: `${instrument.program + 1} · ${instrument.family}`,
+                      }))}
+                      onValueChange={(value) => update(draft.draftId, { value })}
+                      align="start"
+                    />
                   </label>
                 ) : (
                   <label className="space-y-1 text-[11px] text-muted-foreground">

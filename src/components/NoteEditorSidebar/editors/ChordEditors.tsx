@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import type { ChordSchema } from "@/core/schema";
 import type { ChordDefinitionInfo } from "@/stores/render-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { PresetCombobox } from "../PresetCombobox";
 
 const DIAGRAM_FRETS = 5;
 
@@ -107,6 +108,7 @@ function ChordDiagram({ chord }: { chord: ChordSchema }) {
 export function ChordPickerEditor({
   definitions,
   selectedId,
+  label,
   noneLabel,
   missingLabel,
   onSelect,
@@ -114,6 +116,7 @@ export function ChordPickerEditor({
 }: {
   definitions: readonly ChordDefinitionInfo[];
   selectedId: string | null;
+  label: string;
   noneLabel: string;
   missingLabel: string;
   onSelect: (id: string | null) => void;
@@ -126,37 +129,24 @@ export function ChordPickerEditor({
     onDone();
   };
   return (
-    <div className="max-h-72 space-y-1 overflow-y-auto">
-      <button
-        type="button"
-        className={cn(
-          "flex h-8 w-full items-center gap-2 rounded px-2 text-left text-xs hover:bg-accent/50",
-          selectedId === null && "bg-accent",
-        )}
-        onClick={() => choose(null)}
-      >
-        {selectedId === null && <Check className="h-3.5 w-3.5" />}
-        <span className={selectedId === null ? "" : "pl-5"}>{noneLabel}</span>
-      </button>
+    <div className="space-y-2">
       {hasMissingReference && (
         <div className="px-2 py-1 text-xs text-destructive">{missingLabel}</div>
       )}
-      {definitions.map((definition) => (
-        <button
-          key={definition.id}
-          type="button"
-          className={cn(
-            "flex min-h-8 w-full items-center gap-2 rounded px-2 text-left text-xs hover:bg-accent/50",
-            selectedId === definition.id && "bg-accent",
-          )}
-          onClick={() => choose(definition.id)}
-        >
-          {selectedId === definition.id && <Check className="h-3.5 w-3.5" />}
-          <span className={cn("truncate", selectedId !== definition.id && "pl-5")}>
-            {definition.name || "—"}
-          </span>
-        </button>
-      ))}
+      <PresetCombobox
+        value={selectedId}
+        valueLabel={hasMissingReference ? missingLabel : noneLabel}
+        ariaLabel={label}
+        options={[
+          { value: null, label: noneLabel },
+          ...definitions.map((definition) => ({
+            value: definition.id,
+            label: definition.name || "—",
+          })),
+        ]}
+        onValueChange={choose}
+        align="start"
+      />
     </div>
   );
 }

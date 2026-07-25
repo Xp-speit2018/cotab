@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 import { KeySignatureType } from "@/core/schema";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { PresetCombobox } from "../PresetCombobox";
 
 interface KeyTonic {
   label: string;
@@ -112,10 +106,14 @@ export function KeySignatureEditor({
       <div className="grid grid-cols-2 gap-3">
         <label className="space-y-1 text-[11px] text-muted-foreground">
           <span className="block">{modeLabel}</span>
-          <Select
-            value={String(draftType)}
-            onValueChange={(value) => {
-              const nextType = Number(value) as KeySignatureType;
+          <PresetCombobox
+            value={draftType}
+            ariaLabel={modeLabel}
+            options={KEY_MODES.map((mode) => ({
+              value: mode.type,
+              label: modeLabels.get(mode.type) ?? String(mode.type),
+            }))}
+            onValueChange={(nextType) => {
               const currentPitchClass = draftTonic.pitchClass;
               const nextMode = keyMode(nextType);
               const nextTonic = nextMode.tonics.find(
@@ -126,40 +124,24 @@ export function KeySignatureEditor({
               setDraftType(nextType);
               setDraftSignature(nextTonic.signature);
             }}
-          >
-            <SelectTrigger aria-label={modeLabel} className="h-9 w-full text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {KEY_MODES.map((mode) => (
-                <SelectItem key={mode.type} value={String(mode.type)}>
-                  {modeLabels.get(mode.type)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            triggerClassName="h-9"
+            align="start"
+          />
         </label>
 
         <label className="space-y-1 text-[11px] text-muted-foreground">
           <span className="block">{tonicLabel}</span>
-          <Select
-            value={String(draftSignature)}
-            onValueChange={(value) => setDraftSignature(Number(value))}
-          >
-            <SelectTrigger aria-label={tonicLabel} className="h-9 w-full text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {draftMode.tonics.map((tonic) => (
-                <SelectItem
-                  key={tonic.signature}
-                  value={String(tonic.signature)}
-                >
-                  {tonic.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <PresetCombobox
+            value={draftSignature}
+            ariaLabel={tonicLabel}
+            options={draftMode.tonics.map((tonic) => ({
+              value: tonic.signature,
+              label: tonic.label,
+            }))}
+            onValueChange={setDraftSignature}
+            triggerClassName="h-9"
+            align="start"
+          />
         </label>
       </div>
 

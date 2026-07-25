@@ -1,11 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   GENERAL_MIDI_INSTRUMENTS,
   generalMidiInstrument,
 } from "@/core/general-midi";
-import { cn } from "@/lib/utils";
+import { PresetCombobox } from "../PresetCombobox";
+
+const COMMON_INSTRUMENT_PROGRAMS = [
+  0,
+  24,
+  25,
+  27,
+  29,
+  30,
+  32,
+  33,
+  34,
+  40,
+  42,
+  48,
+] as const;
 
 export function instrumentSummary(
   program: number,
@@ -28,51 +42,57 @@ export function InstrumentEditor({
   bank: number;
   labels: {
     search: string;
+    common: string;
     bank: string;
     apply: string;
-    noResults: string;
   };
   onCommit: (program: number, bank: number) => void;
   onDone: () => void;
 }) {
   const [draftProgram, setDraftProgram] = useState(program);
   const [draftBank, setDraftBank] = useState(bank);
-  const [query, setQuery] = useState("");
 
   useEffect(() => {
     setDraftProgram(program);
     setDraftBank(bank);
   }, [program, bank]);
 
-  const grouped = useMemo(() => {
-    const normalized = query.trim().toLowerCase();
-    const matches = GENERAL_MIDI_INSTRUMENTS.filter((instrument) =>
-      !normalized
-      || instrument.name.toLowerCase().includes(normalized)
-      || instrument.family.toLowerCase().includes(normalized));
-    const result = new Map<string, typeof matches>();
-    for (const instrument of matches) {
-      const family = result.get(instrument.family) ?? [];
-      family.push(instrument);
-      result.set(instrument.family, family);
-    }
-    return result;
-  }, [query]);
+  const instrumentOptions = useMemo(() => {
+    const optionFor = (
+      instrument: (typeof GENERAL_MIDI_INSTRUMENTS)[number],
+      group: string,
+    ) => ({
+      value: instrument.program,
+      label: instrument.name,
+      group,
+      keywords: [String(instrument.program + 1), instrument.family],
+      description: `${instrument.program + 1} · ${instrument.family}`,
+    });
+    return [
+      ...COMMON_INSTRUMENT_PROGRAMS.map((program) =>
+        optionFor(GENERAL_MIDI_INSTRUMENTS[program], labels.common)),
+      ...GENERAL_MIDI_INSTRUMENTS.map((instrument) =>
+        optionFor(instrument, instrument.family)),
+    ];
+  }, [labels.common]);
 
   return (
     <div className="space-y-3">
       <div className="grid items-end gap-3 sm:grid-cols-[1fr_8rem]">
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            type="search"
-            value={query}
-            aria-label={labels.search}
-            placeholder={labels.search}
-            className="h-9 w-full rounded border bg-background pl-8 pr-3 text-sm outline-none focus:border-primary"
-            onChange={(event) => setQuery(event.currentTarget.value)}
+        <div className="space-y-1 text-[11px] text-muted-foreground">
+          <span className="block">{labels.search}</span>
+          <PresetCombobox
+            value={draftProgram}
+            ariaLabel={labels.search}
+            options={instrumentOptions}
+            onValueChange={setDraftProgram}
+            triggerClassName="h-9 text-sm"
+            contentClassName="w-[min(28rem,calc(100vw-2rem))]"
+            optionContainerClassName="sm:grid sm:grid-cols-2"
+            portalled={false}
+            align="start"
           />
-        </label>
+        </div>
         <label className="space-y-1 text-[11px] text-muted-foreground">
           <span className="block">{labels.bank}</span>
           <input
@@ -90,40 +110,6 @@ export function InstrumentEditor({
             }}
           />
         </label>
-      </div>
-
-      <div className="max-h-[55vh] overflow-y-auto rounded border">
-        {grouped.size === 0 && (
-          <div className="px-3 py-8 text-center text-xs text-muted-foreground">
-            {labels.noResults}
-          </div>
-        )}
-        {[...grouped.entries()].map(([family, instruments]) => (
-          <div key={family}>
-            <div className="sticky top-0 z-10 border-y bg-muted px-3 py-1 text-[10px] font-semibold uppercase text-muted-foreground first:border-t-0">
-              {family}
-            </div>
-            <div className="grid sm:grid-cols-2">
-              {instruments.map((instrument) => (
-                <button
-                  key={instrument.program}
-                  type="button"
-                  aria-pressed={draftProgram === instrument.program}
-                  className={cn(
-                    "flex min-h-8 items-center gap-2 border-b px-3 py-1 text-left text-xs hover:bg-accent/50 sm:odd:border-r",
-                    draftProgram === instrument.program && "bg-primary/10 text-primary",
-                  )}
-                  onClick={() => setDraftProgram(instrument.program)}
-                >
-                  <span className="truncate">{instrument.name}</span>
-                  {draftProgram === instrument.program && (
-                    <Check className="ml-auto h-3.5 w-3.5 shrink-0" />
-                  )}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
       </div>
 
       <div className="flex items-center justify-between border-t pt-3">

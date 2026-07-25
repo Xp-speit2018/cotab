@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check } from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -83,13 +82,10 @@ export function BarSection({
 }) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(true);
-  const [clefOpen, setClefOpen] = useState(false);
   const [keyOpen, setKeyOpen] = useState(false);
   const title = staffCount > 1
     ? `${t("sidebar.bar.title")} · ${t("sidebar.staff.label", { index: staffIndex + 1 })}`
     : t("sidebar.bar.title");
-  const selectedClef = CLEF_OPTIONS.find((option) => option.value === bar.clef)
-    ?? CLEF_OPTIONS[CLEF_OPTIONS.length - 1];
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -126,46 +122,25 @@ export function BarSection({
             />
           </div>
           {showStandardNotation && (
-            <PopoverPropRow
+            <SelectPropRow
               label={t("sidebar.bar.clef")}
-              value={t(selectedClef.labelKey)}
-              open={clefOpen}
-              onOpenChange={setClefOpen}
-              description={t("sidebar.bar.clefHelp")}
-              contentClassName="w-64 p-2"
-            >
-              <div role="radiogroup" aria-label={t("sidebar.bar.clef")}>
-                {CLEF_OPTIONS.map((option) => {
-                  const selected = option.value === bar.clef;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      role="radio"
-                      aria-checked={selected}
-                      className="flex min-h-9 w-full items-center gap-2 px-2 text-left text-xs transition-colors hover:bg-accent/50"
-                      onClick={() => {
-                        executeAppAction(
-                          "document.bar.setClef",
-                          { value: option.value },
-                          { t },
-                        );
-                        setClefOpen(false);
-                      }}
-                    >
-                      <span className="flex h-4 w-4 items-center justify-center">
-                        {selected && <Check className="h-3.5 w-3.5" />}
-                      </span>
-                      <MusicGlyph
-                        glyph={option.glyph}
-                        className="w-5 text-[18px]"
-                      />
-                      <span>{t(option.labelKey)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </PopoverPropRow>
+              value={bar.clef}
+              options={CLEF_OPTIONS.map((option) => ({
+                value: option.value,
+                label: t(option.labelKey),
+                icon: (
+                  <MusicGlyph
+                    glyph={option.glyph}
+                    className="w-5 text-[18px]"
+                  />
+                ),
+              }))}
+              onValueChange={(value) => executeAppAction(
+                "document.bar.setClef",
+                { value },
+                { t },
+              )}
+            />
           )}
           {showStandardNotation && bar.clefOttava !== Ottavia.Regular && (
             <SelectPropRow

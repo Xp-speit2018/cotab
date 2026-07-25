@@ -611,6 +611,10 @@ test("Agent drum continuation matches Y.Doc, AlphaTab, and rendered geometry", a
 
   const rightSidebar = page.locator('[data-sidebar-side="right"]');
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(".at-viewport");
+    return viewport ? viewport.scrollWidth - viewport.clientWidth : 0;
+  })).toBeGreaterThan(0);
   const initialViewport = await page.evaluate(() => {
     const viewport = document.querySelector<HTMLElement>(".at-viewport");
     if (!viewport) throw new Error("AlphaTab viewport is unavailable.");
@@ -904,24 +908,31 @@ test("Agent resource permissions configure local, web, and writable roots", asyn
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
   const resourcesButton = rightSidebar.getByRole("button", { name: "External resources" });
   const disconnectButton = rightSidebar.getByRole("button", { name: "Disconnect", exact: true });
-  await resourcesButton.click();
+  const openResources = async (control: Locator) => {
+    await expect(disconnectButton).toBeVisible();
+    await expect(resourcesButton).toBeEnabled();
+    if (!await control.isVisible()) await resourcesButton.click();
+    await expect(control).toBeVisible();
+  };
 
-  await page.getByLabel("Local resources").check();
+  const localResources = page.getByLabel("Local resources");
+  await openResources(localResources);
+  await page.getByText("Local resources", { exact: true }).click();
   await expect.poll(() => page.evaluate(() =>
     (window as unknown as AlphaTabWindow).__COTAB_TEST_SETTINGS__,
   )).toMatchObject({ codexConnectCount: 2, localResources: true, webResources: false });
-  await expect(disconnectButton).toBeVisible();
+  await openResources(localResources);
+  await expect(localResources).toBeChecked();
 
   const webResources = page.getByLabel("Web resources");
-  if (!await webResources.isVisible()) await resourcesButton.click();
-  await webResources.check();
+  await page.getByText("Web resources", { exact: true }).click();
   await expect.poll(() => page.evaluate(() =>
     (window as unknown as AlphaTabWindow).__COTAB_TEST_SETTINGS__,
   )).toMatchObject({ codexConnectCount: 3, localResources: true, webResources: true });
-  await expect(disconnectButton).toBeVisible();
+  await openResources(webResources);
+  await expect(webResources).toBeChecked();
 
   const localWrite = page.getByLabel("Local write");
-  if (!await localWrite.isVisible()) await resourcesButton.click();
   await localWrite.click();
   await expect(localWrite).toBeChecked();
   await resourcesButton.click();

@@ -1,10 +1,10 @@
 # CoTab
 
+[![CI](https://github.com/Xp-speit2018/cotab/actions/workflows/ci.yml/badge.svg)](https://github.com/Xp-speit2018/cotab/actions/workflows/ci.yml)
+
 **Work in progress.** This repo is under active development; scope and APIs may change.
 
 A tablature and notation editor with peer-to-peer collaboration. The goal is to make co-working with tabs easier—for example, to facilitate band rehearsal.
-
-Copilot with [Cursor](https://cursor.com) and [Claude Code](https://claude.ai/code).
 
 ## Tech stack
 
@@ -96,6 +96,10 @@ Current target boundaries:
   stave that the user is editing.
 - [x] **Fixed-system incremental rendering** — Reuse unchanged parchment
   systems before the first master bar affected by a document edit.
+- [x] **Engineering verification baseline** — Consolidate maintained tests,
+  target type checks, generated documentation checks, Web/server builds,
+  desktop validation, and browser collaboration tests into one documented CI
+  matrix.
 - [ ] **UI/UX improvements and unification** — Polish, consistency, and accessibility.
 - [ ] **Cloud storage support** — Optional sync/storage in the cloud.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.
@@ -105,6 +109,7 @@ Current target boundaries:
 
 ```bash
 npm install
+npm install --prefix server
 npm run dev      # Development server
 npm run build    # Production build
 npm run desktop:build # Tauri desktop shell over the Web build
@@ -116,11 +121,15 @@ Signaling server (for p2p): see `server/README.md`.
 ## Target Verification
 
 ```bash
-npm run typecheck:targets  # core, adapters, CLI, MCP
-npm run typecheck:adapters # local headless + Web/WebView adapters
-npm run verify:targets     # target typechecks, tests, Web/Tauri build
+npm run verify          # types, unit tests, docs, Web and server builds
+npm run check:desktop   # locked Rust/Tauri check
+npm run test:e2e        # maintained Chromium workflows; requires Docker
+npm run verify:all      # complete local equivalent of the CI matrix
 npm run cotab:cli -- list-actions
 ```
+
+See [docs/TESTING.md](docs/TESTING.md) for test layers, directory conventions,
+targeted commands, and CI behavior.
 
 ## Disclaimer
 

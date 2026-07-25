@@ -59,6 +59,7 @@ type RuntimeWindow = Window & {
   __PLAYER_STORE__: {
     getState(): {
       isPlayerReady: boolean;
+      isRendering: boolean;
       visibleTrackIndices: number[];
       setSelection(selection: {
         trackIndex: number;
@@ -68,6 +69,13 @@ type RuntimeWindow = Window & {
         beatIndex: number;
         string: number;
       }): void;
+    };
+  };
+  __COTAB_STORE__: {
+    engine: {
+      selector: {
+        barIndex: number | null;
+      };
     };
   };
   __RENDER_REUSE_PROBE__?: {
@@ -312,7 +320,8 @@ test("parchment edits preserve systems before the first changed master bar", asy
   await page.goto("/");
   await page.waitForFunction(() => {
     const runtime = window as unknown as RuntimeWindow;
-    return Boolean(runtime.__PLAYER_STORE__?.getState().isPlayerReady);
+    const state = runtime.__PLAYER_STORE__?.getState();
+    return Boolean(state?.isPlayerReady && !state.isRendering);
   });
 
   await page.evaluate(() => {
@@ -346,41 +355,83 @@ test("parchment edits preserve systems before the first changed master bar", asy
   await page.getByRole("button", { name: "Parchment layout" }).click();
   await page.waitForFunction(() => {
     const probe = (window as unknown as RuntimeWindow).__FIXED_SYSTEM_PROBE__;
+    const systemStarts = new Set(
+      probe?.initial
+        .filter((partial) => partial.firstMasterBarIndex >= 0)
+        .map((partial) => partial.firstMasterBarIndex),
+    );
     return (probe?.completedRenders ?? 0) > 0
-      && Boolean(probe?.initial.some(
-        (partial) => partial.firstMasterBarIndex <= 8
-          && partial.lastMasterBarIndex >= 8,
-      ));
+      && systemStarts.size > 1;
   });
 
-  const initialDuration = await page.evaluate(() => {
+  const target = await page.evaluate(() => {
     const runtime = window as unknown as RuntimeWindow;
-    runtime.__FIXED_SYSTEM_PROBE__!.phase = "update";
+    const probe = runtime.__FIXED_SYSTEM_PROBE__!;
+    probe.phase = "update";
+    probe.completedRenders = 0;
+    probe.update = [];
     const api = runtime.__ALPHATAB_API__;
+    const systems = probe.initial
+      .filter((partial) => partial.firstMasterBarIndex >= 0)
+      .sort((left, right) =>
+        left.firstMasterBarIndex - right.firstMasterBarIndex);
+    const firstSystemStart = systems[0]?.firstMasterBarIndex;
+    const laterSystems = systems.filter(
+      (system, index) => system.firstMasterBarIndex !== firstSystemStart
+        && systems.findIndex(
+          (candidate) =>
+            candidate.firstMasterBarIndex === system.firstMasterBarIndex,
+        ) === index,
+    );
+    let barIndex = -1;
+    for (const system of laterSystems) {
+      for (
+        let candidate = system.firstMasterBarIndex;
+        candidate <= system.lastMasterBarIndex;
+        candidate += 1
+      ) {
+        const beat = api.score.tracks[0].staves[0]
+          .bars[candidate]?.voices[0]?.beats[0];
+        if (beat?.notes[0] && beat.duration !== 2) {
+          barIndex = candidate;
+          break;
+        }
+      }
+      if (barIndex >= 0) break;
+    }
+    if (barIndex < 0) {
+      throw new Error("No editable beat exists after the first parchment system.");
+    }
     const beat = api.score.tracks[0].staves[0]
-      .bars[8].voices[0].beats[0];
+      .bars[barIndex].voices[0].beats[0];
     const note = beat.notes[0];
     runtime.__PLAYER_STORE__.getState().setSelection({
       trackIndex: 0,
       staffIndex: 0,
       voiceIndex: 0,
-      barIndex: 8,
+      barIndex,
       beatIndex: 0,
       string: note.string,
     });
-    return beat.duration;
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    return { barIndex, duration: beat.duration };
   });
 
-  expect(initialDuration).not.toBe(2);
+  expect(target.duration).not.toBe(2);
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as RuntimeWindow).__COTAB_STORE__.engine.selector.barIndex,
+  )).toBe(target.barIndex);
   await page.keyboard.press("-");
-  await page.waitForFunction(() => {
+  await page.waitForFunction((barIndex) => {
     const runtime = window as unknown as RuntimeWindow;
     return runtime.__ALPHATAB_API__.score.tracks[0].staves[0]
-      .bars[8].voices[0].beats[0].duration === 2
-      && (runtime.__FIXED_SYSTEM_PROBE__?.completedRenders ?? 0) > 1;
-  });
+      .bars[barIndex].voices[0].beats[0].duration === 2
+      && (runtime.__FIXED_SYSTEM_PROBE__?.completedRenders ?? 0) > 0;
+  }, target.barIndex);
 
-  const result = await page.evaluate(() => {
+  const result = await page.evaluate((targetBarIndex) => {
     const runtime = window as unknown as RuntimeWindow;
     const probe = runtime.__FIXED_SYSTEM_PROBE__!;
     const initialSystems = probe.initial.filter(
@@ -390,8 +441,8 @@ test("parchment edits preserve systems before the first changed master bar", asy
       (partial) => partial.firstMasterBarIndex >= 0,
     );
     const changedSystem = initialSystems.find(
-      (partial) => partial.firstMasterBarIndex <= 8
-        && partial.lastMasterBarIndex >= 8,
+      (partial) => partial.firstMasterBarIndex <= targetBarIndex
+        && partial.lastMasterBarIndex >= targetBarIndex,
     )!;
     const updatedByFirstBar = new Map(
       updatedSystems.map((partial) => [partial.firstMasterBarIndex, partial]),
@@ -417,7 +468,7 @@ test("parchment edits preserve systems before the first changed master bar", asy
     probe.disconnect();
     delete runtime.__FIXED_SYSTEM_PROBE__;
     return result;
-  });
+  }, target.barIndex);
 
   expect(result.preservedPrefix.length).toBeGreaterThan(0);
   expect(result.preservedPrefix.every(

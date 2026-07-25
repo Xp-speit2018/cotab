@@ -28,29 +28,22 @@ src-tauri/target
 # Test artifacts
 test-results
 test-screenshots
+playwright-report
+blob-report
 
-# Dev notes
-docs/*
-!docs/ACTIONS.md
-!docs/DOCUMENT-ACTIONS.generated.md
+# Local documentation scratch files
+docs/*.tmp.md
+docs/TESTING-STRATEGY.md
+docs/alphatab-beat-isEmpty-behaviour.md
+docs/drumkit-place-note-diagnosis.md
+docs/thoughts.md
 
 # Wiki (separate git repo)
 wiki
 
-# E2E / Playwright (local debugging)
-e2e/*
-!e2e/playback-start.spec.ts
-!e2e/transport-mouse-mode.spec.ts
-!e2e/layout-switch.spec.js
-!e2e/multi-staff-snap.spec.js
-!e2e/sidebar-model-boundaries.spec.js
-!e2e/sidebar-complex-fields.spec.js
-!e2e/core-edit-actions.spec.ts
-!e2e/agent-runtime.spec.ts
-!e2e/desktop-agent.spec.ts
-!e2e/coop.spec.ts
-!e2e/helpers/
-!e2e/helpers/coop.ts
+# E2E experiments stay at the root; maintained specs live in e2e/specs.
+e2e/*.spec.js
+e2e/*.spec.ts
 playwright.config.js
 
 # Editor directories and files

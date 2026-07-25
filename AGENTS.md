@@ -1,5 +1,22 @@
 # CoTab Agent Guide
 
+## Repository Verification
+
+The maintained test matrix and directory rules are documented in
+`docs/TESTING.md`. Use `npm run verify` for deterministic checks and
+`npm run verify:all` for the desktop and browser gates as well.
+
+Maintained Playwright tests belong in `e2e/specs/`; shared browser helpers
+belong in `e2e/helpers/`. Files at the root of `e2e/` are ignored local
+diagnostics and must not be cited as repository coverage. Vitest unit and
+integration behavior runs together under `src/**/*.test.{ts,tsx}`; do not add a
+second filename-based integration suite.
+
+When a change affects generated DocumentAction projections, run
+`npm run check:action-docs`. Rendering, collaboration, or Agent workflow
+changes require the corresponding maintained Playwright spec in addition to
+Vitest coverage.
+
 ## UI Interaction Harness
 
 The app-native UI interaction harness is available in development builds at

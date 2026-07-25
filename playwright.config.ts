@@ -11,13 +11,15 @@ const appPort = Number(process.env.COTAB_E2E_PORT ?? 5175);
 const appUrl = `http://127.0.0.1:${appPort}`;
 
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./e2e/specs",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
   timeout: 60_000,
-  reporter: "list",
+  reporter: process.env.CI
+    ? [["line"], ["html", { open: "never" }]]
+    : "list",
   use: {
     baseURL: appUrl,
     trace: "on-first-retry",

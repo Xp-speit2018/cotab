@@ -27,7 +27,7 @@ import {
   disconnect,
   waitForScoreTitle,
   waitForBarCount,
-} from "./helpers/coop";
+} from "../helpers/coop";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

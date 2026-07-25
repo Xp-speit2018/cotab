@@ -57,8 +57,9 @@ test("separates MasterBar, Bar, Track, and Staff ownership in the sidebar", asyn
   await expect(page.getByText("MasterBar", { exact: true })).toBeVisible();
   await expect(page.getByText("Bar", { exact: true })).toBeVisible();
   await expect(page.getByText("Time Signature", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", {
-    name: /^Clef (?!Ottava)/,
+  await expect(page.getByRole("combobox", {
+    name: "Clef",
+    exact: true,
   })).toBeVisible();
 
   await page.getByRole("button", { name: "Meta", exact: true }).click();

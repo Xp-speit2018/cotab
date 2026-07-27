@@ -42,6 +42,12 @@ import {
 import { useEditorStore } from "@/stores/editor-store";
 import { cn } from "@/lib/utils";
 import { ScoreLayoutToolbarControls } from "@/components/ScoreLayoutControls";
+import { DocumentStorageControls } from "@/components/DocumentStorageControls";
+import {
+  documentStorageController,
+  useDocumentStorageStore,
+} from "@/stores/document-storage-store";
+import { pickLocalScoreFile } from "@/storage/tauri-local-disk-provider";
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim() || "untitled";
@@ -81,6 +87,8 @@ export function Toolbar() {
   const canRedo = useEditorStore((s) => s.canRedo);
   const transportModifier = useShortcutStore((s) => s.transportModifier);
   const transportModifierActive = useTransportModifierActive();
+  const storageAvailable = useDocumentStorageStore((state) => state.available);
+  const storageStatus = useDocumentStorageStore((state) => state.status);
 
   const isPlaying = playerState === "playing";
   const playButtonLabel = isPlaying
@@ -117,6 +125,31 @@ export function Toolbar() {
     }
   };
 
+  const handleOpenFile = async () => {
+    if (!storageAvailable) {
+      fileInputRef.current?.click();
+      return;
+    }
+    if (
+      (storageStatus === "dirty" || storageStatus === "conflict") &&
+      !window.confirm(t("storage.discardUnsaved"))
+    ) {
+      return;
+    }
+    try {
+      const picked = await pickLocalScoreFile();
+      if (!picked) return;
+      if (picked.kind === "cotab") {
+        await documentStorageController.openStoredDocument(picked.document);
+      } else {
+        documentStorageController.unbind();
+        loadFile(picked.document.data);
+      }
+    } catch (error) {
+      documentStorageController.reportError(error);
+    }
+  };
+
   return (
     <div className="flex h-12 w-full min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b bg-card px-2">
       {/* ── Left: File + Song Info ──────────────────────────────────────── */}
@@ -126,13 +159,16 @@ export function Toolbar() {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => void handleOpenFile()}
+            aria-label={t("toolbar.openFile")}
           >
             <FolderOpen className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
         <TooltipContent>{t("toolbar.openFile")}</TooltipContent>
       </Tooltip>
+
+      <DocumentStorageControls />
 
       <Tooltip>
         <TooltipTrigger asChild>

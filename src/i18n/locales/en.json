@@ -43,10 +43,35 @@
     "language": "Language",
     "undo": "Undo",
     "redo": "Redo",
-    "exportFile": "Export GP file"
+    "exportFile": "Export GP file",
+    "documentStorage": "Document storage",
+    "saveDocument": "Save CoTab document",
+    "saveDocumentAs": "Save As",
+    "saveOptions": "Save options",
+    "autoSave": "Auto-save"
   },
   "viewport": {
     "loadingScore": "Loading score..."
+  },
+  "storage": {
+    "document": "document",
+    "discardUnsaved": "Discard unsaved local changes and open another file?",
+    "status": {
+      "unbound": "Not saved",
+      "saved": "Saved",
+      "dirty": "Unsaved changes",
+      "saving": "Saving",
+      "conflict": "Save conflict",
+      "error": "Storage error"
+    },
+    "conflict": {
+      "title": "This document changed on disk",
+      "description": "{{name}} was changed after you opened it. Choose how to resolve the two versions.",
+      "localBinding": "This storage binding belongs only to this app session. Resolving it does not change collaboration room membership.",
+      "merge": "Merge and Save",
+      "saveCopy": "Save a Copy",
+      "overwrite": "Overwrite Disk"
+    }
   },
   "sidebar": {
     "editor": "Editor",
@@ -807,7 +832,9 @@
     },
 
     "file": {
-      "exportGp": { "name": "Export GP File" }
+      "exportGp": { "name": "Export GP File" },
+      "save": { "name": "Save CoTab Document" },
+      "saveAs": { "name": "Save CoTab Document As" }
     },
     "transport": {
       "playPause": { "name": "Play / Pause" },

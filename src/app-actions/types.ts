@@ -5,7 +5,12 @@ import type {
   DocumentActionResult,
 } from "@/core/actions/types";
 
-export type AppActionDomain = "document" | "selector" | "transport" | "view";
+export type AppActionDomain =
+  | "document"
+  | "selector"
+  | "transport"
+  | "view"
+  | "storage";
 
 export interface AppActionExecutionContext {
   readonly t: TFunction;

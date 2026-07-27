@@ -43,10 +43,35 @@
     "language": "语言",
     "undo": "撤销",
     "redo": "重做",
-    "exportFile": "导出 GP 文件"
+    "exportFile": "导出 GP 文件",
+    "documentStorage": "文档存储",
+    "saveDocument": "保存 CoTab 文档",
+    "saveDocumentAs": "另存为",
+    "saveOptions": "保存选项",
+    "autoSave": "自动保存"
   },
   "viewport": {
     "loadingScore": "正在加载乐谱..."
+  },
+  "storage": {
+    "document": "文档",
+    "discardUnsaved": "放弃尚未保存的本地修改并打开其他文件？",
+    "status": {
+      "unbound": "尚未保存",
+      "saved": "已保存",
+      "dirty": "有未保存修改",
+      "saving": "正在保存",
+      "conflict": "保存冲突",
+      "error": "存储错误"
+    },
+    "conflict": {
+      "title": "磁盘上的文档已发生变化",
+      "description": "你打开 {{name}} 后，磁盘版本又被修改。请选择如何处理两个版本。",
+      "localBinding": "此存储绑定仅属于当前应用会话；解决冲突不会改变协作房间成员关系。",
+      "merge": "合并并保存",
+      "saveCopy": "保存副本",
+      "overwrite": "覆盖磁盘版本"
+    }
   },
   "sidebar": {
     "editor": "编辑器",
@@ -806,7 +831,9 @@
     },
 
     "file": {
-      "exportGp": { "name": "导出 GP 文件" }
+      "exportGp": { "name": "导出 GP 文件" },
+      "save": { "name": "保存 CoTab 文档" },
+      "saveAs": { "name": "另存 CoTab 文档" }
     },
     "transport": {
       "playPause": { "name": "播放 / 暂停" },

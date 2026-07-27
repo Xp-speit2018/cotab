@@ -1,9 +1,11 @@
 import "@/core/actions";
 import { registerSelectorActions } from "./selector-actions";
+import { registerStorageActions } from "./storage-actions";
 import { registerTransportActions } from "./transport-actions";
 import { registerViewActions } from "./view-actions";
 
 registerSelectorActions();
+registerStorageActions();
 registerTransportActions();
 registerViewActions();
 

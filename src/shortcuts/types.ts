@@ -46,6 +46,7 @@ export interface ShortcutBinding {
 }
 
 export type ShortcutCategory =
+  | "file"
   | "navigation"
   | "transport"
   | "editing.beat"
@@ -55,6 +56,7 @@ export type ShortcutCategory =
   | "clipboard";
 
 export const SHORTCUT_CATEGORY_ORDER: readonly ShortcutCategory[] = [
+  "file",
   "navigation",
   "transport",
   "editing.beat",

@@ -1,5 +1,29 @@
 # CoTab Agent Guide
 
+## Codex Workflow
+
+`AGENTS.md` is the only repository-level coding-agent instruction source.
+Do not add tool-specific rule files or permission manifests. Keep durable,
+non-obvious project contracts here; keep personal permissions, machine paths,
+debug logs, and temporary task notes outside the repository.
+
+Read the relevant implementation and tests before changing behavior. Preserve
+the existing module boundaries instead of introducing a second path for Agent
+workflows. In particular:
+
+- Treat Y.Doc as the source of truth for shared score data and think through
+  CRDT ownership before adding score state.
+- Put UI and shortcut behavior in AppActions; put renderer-independent,
+  synchronized score mutations in DocumentActions.
+- Route user-visible strings through i18next and update both
+  `src/i18n/locales/en.json` and `src/i18n/locales/zh-CN.json`.
+- Keep commits scoped to one coherent change. Do not amend or force-push
+  published commits.
+
+Run `npm run check:codex-guide` after changing this file or repository commands.
+The check rejects legacy coding-agent configuration and validates every
+`npm run` command referenced by this guide.
+
 ## Repository Verification
 
 The maintained test matrix and directory rules are documented in

@@ -12,15 +12,17 @@ repository's `.nvmrc`).
 |------|---------|-------|
 | Unit and integration behavior | `npm run test:unit` | Y.Doc schema and actions, AlphaTab conversion, collaboration, protocol, stores, and React components |
 | Type boundaries | `npm run typecheck` | Web app, core, Web/local adapters, CLI, and MCP |
+| Codex development guide | `npm run check:codex-guide` | Enforces `AGENTS.md` as the sole coding-agent guide and validates its referenced npm commands |
 | Generated action reference | `npm run check:action-docs` | Ensures `docs/DOCUMENT-ACTIONS.generated.md` matches the action definitions |
-| Tool compilation | `npm run check:tools` | Documentation and AlphaTab audit tools used by automation |
+| Tool compilation | `npm run check:tools` | Codex-guide, documentation, and AlphaTab audit tools used by automation |
 | Web production build | `npm run build:web` | Vite production bundle |
 | Signaling server build | `npm run build:server` | Strict TypeScript server build |
 | Desktop shell | `npm run check:desktop` | Locked Rust/Tauri dependency graph and native code |
 | Browser workflows | `npm run test:e2e` | Chromium, Vite, signaling server, TURN, rendering, Agent mocks, and multi-peer collaboration |
 
 `npm run verify` runs every deterministic Node gate: type checks, Vitest,
-generated documentation checks, script compilation, and Web/server builds.
+Codex-guide and generated-documentation checks, tool compilation, and
+Web/server builds.
 `npm run verify:all` additionally runs the desktop check and the complete
 browser suite.
 

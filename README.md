@@ -8,7 +8,7 @@ A tablature and notation editor with peer-to-peer collaboration. The goal is to 
 
 ## Tech stack
 
-- **Framework:** React 18, Vite 6, TypeScript (strict)
+- **Framework:** React 18, Vite 7, TypeScript (strict)
 - **UI:** Tailwind CSS 4, shadcn/ui (Radix UI), Lucide React
 - **Rendering:** [@coderline/alphatab](https://github.com/CoderLine/alphaTab)
 - **State & collaboration:** Zustand, Yjs

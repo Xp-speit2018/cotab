@@ -10,7 +10,7 @@
     "dev": "tsc --watch & node --watch dist/index.js"
   },
   "dependencies": {
-    "ws": "^8.18.0"
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

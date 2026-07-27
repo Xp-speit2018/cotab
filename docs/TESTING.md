@@ -3,6 +3,9 @@
 CoTab has one maintained verification matrix. The same commands are used
 locally and by `.github/workflows/ci.yml`.
 
+Use Node 22 for local development and verification (`nvm use` reads the
+repository's `.nvmrc`).
+
 ## Verification Matrix
 
 | Gate | Command | Scope |

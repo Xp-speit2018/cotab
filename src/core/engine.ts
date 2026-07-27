@@ -639,6 +639,7 @@ export class EditorEngine {
     this.attachObserver();
     this.attachUndoManager();
     this.resetDocumentPeers();
+    this._hookRegistry.emitDocument("onDocumentReplaced", this.doc);
   }
 
   destroyDoc(): void {
@@ -651,6 +652,7 @@ export class EditorEngine {
     this.scoreMap = null;
     this.localClearSelection();
     this.localSetTransportPlayhead(null);
+    this._hookRegistry.emitDocument("onDocumentReplaced", null);
   }
 
   replaceDoc(newDoc: Y.Doc, newScoreMap: Y.Map<unknown>): void {
@@ -661,6 +663,7 @@ export class EditorEngine {
     this.attachObserver();
     this.attachUndoManager();
     this.resetDocumentPeers();
+    this._hookRegistry.emitDocument("onDocumentReplaced", this.doc);
     // Trigger renderer rebuild after doc swap
     this._hookRegistry.emitDocumentChange(
       "onLocalYDocEdit",

@@ -57,6 +57,21 @@ Vitest coverage.
 
 Do not recreate top-level `scripts/`, `e2e/`, or `demos/` directories.
 
+## Document Storage
+
+Document storage is independent from collaboration identity. Storage bindings,
+paths, credentials, revisions, and auto-save preferences are local session
+state and must never enter Y.Doc or room awareness. Opening the same storage
+object must not automatically join a room; joining a room must not choose a
+storage object. Each room participant independently saves the current shared
+Y.Doc to its own binding or remains unbound.
+
+Keep provider-neutral lifecycle and conflict handling in `src/storage/`.
+Providers implement conditional reads and writes using opaque revisions: local
+disk uses content hashes and WebDAV uses ETags. A revision mismatch must fail
+before replacement and offer explicit Yjs merge, save-copy, or overwrite
+behavior. Do not infer identity from path, document ID, or equal content.
+
 ## UI Interaction Harness
 
 The app-native UI interaction harness is available in development builds at

@@ -5,6 +5,7 @@
  * Each call to `on()` returns an unsubscribe function that removes only those listeners.
  */
 
+import type * as Y from "yjs";
 import type { SelectedBeat, SelectorState, TransportState } from "@/core/engine";
 import type { DocumentChange } from "./document-change";
 
@@ -18,6 +19,8 @@ import type { DocumentChange } from "./document-change";
  * Who: Local = this client, Peer = remote client
  */
 export interface EngineHooks {
+  /** Notification: the active Y.Doc instance changed or was destroyed. */
+  onDocumentReplaced?: (doc: Y.Doc | null) => void;
   /** Notification: Local client edited Y.Doc (via localEditYDoc) */
   onLocalYDocEdit?: (change: DocumentChange) => void;
   /** Notification: Peer client edited Y.Doc (wired to Y.Doc observer dispatches) */
@@ -45,6 +48,7 @@ type HookKey = keyof EngineHooks;
  */
 export class HookRegistry {
   private _listeners: { [K in HookKey]: Set<NonNullable<EngineHooks[K]>> } = {
+    onDocumentReplaced: new Set(),
     onLocalYDocEdit: new Set(),
     onPeerYDocEdit: new Set(),
     onLocalSelectionSet: new Set(),
@@ -86,6 +90,16 @@ export class HookRegistry {
     const listeners = this._listeners[key] as Set<() => void>;
     for (const fn of listeners) {
       fn();
+    }
+  }
+
+  emitDocument(
+    key: "onDocumentReplaced",
+    doc: Y.Doc | null,
+  ): void {
+    const listeners = this._listeners[key] as Set<(doc: Y.Doc | null) => void>;
+    for (const fn of listeners) {
+      fn(doc);
     }
   }
 

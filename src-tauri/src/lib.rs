@@ -1,18 +1,54 @@
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     env, fs,
     io::{BufRead, BufReader, Write},
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Child, ChildStdin, Command, Stdio},
     sync::Mutex,
     thread,
-    time::Duration,
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tauri::{ipc::Channel, AppHandle, Manager};
 use url::Url;
 
 const AGENT_HISTORY_VERSION: u32 = 1;
 const AGENT_HISTORY_FILE: &str = "agent-history-v1.json";
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalStoredDocument {
+    locator: String,
+    display_name: String,
+    revision: String,
+    data: Vec<u8>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LocalStorageTarget {
+    locator: String,
+    display_name: String,
+    revision: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PickedLocalScoreFile {
+    kind: String,
+    document: LocalStoredDocument,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+enum LocalWriteResult {
+    Saved {
+        revision: String,
+    },
+    Conflict {
+        current: Option<LocalStoredDocument>,
+    },
+}
 
 struct CodexProcess {
     child: Child,
@@ -129,6 +165,142 @@ fn save_agent_history(app: AppHandle, index: AgentHistoryIndex) -> Result<(), St
         fs::remove_file(&path).map_err(|error| error.to_string())?;
     }
     fs::rename(temporary_path, path).map_err(|error| error.to_string())
+}
+
+fn content_revision(data: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(data))
+}
+
+fn display_name(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path.to_string_lossy().into_owned())
+}
+
+fn read_local_document_path(path: &Path) -> Result<Option<LocalStoredDocument>, String> {
+    if !path.exists() {
+        return Ok(None);
+    }
+    let data = fs::read(path).map_err(|error| error.to_string())?;
+    Ok(Some(LocalStoredDocument {
+        locator: path.to_string_lossy().into_owned(),
+        display_name: display_name(path),
+        revision: content_revision(&data),
+        data,
+    }))
+}
+
+fn write_local_document_path(
+    path: &Path,
+    data: Vec<u8>,
+    expected_revision: Option<String>,
+) -> Result<LocalWriteResult, String> {
+    let current = read_local_document_path(path)?;
+    let current_revision = current.as_ref().map(|document| document.revision.as_str());
+    if current_revision != expected_revision.as_deref() {
+        return Ok(LocalWriteResult::Conflict { current });
+    }
+
+    let parent = path
+        .parent()
+        .ok_or_else(|| "Local document path has no parent directory.".to_owned())?;
+    fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| error.to_string())?
+        .as_nanos();
+    let temporary_name = format!(
+        ".{}.cotab-tmp-{}-{nonce}",
+        display_name(path),
+        std::process::id()
+    );
+    let temporary_path = parent.join(temporary_name);
+    let write_result = (|| -> Result<(), String> {
+        let mut file = fs::File::create(&temporary_path).map_err(|error| error.to_string())?;
+        file.write_all(&data).map_err(|error| error.to_string())?;
+        file.sync_all().map_err(|error| error.to_string())?;
+        Ok(())
+    })();
+    if let Err(error) = write_result {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(error);
+    }
+    #[cfg(windows)]
+    if path.exists() {
+        fs::remove_file(path).map_err(|error| error.to_string())?;
+    }
+    if let Err(error) = fs::rename(&temporary_path, path) {
+        let _ = fs::remove_file(&temporary_path);
+        return Err(error.to_string());
+    }
+    Ok(LocalWriteResult::Saved {
+        revision: content_revision(&data),
+    })
+}
+
+#[tauri::command]
+fn pick_local_score_file() -> Result<Option<PickedLocalScoreFile>, String> {
+    let Some(path) = rfd::FileDialog::new()
+        .add_filter(
+            "CoTab and Guitar Pro",
+            &["cotab", "gp", "gp3", "gp4", "gp5", "gpx"],
+        )
+        .pick_file()
+    else {
+        return Ok(None);
+    };
+    let document = read_local_document_path(&path)?
+        .ok_or_else(|| "Selected document no longer exists.".to_owned())?;
+    let extension = path
+        .extension()
+        .map(|value| value.to_string_lossy().to_ascii_lowercase())
+        .unwrap_or_default();
+    Ok(Some(PickedLocalScoreFile {
+        kind: if extension == "cotab" {
+            "cotab".to_owned()
+        } else {
+            "guitarPro".to_owned()
+        },
+        document,
+    }))
+}
+
+#[tauri::command]
+fn pick_local_document_path(suggested_name: String) -> Result<Option<LocalStorageTarget>, String> {
+    let Some(mut path) = rfd::FileDialog::new()
+        .add_filter("CoTab document", &["cotab"])
+        .set_file_name(suggested_name)
+        .save_file()
+    else {
+        return Ok(None);
+    };
+    if path
+        .extension()
+        .map(|value| !value.to_string_lossy().eq_ignore_ascii_case("cotab"))
+        .unwrap_or(true)
+    {
+        path.set_extension("cotab");
+    }
+    let current = read_local_document_path(&path)?;
+    Ok(Some(LocalStorageTarget {
+        locator: path.to_string_lossy().into_owned(),
+        display_name: display_name(&path),
+        revision: current.map(|document| document.revision),
+    }))
+}
+
+#[tauri::command]
+fn read_local_document(locator: String) -> Result<Option<LocalStoredDocument>, String> {
+    read_local_document_path(Path::new(&locator))
+}
+
+#[tauri::command]
+fn write_local_document(
+    locator: String,
+    data: Vec<u8>,
+    expected_revision: Option<String>,
+) -> Result<LocalWriteResult, String> {
+    write_local_document_path(Path::new(&locator), data, expected_revision)
 }
 
 fn command_version(executable: &PathBuf) -> Option<String> {
@@ -480,6 +652,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             load_agent_history,
             save_agent_history,
+            pick_local_score_file,
+            pick_local_document_path,
+            read_local_document,
+            write_local_document,
             get_codex_status,
             connect_local_codex,
             pick_agent_write_root,
@@ -557,5 +733,35 @@ mod tests {
             assert!(environment.contains_key(key));
             assert_eq!(environment[key], None);
         }
+    }
+
+    #[test]
+    fn local_document_write_uses_content_revisions() {
+        let directory = env::temp_dir().join(format!(
+            "cotab-storage-test-{}-{}",
+            std::process::id(),
+            std::thread::current().name().unwrap_or("thread")
+        ));
+        fs::create_dir_all(&directory).unwrap();
+        let path = directory.join("score.cotab");
+
+        let first = write_local_document_path(&path, vec![1, 2, 3], None).unwrap();
+        let first_revision = match first {
+            LocalWriteResult::Saved { revision } => revision,
+            LocalWriteResult::Conflict { .. } => panic!("unexpected conflict"),
+        };
+        assert_eq!(
+            read_local_document_path(&path).unwrap().unwrap().revision,
+            first_revision
+        );
+
+        let conflict = write_local_document_path(&path, vec![4, 5, 6], None).unwrap();
+        assert!(matches!(conflict, LocalWriteResult::Conflict { .. }));
+
+        let second = write_local_document_path(&path, vec![4, 5, 6], Some(first_revision)).unwrap();
+        assert!(matches!(second, LocalWriteResult::Saved { .. }));
+        assert_eq!(fs::read(&path).unwrap(), vec![4, 5, 6]);
+
+        fs::remove_dir_all(directory).unwrap();
     }
 }

@@ -23,7 +23,7 @@ import {
   resolveYBeatHelper,
   resolveYTrackHelper,
   resolveYNoteHelper,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 
 // Inline factory helpers to avoid module resolution issues in hoisted mock
 const _createYMap = () => new Y.Map<unknown>();

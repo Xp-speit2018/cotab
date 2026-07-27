@@ -18,7 +18,7 @@ import {
   placePercussionNoteDirectly,
   addBeatsDirectly,
   createTestDoc,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 // Import directly from relative path to bypass the mock in setup.ts
 import { buildAlphaTabScore } from "../converters";
 

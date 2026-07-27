@@ -17,7 +17,7 @@ import {
   resolveYBeatHelper,
   resolveYNoteHelper,
   resolveYMasterBarHelper,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 
 function resetDoc() {
   destroyDoc();

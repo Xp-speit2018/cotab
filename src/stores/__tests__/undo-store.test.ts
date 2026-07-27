@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import * as Y from "yjs";
-import { resetMockState } from "@/test/setup";
+import { resetMockState } from "@tests/unit/setup";
 
 // Create a real Y.Doc for this test (bypassing the engine mock)
 let _realDoc: Y.Doc | null = null;

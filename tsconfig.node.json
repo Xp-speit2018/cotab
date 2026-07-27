@@ -6,6 +6,8 @@
     "allowImportingTsExtensions": true,
     "emitDeclarationOnly": true,
     "composite": true,
+    "outDir": "./node_modules/.cache/cotab/tsconfig-node",
+    "tsBuildInfoFile": "./node_modules/.cache/cotab/tsconfig-node.tsbuildinfo",
     "strict": true,
     "skipLibCheck": true
   },

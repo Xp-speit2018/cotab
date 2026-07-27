@@ -6,8 +6,7 @@
  * constants, then writes a formatted markdown document to stdout.
  *
  * Usage:
- *   npx -p typescript tsc --project scripts/tsconfig.scripts.json
- *   node dist-scripts/generate-server-api-wiki.js
+ *   npm run docs:server-api:wiki
  */
 
 import * as ts from "typescript";
@@ -404,7 +403,7 @@ function getMessageDescription(typeValue: string): string {
 function main(): void {
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const rootDir = path.resolve(__dirname, "..");
+  const rootDir = path.resolve(__dirname, "../..");
   const serverSrcDir = path.join(rootDir, "server", "src");
 
   // Parse server source files

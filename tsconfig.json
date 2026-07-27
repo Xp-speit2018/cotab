@@ -19,11 +19,13 @@
     /* Aliases */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@tests/*": ["tests/*"]
     },
 
     /* Emit */
     "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.cache/cotab/tsconfig.tsbuildinfo",
     "isolatedModules": true,
     "esModuleInterop": true,
 
@@ -31,6 +33,6 @@
     "types": ["vitest/globals"]
   },
   "include": ["src", "vite-env.d.ts"],
-  "exclude": ["src/adapters/local", "src/cli", "src/mcp", "src/**/__tests__", "src/test"],
+  "exclude": ["src/adapters/local", "src/cli", "src/mcp", "src/**/__tests__"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

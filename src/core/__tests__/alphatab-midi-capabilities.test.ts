@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as alphaTab from "@coderline/alphatab";
-import midiCapabilities from "../../../scripts/alphatab-midi-capabilities.json";
+import midiCapabilities from "../../../tools/alphatab/midi-capabilities.json";
 
 interface ScoreFixture {
   score: alphaTab.model.Score;

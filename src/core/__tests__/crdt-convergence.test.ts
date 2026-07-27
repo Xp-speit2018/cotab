@@ -3,7 +3,7 @@
  * merge correctly via Y.applyUpdate (the same bytes WebRTC would carry).
  *
  * No network, no mocks — pure Yjs merge semantics.
- * Does NOT import from @/test/setup.ts to avoid global mocks.
+ * Does NOT import from @tests/unit/setup.ts to avoid global mocks.
  */
 
 import { describe, it, expect, beforeEach } from "vitest";

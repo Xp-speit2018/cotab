@@ -9,7 +9,6 @@ lerna-debug.log*
 
 node_modules
 dist
-dist-scripts
 dist-ssr
 *.local
 
@@ -41,9 +40,9 @@ docs/thoughts.md
 # Wiki (separate git repo)
 wiki
 
-# E2E experiments stay at the root; maintained specs live in e2e/specs.
-e2e/*.spec.js
-e2e/*.spec.ts
+# E2E experiments stay at the suite root; maintained specs live in specs/.
+tests/e2e/*.spec.js
+tests/e2e/*.spec.ts
 playwright.config.js
 
 # Editor directories and files

@@ -9,7 +9,7 @@ import {
   getScoreMap,
   resolveYBeatHelper,
   resolveYStaffHelper,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 
 // Mock engine in test file (vi.mock is hoisted)
 vi.mock("@/core/engine", () => ({

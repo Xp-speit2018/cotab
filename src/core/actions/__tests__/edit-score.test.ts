@@ -3,13 +3,13 @@ import * as Y from "yjs";
 import {
   resetMockState,
   testContext,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 import {
   initDoc,
   destroyDoc,
   getScoreMap as syncGetScoreMap,
   seedOneTrackScore,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 import { AutomationType } from "@/core/schema";
 
 vi.mock("@/core/engine", () => {

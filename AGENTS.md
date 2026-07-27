@@ -6,8 +6,8 @@ The maintained test matrix and directory rules are documented in
 `docs/TESTING.md`. Use `npm run verify` for deterministic checks and
 `npm run verify:all` for the desktop and browser gates as well.
 
-Maintained Playwright tests belong in `e2e/specs/`; shared browser helpers
-belong in `e2e/helpers/`. Files at the root of `e2e/` are ignored local
+Maintained Playwright tests belong in `tests/e2e/specs/`; shared browser helpers
+belong in `tests/e2e/helpers/`. Files at the root of `tests/e2e/` are ignored local
 diagnostics and must not be cited as repository coverage. Vitest unit and
 integration behavior runs together under `src/**/*.test.{ts,tsx}`; do not add a
 second filename-based integration suite.
@@ -16,6 +16,20 @@ When a change affects generated DocumentAction projections, run
 `npm run check:action-docs`. Rendering, collaboration, or Agent workflow
 changes require the corresponding maintained Playwright spec in addition to
 Vitest coverage.
+
+## Repository Layout
+
+- `docs/` contains authored and generated documentation, never executable
+  generators.
+- `tools/docs/` contains documentation generators; `tools/alphatab/` contains
+  model audit tools and their evidence.
+- `tests/unit/` contains shared Vitest infrastructure. Unit test files remain
+  colocated with source under `src/**/__tests__/`.
+- `tests/e2e/` contains all Playwright specs, helpers, and local diagnostics.
+- `public/demos/` is the sole source for demo score assets used by the app and
+  tests.
+
+Do not recreate top-level `scripts/`, `e2e/`, or `demos/` directories.
 
 ## UI Interaction Harness
 

@@ -15,7 +15,7 @@ import {
   getScoreMap,
   resolveYNoteHelper,
   resolveYBeatHelper,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 
 vi.mock("@/core/engine", () => {
   const refs = () => (globalThis as Record<string, unknown>).__testEngineRefs as { doc: Y.Doc | null; scoreMap: Y.Map<unknown> | null; undoManager: unknown } | undefined;

@@ -13,7 +13,7 @@ repository's `.nvmrc`).
 | Unit and integration behavior | `npm run test:unit` | Y.Doc schema and actions, AlphaTab conversion, collaboration, protocol, stores, and React components |
 | Type boundaries | `npm run typecheck` | Web app, core, Web/local adapters, CLI, and MCP |
 | Generated action reference | `npm run check:action-docs` | Ensures `docs/DOCUMENT-ACTIONS.generated.md` matches the action definitions |
-| Script compilation | `npm run check:scripts` | Wiki and audit generators used by automation |
+| Tool compilation | `npm run check:tools` | Documentation and AlphaTab audit tools used by automation |
 | Web production build | `npm run build:web` | Vite production bundle |
 | Signaling server build | `npm run build:server` | Strict TypeScript server build |
 | Desktop shell | `npm run check:desktop` | Locked Rust/Tauri dependency graph and native code |
@@ -37,7 +37,7 @@ npx playwright install chromium
 
 Maintained Vitest files use `src/**/*.test.{ts,tsx}` and run in one suite.
 There is no separate filename-based integration suite. Tests are classified by
-the behavior they exercise:
+the behavior they exercise. Shared Vitest setup lives in `tests/unit/`:
 
 - Schema and pure helper tests use no mocks unless an external boundary
   requires one.
@@ -54,19 +54,19 @@ or the rendered browser result.
 
 ### Playwright
 
-Only files under `e2e/specs/` are maintained browser tests. Shared helpers live
-under `e2e/helpers/`. Exploratory diagnostic scripts may be kept locally at the
-root of `e2e/`; they are ignored by Git and are never discovered by the
-canonical Playwright configuration.
+Only files under `tests/e2e/specs/` are maintained browser tests. Shared helpers
+live under `tests/e2e/helpers/`. Exploratory diagnostic scripts may be kept
+locally at the root of `tests/e2e/`; they are ignored by Git and are never
+discovered by the canonical Playwright configuration.
 
 Use targeted runs while developing:
 
 ```bash
-npx playwright test e2e/specs/layout-switch.spec.js
+npx playwright test tests/e2e/specs/layout-switch.spec.js
 npm run test:e2e:ui-harness
 ```
 
-Before promoting a regression test, move it into `e2e/specs/`, remove
+Before promoting a regression test, move it into `tests/e2e/specs/`, remove
 diagnostic-only logging and screenshots, and make the assertion describe the
 user-visible or architectural contract.
 

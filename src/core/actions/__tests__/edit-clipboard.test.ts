@@ -8,14 +8,14 @@ import {
   setSelectionRange,
   placeNoteDirectly,
   addBeatsDirectly,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 import {
   initDoc,
   destroyDoc,
   getScoreMap,
   getUndoManager,
   transact,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 
 // Shared clipboard state on globalThis (hoisting-safe)
 (globalThis as Record<string, unknown>).__testClipboard = null;

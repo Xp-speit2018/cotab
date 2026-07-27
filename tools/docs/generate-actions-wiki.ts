@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import {
   DOCUMENT_ACTION_DESCRIPTORS,
   type DocumentActionDescriptor,
-} from "../src/core/actions/projections";
+} from "../../src/core/actions/projections";
 
 function loadI18n(filePath: string): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(filePath, "utf8")) as Record<string, unknown>;
@@ -91,7 +91,7 @@ function generateMarkdown(
 }
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
-const rootDirectory = path.resolve(scriptDirectory, "..");
+const rootDirectory = path.resolve(scriptDirectory, "../..");
 const i18nPath = path.join(
   rootDirectory,
   "src",

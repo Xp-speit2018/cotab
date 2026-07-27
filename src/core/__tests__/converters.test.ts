@@ -18,7 +18,7 @@ import {
   placePercussionNoteDirectly,
   addBeatsDirectly,
   createTestDoc,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 import {
   AutomationType,
   Duration,

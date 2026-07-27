@@ -11,6 +11,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as ts from "typescript";
+import { fileURLToPath } from "node:url";
 
 type FieldNature =
   | "document-structure"
@@ -55,11 +56,12 @@ interface ClassInfo {
   fields: FieldInfo[];
 }
 
-const repoRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const toolDirectory = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(toolDirectory, "../..");
 const alphaTabPackageJson = path.join(repoRoot, "node_modules/@coderline/alphatab/package.json");
 const alphaTabDts = path.join(repoRoot, "node_modules/@coderline/alphatab/dist/alphaTab.d.ts");
 const alphaTabCore = path.join(repoRoot, "node_modules/@coderline/alphatab/dist/alphaTab.core.mjs");
-const midiCapabilitiesFile = path.join(repoRoot, "scripts/alphatab-midi-capabilities.json");
+const midiCapabilitiesFile = path.join(toolDirectory, "midi-capabilities.json");
 
 const alphaTabVersion = JSON.parse(fs.readFileSync(alphaTabPackageJson, "utf8")).version as string;
 const midiCapabilities = JSON.parse(fs.readFileSync(midiCapabilitiesFile, "utf8")) as {

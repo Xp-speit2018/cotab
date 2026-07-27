@@ -8,7 +8,7 @@ import {
   getScoreMap,
   addBeatsDirectly,
   seedTrackWithConfig,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 import { createStaff, createBar, createVoice, createBeat } from "@/core/schema";
 
 vi.mock("@/core/engine", () => {

@@ -4,7 +4,7 @@ import {
   resetMockState,
   testContext,
   seedOneTrackScore,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 import { createMasterBar } from "@/core/schema";
 import {
   initDoc,
@@ -13,7 +13,7 @@ import {
   transact,
   getUndoManager,
   pushDefaultBarHelper,
-} from "@/test/setup";
+} from "@tests/unit/setup";
 
 // Inline factory helpers to avoid module resolution issues in hoisted mock
 const _createYMap = () => new Y.Map<unknown>();

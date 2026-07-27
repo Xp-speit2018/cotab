@@ -55,6 +55,11 @@ Current target boundaries:
 - A normal browser build exposes no Agent UI, model adapter, or LLM credential
   path.
 
+Repository support files follow the same ownership boundaries: `docs/` contains
+documentation, `tools/` contains generators and model audits, `tests/` contains
+shared unit-test infrastructure and browser workflows, and `public/demos/`
+contains the score assets served by Vite.
+
 ## What’s done
 
 - [x] **Virtual snap-grid note selection** — Click-to-select beats/notes on the score with a snap grid aligned to the notation.

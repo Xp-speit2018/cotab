@@ -19,6 +19,8 @@ workflows. In particular:
   `src/i18n/locales/en.json` and `src/i18n/locales/zh-CN.json`.
 - Keep commits scoped to one coherent change. Do not amend or force-push
   published commits.
+- Attribute commits to the human operator. Do not add AI tools as commit
+  authors or `Co-authored-by` trailers.
 
 Run `npm run check:codex-guide` after changing this file or repository commands.
 The check rejects legacy coding-agent configuration and validates every

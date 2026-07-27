@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const guidePath = resolve(repoRoot, "AGENTS.md");
@@ -33,6 +34,8 @@ const requiredHeadings = [
 ] as const;
 
 const errors: string[] = [];
+const aiCoAuthorPattern =
+  /^co-authored-by:.*(?:cursoragent@cursor\.com|noreply@anthropic\.com|copilot@github\.com|codex).*$/gim;
 
 function findLegacyEntries(directory: string): void {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -51,6 +54,27 @@ function findLegacyEntries(directory: string): void {
 }
 
 findLegacyEntries(repoRoot);
+
+const commitHistory = execFileSync(
+  "git",
+  ["log", "--format=%H%n%B%n%x00", "HEAD"],
+  {
+    cwd: repoRoot,
+    encoding: "utf8",
+  },
+);
+
+for (const entry of commitHistory.split("\0")) {
+  const [commit = "", ...messageLines] = entry.trim().split("\n");
+  const message = messageLines.join("\n");
+  const trailers = message.match(aiCoAuthorPattern) ?? [];
+
+  for (const trailer of trailers) {
+    errors.push(
+      `remove AI co-author trailer from commit ${commit.slice(0, 12)}: ${trailer}`,
+    );
+  }
+}
 
 if (!existsSync(guidePath)) {
   errors.push("AGENTS.md is missing");

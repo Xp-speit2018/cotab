@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as Y from "yjs";
 
 import { initializeScore } from "@/core/schema";
+import { createEditorStorageState } from "@/core/editor/storage";
 import { createDocumentFromCotab, encodeCotabDocument } from "../cotab-file";
 import { DocumentStorageController } from "../document-storage-controller";
 import type {
@@ -85,13 +86,19 @@ function createController(
 ): {
   controller: DocumentStorageController;
   getDocument: () => Y.Doc;
+  getStorageState: () => ReturnType<typeof createEditorStorageState>;
 } {
   let document = initialDocument;
+  let storage = createEditorStorageState(true);
   const controller = new DocumentStorageController({
     provider,
     getDocument: () => document,
     replaceDocument: (next) => {
       document = next;
+    },
+    getStorageState: () => storage,
+    setStorageState: (next) => {
+      storage = next;
     },
     autoSaveDelayMs: 100,
     minimumSaveIntervalMs: 0,
@@ -99,6 +106,7 @@ function createController(
   return {
     controller,
     getDocument: () => document,
+    getStorageState: () => storage,
   };
 }
 
@@ -132,8 +140,8 @@ describe("DocumentStorageController", () => {
     left.getDocument().getMap("score").set("artist", "Peer A");
     Y.applyUpdate(right.getDocument(), await leftUpdate);
 
-    expect(left.controller.getSnapshot().status).toBe("dirty");
-    expect(right.controller.getSnapshot().status).toBe("dirty");
+    expect(left.getStorageState().status).toBe("dirty");
+    expect(right.getStorageState().status).toBe("dirty");
     await vi.advanceTimersByTimeAsync(99);
     expect(provider.writes).toEqual([]);
     await vi.advanceTimersByTimeAsync(1);
@@ -148,12 +156,15 @@ describe("DocumentStorageController", () => {
 
   it("marks an unbound room participant dirty without writing", async () => {
     const provider = new MemoryStorageProvider();
-    const { controller, getDocument } = createController(provider, createScore());
+    const { getDocument, getStorageState } = createController(
+      provider,
+      createScore(),
+    );
 
     getDocument().getMap("score").set("artist", "No cloud binding");
     await vi.runAllTimersAsync();
 
-    expect(controller.getSnapshot().status).toBe("dirty");
+    expect(getStorageState().status).toBe("dirty");
     expect(provider.writes).toEqual([]);
   });
 
@@ -174,7 +185,7 @@ describe("DocumentStorageController", () => {
     right.getDocument().getMap("score").set("album", "Right");
     expect(await left.controller.save()).toBe(true);
     expect(await right.controller.save()).toBe(false);
-    expect(right.controller.getSnapshot().status).toBe("conflict");
+    expect(right.getStorageState().status).toBe("conflict");
 
     expect(await right.controller.mergeConflict()).toBe(true);
     const merged = createDocumentFromCotab(
@@ -182,7 +193,7 @@ describe("DocumentStorageController", () => {
     );
     expect(merged.getMap("score").get("artist")).toBe("Left");
     expect(merged.getMap("score").get("album")).toBe("Right");
-    expect(right.controller.getSnapshot().status).toBe("saved");
+    expect(right.getStorageState().status).toBe("saved");
   });
 
   it("keeps edits made while a save is in flight dirty", async () => {
@@ -206,7 +217,7 @@ describe("DocumentStorageController", () => {
     finishWrite!();
     await saving;
 
-    expect(session.controller.getSnapshot().status).toBe("dirty");
+    expect(session.getStorageState().status).toBe("dirty");
   });
 
   it("does not rewrite an unchanged saved document", async () => {
@@ -231,7 +242,7 @@ describe("DocumentStorageController", () => {
     session.getDocument().getMap("score").set("artist", "Manual save");
     await vi.runAllTimersAsync();
 
-    expect(session.controller.getSnapshot().status).toBe("dirty");
+    expect(session.getStorageState().status).toBe("dirty");
     expect(provider.writes).toEqual([]);
     expect(await session.controller.save()).toBe(true);
     expect(provider.writes).toEqual(["score.cotab"]);
@@ -245,7 +256,7 @@ describe("DocumentStorageController", () => {
     };
 
     expect(await session.controller.open()).toBe(false);
-    expect(session.controller.getSnapshot()).toMatchObject({
+    expect(session.getStorageState()).toMatchObject({
       status: "error",
       error: "Picker unavailable",
     });

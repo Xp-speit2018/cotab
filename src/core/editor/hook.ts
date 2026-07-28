@@ -8,6 +8,7 @@
 import type * as Y from "yjs";
 import type { SelectedBeat, SelectorState, TransportState } from "@/core/engine";
 import type { DocumentChange } from "./document-change";
+import type { EditorStorageState } from "./storage";
 
 /**
  * Event-driven hooks for engine integrations.
@@ -31,6 +32,8 @@ export interface EngineHooks {
   onLocalSelectorChange?: (selector: SelectorState) => void;
   /** Notification: Local transport pointer changed */
   onLocalTransportChange?: (transport: TransportState) => void;
+  /** Notification: Local document storage state changed */
+  onLocalStorageChange?: (storage: EditorStorageState) => void;
   /** Notification: Peer selection changed (placeholder for future peer awareness) */
   onPeerSelectionSet?: (sel: SelectedBeat) => void;
   /** Notification: Connection metadata changed (connected, roomCode, peers, connectionStatus, connectionError, userName) */
@@ -54,6 +57,7 @@ export class HookRegistry {
     onLocalSelectionSet: new Set(),
     onLocalSelectorChange: new Set(),
     onLocalTransportChange: new Set(),
+    onLocalStorageChange: new Set(),
     onPeerSelectionSet: new Set(),
     onConnectionMetaChange: new Set(),
     onClipboardChange: new Set(),
@@ -145,6 +149,18 @@ export class HookRegistry {
     const listeners = this._listeners[key] as Set<(transport: TransportState) => void>;
     for (const fn of listeners) {
       fn(transport);
+    }
+  }
+
+  emitStorage(
+    key: "onLocalStorageChange",
+    storage: EditorStorageState,
+  ): void {
+    const listeners = this._listeners[key] as Set<
+      (storage: EditorStorageState) => void
+    >;
+    for (const fn of listeners) {
+      fn(storage);
     }
   }
 

@@ -45,8 +45,7 @@ import { ScoreLayoutToolbarControls } from "@/components/ScoreLayoutControls";
 import { DocumentStorageControls } from "@/components/DocumentStorageControls";
 import {
   documentStorageController,
-  useDocumentStorageStore,
-} from "@/stores/document-storage-store";
+} from "@/storage/document-storage-runtime";
 import { pickLocalScoreFile } from "@/storage/tauri-local-disk-provider";
 
 function sanitizeFilename(name: string): string {
@@ -87,8 +86,8 @@ export function Toolbar() {
   const canRedo = useEditorStore((s) => s.canRedo);
   const transportModifier = useShortcutStore((s) => s.transportModifier);
   const transportModifierActive = useTransportModifierActive();
-  const storageAvailable = useDocumentStorageStore((state) => state.available);
-  const storageStatus = useDocumentStorageStore((state) => state.status);
+  const storageAvailable = useEditorStore((state) => state.storage.available);
+  const storageStatus = useEditorStore((state) => state.storage.status);
 
   const isPlaying = playerState === "playing";
   const playButtonLabel = isPlaying

@@ -66,6 +66,11 @@ object must not automatically join a room; joining a room must not choose a
 storage object. Each room participant independently saves the current shared
 Y.Doc to its own binding or remains unbound.
 
+The complete runtime storage state is owned by `EditorEngine.storage` and
+projected through `useEditorStore` like selector and transport state. Storage
+controllers and providers must not create a parallel Zustand store or private
+snapshot as a second source of truth.
+
 Keep provider-neutral lifecycle and conflict handling in `src/storage/`.
 Providers implement conditional reads and writes using opaque revisions: local
 disk uses content hashes and WebDAV uses ETags. A revision mismatch must fail

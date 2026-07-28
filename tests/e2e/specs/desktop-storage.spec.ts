@@ -143,6 +143,28 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
         (window as unknown as StorageMockWindow).__COTAB_STORAGE_MOCK__?.writes,
     ),
   ).toBe(1);
+  expect(await page.evaluate(async () => {
+    const [{ engine }, { useEditorStore }] = await Promise.all([
+      import("/src/core/engine.ts"),
+      import("/src/stores/editor-store.ts"),
+    ]);
+    return {
+      sameReference: useEditorStore.getState().storage === engine.storage,
+      binding: engine.storage.binding,
+    };
+  })).toMatchObject({
+    sameReference: true,
+    binding: {
+      providerId: "local-disk",
+      displayName: "storage-e2e.cotab",
+    },
+  });
+
+  await page.getByRole("button", { name: "Debug", exact: true }).click();
+  await expect(page.getByText("storage", { exact: true })).toBeVisible();
+  await page.getByText("binding", { exact: true }).click();
+  await expect(page.getByText('"storage-e2e.cotab"', { exact: true }))
+    .toBeVisible();
 
   await page.evaluate(async () => {
     const { engine } = await import("/src/core/engine.ts");

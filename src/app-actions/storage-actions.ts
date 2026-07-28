@@ -1,7 +1,7 @@
 import {
   documentStorageController,
-  useDocumentStorageStore,
-} from "@/stores/document-storage-store";
+} from "@/storage/document-storage-runtime";
+import { engine } from "@/core/engine";
 import { registerAppAction } from "./registry";
 
 declare global {
@@ -24,7 +24,7 @@ export function registerStorageActions(): void {
     i18nKey: "shortcuts.file.save",
     category: "file",
     execute: () => {
-      if (!useDocumentStorageStore.getState().available) {
+      if (!engine.storage.available) {
         return Promise.resolve(false);
       }
       return documentStorageController.save();
@@ -37,7 +37,7 @@ export function registerStorageActions(): void {
     i18nKey: "shortcuts.file.saveAs",
     category: "file",
     execute: () => {
-      if (!useDocumentStorageStore.getState().available) {
+      if (!engine.storage.available) {
         return Promise.resolve(false);
       }
       return documentStorageController.saveAs();

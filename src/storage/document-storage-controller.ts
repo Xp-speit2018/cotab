@@ -1,4 +1,8 @@
 import * as Y from "yjs";
+import type {
+  EditorStorageBinding,
+  EditorStorageState,
+} from "@/core/editor/storage";
 
 import {
   createDocumentFromCotab,
@@ -6,9 +10,7 @@ import {
   encodeCotabDocument,
 } from "./cotab-file";
 import type {
-  DocumentStorageBinding,
   DocumentStorageProvider,
-  DocumentStorageSnapshot,
   DocumentStorageTarget,
   StoredDocument,
 } from "./types";
@@ -17,12 +19,12 @@ export interface DocumentStorageControllerOptions {
   readonly provider: DocumentStorageProvider;
   readonly getDocument: () => Y.Doc | null;
   readonly replaceDocument: (doc: Y.Doc) => void;
+  readonly getStorageState: () => EditorStorageState;
+  readonly setStorageState: (state: EditorStorageState) => void;
   readonly autoSaveDelayMs?: number;
   readonly minimumSaveIntervalMs?: number;
   readonly now?: () => number;
 }
-
-type Listener = (snapshot: DocumentStorageSnapshot) => void;
 
 const DEFAULT_AUTO_SAVE_DELAY_MS = 2_000;
 const DEFAULT_MINIMUM_SAVE_INTERVAL_MS = 5_000;
@@ -32,18 +34,11 @@ export class DocumentStorageController {
   private readonly provider: DocumentStorageProvider;
   private readonly getDocument: () => Y.Doc | null;
   private readonly replaceDocument: (doc: Y.Doc) => void;
+  private readonly getStorageState: () => EditorStorageState;
+  private readonly setStorageState: (state: EditorStorageState) => void;
   private readonly autoSaveDelayMs: number;
   private readonly minimumSaveIntervalMs: number;
   private readonly now: () => number;
-  private readonly listeners = new Set<Listener>();
-  private snapshot: DocumentStorageSnapshot = {
-    status: "unbound",
-    binding: null,
-    autoSaveEnabled: true,
-    lastSavedAt: null,
-    error: null,
-    hasConflict: false,
-  };
   private observedDocument: Y.Doc | null = null;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private savePromise: Promise<void> | null = null;
@@ -55,6 +50,8 @@ export class DocumentStorageController {
     this.provider = options.provider;
     this.getDocument = options.getDocument;
     this.replaceDocument = options.replaceDocument;
+    this.getStorageState = options.getStorageState;
+    this.setStorageState = options.setStorageState;
     this.autoSaveDelayMs = options.autoSaveDelayMs ?? DEFAULT_AUTO_SAVE_DELAY_MS;
     this.minimumSaveIntervalMs =
       options.minimumSaveIntervalMs ?? DEFAULT_MINIMUM_SAVE_INTERVAL_MS;
@@ -62,23 +59,18 @@ export class DocumentStorageController {
     this.attachDocument(this.getDocument(), false);
   }
 
-  getSnapshot(): DocumentStorageSnapshot {
-    return this.snapshot;
-  }
-
-  subscribe(listener: Listener): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+  private get storage(): EditorStorageState {
+    return this.getStorageState();
   }
 
   handleDocumentReplaced(doc: Y.Doc | null): void {
     if (this.replacingDocument) return;
-    this.attachDocument(doc, this.snapshot.binding !== null);
+    this.attachDocument(doc, this.storage.binding !== null);
   }
 
   setAutoSaveEnabled(enabled: boolean): void {
     this.publish({ autoSaveEnabled: enabled });
-    if (enabled && this.snapshot.status === "dirty") this.scheduleAutoSave();
+    if (enabled && this.storage.status === "dirty") this.scheduleAutoSave();
     if (!enabled) this.clearSaveTimer();
   }
 
@@ -132,17 +124,17 @@ export class DocumentStorageController {
   }
 
   async save(): Promise<boolean> {
-    if (!this.snapshot.binding) return this.saveAs();
-    if (this.snapshot.status === "saved") return true;
+    if (!this.storage.binding) return this.saveAs();
+    if (this.storage.status === "saved") return true;
     if (this.savePromise) {
       await this.savePromise;
-      return this.getSnapshot().status === "saved";
+      return this.isSaved();
     }
-    this.savePromise = this.writeToBinding(this.snapshot.binding).finally(() => {
+    this.savePromise = this.writeToBinding(this.storage.binding).finally(() => {
       this.savePromise = null;
     });
     await this.savePromise;
-    return this.getSnapshot().status === "saved";
+    return this.isSaved();
   }
 
   async saveAs(): Promise<boolean> {
@@ -157,19 +149,19 @@ export class DocumentStorageController {
   }
 
   async saveConflictCopy(): Promise<boolean> {
-    if (this.snapshot.status !== "conflict") return false;
+    if (this.storage.status !== "conflict") return false;
     return this.saveAs();
   }
 
   async mergeConflict(): Promise<boolean> {
-    if (this.snapshot.status !== "conflict" || this.conflict === undefined) {
+    if (this.storage.status !== "conflict" || this.conflict === undefined) {
       return false;
     }
     const doc = this.getDocument();
     if (!doc || this.conflict === null) return false;
     const remote = decodeCotabDocument(this.conflict.data);
     Y.applyUpdate(doc, remote.update, STORAGE_MERGE_ORIGIN);
-    const binding = this.snapshot.binding;
+    const binding = this.storage.binding;
     if (!binding) return false;
     const revision = this.conflict.revision;
     this.conflict = undefined;
@@ -183,10 +175,10 @@ export class DocumentStorageController {
   }
 
   async overwriteConflict(): Promise<boolean> {
-    if (this.snapshot.status !== "conflict" || this.conflict === undefined) {
+    if (this.storage.status !== "conflict" || this.conflict === undefined) {
       return false;
     }
-    const binding = this.snapshot.binding;
+    const binding = this.storage.binding;
     if (!binding) return false;
     const revision = this.conflict?.revision ?? null;
     this.conflict = undefined;
@@ -209,21 +201,20 @@ export class DocumentStorageController {
   destroy(): void {
     this.clearSaveTimer();
     this.attachDocument(null, false);
-    this.listeners.clear();
   }
 
   private async saveToTarget(target: DocumentStorageTarget): Promise<boolean> {
-    const binding: DocumentStorageBinding = {
+    const binding: EditorStorageBinding = {
       providerId: this.provider.id,
       locator: target.locator,
       displayName: target.displayName,
       revision: target.revision,
     };
     await this.writeToBinding(binding);
-    return this.snapshot.status === "saved";
+    return this.storage.status === "saved";
   }
 
-  private async writeToBinding(binding: DocumentStorageBinding): Promise<void> {
+  private async writeToBinding(binding: EditorStorageBinding): Promise<void> {
     const doc = this.getDocument();
     if (!doc) {
       this.publish({ status: "error", error: "No document is open." });
@@ -297,7 +288,7 @@ export class DocumentStorageController {
 
   private markDirty(): void {
     this.changeGeneration += 1;
-    if (!this.snapshot.binding) {
+    if (!this.storage.binding) {
       this.publish({
         status: "dirty",
         error: null,
@@ -305,18 +296,18 @@ export class DocumentStorageController {
       });
       return;
     }
-    if (this.snapshot.status !== "conflict") {
+    if (this.storage.status !== "conflict") {
       this.publish({ status: "dirty", error: null, hasConflict: false });
       this.scheduleAutoSave();
     }
   }
 
   private scheduleAutoSave(): void {
-    if (!this.snapshot.autoSaveEnabled || !this.snapshot.binding) return;
+    if (!this.storage.autoSaveEnabled || !this.storage.binding) return;
     this.clearSaveTimer();
-    const sinceLastSave = this.snapshot.lastSavedAt === null
+    const sinceLastSave = this.storage.lastSavedAt === null
       ? Number.POSITIVE_INFINITY
-      : this.now() - this.snapshot.lastSavedAt;
+      : this.now() - this.storage.lastSavedAt;
     const delay = Math.max(
       this.autoSaveDelayMs,
       this.minimumSaveIntervalMs - sinceLastSave,
@@ -342,8 +333,11 @@ export class DocumentStorageController {
     return `${safe}.cotab`;
   }
 
-  private publish(patch: Partial<DocumentStorageSnapshot>): void {
-    this.snapshot = { ...this.snapshot, ...patch };
-    for (const listener of this.listeners) listener(this.snapshot);
+  private publish(patch: Partial<EditorStorageState>): void {
+    this.setStorageState({ ...this.storage, ...patch });
+  }
+
+  private isSaved(): boolean {
+    return this.getStorageState().status === "saved";
   }
 }

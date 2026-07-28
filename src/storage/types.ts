@@ -1,18 +1,3 @@
-export type DocumentStorageStatus =
-  | "unbound"
-  | "saved"
-  | "dirty"
-  | "saving"
-  | "conflict"
-  | "error";
-
-export interface DocumentStorageBinding {
-  readonly providerId: string;
-  readonly locator: string;
-  readonly displayName: string;
-  readonly revision: string | null;
-}
-
 export interface StoredDocument {
   readonly locator: string;
   readonly displayName: string;
@@ -46,13 +31,4 @@ export interface DocumentStorageProvider {
     data: Uint8Array,
     expectedRevision: string | null,
   ): Promise<DocumentWriteResult>;
-}
-
-export interface DocumentStorageSnapshot {
-  readonly status: DocumentStorageStatus;
-  readonly binding: DocumentStorageBinding | null;
-  readonly autoSaveEnabled: boolean;
-  readonly lastSavedAt: number | null;
-  readonly error: string | null;
-  readonly hasConflict: boolean;
 }

@@ -13,15 +13,15 @@ import {
 } from "@/components/ui/dialog";
 import {
   documentStorageController,
-  useDocumentStorageStore,
-} from "@/stores/document-storage-store";
+} from "@/storage/document-storage-runtime";
+import { useEditorStore } from "@/stores/editor-store";
 
 type ConflictOperation = "merge" | "copy" | "overwrite";
 
 export function DocumentStorageConflictDialog() {
   const { t } = useTranslation();
-  const status = useDocumentStorageStore((state) => state.status);
-  const binding = useDocumentStorageStore((state) => state.binding);
+  const status = useEditorStore((state) => state.storage.status);
+  const binding = useEditorStore((state) => state.storage.binding);
   const [operation, setOperation] = useState<ConflictOperation | null>(null);
   const open = status === "conflict";
 

@@ -22,13 +22,13 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import type { EditorStorageStatus } from "@/core/engine";
 import {
   documentStorageController,
-  useDocumentStorageStore,
-} from "@/stores/document-storage-store";
-import type { DocumentStorageStatus } from "@/storage/types";
+} from "@/storage/document-storage-runtime";
+import { useEditorStore } from "@/stores/editor-store";
 
-const STATUS_COLORS: Record<DocumentStorageStatus, string> = {
+const STATUS_COLORS: Record<EditorStorageStatus, string> = {
   unbound: "bg-muted-foreground/45",
   saved: "bg-emerald-500",
   dirty: "bg-amber-500",
@@ -39,13 +39,13 @@ const STATUS_COLORS: Record<DocumentStorageStatus, string> = {
 
 export function DocumentStorageControls() {
   const { t } = useTranslation();
-  const available = useDocumentStorageStore((state) => state.available);
-  const status = useDocumentStorageStore((state) => state.status);
-  const binding = useDocumentStorageStore((state) => state.binding);
-  const autoSaveEnabled = useDocumentStorageStore(
-    (state) => state.autoSaveEnabled,
+  const available = useEditorStore((state) => state.storage.available);
+  const status = useEditorStore((state) => state.storage.status);
+  const binding = useEditorStore((state) => state.storage.binding);
+  const autoSaveEnabled = useEditorStore(
+    (state) => state.storage.autoSaveEnabled,
   );
-  const error = useDocumentStorageStore((state) => state.error);
+  const error = useEditorStore((state) => state.storage.error);
   const [menuOpen, setMenuOpen] = useState(false);
 
   if (!available) return null;

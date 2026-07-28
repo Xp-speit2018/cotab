@@ -34,6 +34,10 @@ import {
   FULL_DOCUMENT_CHANGE,
 } from "./editor/document-change";
 import { FILE_IMPORT_ORIGIN } from "./origins";
+import {
+  createEditorStorageState,
+  type EditorStorageState,
+} from "./editor/storage";
 
 // ─── Re-exports for convenience ─────────────────────────────────────────────
 
@@ -211,6 +215,11 @@ function loopRangesEqual(a: LoopRange | null, b: LoopRange | null): boolean {
 
 // Re-export EngineHooks for consumers
 export type { EngineHooks };
+export type {
+  EditorStorageBinding,
+  EditorStorageState,
+  EditorStorageStatus,
+} from "./editor/storage";
 
 // ─── EditorEngine class ─────────────────────────────────────────────────────
 
@@ -296,6 +305,7 @@ export class EditorEngine {
 
   selector: SelectorState = createEmptySelectorState();
   transport: TransportState = createEmptyTransportState();
+  storage: EditorStorageState = createEditorStorageState();
 
   pendingSelection: PendingSelection | null = null; // Post-mutation selection hint
   connected: boolean = false;
@@ -330,6 +340,12 @@ export class EditorEngine {
 
   registerHooks(hooks: EngineHooks): () => void {
     return this._hookRegistry.on(hooks);
+  }
+
+  localSetStorageState(storage: EditorStorageState): void {
+    if (this.storage === storage) return;
+    this.storage = storage;
+    this._hookRegistry.emitStorage("onLocalStorageChange", storage);
   }
 
   registerDocumentPeer(connection: DocumentPeerConnection): () => void {

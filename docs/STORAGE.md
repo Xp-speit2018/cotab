@@ -10,6 +10,10 @@ CoTab document storage and collaboration rooms are independent:
 - Auto-save is debounced per session. It includes local, peer, and Agent Y.Doc
   updates because storage observes the document rather than the edit source.
 
+The runtime binding and save status are local Editor State. Their single source
+of truth is `EditorEngine.storage`; the storage controller owns operations and
+timers, not a second state snapshot.
+
 `.cotab` files contain versioned metadata followed by a full Yjs update.
 Providers perform conditional writes against a revision. The local disk
 provider uses a content hash; WebDAV will project the same contract onto ETags.

@@ -132,6 +132,10 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
 
   const save = page.getByTestId("storage-save");
   await expect(save).toBeVisible();
+  await expect(save).toHaveAttribute(
+    "aria-label",
+    /Save CoTab document · Not saved/,
+  );
   await save.click();
   await expect(save).toHaveAttribute(
     "aria-label",
@@ -161,6 +165,10 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
   });
 
   await page.getByRole("button", { name: "Debug", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Sync State", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("syncState", { exact: true })).toBeVisible();
   await expect(page.getByText("storage", { exact: true })).toBeVisible();
   await page.getByText("binding", { exact: true }).click();
   await expect(page.getByText('"storage-e2e.cotab"', { exact: true }))

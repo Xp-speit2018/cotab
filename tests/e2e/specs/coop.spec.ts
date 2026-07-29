@@ -95,14 +95,17 @@ test.describe("Collaboration (multi-user)", () => {
 
       const sidebar = userA.page.locator('[data-sidebar-side="left"]');
       await sidebar.getByRole("button", { name: "Debug", exact: true }).click();
-      const syncMonitor = sidebar.locator('[data-debug-section="sync-state"]');
-      await expect(syncMonitor.getByText("Sync State", { exact: true })).toBeVisible();
-      await expect(syncMonitor.getByText("networkPeerCount", { exact: true })).toBeVisible();
-      await syncMonitor.getByText("transport", { exact: true }).click();
-      await expect(syncMonitor.getByText("signalingConnected", { exact: true })).toBeVisible();
-      await expect(syncMonitor.getByText("webRtcPeerCount", { exact: true })).toBeVisible();
-      await syncMonitor.getByText("yjs", { exact: true }).click();
-      await expect(syncMonitor.getByText("recentUpdates", { exact: true })).toBeVisible();
+      const editorMonitor = sidebar.locator('[data-debug-section="editor-state"]');
+      await expect(editorMonitor.getByText("Editor State", { exact: true })).toBeVisible();
+      const syncStateNode = editorMonitor.getByRole("button", { name: /^syncState Object/ });
+      await expect(syncStateNode).toBeVisible();
+      const syncStateTree = syncStateNode.locator("..");
+      await expect(syncStateTree.getByText("networkPeerCount", { exact: true })).toBeVisible();
+      await syncStateTree.getByRole("button", { name: /^transport Object/ }).click();
+      await expect(syncStateTree.getByText("signalingConnected", { exact: true })).toBeVisible();
+      await expect(syncStateTree.getByText("webRtcPeerCount", { exact: true })).toBeVisible();
+      await syncStateTree.getByRole("button", { name: /^yjs Object/ }).click();
+      await expect(syncStateTree.getByText("recentUpdates", { exact: true })).toBeVisible();
     } finally {
       await cleanupUser(userB);
       await cleanupUser(userA);

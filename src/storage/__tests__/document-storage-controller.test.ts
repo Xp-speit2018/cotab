@@ -3,6 +3,7 @@ import * as Y from "yjs";
 
 import { initializeScore } from "@/core/schema";
 import { createEditorStorageState } from "@/core/editor/storage";
+import { FILE_IMPORT_ORIGIN } from "@/core/origins";
 import { createDocumentFromCotab, encodeCotabDocument } from "../cotab-file";
 import { DocumentStorageController } from "../document-storage-controller";
 import type {
@@ -120,6 +121,25 @@ afterEach(() => {
 });
 
 describe("DocumentStorageController", () => {
+  it("treats a file import as a new unbound clean baseline", async () => {
+    const provider = new MemoryStorageProvider();
+    const session = createController(provider, createScore());
+    provider.nextSave = provider.target("old-binding.cotab");
+    await session.controller.saveAs();
+    provider.writes.length = 0;
+
+    session.getDocument().transact(() => {
+      session.getDocument().getMap("score").set("artist", "Imported");
+    }, FILE_IMPORT_ORIGIN);
+
+    expect(session.getStorageState()).toMatchObject({
+      status: "unbound",
+      binding: null,
+      lastSavedAt: null,
+    });
+    expect(provider.writes).toEqual([]);
+  });
+
   it("debounces updates and saves remote room edits to its own binding", async () => {
     const provider = new MemoryStorageProvider();
     const left = createController(provider, createScore());

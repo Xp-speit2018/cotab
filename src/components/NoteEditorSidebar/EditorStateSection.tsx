@@ -246,23 +246,25 @@ export function EditorStateSection({
   const snapshot = useEditorStateSnapshot(isOpen);
 
   return (
-    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-      <SectionHeader
-        title={t("sidebar.editorState.title")}
-        helpText={t("sidebar.editorState.help")}
-        isOpen={isOpen}
-        dragHandleProps={dragHandleProps}
-      />
-      <CollapsibleContent>
-        <div className="py-0.5">
-          <RuntimeStateTree
-            label={t("sidebar.editorState.topLevel")}
-            value={snapshot}
-            path="EditorReactiveState"
-          />
-        </div>
-        <Separator />
-      </CollapsibleContent>
-    </Collapsible>
+    <div data-debug-section="editor-state">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <SectionHeader
+          title={t("sidebar.editorState.title")}
+          helpText={t("sidebar.editorState.help")}
+          isOpen={isOpen}
+          dragHandleProps={dragHandleProps}
+        />
+        <CollapsibleContent>
+          <div className="py-0.5">
+            <RuntimeStateTree
+              label={t("sidebar.editorState.topLevel")}
+              value={snapshot}
+              path="EditorReactiveState"
+            />
+          </div>
+          <Separator />
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
   );
 }

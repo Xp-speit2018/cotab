@@ -26,13 +26,13 @@ describe("sidebar section layout migration", () => {
     localStorage.setItem("cotab:sidebar-section-layout-v1", JSON.stringify({
       notes: ["effects", "bar", "note", "articulation"],
       meta: ["tracks", "song"],
-      debug: ["fps", "editorState", "alphaTabState", "log"],
+      debug: ["fps", "editorState", "syncState", "alphaTabState", "log"],
     }));
 
     expect(loadSectionLayout()).toEqual({
       notes: ["effects", "masterBar", "bar", "note", "articulation"],
       meta: ["tracks", "song"],
-      debug: ["fps", "editorState", "alphaTabState", "log", "syncState"],
+      debug: ["fps", "editorState", "alphaTabState", "log"],
     });
   });
 

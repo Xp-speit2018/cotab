@@ -521,12 +521,6 @@
       "topLevel": "EditorReactiveState"
     },
 
-    "syncState": {
-      "title": "同步状态",
-      "help": "实时显示 P2P 同步状态、peer 发现与 Yjs 更新性能数据。",
-      "topLevel": "协作"
-    },
-
     "alphaTabState": {
       "title": "AlphaTab State",
       "help": "AlphaTab API、播放器、乐谱、bounds lookup 和播放字段的运行时实时监视器。",

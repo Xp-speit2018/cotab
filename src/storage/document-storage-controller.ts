@@ -3,6 +3,7 @@ import type {
   EditorStorageBinding,
   EditorStorageState,
 } from "@/core/editor/storage";
+import { FILE_IMPORT_ORIGIN } from "@/core/origins";
 
 import {
   createDocumentFromCotab,
@@ -76,6 +77,7 @@ export class DocumentStorageController {
 
   unbind(): void {
     this.clearSaveTimer();
+    this.changeGeneration = 0;
     this.conflict = undefined;
     this.publish({
       status: "unbound",
@@ -282,7 +284,14 @@ export class DocumentStorageController {
     if (markDirty && doc) this.markDirty();
   }
 
-  private readonly handleDocumentUpdate = (): void => {
+  private readonly handleDocumentUpdate = (
+    _update: Uint8Array,
+    origin: unknown,
+  ): void => {
+    if (origin === FILE_IMPORT_ORIGIN) {
+      this.unbind();
+      return;
+    }
     this.markDirty();
   };
 

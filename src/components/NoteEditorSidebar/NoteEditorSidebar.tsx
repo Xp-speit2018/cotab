@@ -46,7 +46,6 @@ import { EffectsSection } from "./EffectsSection";
 import { LogSection } from "./LogSection";
 import { EditorStateSection } from "./EditorStateSection";
 import { AlphaTabStateSection } from "./AlphaTabStateSection";
-import { SyncStateSection } from "./SyncStateSection";
 
 const AgentTab = lazy(() =>
   import("@/components/AgentTab").then((module) => ({
@@ -218,8 +217,6 @@ export function EditorSidebar({ side }: { side: SidebarSide }) {
           return <FpsSection dragHandleProps={dragHandleProps} />;
         case "editorState":
           return <EditorStateSection dragHandleProps={dragHandleProps} />;
-        case "syncState":
-          return <SyncStateSection dragHandleProps={dragHandleProps} />;
         case "alphaTabState":
           return <AlphaTabStateSection dragHandleProps={dragHandleProps} />;
         case "masterBar":

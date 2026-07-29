@@ -27,7 +27,6 @@ export type SectionId =
   | "log"
   | "fps"
   | "editorState"
-  | "syncState"
   | "alphaTabState"
   | "masterBar"
   | "bar"
@@ -41,7 +40,6 @@ export const ALL_SECTION_IDS: SectionId[] = [
   "log",
   "fps",
   "editorState",
-  "syncState",
   "alphaTabState",
   "masterBar",
   "bar",
@@ -59,7 +57,7 @@ export type SectionLayout = Record<SectionTabId, SectionId[]>;
 export const DEFAULT_SECTION_LAYOUT: SectionLayout = {
   notes: ["masterBar", "bar", "note", "effects", "articulation"],
   meta: ["song", "tracks"],
-  debug: ["editorState", "syncState", "alphaTabState", "log", "fps"],
+  debug: ["editorState", "alphaTabState", "log", "fps"],
 };
 
 function readNumber(key: string): number | null {

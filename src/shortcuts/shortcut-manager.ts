@@ -58,7 +58,6 @@ function isInputFocused(): boolean {
 function handleKeyDown(e: KeyboardEvent): void {
   if (!tFunction) return;
   if (useShortcutStore.getState().isConfigPanelOpen) return;
-  if (isInputFocused()) return;
 
   const combo = keyboardEventToCombo(e);
   if (!combo) return;
@@ -69,8 +68,15 @@ function handleKeyDown(e: KeyboardEvent): void {
     return;
   }
 
+  const inputFocused = isInputFocused();
+  if (inputFocused && binding.scope !== "application") return;
+
   e.preventDefault();
   e.stopPropagation();
+
+  if (inputFocused) {
+    (document.activeElement as HTMLElement | null)?.blur();
+  }
 
   const context = getContext();
   const { behavior, actionId } = binding;

@@ -4,6 +4,7 @@
  * "mod" resolves to Cmd on macOS or Ctrl elsewhere at runtime.
  */
 export type KeyCombo = string;
+export type ShortcutScope = "editor" | "application";
 
 export type ShortcutBehavior =
   | { type: "direct" }
@@ -39,6 +40,8 @@ export interface ShortcutBinding {
   keys: KeyCombo;
   /** How this shortcut transforms its input before dispatching. */
   readonly behavior: ShortcutBehavior;
+  /** Application shortcuts remain active while a text editor has focus. */
+  readonly scope?: ShortcutScope;
   /** When true, the binding is shown in the panel but cannot be edited (e.g. clipboard). */
   readonly placeholder?: boolean;
   /** When true, the binding is functional but hidden from the config panel (e.g. digit keys). */

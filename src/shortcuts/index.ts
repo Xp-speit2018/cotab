@@ -8,7 +8,12 @@ export {
 export { formatShortcut, isMac, getPlatform, keyboardEventToCombo } from "./platform";
 export type { Platform } from "./platform";
 export { isDisallowed, getDisallowReason, getSoftOverride } from "./disallow-list";
-export type { ShortcutBinding, ShortcutCategory, KeyCombo } from "./types";
+export type {
+  KeyCombo,
+  ShortcutBinding,
+  ShortcutCategory,
+  ShortcutScope,
+} from "./types";
 export { SHORTCUT_CATEGORY_ORDER } from "./types";
 export {
   DEFAULT_TRANSPORT_MODIFIER,

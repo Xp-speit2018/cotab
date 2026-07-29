@@ -5,6 +5,7 @@ interface StorageMockWindow extends Window {
     score?: { tracks?: unknown[] };
   };
   __COTAB_STORAGE_MOCK__?: {
+    picks: number;
     writes: number;
     revision: string | null;
     data: number[] | null;
@@ -17,10 +18,14 @@ async function installLocalStorageMock(page: Page) {
     let revisionCounter = 0;
     let revision: string | null = null;
     let data: number[] | null = null;
+    let picks = 0;
     let writes = 0;
     let forceConflict = false;
 
     const mock = {
+      get picks() {
+        return picks;
+      },
       get writes() {
         return writes;
       },
@@ -43,6 +48,7 @@ async function installLocalStorageMock(page: Page) {
         runCallback: () => undefined,
         invoke: async (command: string, args?: Record<string, unknown>) => {
           if (command === "pick_local_document_path") {
+            picks += 1;
             return {
               locator: "/tmp/storage-e2e.cotab",
               displayName: "storage-e2e.cotab",
@@ -122,6 +128,56 @@ async function waitForScore(page: Page) {
     ),
   );
 }
+
+test("Cmd+S prompts for an unbound document while an inline editor is focused", async ({
+  page,
+}) => {
+  await installLocalStorageMock(page);
+  await page.goto("/");
+  await waitForScore(page);
+
+  await page.getByRole("button", { name: "Meta", exact: true }).click();
+  const titleRow = page.locator("[data-interaction='inline-edit']").filter({
+    has: page.getByText("Title", { exact: true }),
+  });
+  await titleRow.locator("[data-single-line-edit-field]").click();
+  const titleInput = titleRow.getByRole("textbox", { name: "Title" });
+  await titleInput.fill("Saved from the active title editor");
+
+  const saveShortcut = await page.evaluate(() =>
+    navigator.userAgent.toLowerCase().includes("mac") ? "Meta+s" : "Control+s"
+  );
+  await page.keyboard.press(saveShortcut);
+
+  await expect.poll(() =>
+    page.evaluate(
+      () =>
+        (window as unknown as StorageMockWindow).__COTAB_STORAGE_MOCK__?.picks,
+    ),
+  ).toBe(1);
+  await expect.poll(() =>
+    page.evaluate(
+      () =>
+        (window as unknown as StorageMockWindow).__COTAB_STORAGE_MOCK__?.writes,
+    ),
+  ).toBe(1);
+  await expect(titleInput).toHaveCount(0);
+  await expect.poll(() => page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    return engine.getScoreMap()?.get("title");
+  })).toBe("Saved from the active title editor");
+  await expect.poll(() => page.evaluate(async () => {
+    const data = (window as unknown as StorageMockWindow).__COTAB_STORAGE_MOCK__
+      ?.data;
+    if (!data) return null;
+    const { createDocumentFromCotab } = await import(
+      "/src/storage/cotab-file.ts"
+    );
+    return createDocumentFromCotab(Uint8Array.from(data))
+      .getMap("score")
+      .get("title");
+  })).toBe("Saved from the active title editor");
+});
 
 test("desktop local storage saves, auto-saves, reopens, and resolves conflicts", async ({
   page,

@@ -17,6 +17,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     defaultKeys: "mod+s",
     keys: "mod+s",
     behavior: direct,
+    scope: "application",
   },
   {
     id: "storage.saveAs",
@@ -26,6 +27,7 @@ export const DEFAULT_BINDINGS: readonly ShortcutBinding[] = [
     defaultKeys: "mod+shift+s",
     keys: "mod+shift+s",
     behavior: direct,
+    scope: "application",
   },
 
   // ── Navigation ────────────────────────────────────────────────────────────

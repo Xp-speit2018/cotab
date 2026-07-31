@@ -6,17 +6,22 @@ import {
 } from "./tauri-local-disk-provider";
 import { DocumentStorageProviderRegistry } from "./provider-registry";
 
-const providers = new DocumentStorageProviderRegistry(
+export const documentStorageProviders = new DocumentStorageProviderRegistry(
   isLocalDiskStorageAvailable() ? [new TauriLocalDiskProvider()] : [],
 );
 
-engine.localSetStorageState({
-  ...engine.storage,
-  availableProviderIds: providers.ids(),
-});
+function publishAvailableProviders(): void {
+  engine.localSetStorageState({
+    ...engine.storage,
+    availableProviderIds: documentStorageProviders.ids(),
+  });
+}
+
+publishAvailableProviders();
+documentStorageProviders.subscribe(publishAvailableProviders);
 
 export const documentStorageController = new DocumentStorageController({
-  providers,
+  providers: documentStorageProviders,
   getDocument: () => engine.getDoc(),
   replaceDocument: (doc) => {
     const previous = engine.getDoc();

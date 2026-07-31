@@ -2,6 +2,7 @@ import {
   documentStorageController,
 } from "@/storage/document-storage-runtime";
 import { engine } from "@/core/engine";
+import { selectStorageProvider } from "@/storage/provider-selection";
 import { registerAppAction } from "./registry";
 
 declare global {
@@ -23,11 +24,20 @@ export function registerStorageActions(): void {
     domain: "storage",
     i18nKey: "shortcuts.file.save",
     category: "file",
-    execute: (args) => {
+    execute: async (args) => {
       if (engine.storage.availableProviderIds.length === 0) {
-        return Promise.resolve(false);
+        return false;
       }
-      return documentStorageController.save(args?.providerId);
+      let providerId = args?.providerId;
+      if (
+        !engine.storage.binding &&
+        !providerId &&
+        engine.storage.availableProviderIds.length > 1
+      ) {
+        providerId = await selectStorageProvider("save") ?? undefined;
+        if (!providerId) return false;
+      }
+      return documentStorageController.save(providerId);
     },
   });
 
@@ -36,11 +46,16 @@ export function registerStorageActions(): void {
     domain: "storage",
     i18nKey: "shortcuts.file.saveAs",
     category: "file",
-    execute: (args) => {
+    execute: async (args) => {
       if (engine.storage.availableProviderIds.length === 0) {
-        return Promise.resolve(false);
+        return false;
       }
-      return documentStorageController.saveAs(args?.providerId);
+      let providerId = args?.providerId;
+      if (!providerId && engine.storage.availableProviderIds.length > 1) {
+        providerId = await selectStorageProvider("save") ?? undefined;
+        if (!providerId) return false;
+      }
+      return documentStorageController.saveAs(providerId);
     },
   });
 }

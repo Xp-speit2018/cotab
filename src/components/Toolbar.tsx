@@ -46,6 +46,7 @@ import { DocumentStorageControls } from "@/components/DocumentStorageControls";
 import {
   documentStorageController,
 } from "@/storage/document-storage-runtime";
+import { selectStorageProvider } from "@/storage/provider-selection";
 import { pickLocalScoreFile } from "@/storage/tauri-local-disk-provider";
 
 function sanitizeFilename(name: string): string {
@@ -86,8 +87,8 @@ export function Toolbar() {
   const canRedo = useEditorStore((s) => s.canRedo);
   const transportModifier = useShortcutStore((s) => s.transportModifier);
   const transportModifierActive = useTransportModifierActive();
-  const localDiskStorageAvailable = useEditorStore((state) =>
-    state.storage.availableProviderIds.includes("local-disk")
+  const storageProviderIds = useEditorStore(
+    (state) => state.storage.availableProviderIds,
   );
   const storageStatus = useEditorStore((state) => state.storage.status);
 
@@ -127,7 +128,7 @@ export function Toolbar() {
   };
 
   const handleOpenFile = async () => {
-    if (!localDiskStorageAvailable) {
+    if (storageProviderIds.length === 0) {
       fileInputRef.current?.click();
       return;
     }
@@ -138,6 +139,14 @@ export function Toolbar() {
       return;
     }
     try {
+      const providerId = storageProviderIds.length === 1
+        ? storageProviderIds[0]
+        : await selectStorageProvider("open");
+      if (!providerId) return;
+      if (providerId !== "local-disk") {
+        await documentStorageController.open(providerId);
+        return;
+      }
       const picked = await pickLocalScoreFile();
       if (!picked) return;
       if (picked.kind === "cotab") {

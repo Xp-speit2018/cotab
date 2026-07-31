@@ -64,6 +64,14 @@
       "conflict": "保存冲突",
       "error": "存储错误"
     },
+    "provider": {
+      "chooseOpen": "从何处打开",
+      "chooseSave": "保存到",
+      "description": "为此文档选择存储服务。",
+      "local-disk": {
+        "description": "此设备上的文件"
+      }
+    },
     "conflict": {
       "title": "磁盘上的文档已发生变化",
       "description": "你打开 {{name}} 后，磁盘版本又被修改。请选择如何处理两个版本。",

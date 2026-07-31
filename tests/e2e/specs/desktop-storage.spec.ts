@@ -11,6 +11,10 @@ interface StorageMockWindow extends Window {
     data: number[] | null;
     forceConflict(): void;
   };
+  __COTAB_CLOUD_MOCK__?: {
+    writes: number;
+    data: number[] | null;
+  };
 }
 
 async function installLocalStorageMock(page: Page) {
@@ -177,6 +181,93 @@ test("Cmd+S prompts for an unbound document while an inline editor is focused", 
       .getMap("score")
       .get("title");
   })).toBe("Saved from the active title editor");
+});
+
+test("Save As switches an existing binding to another storage provider", async ({
+  page,
+}) => {
+  await installLocalStorageMock(page);
+  await page.goto("/");
+  await waitForScore(page);
+
+  await page.evaluate(async () => {
+    let writes = 0;
+    let data: number[] | null = null;
+    const cloudMock = {
+      get writes() {
+        return writes;
+      },
+      get data() {
+        return data;
+      },
+    };
+    (window as unknown as StorageMockWindow).__COTAB_CLOUD_MOCK__ = cloudMock;
+
+    const { documentStorageProviders } = await import(
+      "/src/storage/document-storage-runtime.ts"
+    );
+    documentStorageProviders.register({
+      id: "test-cloud",
+      name: "Test cloud",
+      async pickOpen() {
+        return null;
+      },
+      async pickSave(suggestedName: string) {
+        return {
+          locator: `cloud/${suggestedName}`,
+          displayName: suggestedName,
+          revision: null,
+        };
+      },
+      async read() {
+        return null;
+      },
+      async write(_locator: string, nextData: Uint8Array) {
+        data = Array.from(nextData);
+        writes += 1;
+        return { kind: "saved" as const, revision: `cloud-${writes}` };
+      },
+    });
+  });
+
+  await page.getByTestId("storage-save").click();
+  const providerDialogTitle = page.getByRole("heading", { name: "Save to" });
+  await expect(providerDialogTitle).toBeVisible();
+  await page.getByRole("button", { name: /Local disk/ }).click();
+  await expect(providerDialogTitle).toBeHidden();
+  await expect.poll(() =>
+    page.evaluate(
+      () =>
+        (window as unknown as StorageMockWindow).__COTAB_STORAGE_MOCK__?.writes,
+    ),
+  ).toBe(1);
+
+  await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    engine.getDoc()?.getMap("score").set("artist", "Moved to cloud");
+  });
+  const saveAsShortcut = await page.evaluate(() =>
+    navigator.userAgent.toLowerCase().includes("mac")
+      ? "Meta+Shift+s"
+      : "Control+Shift+s"
+  );
+  await page.keyboard.press(saveAsShortcut);
+  await expect(providerDialogTitle).toBeVisible();
+  await page.getByRole("button", { name: /Test cloud/ }).click();
+
+  await expect.poll(() =>
+    page.evaluate(
+      () =>
+        (window as unknown as StorageMockWindow).__COTAB_CLOUD_MOCK__?.writes,
+    ),
+  ).toBe(1);
+  expect(await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    return engine.storage.binding;
+  })).toMatchObject({
+    providerId: "test-cloud",
+    displayName: "Taijin Kyofusho.cotab",
+  });
 });
 
 test("desktop local storage saves, auto-saves, reopens, and resolves conflicts", async ({

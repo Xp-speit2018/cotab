@@ -64,6 +64,14 @@
       "conflict": "Save conflict",
       "error": "Storage error"
     },
+    "provider": {
+      "chooseOpen": "Open from",
+      "chooseSave": "Save to",
+      "description": "Choose a storage provider for this document.",
+      "local-disk": {
+        "description": "A file on this device"
+      }
+    },
     "conflict": {
       "title": "This document changed on disk",
       "description": "{{name}} was changed after you opened it. Choose how to resolve the two versions.",

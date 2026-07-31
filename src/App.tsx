@@ -6,6 +6,7 @@ import { ShortcutConfigPanel } from "@/components/ShortcutConfigPanel";
 import { TrackPresetDialog } from "@/components/TrackPresetDialog";
 import { RoomDialog } from "@/components/RoomDialog";
 import { DocumentStorageConflictDialog } from "@/components/DocumentStorageConflictDialog";
+import { StorageProviderDialog } from "@/components/StorageProviderDialog";
 import { installShortcutManager, uninstallShortcutManager, updateTranslation } from "@/shortcuts";
 
 export default function App() {
@@ -28,6 +29,7 @@ export default function App() {
       <TrackPresetDialog />
       <RoomDialog />
       <DocumentStorageConflictDialog />
+      <StorageProviderDialog />
     </div>
   );
 }

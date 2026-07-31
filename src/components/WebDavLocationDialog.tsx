@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import { Cloud, FolderOpen, Save } from "lucide-react";
+import { Check, Cloud, FolderOpen, Plus, Save, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -13,8 +13,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  createWebDavConnection,
   finishWebDavLocation,
+  getWebDavConnection,
+  removeWebDavProfile,
   useWebDavLocation,
+  type WebDavConnectionConfig,
 } from "@/storage/webdav-location";
 
 function normalizeDocumentPath(path: string, operation: "open" | "save"): string {
@@ -28,10 +37,14 @@ function normalizeDocumentPath(path: string, operation: "open" | "save"): string
 export function WebDavLocationDialog() {
   const { t } = useTranslation();
   const request = useWebDavLocation((state) => state.request);
+  const profiles = useWebDavLocation((state) => state.profiles);
+  const nameId = useId();
   const baseUrlId = useId();
   const usernameId = useId();
   const passwordId = useId();
   const pathId = useId();
+  const [profileId, setProfileId] = useState("");
+  const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -40,6 +53,8 @@ export function WebDavLocationDialog() {
 
   useEffect(() => {
     if (!request) return;
+    setProfileId(request.initialConfig.id);
+    setName(request.initialConfig.name);
     setBaseUrl(request.initialConfig.baseUrl);
     setUsername(request.initialConfig.username);
     setPassword(request.initialConfig.password);
@@ -47,8 +62,22 @@ export function WebDavLocationDialog() {
     setError(null);
   }, [request]);
 
+  const editConnection = (config: WebDavConnectionConfig) => {
+    setProfileId(config.id);
+    setName(config.name);
+    setBaseUrl(config.baseUrl);
+    setUsername(config.username);
+    setPassword(config.password);
+    setError(null);
+  };
+
   const submit = () => {
     if (!request) return;
+    const normalizedName = name.trim();
+    if (!normalizedName) {
+      setError(t("storage.webdav.connectionNameRequired"));
+      return;
+    }
     let normalizedBaseUrl: string;
     try {
       const url = new URL(baseUrl.trim());
@@ -72,6 +101,8 @@ export function WebDavLocationDialog() {
 
     finishWebDavLocation({
       config: {
+        id: profileId,
+        name: normalizedName,
         baseUrl: normalizedBaseUrl,
         username: username.trim(),
         password,
@@ -101,6 +132,84 @@ export function WebDavLocationDialog() {
         </DialogHeader>
 
         <div className="space-y-3">
+          <div className="space-y-1">
+            <span className="text-xs font-medium">
+              {t("storage.webdav.savedServers")}
+            </span>
+            <div className="divide-y rounded-md border">
+              {profiles.map((profile) => (
+                <div key={profile.id} className="flex min-w-0 items-center">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-auto min-w-0 flex-1 justify-start rounded-none px-3 py-2 text-left"
+                    aria-pressed={profile.id === profileId}
+                    onClick={() => {
+                      const config = getWebDavConnection(profile.id);
+                      if (config) editConnection(config);
+                    }}
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col items-start">
+                      <span className="max-w-full truncate font-medium">
+                        {profile.name}
+                      </span>
+                      <span className="max-w-full truncate text-xs font-normal text-muted-foreground">
+                        {profile.baseUrl}
+                      </span>
+                    </span>
+                    {profile.id === profileId && (
+                      <Check className="h-4 w-4 shrink-0" />
+                    )}
+                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="mr-1 h-8 w-8 shrink-0"
+                        aria-label={t("storage.webdav.deleteConnection", {
+                          name: profile.name,
+                        })}
+                        onClick={() => {
+                          const wasSelected = profile.id === profileId;
+                          removeWebDavProfile(profile.id);
+                          if (wasSelected) editConnection(createWebDavConnection());
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {t("storage.webdav.deleteConnection", {
+                        name: profile.name,
+                      })}
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start rounded-none px-3"
+                onClick={() => editConnection(createWebDavConnection())}
+              >
+                <Plus className="h-4 w-4" />
+                {t("storage.webdav.newConnection")}
+              </Button>
+            </div>
+          </div>
+          <label htmlFor={nameId} className="block space-y-1">
+            <span className="text-xs font-medium">
+              {t("storage.webdav.connectionName")}
+            </span>
+            <Input
+              id={nameId}
+              value={name}
+              autoComplete="off"
+              onChange={(event) => setName(event.currentTarget.value)}
+            />
+          </label>
           <label htmlFor={baseUrlId} className="block space-y-1">
             <span className="text-xs font-medium">
               {t("storage.webdav.server")}

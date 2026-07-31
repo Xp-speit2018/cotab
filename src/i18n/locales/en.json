@@ -78,13 +78,18 @@
       },
       "browser-file": {
         "name": "This device",
-        "description": "Import a CoTab or Guitar Pro file"
+        "description": "Import a Guitar Pro file"
       }
     },
     "webdav": {
       "openTitle": "Open from WebDAV",
       "saveTitle": "Save to WebDAV",
       "description": "Connect to a WebDAV server and choose a CoTab document path.",
+      "savedServers": "Saved servers",
+      "newConnection": "New connection",
+      "connectionName": "Connection name",
+      "connectionNameRequired": "Enter a connection name.",
+      "deleteConnection": "Delete {{name}}",
       "server": "Server URL",
       "username": "Username",
       "password": "Password",

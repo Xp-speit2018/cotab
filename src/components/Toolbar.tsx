@@ -87,9 +87,6 @@ export function Toolbar() {
   const canRedo = useEditorStore((s) => s.canRedo);
   const transportModifier = useShortcutStore((s) => s.transportModifier);
   const transportModifierActive = useTransportModifierActive();
-  const storageProviderIds = useEditorStore(
-    (state) => state.storage.availableProviderIds,
-  );
   const storageStatus = useEditorStore((state) => state.storage.status);
 
   const isPlaying = playerState === "playing";
@@ -128,10 +125,6 @@ export function Toolbar() {
   };
 
   const handleOpenFile = async () => {
-    if (storageProviderIds.length === 0) {
-      fileInputRef.current?.click();
-      return;
-    }
     if (
       (storageStatus === "dirty" || storageStatus === "conflict") &&
       !window.confirm(t("storage.discardUnsaved"))
@@ -139,13 +132,7 @@ export function Toolbar() {
       return;
     }
     try {
-      const browserFileSourceAvailable =
-        !storageProviderIds.includes("local-disk");
-      const sourceCount = storageProviderIds.length +
-        (browserFileSourceAvailable ? 1 : 0);
-      const providerId = sourceCount === 1
-        ? (storageProviderIds[0] ?? "browser-file")
-        : await selectStorageProvider("open");
+      const providerId = await selectStorageProvider("open");
       if (!providerId) return;
       if (providerId === "browser-file") {
         fileInputRef.current?.click();

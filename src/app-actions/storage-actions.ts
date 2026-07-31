@@ -31,8 +31,7 @@ export function registerStorageActions(): void {
       let providerId = args?.providerId;
       if (
         !engine.storage.binding &&
-        !providerId &&
-        engine.storage.availableProviderIds.length > 1
+        !providerId
       ) {
         providerId = await selectStorageProvider("save") ?? undefined;
         if (!providerId) return false;
@@ -51,7 +50,7 @@ export function registerStorageActions(): void {
         return false;
       }
       let providerId = args?.providerId;
-      if (!providerId && engine.storage.availableProviderIds.length > 1) {
+      if (!providerId) {
         providerId = await selectStorageProvider("save") ?? undefined;
         if (!providerId) return false;
       }

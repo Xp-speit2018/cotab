@@ -7,6 +7,8 @@ import type {
 } from "../webdav-location";
 
 const config: WebDavConnectionConfig = {
+  id: "alice-cloud",
+  name: "Alice cloud",
   baseUrl: "https://dav.example.test/files/alice/",
   username: "alice",
   password: "secret",

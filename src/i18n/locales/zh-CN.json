@@ -78,13 +78,18 @@
       },
       "browser-file": {
         "name": "此设备",
-        "description": "导入 CoTab 或 Guitar Pro 文件"
+        "description": "导入 Guitar Pro 文件"
       }
     },
     "webdav": {
       "openTitle": "从 WebDAV 打开",
       "saveTitle": "保存到 WebDAV",
       "description": "连接 WebDAV 服务器并指定 CoTab 文档路径。",
+      "savedServers": "已保存的服务器",
+      "newConnection": "新建连接",
+      "connectionName": "连接名称",
+      "connectionNameRequired": "请输入连接名称。",
+      "deleteConnection": "删除 {{name}}",
       "server": "服务器 URL",
       "username": "用户名",
       "password": "密码",

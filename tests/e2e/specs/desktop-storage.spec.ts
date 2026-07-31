@@ -247,6 +247,22 @@ test("Web open keeps browser file import alongside WebDAV", async ({ page }) => 
   await expect(page.getByRole("button", { name: /This device/ })).toBeVisible();
 });
 
+test("Web Save As chooses a provider even when only WebDAV is available", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await waitForScore(page);
+
+  const saveAsShortcut = await page.evaluate(() =>
+    navigator.userAgent.toLowerCase().includes("mac")
+      ? "Meta+Shift+s"
+      : "Control+Shift+s"
+  );
+  await page.keyboard.press(saveAsShortcut);
+  await expect(page.getByRole("heading", { name: "Save to" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
+});
+
 test("Cmd+S prompts for an unbound document while an inline editor is focused", async ({
   page,
 }) => {
@@ -400,6 +416,7 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
   await expect(
     page.getByRole("heading", { name: "Save to WebDAV" }),
   ).toBeVisible();
+  await page.getByLabel("Connection name").fill("Alice cloud");
   await page.getByLabel("Server URL").fill(
     "https://dav.example.test/files/alice",
   );
@@ -420,7 +437,7 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
     return {
       binding: engine.storage.binding,
       writes: runtime.__COTAB_WEBDAV_MOCK__?.writes,
-      persistedConfig: localStorage.getItem("cotab:webdav-config-v1"),
+      persistedProfiles: localStorage.getItem("cotab:webdav-profiles-v1"),
     };
   })).toMatchObject({
     binding: {
@@ -430,9 +447,11 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
     },
     writes: 1,
   });
-  expect(await page.evaluate(
-    () => localStorage.getItem("cotab:webdav-config-v1"),
-  )).not.toContain("not-persisted");
+  const persistedProfiles = await page.evaluate(
+    () => localStorage.getItem("cotab:webdav-profiles-v1"),
+  );
+  expect(persistedProfiles).toContain("Alice cloud");
+  expect(persistedProfiles).not.toContain("not-persisted");
 
   await page.evaluate(async () => {
     const { engine } = await import("/src/core/engine.ts");
@@ -464,6 +483,9 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
   await expect(
     page.getByRole("heading", { name: "Open from WebDAV" }),
   ).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Alice cloud/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /New connection/ })).toBeVisible();
+  await expect(page.getByLabel("Connection name")).toHaveValue("Alice cloud");
   await expect(page.getByLabel("Server URL")).toHaveValue(
     "https://dav.example.test/files/alice/",
   );

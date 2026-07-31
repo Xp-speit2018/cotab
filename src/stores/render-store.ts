@@ -174,7 +174,6 @@ export type {
   SnapGrid,
   PercSnapGroup,
   TrackInfo,
-  TrackPreset,
   SelectedBeat,
   SelectionRange,
   SelectedNoteInfo,
@@ -192,7 +191,7 @@ export type {
   PercArticulationDef,
   DrumCategoryId,
 } from "./render-types";
-export { TRACK_PRESETS, SCORE_FIELD_TO_STATE } from "./render-types";
+export { SCORE_FIELD_TO_STATE } from "./render-types";
 export { getApi } from "./render-api";
 export { getSnapGrids } from "./snap-grid";
 
@@ -1366,7 +1365,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   sidebarVisible: true,
   roomDialogOpen: false,
   showSnapGrid: false,
-  addTrackDialogOpen: false,
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 

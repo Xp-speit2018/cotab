@@ -40,8 +40,6 @@ import type {
   Rasgueado,
   ScoreMetadataField,
 } from "@/core/schema";
-export { TRACK_PRESETS } from "@/core/presets";
-export type { TrackPreset } from "@/core/presets";
 export type { ScoreMetadataField } from "@/core/schema";
 
 export type {
@@ -348,7 +346,6 @@ export interface PlayerState {
   sidebarVisible: boolean;
   roomDialogOpen: boolean;
   showSnapGrid: boolean;
-  addTrackDialogOpen: boolean;
   initialize: (mainEl: HTMLElement, viewportEl: HTMLElement) => void;
   destroy: () => void;
   loadFile: (data: File | ArrayBuffer | Uint8Array) => void;

@@ -8,6 +8,7 @@ import {
   createMasterBar,
   createStaff,
   createTrack,
+  createTuning,
   createVoice,
 } from "@/core/schema";
 import {
@@ -56,7 +57,7 @@ function mutateTrackSystemLayout(
 }
 
 function getNextChannel(yTracks: Y.Array<Y.Map<unknown>>, preset: TrackPreset): number {
-  if (preset.channel !== 0) return preset.channel;
+  if (preset.staves.some((staff) => staff.isPercussion)) return 9;
 
   let maxChannel = -1;
   for (let i = 0; i < yTracks.length; i++) {
@@ -90,34 +91,34 @@ function appendRestBar(yStaff: Y.Map<unknown>, clef: number): void {
   yBeats.push([yBeat]);
 }
 
-function createPresetStaffShell(args: {
-  isPercussion: boolean;
-  showTablature: boolean;
-  showStandardNotation: boolean;
-  tuning: readonly number[];
-}): Y.Map<unknown> {
-  const yStaff = createStaff([...args.tuning]);
-  yStaff.set("isPercussion", args.isPercussion);
-  yStaff.set("showTablature", args.showTablature);
-  yStaff.set("showStandardNotation", args.showStandardNotation);
+function createPresetStaffShell(
+  staff: TrackPreset["staves"][number],
+): Y.Map<unknown> {
+  const yStaff = createStaff([...staff.stringTuning.tunings]);
+  yStaff.set("isPercussion", staff.isPercussion);
+  yStaff.set("showTablature", staff.showTablature);
+  yStaff.set("showStandardNotation", staff.showStandardNotation);
+  yStaff.set("capo", staff.capo);
+  yStaff.set("transpositionPitch", staff.transpositionPitch);
+  yStaff.set("displayTranspositionPitch", staff.displayTranspositionPitch);
+  const yStringTuning = createTuning(staff.stringTuning.tunings);
+  yStringTuning.set("name", staff.stringTuning.name);
+  yStringTuning.set("isStandard", staff.stringTuning.isStandard);
+  yStaff.set("stringTuning", yStringTuning);
   return yStaff;
 }
 
 function appendStaffFromPreset(
   yStaves: Y.Array<Y.Map<unknown>>,
   args: {
-    clef: number;
-    isPercussion: boolean;
-    showTablature: boolean;
-    showStandardNotation: boolean;
-    tuning: readonly number[];
+    staff: TrackPreset["staves"][number];
     barCount: number;
   },
 ): void {
-  yStaves.push([createPresetStaffShell(args)]);
+  yStaves.push([createPresetStaffShell(args.staff)]);
   const yStaff = yStaves.get(yStaves.length - 1);
   for (let i = 0; i < args.barCount; i++) {
-    appendRestBar(yStaff, args.clef);
+    appendRestBar(yStaff, args.staff.initialClef);
   }
 }
 
@@ -129,46 +130,22 @@ function appendTrackFromPresetY(
 ): void {
   yTracks.push([createTrack(preset.defaultName)]);
   const yTrack = yTracks.get(yTracks.length - 1);
-  yTrack.set("shortName", preset.defaultName.slice(0, 20));
+  yTrack.set("shortName", preset.shortName);
+  yTrack.set("defaultSystemsLayout", preset.defaultSystemsLayout);
+  (yTrack.get("color") as Y.Map<unknown>).set("raw", preset.colorRaw);
   const yPlaybackInfo = yTrack.get("playbackInfo") as Y.Map<unknown>;
-  yPlaybackInfo.set("program", preset.program);
+  yPlaybackInfo.set("program", preset.playbackInfo.program);
+  yPlaybackInfo.set("bank", preset.playbackInfo.bank);
   yPlaybackInfo.set("primaryChannel", channel);
   yPlaybackInfo.set("secondaryChannel", channel);
 
   const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
 
-  if (!preset.isPercussion && preset.stringCount === 0) {
+  for (const staff of preset.staves) {
     appendStaffFromPreset(
       yStaves,
       {
-        clef: 4,
-        isPercussion: false,
-        showTablature: false,
-        showStandardNotation: true,
-        tuning: [],
-        barCount,
-      },
-    );
-    appendStaffFromPreset(
-      yStaves,
-      {
-        clef: 3,
-        isPercussion: false,
-        showTablature: false,
-        showStandardNotation: true,
-        tuning: [],
-        barCount,
-      },
-    );
-  } else {
-    appendStaffFromPreset(
-      yStaves,
-      {
-        clef: preset.clef,
-        isPercussion: preset.isPercussion,
-        showTablature: preset.stringCount > 0 && !preset.isPercussion,
-        showStandardNotation: preset.stringCount === 0 || preset.isPercussion,
-        tuning: preset.tuning ?? [],
+        staff,
         barCount,
       },
     );

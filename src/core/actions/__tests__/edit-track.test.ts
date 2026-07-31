@@ -424,12 +424,47 @@ describe("document.track.add", () => {
     expect(trackCount()).toBe(tracksBefore + 1);
     const yTrack = resolveYTrackHelper(tracksBefore)!;
     expect(yTrack.get("name")).toBe("Acoustic Piano");
+    expect(yTrack.get("shortName")).toBe("Pno.");
+    expect(yTrack.get("defaultSystemsLayout")).toBe(3);
     const yPlaybackInfo = yTrack.get("playbackInfo") as Y.Map<unknown>;
     expect(yPlaybackInfo.get("program")).toBe(0);
+    expect(yPlaybackInfo.get("bank")).toBe(0);
     const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
     expect(yStaves.length).toBe(2);
     expect(yStaves.get(0).get("showTablature")).toBe(false);
     expect(yStaves.get(1).get("showTablature")).toBe(false);
+    expect(yStaves.get(0).get("showStandardNotation")).toBe(true);
+    expect(yStaves.get(1).get("showStandardNotation")).toBe(true);
+    expect(
+      (yStaves.get(0).get("bars") as Y.Array<Y.Map<unknown>>).get(0).get("clef"),
+    ).toBe(4);
+    expect(
+      (yStaves.get(1).get("bars") as Y.Array<Y.Map<unknown>>).get(0).get("clef"),
+    ).toBe(3);
+  });
+
+  it("creates explicit current Track and Staff metadata from presets", () => {
+    const tracksBefore = trackCount();
+    executeDocumentAction("document.track.add", { presetId: "acousticGuitar" }, ctx);
+    executeDocumentAction("document.track.add", { presetId: "violin" }, ctx);
+
+    const guitar = resolveYTrackHelper(tracksBefore)!;
+    expect(guitar.get("shortName")).toBe("Ac. Gtr.");
+    expect((guitar.get("color") as Y.Map<unknown>).get("raw")).toBe(-40121);
+    const guitarStaff = (guitar.get("staves") as Y.Array<Y.Map<unknown>>).get(0);
+    expect(guitarStaff.get("showStandardNotation")).toBe(true);
+    expect(guitarStaff.get("showTablature")).toBe(true);
+    const guitarTuning = guitarStaff.get("stringTuning") as Y.Map<unknown>;
+    expect(guitarTuning.get("name")).toBe("Standard");
+    expect(guitarTuning.get("isStandard")).toBe(true);
+    expect(
+      (guitarTuning.get("tunings") as Y.Array<number>).toArray(),
+    ).toEqual([64, 59, 55, 50, 45, 40]);
+
+    const violin = resolveYTrackHelper(tracksBefore + 1)!;
+    const violinStaff = (violin.get("staves") as Y.Array<Y.Map<unknown>>).get(0);
+    expect(violinStaff.get("showStandardNotation")).toBe(true);
+    expect(violinStaff.get("showTablature")).toBe(false);
   });
 
   it("creates the first master bar when adding to an empty headless document", () => {
@@ -446,9 +481,12 @@ describe("document.track.add", () => {
 
     const yTrack = resolveYTrackHelper(0)!;
     expect(yTrack.get("name")).toBe("Drums");
+    expect(yTrack.get("shortName")).toBe("Dr.");
     const yPlaybackInfo = yTrack.get("playbackInfo") as Y.Map<unknown>;
     expect(yPlaybackInfo.get("primaryChannel")).toBe(9);
     const yStaff = (yTrack.get("staves") as Y.Array<Y.Map<unknown>>).get(0);
     expect(yStaff.get("isPercussion")).toBe(true);
+    expect(yStaff.get("showStandardNotation")).toBe(true);
+    expect(yStaff.get("showTablature")).toBe(false);
   });
 });

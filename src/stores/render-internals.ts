@@ -4,7 +4,6 @@ import { getApi, setPendingSelection } from "./render-api";
 import type { PendingSelection, PercSnapGroup, SnapGrid } from "./render-types";
 import {
   applyBarWarningStyles,
-  createTrackFromPreset,
   extractBarInfo,
   extractStaffInfo,
   extractTrackInfo,
@@ -32,7 +31,7 @@ import {
   getSnapGrids,
   updateSnapGridOverlay,
 } from "./snap-grid";
-import { QUARTER_TICKS, SCORE_FIELD_TO_STATE, TRACK_PRESETS } from "./render-types";
+import { QUARTER_TICKS, SCORE_FIELD_TO_STATE } from "./render-types";
 import { snapPositionToPitch } from "./render-helpers";
 
 export type { alphaTab };
@@ -50,11 +49,9 @@ export {
   getNavigablePositions,
   // types / constants
   QUARTER_TICKS,
-  TRACK_PRESETS,
   SCORE_FIELD_TO_STATE,
   // helpers
   applyBarWarningStyles,
-  createTrackFromPreset,
   insertBarAtIndex,
   isBarEmptyAllTracks,
   extractTrackInfo,
@@ -75,4 +72,3 @@ export {
   gp7IdToPercussionArticulation,
   resolveGp7Id,
 };
-

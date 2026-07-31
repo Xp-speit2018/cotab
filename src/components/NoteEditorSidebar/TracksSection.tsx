@@ -6,9 +6,14 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Drum,
   Eye,
   EyeOff,
+  Guitar,
+  Music,
   Pencil,
+  Piano,
+  Plus,
 } from "lucide-react";
 import {
   Collapsible,
@@ -23,7 +28,17 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { executeAppAction } from "@/app-actions";
+import {
+  TRACK_PRESETS,
+  type TrackPreset,
+  type TrackPresetId,
+} from "@/core/presets";
 import { cn } from "@/lib/utils";
 import { getApi } from "@/stores/render-api";
 import { GP7_DEF_BY_ID } from "@/stores/percussion-data";
@@ -52,6 +67,105 @@ import {
 } from "./editors/ColorEditor";
 import { MusicGlyph, musicGlyphs } from "./notation-icons";
 import { PresetCombobox } from "./PresetCombobox";
+
+function TrackPresetIcon({ presetId }: { presetId: TrackPresetId }) {
+  if (presetId === "drumkit") return <Drum className="h-4 w-4" />;
+  if (presetId === "acousticPiano") return <Piano className="h-4 w-4" />;
+  if (presetId === "violin") return <Music className="h-4 w-4" />;
+  return <Guitar className="h-4 w-4" />;
+}
+
+function trackPresetSummary(
+  preset: TrackPreset,
+  t: ReturnType<typeof useTranslation>["t"],
+): string {
+  const notation = [
+    preset.staves.some((staff) => staff.showStandardNotation)
+      ? t("sidebar.tracks.standardNotation")
+      : null,
+    preset.staves.some((staff) => staff.showTablature)
+      ? t("sidebar.tracks.tablature")
+      : null,
+  ].filter(Boolean).join(" + ");
+  const stringCount = preset.staves[0]?.stringTuning.tunings.length ?? 0;
+  return [
+    preset.staves.length > 1
+      ? t("sidebar.staff.count", { count: preset.staves.length })
+      : preset.staves[0]?.isPercussion
+        ? t("sidebar.tracks.percussion")
+        : null,
+    notation,
+    stringCount > 0
+      ? t("sidebar.tracks.stringCount", { count: stringCount })
+      : null,
+  ].filter(Boolean).join(" · ");
+}
+
+function AddTrackPopover() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  const addTrack = (presetId: TrackPresetId) => {
+    setOpen(false);
+    executeAppAction("document.track.add", { presetId }, { t });
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <Tooltip open={open ? false : undefined}>
+        <TooltipTrigger asChild>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              data-interaction="command"
+              aria-label={t("sidebar.tracks.addTrack")}
+              className="flex h-7 w-7 shrink-0 cursor-default items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={4}>
+          {t("sidebar.tracks.addTrack")}
+        </TooltipContent>
+      </Tooltip>
+      <PopoverContent
+        side="right"
+        align="start"
+        sideOffset={40}
+        collisionPadding={12}
+        className="w-72 p-2"
+      >
+        <PopoverHeader className="px-1 pb-1">
+          <PopoverTitle>{t("sidebar.tracks.addTrack")}</PopoverTitle>
+        </PopoverHeader>
+        <div role="menu" aria-label={t("sidebar.tracks.addTrack")}>
+          {TRACK_PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              role="menuitem"
+              className="flex min-h-11 w-full items-center gap-3 px-2 py-1.5 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
+              onClick={() => addTrack(preset.id)}
+            >
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center text-muted-foreground">
+                <TrackPresetIcon presetId={preset.id} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-xs font-medium">
+                  {t(preset.nameKey)}
+                </span>
+                <span className="block truncate text-[10px] text-muted-foreground">
+                  {trackPresetSummary(preset, t)}
+                </span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 interface StaffEditorData {
   staffIndex: number;
@@ -761,6 +875,7 @@ export function TracksSection({
         title={t("sidebar.tracks.title")}
         helpText={t("sidebar.tracks.help")}
         isOpen={isOpen}
+        actions={<AddTrackPopover />}
         dragHandleProps={dragHandleProps}
       />
       <CollapsibleContent>

@@ -1,7 +1,6 @@
 /**
  * Model manipulation helpers: resolveBeat, formatPitch, insertBarAtIndex,
- * createTrackFromPreset, extractors, applyBarWarningStyles.
- * Depends on player-api (getApi), player-types (QUARTER_TICKS, TrackPreset, Selected*), percussion-data (none for these).
+ * extractors, applyBarWarningStyles.
  */
 
 import * as alphaTab from "@coderline/alphatab";
@@ -16,7 +15,6 @@ import type {
 } from "@/core/schema";
 import { debugLog } from "@/core/editor/action-log";
 import { getApi } from "./render-api";
-import type { TrackPreset } from "./render-types";
 import type {
   SelectedBarInfo,
   SelectedMasterBarInfo,
@@ -257,140 +255,6 @@ export function insertBarAtIndex(
     });
     throw err;
   }
-}
-
-// ─── Track from preset ───────────────────────────────────────────────────────
-
-export function createTrackFromPreset(
-  score: alphaTab.model.Score,
-  preset: TrackPreset,
-): alphaTab.model.Track {
-  debugLog("debug", "createTrackFromPreset", "building track", {
-    presetId: preset.id,
-    defaultName: preset.defaultName,
-    program: preset.program,
-    isPercussion: preset.isPercussion,
-    stringCount: preset.stringCount,
-    clef: preset.clef,
-  });
-
-  const track = new alphaTab.model.Track();
-  track.score = score;
-  track.name = preset.defaultName;
-  track.shortName = preset.defaultName.slice(0, 20);
-
-  let channel = preset.channel;
-  if (channel === 0) {
-    let maxCh = -1;
-    for (const t of score.tracks) {
-      const ch = t.playbackInfo.primaryChannel;
-      if (ch !== 9) maxCh = Math.max(maxCh, ch);
-    }
-    channel = maxCh + 1;
-    if (channel === 9) channel = 10;
-  }
-  debugLog("debug", "createTrackFromPreset", "channel assigned", {
-    channel,
-    presetChannel: preset.channel,
-  });
-
-  track.playbackInfo.program = preset.program;
-  track.playbackInfo.primaryChannel = channel;
-  track.playbackInfo.secondaryChannel = channel;
-  track.playbackInfo.volume = 15;
-  track.playbackInfo.balance = 8;
-
-  const staffs: alphaTab.model.Staff[] = [];
-
-  const makeStaff = (opts: {
-    isPercussion: boolean;
-    showTablature: boolean;
-    showStandardNotation: boolean;
-    stringCount: number;
-  }): alphaTab.model.Staff => {
-    const s = new alphaTab.model.Staff();
-    s.track = track;
-    s.isPercussion = opts.isPercussion;
-    if (opts.stringCount > 0) {
-      const tuning = alphaTab.model.Tuning.getDefaultTuningFor(opts.stringCount);
-      s.stringTuning =
-        tuning ??
-        new alphaTab.model.Tuning(undefined, [64, 59, 55, 50, 45, 40], true);
-    }
-    s.showTablature = opts.showTablature;
-    s.showStandardNotation = opts.showStandardNotation;
-    return s;
-  };
-
-  if (!preset.isPercussion && preset.stringCount === 0) {
-    const treble = makeStaff({
-      isPercussion: false,
-      showTablature: false,
-      showStandardNotation: true,
-      stringCount: 0,
-    });
-    const bass = makeStaff({
-      isPercussion: false,
-      showTablature: false,
-      showStandardNotation: true,
-      stringCount: 0,
-    });
-    staffs.push(treble, bass);
-  } else {
-    const single = makeStaff({
-      isPercussion: preset.isPercussion,
-      showTablature: preset.stringCount > 0 && !preset.isPercussion,
-      showStandardNotation: preset.stringCount === 0 || preset.isPercussion,
-      stringCount: preset.stringCount,
-    });
-    staffs.push(single);
-  }
-
-  debugLog("debug", "createTrackFromPreset", "staffs created", {
-    staffCount: staffs.length,
-    masterBarCount: score.masterBars.length,
-  });
-
-  for (let barIndex = 0; barIndex < score.masterBars.length; barIndex++) {
-    const mbClef = preset.clef as unknown as alphaTab.model.Clef;
-    for (let staffIndex = 0; staffIndex < staffs.length; staffIndex++) {
-      const staff = staffs[staffIndex];
-      const bar = new alphaTab.model.Bar();
-      if (!preset.isPercussion && preset.stringCount === 0) {
-        bar.clef =
-          (staffIndex === 0 ? 4 : 3) as unknown as alphaTab.model.Clef;
-      } else {
-        bar.clef = mbClef;
-      }
-      bar.staff = staff;
-      const voice = new alphaTab.model.Voice();
-      const restBeat = new alphaTab.model.Beat();
-      restBeat.isEmpty = false;
-      restBeat.notes = [];
-      restBeat.duration =
-        alphaTab.model.Duration.Quarter as number as alphaTab.model.Duration;
-      voice.addBeat(restBeat);
-      bar.addVoice(voice);
-      staff.addBar(bar);
-    }
-  }
-
-  for (const staff of staffs) {
-    for (let i = 0; i < staff.bars.length; i++) {
-      const b = staff.bars[i];
-      b.staff = staff;
-      b.index = i;
-      b.previousBar = i > 0 ? staff.bars[i - 1] : null;
-      b.nextBar = i < staff.bars.length - 1 ? staff.bars[i + 1] : null;
-    }
-    track.addStaff(staff);
-  }
-
-  debugLog("debug", "createTrackFromPreset", "track ready", {
-    staffCount: track.staves.length,
-    barCount: track.staves[0]?.bars.length ?? 0,
-  });
-  return track;
 }
 
 // ─── Bar empty check ──────────────────────────────────────────────────────────

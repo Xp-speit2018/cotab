@@ -93,3 +93,53 @@ test("separates MasterBar, Bar, Track, and Staff ownership in the sidebar", asyn
   await expect(page.getByText("Bar · Staff 1", { exact: true })).toBeVisible();
   await expect(page.getByText("MasterBar", { exact: true })).toHaveCount(1);
 });
+
+test("adds a metadata-aligned track from the Tracks header popover", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+  await waitForScore(page);
+  await page.getByRole("button", { name: "Meta", exact: true }).click();
+
+  const addTrack = page.getByRole("button", { name: "Add Track", exact: true });
+  const triggerBounds = await addTrack.boundingBox();
+  await addTrack.click();
+  const menu = page.getByRole("menu", { name: "Add Track", exact: true });
+  await expect(menu).toBeVisible();
+  const menuBounds = await menu.boundingBox();
+  expect(triggerBounds).not.toBeNull();
+  expect(menuBounds).not.toBeNull();
+  expect(menuBounds.x).toBeGreaterThanOrEqual(triggerBounds.x + triggerBounds.width);
+
+  const before = await page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks.length
+  );
+  await page.getByRole("menuitem", { name: /^Acoustic Piano/ }).click();
+  await expect(menu).toBeHidden();
+
+  await expect.poll(() => page.evaluate(() => {
+    const track = window.__ALPHATAB_API__.score.tracks.at(-1);
+    return {
+      trackCount: window.__ALPHATAB_API__.score.tracks.length,
+      name: track?.name,
+      shortName: track?.shortName,
+      program: track?.playbackInfo.program,
+      staffCount: track?.staves.length,
+      notation: track?.staves.map((staff) => ({
+        standard: staff.showStandardNotation,
+        tab: staff.showTablature,
+      })),
+    };
+  })).toEqual({
+    trackCount: before + 1,
+    name: "Acoustic Piano",
+    shortName: "Pno.",
+    program: 0,
+    staffCount: 2,
+    notation: [
+      { standard: true, tab: false },
+      { standard: true, tab: false },
+    ],
+  });
+});

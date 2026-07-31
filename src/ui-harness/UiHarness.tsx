@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ExternalLink,
+  Plus,
   RotateCcw,
   Settings,
 } from "lucide-react";
@@ -45,6 +46,12 @@ function SectionHeaderSample() {
         title="Effects"
         helpText="Section help"
         isOpen={open}
+        actions={(
+          <IconCommand
+            label="Add item"
+            icon={<Plus className="h-3.5 w-3.5" />}
+          />
+        )}
       />
       <CollapsibleContent>
         <div className="px-4 py-2 text-[11px] text-muted-foreground">

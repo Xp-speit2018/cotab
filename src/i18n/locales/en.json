@@ -290,19 +290,9 @@
       "insertBarAfter": "Insert Bar After",
       "deleteBar": "Delete Bar",
       "deleteBarNotEmpty": "Bar contains notes — cannot delete",
-      "addTrack": "Add Track",
       "deleteTrack": "Delete Track",
       "deleteTrackConfirm": "Click again to confirm",
       "deleteTrackLastTrack": "Cannot delete the last track",
-      "presets": {
-        "acousticGuitar": "Acoustic Guitar",
-        "electricGuitarClean": "Electric Guitar (Clean)",
-        "electricGuitarDistortion": "Electric Guitar (Distortion)",
-        "bassGuitar": "Bass Guitar",
-        "violin": "Violin",
-        "acousticPiano": "Acoustic Piano",
-        "drumkit": "Drums"
-      },
       "articulationTitle": "Articulations",
       "articulationHelp": "Toggle percussion articulations on the selected beat. Articulations sharing a staff line are mutually exclusive.",
       "articulationSelectedOnly": "Selected position only",
@@ -368,6 +358,16 @@
     "tracks": {
       "title": "Tracks",
       "help": "Click a track to expand and edit its properties. Toggle visibility with the eye icon.",
+      "addTrack": "Add Track",
+      "presets": {
+        "acousticGuitar": "Acoustic Guitar",
+        "electricGuitarClean": "Electric Guitar (Clean)",
+        "electricGuitarDistortion": "Electric Guitar (Distortion)",
+        "bassGuitar": "Bass Guitar",
+        "violin": "Violin",
+        "acousticPiano": "Acoustic Piano",
+        "drumkit": "Drums"
+      },
       "visible": "visible",
       "hidden": "hidden",
       "toggleDetails": "Toggle {{name}} details",

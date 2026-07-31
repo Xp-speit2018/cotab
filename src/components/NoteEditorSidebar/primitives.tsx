@@ -197,11 +197,13 @@ export function SectionHeader({
   title,
   helpText,
   isOpen,
+  actions,
   dragHandleProps,
 }: {
   title: string;
   helpText: string;
   isOpen: boolean;
+  actions?: React.ReactNode;
   dragHandleProps?: Record<string, unknown>;
 }) {
   const { t } = useTranslation();
@@ -229,6 +231,7 @@ export function SectionHeader({
           <ChevronDown className="h-3.5 w-3.5" />
         )}
       </CollapsibleTrigger>
+      {actions}
       <Tooltip>
         <TooltipTrigger asChild>
           <button

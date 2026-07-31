@@ -178,7 +178,6 @@ interface TestMockState {
   selectionRange: SelectionRange | null;
   selectedNoteIndex: number;
   visibleTrackIndices: number[];
-  addTrackDialogOpen: boolean;
   storeOverrides: Record<string, unknown>;
   mockApiScore: unknown;
   integrationApi: { load: ReturnType<typeof vi.fn>; settings: unknown } | null;
@@ -223,7 +222,6 @@ const _mockState = ((globalThis as Record<string, unknown>).__testMockState ??= 
   selectionRange: null,
   selectedNoteIndex: -1,
   visibleTrackIndices: [0],
-  addTrackDialogOpen: false,
   storeOverrides: {},
   mockApiScore: null,
   integrationApi: null,
@@ -280,7 +278,6 @@ vi.mock("@/stores/render-helpers", () => ({
     tone: pos,
   })),
   insertBarAtIndex: vi.fn(),
-  createTrackFromPreset: vi.fn(),
   applyBarWarningStyles: vi.fn(),
   extractTrackInfo: vi.fn(() => ({})),
   extractStaffInfo: vi.fn(() => ({})),
@@ -453,7 +450,6 @@ vi.mock("@/stores/render-store", () => {
       s.selector = { ...s.selector, noteIndex: s.selectedNoteIndex };
     }
     if ("visibleTrackIndices" in partial) s.visibleTrackIndices = partial.visibleTrackIndices as number[];
-    if ("addTrackDialogOpen" in partial) s.addTrackDialogOpen = partial.addTrackDialogOpen as boolean;
     if ("playerState" in partial) {
       s.storeOverrides.playerState = partial.playerState;
       s.transport = {
@@ -483,7 +479,6 @@ vi.mock("@/stores/render-store", () => {
       selectedNoteIndex: s.selectedNoteIndex,
       visibleTrackIndices: s.visibleTrackIndices,
       roomDialogOpen: false,
-      addTrackDialogOpen: s.addTrackDialogOpen,
       zoom: s.storeOverrides.zoom ?? 1.0,
       showSnapGrid: s.storeOverrides.showSnapGrid ?? false,
       sidebarVisible: s.storeOverrides.sidebarVisible ?? true,
@@ -542,7 +537,6 @@ vi.mock("@/stores/render-internals", () => {
     resolveBeat: vi.fn(() => null),
     isBarEmptyAllTracks: vi.fn(() => true),
     applyBarWarningStyles: vi.fn(),
-    createTrackFromPreset: vi.fn(),
     insertBarAtIndex: vi.fn(),
     extractTrackInfo: vi.fn(() => ({})),
     extractStaffInfo: vi.fn(() => ({})),
@@ -570,7 +564,6 @@ vi.mock("@/stores/render-internals", () => {
     resolveGp7Id: vi.fn(() => -1),
     // re-exports from render-types
     QUARTER_TICKS: 960,
-    TRACK_PRESETS: [],
     SCORE_FIELD_TO_STATE: {},
   };
 });
@@ -931,7 +924,6 @@ export function resetMockState(): void {
   _mockState.selectionRange = null;
   _mockState.selectedNoteIndex = -1;
   _mockState.visibleTrackIndices = [0];
-  _mockState.addTrackDialogOpen = false;
   _mockState.mockApiScore = null;
   _mockState.integrationApi = null;
   for (const key of Object.keys(_mockState.storeOverrides)) {

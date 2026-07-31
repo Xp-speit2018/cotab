@@ -22,10 +22,18 @@ skip provider selection only when exactly one provider is available.
 
 `.cotab` files contain versioned metadata followed by a full Yjs update.
 Providers perform conditional writes against a revision. The local disk
-provider uses a content hash; WebDAV will project the same contract onto ETags.
+provider uses a content hash. WebDAV reads an ETag and writes with `If-Match`,
+or uses `If-None-Match: *` for a new object. Missing ETags fail instead of
+silently weakening conflict detection.
 When a revision changes, CoTab offers Yjs merge, save-copy, and explicit
 overwrite instead of guessing which file is authoritative.
 
 The provider-neutral implementation is in `src/storage/`. Tauri filesystem
 commands are in `src-tauri/src/lib.rs`, and desktop behavior is covered by
 `tests/e2e/specs/desktop-storage.spec.ts`.
+
+WebDAV server URL and username may be remembered locally. The password remains
+in runtime memory and is never written to localStorage, Editor State, Y.Doc, or
+the `.cotab` payload. Browser builds use Fetch and therefore require the WebDAV
+server to allow CORS. Tauri sends the same GET, HEAD, and PUT protocol through
+its native HTTP bridge so desktop storage does not depend on WebView CORS.

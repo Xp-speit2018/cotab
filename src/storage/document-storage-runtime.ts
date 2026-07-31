@@ -5,9 +5,13 @@ import {
   TauriLocalDiskProvider,
 } from "./tauri-local-disk-provider";
 import { DocumentStorageProviderRegistry } from "./provider-registry";
+import { WebDavStorageProvider } from "./webdav-provider";
 
 export const documentStorageProviders = new DocumentStorageProviderRegistry(
-  isLocalDiskStorageAvailable() ? [new TauriLocalDiskProvider()] : [],
+  [
+    ...(isLocalDiskStorageAvailable() ? [new TauriLocalDiskProvider()] : []),
+    new WebDavStorageProvider(),
+  ],
 );
 
 function publishAvailableProviders(): void {

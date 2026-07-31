@@ -10,7 +10,7 @@ repository's `.nvmrc`).
 
 | Gate | Command | Scope |
 |------|---------|-------|
-| Unit and integration behavior | `npm run test:unit` | Y.Doc schema and actions, AlphaTab conversion, collaboration, protocol, stores, and React components |
+| Unit and integration behavior | `npm run test:unit` | Y.Doc schema and actions, AlphaTab conversion, collaboration, storage providers, protocol, stores, and React components |
 | Type boundaries | `npm run typecheck` | Web app, core, Web/local adapters, CLI, and MCP |
 | Codex development guide | `npm run check:codex-guide` | Enforces `AGENTS.md` as the sole coding-agent guide and validates its referenced npm commands |
 | Generated action reference | `npm run check:action-docs` | Ensures `docs/DOCUMENT-ACTIONS.generated.md` matches the action definitions |

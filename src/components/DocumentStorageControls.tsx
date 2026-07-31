@@ -55,6 +55,11 @@ export function DocumentStorageControls() {
   const statusLabel = t(`storage.status.${status}`);
   const saveLabel = `${t("toolbar.saveDocument")} · ${statusLabel}`;
   const isSaving = status === "saving";
+  const bindingProvider = binding
+    ? documentStorageController
+        .getAvailableProviders()
+        .find((provider) => provider.id === binding.providerId)
+    : null;
   const save = () => {
     void executeAppAction("storage.save", undefined, { t });
   };
@@ -133,6 +138,12 @@ export function DocumentStorageControls() {
             </div>
             {binding && (
               <p className="mt-1 truncate text-xs text-muted-foreground">
+                {bindingProvider
+                  ? t(`storage.provider.${bindingProvider.id}.name`, {
+                      defaultValue: bindingProvider.name,
+                    })
+                  : binding.providerId}
+                {" · "}
                 {binding.displayName}
               </p>
             )}

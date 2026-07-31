@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
+    collections::HashMap,
     env, fs,
     io::{BufRead, BufReader, Write},
     path::{Path, PathBuf},
@@ -37,6 +38,29 @@ struct LocalStorageTarget {
 struct PickedLocalScoreFile {
     kind: String,
     document: LocalStoredDocument,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct WebDavRequest {
+    url: String,
+    method: String,
+    headers: HashMap<String, String>,
+    body: Vec<u8>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct WebDavResponse {
+    status: u16,
+    status_text: String,
+    headers: HashMap<String, String>,
+    body: Vec<u8>,
+}
+
+#[derive(Default)]
+struct WebDavHttpState {
+    client: reqwest::Client,
 }
 
 #[derive(Clone, Serialize)]
@@ -235,6 +259,54 @@ fn write_local_document_path(
     }
     Ok(LocalWriteResult::Saved {
         revision: content_revision(&data),
+    })
+}
+
+#[tauri::command]
+async fn webdav_request(
+    state: tauri::State<'_, WebDavHttpState>,
+    request: WebDavRequest,
+) -> Result<WebDavResponse, String> {
+    let url = Url::parse(&request.url).map_err(|error| error.to_string())?;
+    if url.scheme() != "http" && url.scheme() != "https" {
+        return Err("WebDAV requests must use HTTP or HTTPS.".to_owned());
+    }
+    let method = match request.method.as_str() {
+        "GET" => reqwest::Method::GET,
+        "HEAD" => reqwest::Method::HEAD,
+        "PUT" => reqwest::Method::PUT,
+        _ => return Err(format!("Unsupported WebDAV method: {}.", request.method)),
+    };
+    let mut builder = state.client.request(method, url);
+    for (name, value) in request.headers {
+        builder = builder.header(name, value);
+    }
+    if !request.body.is_empty() {
+        builder = builder.body(request.body);
+    }
+    let response = builder.send().await.map_err(|error| error.to_string())?;
+    let status = response.status();
+    let status_text = status.canonical_reason().unwrap_or_default().to_owned();
+    let headers = response
+        .headers()
+        .iter()
+        .filter_map(|(name, value)| {
+            value
+                .to_str()
+                .ok()
+                .map(|value| (name.as_str().to_owned(), value.to_owned()))
+        })
+        .collect();
+    let body = response
+        .bytes()
+        .await
+        .map_err(|error| error.to_string())?
+        .to_vec();
+    Ok(WebDavResponse {
+        status: status.as_u16(),
+        status_text,
+        headers,
+        body,
     })
 }
 
@@ -649,6 +721,7 @@ fn disconnect_local_codex(state: tauri::State<'_, CodexState>) -> Result<(), Str
 pub fn run() {
     tauri::Builder::default()
         .manage(CodexState::default())
+        .manage(WebDavHttpState::default())
         .invoke_handler(tauri::generate_handler![
             load_agent_history,
             save_agent_history,
@@ -656,6 +729,7 @@ pub fn run() {
             pick_local_document_path,
             read_local_document,
             write_local_document,
+            webdav_request,
             get_codex_status,
             connect_local_codex,
             pick_agent_write_root,

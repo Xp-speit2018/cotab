@@ -15,6 +15,14 @@ interface StorageMockWindow extends Window {
     writes: number;
     data: number[] | null;
   };
+  __COTAB_WEBDAV_MOCK__?: {
+    writes: number;
+    requests: Array<{
+      method: string;
+      ifMatch: string | null;
+      ifNoneMatch: string | null;
+    }>;
+  };
 }
 
 async function installLocalStorageMock(page: Page) {
@@ -51,6 +59,27 @@ async function installLocalStorageMock(page: Page) {
         unregisterCallback: () => undefined,
         runCallback: () => undefined,
         invoke: async (command: string, args?: Record<string, unknown>) => {
+          if (command === "webdav_request") {
+            const request = args?.request as {
+              url: string;
+              method: string;
+              headers: Record<string, string>;
+              body: number[];
+            };
+            const response = await window.fetch(request.url, {
+              method: request.method,
+              headers: request.headers,
+              body: request.body.length > 0
+                ? Uint8Array.from(request.body)
+                : undefined,
+            });
+            return {
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              body: Array.from(new Uint8Array(await response.arrayBuffer())),
+            };
+          }
           if (command === "pick_local_document_path") {
             picks += 1;
             return {
@@ -124,6 +153,81 @@ async function installLocalStorageMock(page: Page) {
   });
 }
 
+async function installWebDavMock(page: Page) {
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    let data: Uint8Array | null = null;
+    let revision = 0;
+    let writes = 0;
+    const requests: Array<{
+      method: string;
+      ifMatch: string | null;
+      ifNoneMatch: string | null;
+    }> = [];
+    const mock = {
+      get writes() {
+        return writes;
+      },
+      requests,
+    };
+    (window as unknown as StorageMockWindow).__COTAB_WEBDAV_MOCK__ = mock;
+
+    window.fetch = async (input, init) => {
+      const url = new URL(
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url,
+      );
+      if (url.origin !== "https://dav.example.test") {
+        return originalFetch(input, init);
+      }
+      const method = init?.method ?? "GET";
+      const headers = new Headers(init?.headers);
+      requests.push({
+        method,
+        ifMatch: headers.get("if-match"),
+        ifNoneMatch: headers.get("if-none-match"),
+      });
+
+      if (method === "HEAD") {
+        return data
+          ? new Response(null, {
+              status: 200,
+              headers: { ETag: `"dav-${revision}"` },
+            })
+          : new Response(null, { status: 404 });
+      }
+      if (method === "GET") {
+        return data
+          ? new Response(data, {
+              status: 200,
+              headers: { ETag: `"dav-${revision}"` },
+            })
+          : new Response(null, { status: 404 });
+      }
+      if (method === "PUT") {
+        const currentEtag = data ? `"dav-${revision}"` : null;
+        const conditionMatches = currentEtag === null
+          ? headers.get("if-none-match") === "*"
+          : headers.get("if-match") === currentEtag;
+        if (!conditionMatches) return new Response(null, { status: 412 });
+        data = new Uint8Array(
+          await new Response(init?.body ?? null).arrayBuffer(),
+        );
+        revision += 1;
+        writes += 1;
+        return new Response(null, {
+          status: 201,
+          headers: { ETag: `"dav-${revision}"` },
+        });
+      }
+      return new Response(null, { status: 405 });
+    };
+  });
+}
+
 async function waitForScore(page: Page) {
   await page.waitForFunction(() =>
     Boolean(
@@ -132,6 +236,16 @@ async function waitForScore(page: Page) {
     ),
   );
 }
+
+test("Web open keeps browser file import alongside WebDAV", async ({ page }) => {
+  await page.goto("/");
+  await waitForScore(page);
+
+  await page.getByRole("button", { name: "Open file" }).click();
+  await expect(page.getByRole("heading", { name: "Open from" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /This device/ })).toBeVisible();
+});
 
 test("Cmd+S prompts for an unbound document while an inline editor is focused", async ({
   page,
@@ -152,6 +266,8 @@ test("Cmd+S prompts for an unbound document while an inline editor is focused", 
     navigator.userAgent.toLowerCase().includes("mac") ? "Meta+s" : "Control+s"
   );
   await page.keyboard.press(saveShortcut);
+  await expect(page.getByRole("heading", { name: "Save to" })).toBeVisible();
+  await page.getByRole("button", { name: /Local disk/ }).click();
 
   await expect.poll(() =>
     page.evaluate(
@@ -270,6 +386,108 @@ test("Save As switches an existing binding to another storage provider", async (
   });
 });
 
+test("WebDAV saves with ETag preconditions and keeps credentials out of persistence", async ({
+  page,
+}) => {
+  await installLocalStorageMock(page);
+  await installWebDavMock(page);
+  await page.goto("/");
+  await waitForScore(page);
+
+  const save = page.getByTestId("storage-save");
+  await save.click();
+  await page.getByRole("button", { name: /WebDAV/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Save to WebDAV" }),
+  ).toBeVisible();
+  await page.getByLabel("Server URL").fill(
+    "https://dav.example.test/files/alice",
+  );
+  await page.getByLabel("Username").fill("alice");
+  await page.getByLabel("Password").fill("not-persisted");
+  await expect(page.getByLabel("Document path")).toHaveValue(
+    "Taijin Kyofusho.cotab",
+  );
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+
+  await expect(save).toHaveAttribute(
+    "aria-label",
+    /Save CoTab document · Saved/,
+  );
+  expect(await page.evaluate(async () => {
+    const runtime = window as unknown as StorageMockWindow;
+    const { engine } = await import("/src/core/engine.ts");
+    return {
+      binding: engine.storage.binding,
+      writes: runtime.__COTAB_WEBDAV_MOCK__?.writes,
+      persistedConfig: localStorage.getItem("cotab:webdav-config-v1"),
+    };
+  })).toMatchObject({
+    binding: {
+      providerId: "webdav",
+      locator:
+        "https://dav.example.test/files/alice/Taijin%20Kyofusho.cotab",
+    },
+    writes: 1,
+  });
+  expect(await page.evaluate(
+    () => localStorage.getItem("cotab:webdav-config-v1"),
+  )).not.toContain("not-persisted");
+
+  await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    engine.getDoc()?.getMap("score").set("artist", "WebDAV update");
+  });
+  await save.click();
+  await expect.poll(() =>
+    page.evaluate(
+      () =>
+        (window as unknown as StorageMockWindow).__COTAB_WEBDAV_MOCK__?.writes,
+    ),
+  ).toBe(2);
+  expect(await page.evaluate(
+    () =>
+      (window as unknown as StorageMockWindow).__COTAB_WEBDAV_MOCK__?.requests,
+  )).toEqual([
+    { method: "HEAD", ifMatch: null, ifNoneMatch: null },
+    { method: "PUT", ifMatch: null, ifNoneMatch: "*" },
+    { method: "PUT", ifMatch: '"dav-1"', ifNoneMatch: null },
+  ]);
+
+  await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    engine.getDoc()?.getMap("score").set("title", "Unsaved WebDAV replacement");
+  });
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Open file" }).click();
+  await page.getByRole("button", { name: /WebDAV/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "Open from WebDAV" }),
+  ).toBeVisible();
+  await expect(page.getByLabel("Server URL")).toHaveValue(
+    "https://dav.example.test/files/alice/",
+  );
+  await expect(page.getByLabel("Username")).toHaveValue("alice");
+  await expect(page.getByLabel("Password")).toHaveValue("not-persisted");
+  await page.getByLabel("Document path").fill("Taijin Kyofusho.cotab");
+  await page.getByRole("button", { name: "Open", exact: true }).click();
+
+  await expect.poll(() => page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    return {
+      title: engine.getScoreMap()?.get("title"),
+      artist: engine.getScoreMap()?.get("artist"),
+      status: engine.storage.status,
+      providerId: engine.storage.binding?.providerId,
+    };
+  })).toEqual({
+    title: "Taijin Kyofusho",
+    artist: "WebDAV update",
+    status: "saved",
+    providerId: "webdav",
+  });
+});
+
 test("desktop local storage saves, auto-saves, reopens, and resolves conflicts", async ({
   page,
 }) => {
@@ -284,6 +502,8 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
     /Save CoTab document · Not saved/,
   );
   await save.click();
+  await expect(page.getByRole("heading", { name: "Save to" })).toBeVisible();
+  await page.getByRole("button", { name: /Local disk/ }).click();
   await expect(save).toHaveAttribute(
     "aria-label",
     /Save CoTab document · Saved/,
@@ -348,6 +568,8 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
   });
   page.once("dialog", (dialog) => void dialog.accept());
   await page.getByRole("button", { name: "Open file" }).click();
+  await expect(page.getByRole("heading", { name: "Open from" })).toBeVisible();
+  await page.getByRole("button", { name: /Local disk/ }).click();
   await expect(page.getByText("Auto-saved title", { exact: true })).toBeVisible();
   await expect(save).toHaveAttribute(
     "aria-label",

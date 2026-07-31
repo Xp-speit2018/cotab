@@ -20,6 +20,7 @@ serde_json = "1"
 rfd = "0.15"
 sha2 = "0.10"
 url = "2"
+reqwest = "0.13.4"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

@@ -14,6 +14,7 @@ import {
   finishStorageProviderSelection,
   useStorageProviderSelection,
 } from "@/storage/provider-selection";
+import { useEditorStore } from "@/stores/editor-store";
 
 function ProviderIcon({ providerId }: { providerId: string }) {
   return providerId === "local-disk"
@@ -24,7 +25,14 @@ function ProviderIcon({ providerId }: { providerId: string }) {
 export function StorageProviderDialog() {
   const { t } = useTranslation();
   const request = useStorageProviderSelection((state) => state.request);
-  const providers = documentStorageController.getAvailableProviders();
+  const availableProviderIds = useEditorStore(
+    (state) => state.storage.availableProviderIds,
+  );
+  const providers = documentStorageController
+    .getAvailableProviders()
+    .filter((provider) => availableProviderIds.includes(provider.id));
+  const showBrowserFile = request?.operation === "open" &&
+    !providers.some((provider) => provider.id === "local-disk");
 
   return (
     <Dialog
@@ -54,7 +62,11 @@ export function StorageProviderDialog() {
             >
               <ProviderIcon providerId={provider.id} />
               <span className="min-w-0 text-left">
-                <span className="block text-sm font-medium">{provider.name}</span>
+                <span className="block text-sm font-medium">
+                  {t(`storage.provider.${provider.id}.name`, {
+                    defaultValue: provider.name,
+                  })}
+                </span>
                 <span className="block text-xs font-normal text-muted-foreground">
                   {t(`storage.provider.${provider.id}.description`, {
                     defaultValue: provider.id,
@@ -63,6 +75,23 @@ export function StorageProviderDialog() {
               </span>
             </Button>
           ))}
+          {showBrowserFile && (
+            <Button
+              variant="ghost"
+              className="h-auto w-full justify-start gap-3 px-3 py-2.5"
+              onClick={() => finishStorageProviderSelection("browser-file")}
+            >
+              <HardDrive className="h-4 w-4" />
+              <span className="min-w-0 text-left">
+                <span className="block text-sm font-medium">
+                  {t("storage.provider.browser-file.name")}
+                </span>
+                <span className="block text-xs font-normal text-muted-foreground">
+                  {t("storage.provider.browser-file.description")}
+                </span>
+              </span>
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -69,8 +69,31 @@
       "chooseSave": "保存到",
       "description": "为此文档选择存储服务。",
       "local-disk": {
+        "name": "本地磁盘",
         "description": "此设备上的文件"
+      },
+      "webdav": {
+        "name": "WebDAV",
+        "description": "WebDAV 服务器上的文件"
+      },
+      "browser-file": {
+        "name": "此设备",
+        "description": "导入 CoTab 或 Guitar Pro 文件"
       }
+    },
+    "webdav": {
+      "openTitle": "从 WebDAV 打开",
+      "saveTitle": "保存到 WebDAV",
+      "description": "连接 WebDAV 服务器并指定 CoTab 文档路径。",
+      "server": "服务器 URL",
+      "username": "用户名",
+      "password": "密码",
+      "documentPath": "文档路径",
+      "invalidServer": "请输入有效的 HTTP 或 HTTPS WebDAV 服务器 URL。",
+      "pathRequired": "请输入文档路径。",
+      "open": "打开",
+      "save": "保存",
+      "cancel": "取消"
     },
     "conflict": {
       "title": "磁盘上的文档已发生变化",

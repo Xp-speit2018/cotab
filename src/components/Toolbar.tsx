@@ -139,10 +139,18 @@ export function Toolbar() {
       return;
     }
     try {
-      const providerId = storageProviderIds.length === 1
-        ? storageProviderIds[0]
+      const browserFileSourceAvailable =
+        !storageProviderIds.includes("local-disk");
+      const sourceCount = storageProviderIds.length +
+        (browserFileSourceAvailable ? 1 : 0);
+      const providerId = sourceCount === 1
+        ? (storageProviderIds[0] ?? "browser-file")
         : await selectStorageProvider("open");
       if (!providerId) return;
+      if (providerId === "browser-file") {
+        fileInputRef.current?.click();
+        return;
+      }
       if (providerId !== "local-disk") {
         await documentStorageController.open(providerId);
         return;

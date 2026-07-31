@@ -108,8 +108,8 @@ configuration is intentionally unsupported.
   desktop validation, and browser collaboration tests into one documented CI
   matrix.
 - [ ] **UI/UX improvements and unification** — Polish, consistency, and accessibility.
-- [ ] **Cloud storage support** — Local `.cotab` persistence and conflict
-  handling are complete; add WebDAV as the next storage provider.
+- [x] **Cloud storage support** — Local disk and WebDAV providers share
+  conditional save, auto-save, provider migration, and conflict handling.
 - [ ] **Media synchronization** — Sync backing track with the score playback. Personally I don't think there's a silver bullet for this (e.g. [Taijin Kyofusho](https://the-evpatoria-report.bandcamp.com/track/taijin-kyofusho) has a very dynamic tempo that is hard to perfectly synchronize with the score playback), but a [solution](https://alphatab.net/docs/guides/media-sync-editor) is planned.
 - [ ] **High-quality soundfont and effects** — Better default soundfont and audio effects (e.g. AudioWorklet/WASM).
 

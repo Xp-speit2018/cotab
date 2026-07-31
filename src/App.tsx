@@ -7,6 +7,7 @@ import { TrackPresetDialog } from "@/components/TrackPresetDialog";
 import { RoomDialog } from "@/components/RoomDialog";
 import { DocumentStorageConflictDialog } from "@/components/DocumentStorageConflictDialog";
 import { StorageProviderDialog } from "@/components/StorageProviderDialog";
+import { WebDavLocationDialog } from "@/components/WebDavLocationDialog";
 import { installShortcutManager, uninstallShortcutManager, updateTranslation } from "@/shortcuts";
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
       <RoomDialog />
       <DocumentStorageConflictDialog />
       <StorageProviderDialog />
+      <WebDavLocationDialog />
     </div>
   );
 }

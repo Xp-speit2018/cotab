@@ -80,6 +80,8 @@ Providers are registered by ID. A bound Save must resolve
 `EditorEngine.storage.binding.providerId`; changing providers is an explicit
 Save As operation that replaces the binding. An unbound Save with more than one
 available provider must ask the user to choose one.
+WebDAV credentials are runtime-local: never put passwords in Editor State,
+localStorage, Y.Doc, `.cotab` payloads, logs, or generated diagnostics.
 
 ## UI Interaction Harness
 

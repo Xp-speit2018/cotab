@@ -1,15 +1,24 @@
 import { engine } from "@/core/engine";
 import { DocumentStorageController } from "./document-storage-controller";
 import {
+  BrowserLocalFileProvider,
+  isBrowserLocalFileStorageAvailable,
+} from "./browser-local-file-provider";
+import {
   isLocalDiskStorageAvailable,
   TauriLocalDiskProvider,
 } from "./tauri-local-disk-provider";
 import { DocumentStorageProviderRegistry } from "./provider-registry";
 import { WebDavStorageProvider } from "./webdav-provider";
 
+const localDiskAvailable = isLocalDiskStorageAvailable();
+
 export const documentStorageProviders = new DocumentStorageProviderRegistry(
   [
-    ...(isLocalDiskStorageAvailable() ? [new TauriLocalDiskProvider()] : []),
+    ...(localDiskAvailable ? [new TauriLocalDiskProvider()] : []),
+    ...(!localDiskAvailable && isBrowserLocalFileStorageAvailable()
+      ? [new BrowserLocalFileProvider()]
+      : []),
     new WebDavStorageProvider(),
   ],
 );

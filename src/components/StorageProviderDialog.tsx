@@ -1,4 +1,4 @@
-import { Cloud, HardDrive } from "lucide-react";
+import { BookOpen, Cloud, HardDrive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
 import { useEditorStore } from "@/stores/editor-store";
 
 function ProviderIcon({ providerId }: { providerId: string }) {
-  return providerId === "local-disk"
+  return providerId === "local-disk" || providerId === "local-file"
     ? <HardDrive className="h-4 w-4" />
     : <Cloud className="h-4 w-4" />;
 }
@@ -31,7 +31,7 @@ export function StorageProviderDialog() {
   const providers = documentStorageController
     .getAvailableProviders()
     .filter((provider) => availableProviderIds.includes(provider.id));
-  const showBrowserFile = request?.operation === "open" &&
+  const showGuitarProImport = request?.operation === "open" &&
     !providers.some((provider) => provider.id === "local-disk");
 
   return (
@@ -75,7 +75,7 @@ export function StorageProviderDialog() {
               </span>
             </Button>
           ))}
-          {showBrowserFile && (
+          {showGuitarProImport && (
             <Button
               variant="ghost"
               className="h-auto w-full justify-start gap-3 px-3 py-2.5"
@@ -88,6 +88,23 @@ export function StorageProviderDialog() {
                 </span>
                 <span className="block text-xs font-normal text-muted-foreground">
                   {t("storage.provider.browser-file.description")}
+                </span>
+              </span>
+            </Button>
+          )}
+          {request?.operation === "open" && (
+            <Button
+              variant="ghost"
+              className="h-auto w-full justify-start gap-3 px-3 py-2.5"
+              onClick={() => finishStorageProviderSelection("demo-library")}
+            >
+              <BookOpen className="h-4 w-4" />
+              <span className="min-w-0 text-left">
+                <span className="block text-sm font-medium">
+                  {t("storage.provider.demo-library.name")}
+                </span>
+                <span className="block text-xs font-normal text-muted-foreground">
+                  {t("storage.provider.demo-library.description")}
                 </span>
               </span>
             </Button>

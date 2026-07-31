@@ -23,6 +23,75 @@ interface StorageMockWindow extends Window {
       ifNoneMatch: string | null;
     }>;
   };
+  __COTAB_BROWSER_FILE_MOCK__?: {
+    readonly openPicks: number;
+    readonly savePicks: number;
+    readonly writes: number;
+  };
+}
+
+async function installBrowserLocalFileMock(page: Page) {
+  await page.addInitScript(() => {
+    let data = new Uint8Array();
+    let modified = 1;
+    let openPicks = 0;
+    let savePicks = 0;
+    let writes = 0;
+    const handle = {
+      kind: "file" as const,
+      name: "browser-local.cotab",
+      async getFile() {
+        return new File([data], this.name, { lastModified: modified });
+      },
+      async createWritable() {
+        let nextData = data;
+        return {
+          async write(value: ArrayBuffer | ArrayBufferView | Blob | string) {
+            if (value instanceof Blob) {
+              nextData = new Uint8Array(await value.arrayBuffer());
+            } else if (typeof value === "string") {
+              nextData = new TextEncoder().encode(value);
+            } else if (ArrayBuffer.isView(value)) {
+              nextData = new Uint8Array(
+                value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength),
+              );
+            } else {
+              nextData = new Uint8Array(value.slice(0));
+            }
+          },
+          async close() {
+            data = nextData;
+            modified += 1;
+            writes += 1;
+          },
+        };
+      },
+      async isSameEntry(other: unknown) {
+        return other === handle;
+      },
+    };
+    Object.assign(window, {
+      showOpenFilePicker: async () => {
+        openPicks += 1;
+        return [handle];
+      },
+      showSaveFilePicker: async () => {
+        savePicks += 1;
+        return handle;
+      },
+    });
+    (window as unknown as StorageMockWindow).__COTAB_BROWSER_FILE_MOCK__ = {
+      get openPicks() {
+        return openPicks;
+      },
+      get savePicks() {
+        return savePicks;
+      },
+      get writes() {
+        return writes;
+      },
+    };
+  });
 }
 
 async function installLocalStorageMock(page: Page) {
@@ -237,17 +306,52 @@ async function waitForScore(page: Page) {
   );
 }
 
-test("Web open keeps browser file import alongside WebDAV", async ({ page }) => {
+test("Web Open keeps imports and read-only examples alongside WebDAV", async ({ page }) => {
   await page.goto("/");
   await waitForScore(page);
 
   await page.getByRole("button", { name: "Open file" }).click();
   await expect(page.getByRole("heading", { name: "Open from" })).toBeVisible();
   await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /This device/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Import Guitar Pro/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Examples/ })).toBeVisible();
 });
 
-test("Web Save As chooses a provider even when only WebDAV is available", async ({
+test("Bundled demos open read-only and Save chooses a writable provider", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await waitForScore(page);
+  await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    engine.getDoc()?.getMap("score").set("artist", "Unsaved replacement");
+  });
+
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Open file" }).click();
+  await page.getByRole("button", { name: /Examples/ }).click();
+  await expect(page.getByRole("heading", { name: "Examples" })).toBeVisible();
+  await page.getByRole("button", { name: /Taijin Kyofusho/ }).click();
+
+  await expect.poll(() => page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    return {
+      artist: engine.getScoreMap()?.get("artist"),
+      binding: engine.storage.binding,
+      status: engine.storage.status,
+    };
+  })).toEqual({
+    artist: "The Evapatoria Report",
+    binding: null,
+    status: "unbound",
+  });
+
+  await page.getByTestId("storage-save").click();
+  await expect(page.getByRole("heading", { name: "Save to" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
+});
+
+test("Web Save As offers local download and WebDAV without native handles", async ({
   page,
 }) => {
   await page.goto("/");
@@ -260,7 +364,70 @@ test("Web Save As chooses a provider even when only WebDAV is available", async 
   );
   await page.keyboard.press(saveAsShortcut);
   await expect(page.getByRole("heading", { name: "Save to" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Local file/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
+});
+
+test("Web local files remain bound across Save As, Save, and Open", async ({
+  page,
+}) => {
+  await installBrowserLocalFileMock(page);
+  await page.goto("/");
+  await waitForScore(page);
+
+  const saveAsShortcut = await page.evaluate(() =>
+    navigator.userAgent.toLowerCase().includes("mac")
+      ? "Meta+Shift+s"
+      : "Control+Shift+s"
+  );
+  await page.keyboard.press(saveAsShortcut);
+  await page.getByRole("button", { name: /Local file/ }).click();
+
+  await expect.poll(() => page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    return {
+      binding: engine.storage.binding,
+      status: engine.storage.status,
+      writes: (window as unknown as StorageMockWindow)
+        .__COTAB_BROWSER_FILE_MOCK__?.writes,
+    };
+  })).toMatchObject({
+    binding: {
+      providerId: "local-file",
+      displayName: "browser-local.cotab",
+    },
+    status: "saved",
+    writes: 1,
+  });
+
+  await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    engine.getDoc()?.getMap("score").set("artist", "Saved in browser file");
+  });
+  await page.getByTestId("storage-save").click();
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as StorageMockWindow)
+      .__COTAB_BROWSER_FILE_MOCK__?.writes
+  )).toBe(2);
+
+  await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    engine.getDoc()?.getMap("score").set("artist", "Unsaved replacement");
+  });
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Open file" }).click();
+  await expect(page.getByRole("button", { name: /Local file/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Import Guitar Pro/ })).toBeVisible();
+  await page.getByRole("button", { name: /Local file/ }).click();
+
+  await expect.poll(() => page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    return {
+      artist: engine.getScoreMap()?.get("artist"),
+      openPicks: (window as unknown as StorageMockWindow)
+        .__COTAB_BROWSER_FILE_MOCK__?.openPicks,
+    };
+  })).toEqual({ artist: "Saved in browser file", openPicks: 1 });
 });
 
 test("Cmd+S prompts for an unbound document while an inline editor is focused", async ({

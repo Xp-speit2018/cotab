@@ -32,4 +32,5 @@ export interface DocumentStorageProvider {
     data: Uint8Array,
     expectedRevision: string | null,
   ): Promise<DocumentWriteResult>;
+  supportsAutoSave?(locator: string): boolean;
 }

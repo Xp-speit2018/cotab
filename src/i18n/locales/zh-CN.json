@@ -72,14 +72,26 @@
         "name": "本地磁盘",
         "description": "此设备上的文件"
       },
+      "local-file": {
+        "name": "本地文件",
+        "description": "此设备上的 CoTab 文档"
+      },
       "webdav": {
         "name": "WebDAV",
         "description": "WebDAV 服务器上的文件"
       },
       "browser-file": {
-        "name": "此设备",
+        "name": "导入 Guitar Pro",
         "description": "导入 Guitar Pro 文件"
+      },
+      "demo-library": {
+        "name": "示例乐谱",
+        "description": "以只读来源打开内置乐谱"
       }
+    },
+    "demo": {
+      "title": "示例乐谱",
+      "description": "选择内置乐谱；如需保留修改，请将其保存到存储服务。"
     },
     "webdav": {
       "openTitle": "从 WebDAV 打开",

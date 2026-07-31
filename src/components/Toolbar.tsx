@@ -48,6 +48,7 @@ import {
 } from "@/storage/document-storage-runtime";
 import { selectStorageProvider } from "@/storage/provider-selection";
 import { pickLocalScoreFile } from "@/storage/tauri-local-disk-provider";
+import { selectDemoDocument } from "@/storage/demo-selection";
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim() || "untitled";
@@ -79,6 +80,7 @@ export function Toolbar() {
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
   const loadFile = usePlayerStore((s) => s.loadFile);
+  const loadUrl = usePlayerStore((s) => s.loadUrl);
   const selector = usePlayerStore((s) => s.selector);
   const transport = usePlayerStore((s) => s.transport);
   const tabConnected = useEditorStore((s) => s.connected);
@@ -136,6 +138,11 @@ export function Toolbar() {
       if (!providerId) return;
       if (providerId === "browser-file") {
         fileInputRef.current?.click();
+        return;
+      }
+      if (providerId === "demo-library") {
+        const demo = await selectDemoDocument();
+        if (demo) loadUrl(demo.url);
         return;
       }
       if (providerId !== "local-disk") {

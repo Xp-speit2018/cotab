@@ -72,14 +72,26 @@
         "name": "Local disk",
         "description": "A file on this device"
       },
+      "local-file": {
+        "name": "Local file",
+        "description": "A CoTab document on this device"
+      },
       "webdav": {
         "name": "WebDAV",
         "description": "A file on a WebDAV server"
       },
       "browser-file": {
-        "name": "This device",
+        "name": "Import Guitar Pro",
         "description": "Import a Guitar Pro file"
+      },
+      "demo-library": {
+        "name": "Examples",
+        "description": "Open a bundled score as a read-only source"
       }
+    },
+    "demo": {
+      "title": "Examples",
+      "description": "Choose a bundled score. Save it to a storage provider to keep your changes."
     },
     "webdav": {
       "openTitle": "Open from WebDAV",

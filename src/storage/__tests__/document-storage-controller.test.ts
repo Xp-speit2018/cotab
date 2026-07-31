@@ -23,6 +23,7 @@ class MemoryStorageProvider implements DocumentStorageProvider {
   readonly name: string;
   readonly objects = new Map<string, MemoryObject>();
   readonly writes: string[] = [];
+  autoSaveSupported = true;
   nextOpen: string | null = null;
   nextSave: DocumentStorageTarget | null = null;
 
@@ -76,6 +77,10 @@ class MemoryStorageProvider implements DocumentStorageProvider {
       displayName: locator,
       revision: object ? String(object.revision) : null,
     };
+  }
+
+  supportsAutoSave(): boolean {
+    return this.autoSaveSupported;
   }
 }
 
@@ -319,6 +324,23 @@ describe("DocumentStorageController", () => {
     expect(provider.writes).toEqual([]);
     expect(await session.controller.save()).toBe(true);
     expect(provider.writes).toEqual(["score.cotab"]);
+  });
+
+  it("does not auto-save a provider that requires an explicit download", async () => {
+    const provider = new MemoryStorageProvider();
+    provider.autoSaveSupported = false;
+    const session = createController(provider, createScore());
+    provider.nextSave = provider.target("download.cotab");
+    await session.controller.saveAs();
+    provider.writes.length = 0;
+
+    session.getDocument().getMap("score").set("artist", "Manual download");
+    await vi.runAllTimersAsync();
+
+    expect(session.getStorageState().status).toBe("dirty");
+    expect(provider.writes).toEqual([]);
+    expect(await session.controller.save()).toBe(true);
+    expect(provider.writes).toEqual(["download.cotab"]);
   });
 
   it("reports picker failures without replacing the current document", async () => {

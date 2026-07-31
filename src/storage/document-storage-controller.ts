@@ -342,6 +342,10 @@ export class DocumentStorageController {
 
   private scheduleAutoSave(): void {
     if (!this.storage.autoSaveEnabled || !this.storage.binding) return;
+    const provider = this.providers.get(this.storage.binding.providerId);
+    if (provider?.supportsAutoSave?.(this.storage.binding.locator) === false) {
+      return;
+    }
     this.clearSaveTimer();
     const sinceLastSave = this.storage.lastSavedAt === null
       ? Number.POSITIVE_INFINITY

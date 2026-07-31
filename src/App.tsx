@@ -8,6 +8,7 @@ import { RoomDialog } from "@/components/RoomDialog";
 import { DocumentStorageConflictDialog } from "@/components/DocumentStorageConflictDialog";
 import { StorageProviderDialog } from "@/components/StorageProviderDialog";
 import { WebDavLocationDialog } from "@/components/WebDavLocationDialog";
+import { DemoSelectionDialog } from "@/components/DemoSelectionDialog";
 import { installShortcutManager, uninstallShortcutManager, updateTranslation } from "@/shortcuts";
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
       <DocumentStorageConflictDialog />
       <StorageProviderDialog />
       <WebDavLocationDialog />
+      <DemoSelectionDialog />
     </div>
   );
 }

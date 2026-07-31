@@ -13,9 +13,11 @@ import {
 } from "@/core/schema";
 import {
   TRACK_PRESETS,
-  type TrackPreset,
+  standardNotationTrackSpec,
+  type TrackCreationSpec,
   type TrackPresetId,
 } from "@/core/presets";
+import { generalMidiInstrument } from "@/core/general-midi";
 import { actionArgs, defineDocumentAction } from "./definition";
 import {
   integer,
@@ -56,8 +58,11 @@ function mutateTrackSystemLayout(
   return true;
 }
 
-function getNextChannel(yTracks: Y.Array<Y.Map<unknown>>, preset: TrackPreset): number {
-  if (preset.staves.some((staff) => staff.isPercussion)) return 9;
+function getNextChannel(
+  yTracks: Y.Array<Y.Map<unknown>>,
+  spec: TrackCreationSpec,
+): number {
+  if (spec.staves.some((staff) => staff.isPercussion)) return 9;
 
   let maxChannel = -1;
   for (let i = 0; i < yTracks.length; i++) {
@@ -92,7 +97,7 @@ function appendRestBar(yStaff: Y.Map<unknown>, clef: number): void {
 }
 
 function createPresetStaffShell(
-  staff: TrackPreset["staves"][number],
+  staff: TrackCreationSpec["staves"][number],
 ): Y.Map<unknown> {
   const yStaff = createStaff([...staff.stringTuning.tunings]);
   yStaff.set("isPercussion", staff.isPercussion);
@@ -111,7 +116,7 @@ function createPresetStaffShell(
 function appendStaffFromPreset(
   yStaves: Y.Array<Y.Map<unknown>>,
   args: {
-    staff: TrackPreset["staves"][number];
+    staff: TrackCreationSpec["staves"][number];
     barCount: number;
   },
 ): void {
@@ -124,7 +129,7 @@ function appendStaffFromPreset(
 
 function appendTrackFromPresetY(
   yTracks: Y.Array<Y.Map<unknown>>,
-  preset: TrackPreset,
+  preset: TrackCreationSpec,
   barCount: number,
   channel: number,
 ): void {
@@ -186,6 +191,43 @@ const addTrackAction = defineDocumentAction({
     });
 
     debugLog("info", "document.track.add", "complete");
+  },
+});
+
+const addInstrumentTrackAction = defineDocumentAction({
+  id: "document.track.addInstrument",
+  i18nKey: "actions.edit.track.addInstrument",
+  category: "document.track",
+  argsSchema: actionArgs({
+    program: integer.min(0).max(127),
+    bank: integer.min(0).max(16383),
+  }),
+  execute: ({ program, bank }) => {
+    const instrument = generalMidiInstrument(program);
+    const yScore = getScoreMap();
+    if (!instrument || !yScore) return false;
+
+    const spec = standardNotationTrackSpec(instrument.name, program, bank);
+    const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
+    const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
+    const channel = getNextChannel(yTracks, spec);
+
+    debugLog("info", "document.track.addInstrument", "start", {
+      program,
+      bank,
+      instrumentName: instrument.name,
+      trackCount: yTracks.length,
+    });
+
+    transact(() => {
+      if (yMasterBars.length === 0) {
+        yMasterBars.push([createMasterBar()]);
+      }
+      appendTrackFromPresetY(yTracks, spec, yMasterBars.length, channel);
+    });
+
+    debugLog("info", "document.track.addInstrument", "complete");
+    return true;
   },
 });
 
@@ -432,6 +474,7 @@ const setPercussionMapAction = defineDocumentAction({
 
 export const trackDocumentActions = [
   addTrackAction,
+  addInstrumentTrackAction,
   deleteTrackAction,
   setTrackNameAction,
   setTrackShortNameAction,

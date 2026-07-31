@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type * as alphaTab from "@coderline/alphatab";
 import {
@@ -14,7 +14,9 @@ import {
   Pencil,
   Piano,
   Plus,
+  Trash2,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Collapsible,
   CollapsibleContent,
@@ -58,6 +60,7 @@ import {
 import { ChordLibraryEditor } from "./editors/ChordEditors";
 import {
   InstrumentEditor,
+  generalMidiInstrumentOptions,
   instrumentSummary,
 } from "./editors/InstrumentEditor";
 import { PercussionMapEditor } from "./editors/PercussionMapEditor";
@@ -104,10 +107,23 @@ function trackPresetSummary(
 function AddTrackPopover() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const instrumentOptions = useMemo(
+    () => generalMidiInstrumentOptions(t("sidebar.tracks.commonInstruments")),
+    [t],
+  );
 
   const addTrack = (presetId: TrackPresetId) => {
     setOpen(false);
     executeAppAction("document.track.add", { presetId }, { t });
+  };
+
+  const addInstrumentTrack = (program: number | null) => {
+    if (program === null) return;
+    setOpen(false);
+    executeAppAction("document.track.addInstrument", {
+      program,
+      bank: 0,
+    }, { t });
   };
 
   return (
@@ -139,6 +155,28 @@ function AddTrackPopover() {
         <PopoverHeader className="px-1 pb-1">
           <PopoverTitle>{t("sidebar.tracks.addTrack")}</PopoverTitle>
         </PopoverHeader>
+        <div className="px-1 pb-2">
+          <div className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">
+            {t("sidebar.tracks.allInstruments")}
+          </div>
+          <PresetCombobox<number | null>
+            value={null}
+            valueLabel={t("sidebar.tracks.chooseInstrument")}
+            ariaLabel={t("sidebar.tracks.allInstruments")}
+            options={instrumentOptions}
+            onValueChange={addInstrumentTrack}
+            align="start"
+            portalled={false}
+            contentClassName="w-[min(28rem,calc(100vw-2rem))]"
+            optionContainerClassName="sm:grid sm:grid-cols-2"
+          />
+          <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+            {t("sidebar.tracks.standardInstrumentHelp")}
+          </p>
+        </div>
+        <div className="border-t px-1 pt-2 text-[10px] font-medium uppercase text-muted-foreground">
+          {t("sidebar.tracks.quickPresets")}
+        </div>
         <div role="menu" aria-label={t("sidebar.tracks.addTrack")}>
           {TRACK_PRESETS.map((preset) => (
             <button
@@ -565,7 +603,9 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   const [percussionMapOpen, setPercussionMapOpen] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
   const [nameEditing, setNameEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const track = usePlayerStore((state) => state.tracks[trackIndex]);
+  const trackCount = usePlayerStore((state) => state.tracks.length);
   const visibleTrackIndices = usePlayerStore((state) => state.visibleTrackIndices);
   const selectedBeat = usePlayerStore((state) => state.selectedBeat);
   const [nameDraft, setNameDraft] = useState(track?.name ?? "");
@@ -578,6 +618,12 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   useEffect(() => {
     if (nameEditing) nameInputRef.current?.focus();
   }, [nameEditing]);
+
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const timeout = window.setTimeout(() => setConfirmDelete(false), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [confirmDelete]);
 
   if (!track) return null;
 
@@ -852,6 +898,44 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
               />
             </DialogPropRow>
           )}
+
+          <div className="flex justify-end border-t border-border/40 px-3 pt-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={trackCount <= 1}
+                    className="h-7 cursor-default px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    onClick={() => {
+                      if (!confirmDelete) {
+                        setConfirmDelete(true);
+                        return;
+                      }
+                      setConfirmDelete(false);
+                      executeAppAction(
+                        "document.track.delete",
+                        { trackIndex },
+                        { t },
+                      );
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    {confirmDelete
+                      ? t("sidebar.tracks.deleteTrackConfirm")
+                      : t("sidebar.tracks.deleteTrack")}
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {trackCount <= 1 && (
+                <TooltipContent side="right">
+                  {t("sidebar.tracks.deleteTrackLastTrack")}
+                </TooltipContent>
+              )}
+            </Tooltip>
+          </div>
         </div>
       )}
     </div>

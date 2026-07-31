@@ -13,9 +13,7 @@ export interface TrackPresetStaff {
   };
 }
 
-export interface TrackPreset {
-  readonly id: string;
-  readonly nameKey: string;
+export interface TrackCreationSpec {
   readonly defaultName: string;
   readonly shortName: string;
   readonly colorRaw: number;
@@ -25,6 +23,11 @@ export interface TrackPreset {
   };
   readonly defaultSystemsLayout: number;
   readonly staves: readonly TrackPresetStaff[];
+}
+
+export interface TrackPreset extends TrackCreationSpec {
+  readonly id: string;
+  readonly nameKey: string;
 }
 
 const STANDARD_COLOR = -40121;
@@ -40,6 +43,30 @@ function frettedStaff(tunings: readonly number[]): TrackPresetStaff {
     transpositionPitch: 0,
     displayTranspositionPitch: 0,
     stringTuning: { tunings, name: "Standard", isStandard: true },
+  };
+}
+
+export function standardNotationTrackSpec(
+  name: string,
+  program: number,
+  bank: number,
+): TrackCreationSpec {
+  return {
+    defaultName: name,
+    shortName: "",
+    colorRaw: STANDARD_COLOR,
+    playbackInfo: { program, bank },
+    defaultSystemsLayout: STANDARD_SYSTEMS_LAYOUT,
+    staves: [{
+      initialClef: 4,
+      isPercussion: false,
+      showTablature: false,
+      showStandardNotation: true,
+      capo: 0,
+      transpositionPitch: 0,
+      displayTranspositionPitch: 0,
+      stringTuning: { tunings: [], name: "", isStandard: false },
+    }],
   };
 }
 

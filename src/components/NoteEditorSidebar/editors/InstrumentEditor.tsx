@@ -4,7 +4,10 @@ import {
   GENERAL_MIDI_INSTRUMENTS,
   generalMidiInstrument,
 } from "@/core/general-midi";
-import { PresetCombobox } from "../PresetCombobox";
+import {
+  PresetCombobox,
+  type PresetOption,
+} from "../PresetCombobox";
 
 const COMMON_INSTRUMENT_PROGRAMS = [
   0,
@@ -20,6 +23,28 @@ const COMMON_INSTRUMENT_PROGRAMS = [
   42,
   48,
 ] as const;
+
+export function generalMidiInstrumentOptions(
+  commonLabel: string,
+): PresetOption<number>[] {
+  const optionFor = (
+    instrument: (typeof GENERAL_MIDI_INSTRUMENTS)[number],
+    group: string,
+  ): PresetOption<number> => ({
+    value: instrument.program,
+    label: instrument.name,
+    group,
+    keywords: [String(instrument.program + 1), instrument.family],
+    description: `${instrument.program + 1} · ${instrument.family}`,
+  });
+
+  return [
+    ...COMMON_INSTRUMENT_PROGRAMS.map((program) =>
+      optionFor(GENERAL_MIDI_INSTRUMENTS[program], commonLabel)),
+    ...GENERAL_MIDI_INSTRUMENTS.map((instrument) =>
+      optionFor(instrument, instrument.family)),
+  ];
+}
 
 export function instrumentSummary(
   program: number,
@@ -58,22 +83,7 @@ export function InstrumentEditor({
   }, [program, bank]);
 
   const instrumentOptions = useMemo(() => {
-    const optionFor = (
-      instrument: (typeof GENERAL_MIDI_INSTRUMENTS)[number],
-      group: string,
-    ) => ({
-      value: instrument.program,
-      label: instrument.name,
-      group,
-      keywords: [String(instrument.program + 1), instrument.family],
-      description: `${instrument.program + 1} · ${instrument.family}`,
-    });
-    return [
-      ...COMMON_INSTRUMENT_PROGRAMS.map((program) =>
-        optionFor(GENERAL_MIDI_INSTRUMENTS[program], labels.common)),
-      ...GENERAL_MIDI_INSTRUMENTS.map((instrument) =>
-        optionFor(instrument, instrument.family)),
-    ];
+    return generalMidiInstrumentOptions(labels.common);
   }, [labels.common]);
 
   return (

@@ -358,6 +358,13 @@
       "title": "音轨",
       "help": "点击音轨展开编辑属性。使用眼睛图标切换可见性。",
       "addTrack": "添加音轨",
+      "allInstruments": "全部乐器",
+      "chooseInstrument": "选择乐器",
+      "standardInstrumentHelp": "创建一个标准谱 Staff。如需六线谱、大谱表或打击乐，请使用下方快捷预设。",
+      "quickPresets": "快捷预设",
+      "deleteTrack": "删除音轨",
+      "deleteTrackConfirm": "确认删除",
+      "deleteTrackLastTrack": "无法删除最后一个音轨。",
       "presets": {
         "acousticGuitar": "木吉他",
         "electricGuitarClean": "电吉他（清音）",
@@ -921,6 +928,7 @@
       },
       "track": {
         "add": { "name": "添加音轨" },
+        "addInstrument": { "name": "添加乐器音轨" },
         "delete": { "name": "删除音轨" }
       }
     },

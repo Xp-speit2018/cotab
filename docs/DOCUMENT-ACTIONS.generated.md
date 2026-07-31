@@ -6,7 +6,7 @@ Every action accepts one strict JSON object. The schemas below are projected
 from the runtime `DocumentActionDefinition.argsSchema` values used for
 validation and execution.
 
-Action count: 125.
+Action count: 126.
 
 ID | Category | i18n key | Arguments JSON Schema
 --- | --- | --- | ---
@@ -122,6 +122,7 @@ ID | Category | i18n key | Arguments JSON Schema
 `document.staff.setStringTuning` | `document.staff` | `actions.edit.staff.setStringTuning` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"staffIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"stringTuning":{"type":"object","properties":{"isStandard":{"type":"boolean"},"name":{"type":"string"},"tunings":{"type":"array","items":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}}},"required":["isStandard","name","tunings"],"additionalProperties":false}},"required":["trackIndex","staffIndex","stringTuning"],"additionalProperties":false}`
 `document.staff.setTranspositionPitch` | `document.staff` | `actions.edit.staff.setTranspositionPitch` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"staffIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"transpositionPitch":{"type":"integer","minimum":-9007199254740991,"maximum":9007199254740991}},"required":["trackIndex","staffIndex","transpositionPitch"],"additionalProperties":false}`
 `document.track.add` | `document.track` | `actions.edit.track.add` | `{"type":"object","properties":{"presetId":{"type":"string","enum":["acousticGuitar","electricGuitarClean","electricGuitarDistortion","bassGuitar","violin","acousticPiano","drumkit"]}},"required":["presetId"],"additionalProperties":false}`
+`document.track.addInstrument` | `document.track` | `actions.edit.track.addInstrument` | `{"type":"object","properties":{"program":{"type":"integer","minimum":0,"maximum":127},"bank":{"type":"integer","minimum":0,"maximum":16383}},"required":["program","bank"],"additionalProperties":false}`
 `document.track.delete` | `document.track` | `actions.edit.track.delete` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991}},"required":["trackIndex"],"additionalProperties":false}`
 `document.track.forceSystemBreak` | `document.track` | `actions.edit.track.forceSystemBreak` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"barIndex":{"type":"integer","minimum":0,"maximum":9007199254740991}},"required":["trackIndex","barIndex"],"additionalProperties":false}`
 `document.track.moveSystemBreak` | `document.track` | `actions.edit.track.moveSystemBreak` | `{"type":"object","properties":{"trackIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"barIndex":{"type":"integer","minimum":0,"maximum":9007199254740991},"direction":{"type":"string","enum":["left","right"]}},"required":["trackIndex","barIndex","direction"],"additionalProperties":false}`

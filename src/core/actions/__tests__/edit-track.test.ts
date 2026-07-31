@@ -490,3 +490,41 @@ describe("document.track.add", () => {
     expect(yStaff.get("showTablature")).toBe(false);
   });
 });
+
+describe("document.track.addInstrument", () => {
+  it("adds any General MIDI instrument as a standard-notation track", () => {
+    const tracksBefore = trackCount();
+
+    executeDocumentAction("document.track.addInstrument", {
+      program: 73,
+      bank: 0,
+    }, ctx);
+
+    expect(trackCount()).toBe(tracksBefore + 1);
+    const yTrack = resolveYTrackHelper(tracksBefore)!;
+    expect(yTrack.get("name")).toBe("Flute");
+    expect(yTrack.get("shortName")).toBe("");
+    const yPlaybackInfo = yTrack.get("playbackInfo") as Y.Map<unknown>;
+    expect(yPlaybackInfo.get("program")).toBe(73);
+    expect(yPlaybackInfo.get("bank")).toBe(0);
+    const yStaves = yTrack.get("staves") as Y.Array<Y.Map<unknown>>;
+    expect(yStaves.length).toBe(1);
+    expect(yStaves.get(0).get("showStandardNotation")).toBe(true);
+    expect(yStaves.get(0).get("showTablature")).toBe(false);
+    expect(
+      (yStaves.get(0).get("stringTuning") as Y.Map<unknown>)
+        .get("tunings"),
+    ).toBeInstanceOf(Y.Array);
+  });
+
+  it("rejects invalid General MIDI programs before mutation", () => {
+    const tracksBefore = trackCount();
+
+    expect(() => executeDocumentActionById(
+      "document.track.addInstrument",
+      { program: 128, bank: 0 },
+      ctx,
+    )).toThrow(DocumentActionArgumentsError);
+    expect(trackCount()).toBe(tracksBefore);
+  });
+});

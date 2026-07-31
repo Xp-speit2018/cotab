@@ -142,4 +142,54 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
       { standard: true, tab: false },
     ],
   });
+
+  await addTrack.click();
+  const instrumentCombobox = page.getByRole("combobox", {
+    name: "All instruments",
+    exact: true,
+  });
+  await instrumentCombobox.click();
+  const instrumentSearch = page.getByRole("searchbox", {
+    name: "Search presets",
+  });
+  await instrumentSearch.fill("^Flute$");
+  await page.getByRole("option", { name: /^Flute/ }).click();
+
+  await expect.poll(() => page.evaluate(() => {
+    const track = window.__ALPHATAB_API__.score.tracks.at(-1);
+    return {
+      name: track?.name,
+      program: track?.playbackInfo.program,
+      bank: track?.playbackInfo.bank,
+      staffCount: track?.staves.length,
+      standard: track?.staves[0]?.showStandardNotation,
+      tab: track?.staves[0]?.showTablature,
+    };
+  })).toEqual({
+    name: "Flute",
+    program: 73,
+    bank: 0,
+    staffCount: 1,
+    standard: true,
+    tab: false,
+  });
+
+  await page.getByRole("button", { name: "Toggle Flute details" }).click();
+  const deleteTrack = page.getByRole("button", {
+    name: "Delete track",
+    exact: true,
+  });
+  await deleteTrack.click();
+  await expect(page.getByRole("button", {
+    name: "Confirm delete",
+    exact: true,
+  })).toBeVisible();
+  await page.getByRole("button", {
+    name: "Confirm delete",
+    exact: true,
+  }).click();
+
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks.some((track) => track.name === "Flute")
+  )).toBe(false);
 });

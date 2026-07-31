@@ -359,6 +359,13 @@
       "title": "Tracks",
       "help": "Click a track to expand and edit its properties. Toggle visibility with the eye icon.",
       "addTrack": "Add Track",
+      "allInstruments": "All instruments",
+      "chooseInstrument": "Choose an instrument",
+      "standardInstrumentHelp": "Creates one standard-notation staff. Use a preset below for tablature, grand staff, or percussion.",
+      "quickPresets": "Quick presets",
+      "deleteTrack": "Delete track",
+      "deleteTrackConfirm": "Confirm delete",
+      "deleteTrackLastTrack": "The last track cannot be deleted.",
       "presets": {
         "acousticGuitar": "Acoustic Guitar",
         "electricGuitarClean": "Electric Guitar (Clean)",
@@ -922,6 +929,7 @@
       },
       "track": {
         "add": { "name": "Add Track" },
+        "addInstrument": { "name": "Add Instrument Track" },
         "delete": { "name": "Delete Track" }
       }
     },

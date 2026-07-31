@@ -14,7 +14,7 @@ export interface EditorStorageBinding {
 }
 
 export interface EditorStorageState {
-  readonly available: boolean;
+  readonly availableProviderIds: readonly string[];
   readonly status: EditorStorageStatus;
   readonly binding: EditorStorageBinding | null;
   readonly autoSaveEnabled: boolean;
@@ -24,10 +24,10 @@ export interface EditorStorageState {
 }
 
 export function createEditorStorageState(
-  available: boolean = false,
+  availableProviderIds: readonly string[] = [],
 ): EditorStorageState {
   return {
-    available,
+    availableProviderIds,
     status: "unbound",
     binding: null,
     autoSaveEnabled: true,

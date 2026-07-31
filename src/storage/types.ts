@@ -23,6 +23,7 @@ export type DocumentWriteResult =
 
 export interface DocumentStorageProvider {
   readonly id: string;
+  readonly name: string;
   pickOpen(): Promise<StoredDocument | null>;
   pickSave(suggestedName: string): Promise<DocumentStorageTarget | null>;
   read(locator: string): Promise<StoredDocument | null>;

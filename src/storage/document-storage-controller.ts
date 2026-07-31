@@ -15,9 +15,10 @@ import type {
   DocumentStorageTarget,
   StoredDocument,
 } from "./types";
+import type { DocumentStorageProviderRegistry } from "./provider-registry";
 
 export interface DocumentStorageControllerOptions {
-  readonly provider: DocumentStorageProvider;
+  readonly providers: DocumentStorageProviderRegistry;
   readonly getDocument: () => Y.Doc | null;
   readonly replaceDocument: (doc: Y.Doc) => void;
   readonly getStorageState: () => EditorStorageState;
@@ -32,7 +33,7 @@ const DEFAULT_MINIMUM_SAVE_INTERVAL_MS = 5_000;
 const STORAGE_MERGE_ORIGIN = "storage-merge";
 
 export class DocumentStorageController {
-  private readonly provider: DocumentStorageProvider;
+  private readonly providers: DocumentStorageProviderRegistry;
   private readonly getDocument: () => Y.Doc | null;
   private readonly replaceDocument: (doc: Y.Doc) => void;
   private readonly getStorageState: () => EditorStorageState;
@@ -48,7 +49,7 @@ export class DocumentStorageController {
   private replacingDocument = false;
 
   constructor(options: DocumentStorageControllerOptions) {
-    this.provider = options.provider;
+    this.providers = options.providers;
     this.getDocument = options.getDocument;
     this.replaceDocument = options.replaceDocument;
     this.getStorageState = options.getStorageState;
@@ -88,11 +89,17 @@ export class DocumentStorageController {
     });
   }
 
-  async open(): Promise<boolean> {
+  getAvailableProviders(): readonly DocumentStorageProvider[] {
+    return this.providers.list();
+  }
+
+  async open(providerId?: string): Promise<boolean> {
     try {
-      const stored = await this.provider.pickOpen();
+      const provider = this.resolveProvider(providerId);
+      if (!provider) return false;
+      const stored = await provider.pickOpen();
       if (!stored) return false;
-      await this.openStoredDocument(stored);
+      await this.openStoredDocument(provider.id, stored);
       return true;
     } catch (error) {
       this.reportError(error);
@@ -100,7 +107,14 @@ export class DocumentStorageController {
     }
   }
 
-  async openStoredDocument(stored: StoredDocument): Promise<void> {
+  async openStoredDocument(
+    providerId: string,
+    stored: StoredDocument,
+  ): Promise<void> {
+    const provider = this.providers.get(providerId);
+    if (!provider) {
+      throw new Error(`Storage provider "${providerId}" is not available.`);
+    }
     const doc = createDocumentFromCotab(stored.data);
     this.replacingDocument = true;
     try {
@@ -114,7 +128,7 @@ export class DocumentStorageController {
     this.publish({
       status: "saved",
       binding: {
-        providerId: this.provider.id,
+        providerId: provider.id,
         locator: stored.locator,
         displayName: stored.displayName,
         revision: stored.revision,
@@ -125,8 +139,8 @@ export class DocumentStorageController {
     });
   }
 
-  async save(): Promise<boolean> {
-    if (!this.storage.binding) return this.saveAs();
+  async save(providerId?: string): Promise<boolean> {
+    if (!this.storage.binding) return this.saveAs(providerId);
     if (this.storage.status === "saved") return true;
     if (this.savePromise) {
       await this.savePromise;
@@ -139,11 +153,15 @@ export class DocumentStorageController {
     return this.isSaved();
   }
 
-  async saveAs(): Promise<boolean> {
+  async saveAs(providerId?: string): Promise<boolean> {
     try {
-      const target = await this.provider.pickSave(this.suggestedName());
+      const provider = this.resolveProvider(
+        providerId ?? this.storage.binding?.providerId,
+      );
+      if (!provider) return false;
+      const target = await provider.pickSave(this.suggestedName());
       if (!target) return false;
-      return this.saveToTarget(target);
+      return this.saveToTarget(provider, target);
     } catch (error) {
       this.reportError(error);
       return false;
@@ -205,9 +223,12 @@ export class DocumentStorageController {
     this.attachDocument(null, false);
   }
 
-  private async saveToTarget(target: DocumentStorageTarget): Promise<boolean> {
+  private async saveToTarget(
+    provider: DocumentStorageProvider,
+    target: DocumentStorageTarget,
+  ): Promise<boolean> {
     const binding: EditorStorageBinding = {
-      providerId: this.provider.id,
+      providerId: provider.id,
       locator: target.locator,
       displayName: target.displayName,
       revision: target.revision,
@@ -217,6 +238,14 @@ export class DocumentStorageController {
   }
 
   private async writeToBinding(binding: EditorStorageBinding): Promise<void> {
+    const provider = this.providers.get(binding.providerId);
+    if (!provider) {
+      this.publish({
+        status: "error",
+        error: `Storage provider "${binding.providerId}" is not available.`,
+      });
+      return;
+    }
     const doc = this.getDocument();
     if (!doc) {
       this.publish({ status: "error", error: "No document is open." });
@@ -231,7 +260,7 @@ export class DocumentStorageController {
       hasConflict: false,
     });
     try {
-      const result = await this.provider.write(
+      const result = await provider.write(
         binding.locator,
         encodeCotabDocument(doc, this.now()),
         binding.revision,
@@ -340,6 +369,26 @@ export class DocumentStorageController {
     const value = typeof title === "string" ? title.trim() : "";
     const safe = value.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_") || "untitled";
     return `${safe}.cotab`;
+  }
+
+  private resolveProvider(
+    providerId?: string,
+  ): DocumentStorageProvider | null {
+    if (providerId) {
+      const provider = this.providers.get(providerId);
+      if (provider) return provider;
+      this.reportError(`Storage provider "${providerId}" is not available.`);
+      return null;
+    }
+
+    const available = this.providers.list();
+    if (available.length === 1) return available[0];
+    this.reportError(
+      available.length === 0
+        ? "No storage provider is available."
+        : "Choose a storage provider.",
+    );
+    return null;
   }
 
   private publish(patch: Partial<EditorStorageState>): void {

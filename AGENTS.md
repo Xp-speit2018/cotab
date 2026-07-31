@@ -76,6 +76,10 @@ Providers implement conditional reads and writes using opaque revisions: local
 disk uses content hashes and WebDAV uses ETags. A revision mismatch must fail
 before replacement and offer explicit Yjs merge, save-copy, or overwrite
 behavior. Do not infer identity from path, document ID, or equal content.
+Providers are registered by ID. A bound Save must resolve
+`EditorEngine.storage.binding.providerId`; changing providers is an explicit
+Save As operation that replaces the binding. An unbound Save with more than one
+available provider must ask the user to choose one.
 
 ## UI Interaction Harness
 

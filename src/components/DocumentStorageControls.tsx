@@ -39,7 +39,9 @@ const STATUS_COLORS: Record<EditorStorageStatus, string> = {
 
 export function DocumentStorageControls() {
   const { t } = useTranslation();
-  const available = useEditorStore((state) => state.storage.available);
+  const available = useEditorStore(
+    (state) => state.storage.availableProviderIds.length > 0,
+  );
   const status = useEditorStore((state) => state.storage.status);
   const binding = useEditorStore((state) => state.storage.binding);
   const autoSaveEnabled = useEditorStore(

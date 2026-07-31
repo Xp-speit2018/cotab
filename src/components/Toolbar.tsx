@@ -86,7 +86,9 @@ export function Toolbar() {
   const canRedo = useEditorStore((s) => s.canRedo);
   const transportModifier = useShortcutStore((s) => s.transportModifier);
   const transportModifierActive = useTransportModifierActive();
-  const storageAvailable = useEditorStore((state) => state.storage.available);
+  const localDiskStorageAvailable = useEditorStore((state) =>
+    state.storage.availableProviderIds.includes("local-disk")
+  );
   const storageStatus = useEditorStore((state) => state.storage.status);
 
   const isPlaying = playerState === "playing";
@@ -125,7 +127,7 @@ export function Toolbar() {
   };
 
   const handleOpenFile = async () => {
-    if (!storageAvailable) {
+    if (!localDiskStorageAvailable) {
       fileInputRef.current?.click();
       return;
     }
@@ -139,7 +141,10 @@ export function Toolbar() {
       const picked = await pickLocalScoreFile();
       if (!picked) return;
       if (picked.kind === "cotab") {
-        await documentStorageController.openStoredDocument(picked.document);
+        await documentStorageController.openStoredDocument(
+          "local-disk",
+          picked.document,
+        );
       } else {
         documentStorageController.unbind();
         loadFile(picked.document.data);

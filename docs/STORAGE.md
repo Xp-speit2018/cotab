@@ -14,6 +14,12 @@ The runtime binding and save status are local Editor State. Their single source
 of truth is `EditorEngine.storage`; the storage controller owns operations and
 timers, not a second state snapshot.
 
+Providers are registered by stable ID. A binding's `providerId` routes every
+later Save and auto-save; a transient UI selection must never redirect a bound
+document. Save As may target another provider and replaces the binding only
+after the new provider successfully writes the document. An unbound Save may
+skip provider selection only when exactly one provider is available.
+
 `.cotab` files contain versioned metadata followed by a full Yjs update.
 Providers perform conditional writes against a revision. The local disk
 provider uses a content hash; WebDAV will project the same contract onto ETags.

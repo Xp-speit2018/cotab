@@ -6,6 +6,7 @@ import { createEditorStorageState } from "@/core/editor/storage";
 import { FILE_IMPORT_ORIGIN } from "@/core/origins";
 import { createDocumentFromCotab, encodeCotabDocument } from "../cotab-file";
 import { DocumentStorageController } from "../document-storage-controller";
+import { DocumentStorageProviderRegistry } from "../provider-registry";
 import type {
   DocumentStorageProvider,
   DocumentStorageTarget,
@@ -19,11 +20,15 @@ interface MemoryObject {
 }
 
 class MemoryStorageProvider implements DocumentStorageProvider {
-  readonly id = "memory";
+  readonly name: string;
   readonly objects = new Map<string, MemoryObject>();
   readonly writes: string[] = [];
   nextOpen: string | null = null;
   nextSave: DocumentStorageTarget | null = null;
+
+  constructor(readonly id = "memory") {
+    this.name = id;
+  }
 
   async pickOpen(): Promise<StoredDocument | null> {
     return this.nextOpen ? this.read(this.nextOpen) : null;
@@ -82,7 +87,7 @@ function createScore(title = "Score"): Y.Doc {
 }
 
 function createController(
-  provider: MemoryStorageProvider,
+  provider: MemoryStorageProvider | readonly MemoryStorageProvider[],
   initialDocument: Y.Doc,
 ): {
   controller: DocumentStorageController;
@@ -90,9 +95,11 @@ function createController(
   getStorageState: () => ReturnType<typeof createEditorStorageState>;
 } {
   let document = initialDocument;
-  let storage = createEditorStorageState(true);
+  const providerList = Array.isArray(provider) ? provider : [provider];
+  const providers = new DocumentStorageProviderRegistry(providerList);
+  let storage = createEditorStorageState(providers.ids());
   const controller = new DocumentStorageController({
-    provider,
+    providers,
     getDocument: () => document,
     replaceDocument: (next) => {
       document = next;
@@ -121,6 +128,52 @@ afterEach(() => {
 });
 
 describe("DocumentStorageController", () => {
+  it("routes Save As and later saves through the binding provider", async () => {
+    const local = new MemoryStorageProvider("local");
+    const cloud = new MemoryStorageProvider("cloud");
+    const session = createController([local, cloud], createScore());
+    cloud.nextSave = cloud.target("cloud-score.cotab");
+
+    expect(await session.controller.saveAs("cloud")).toBe(true);
+    expect(session.getStorageState().binding).toMatchObject({
+      providerId: "cloud",
+      locator: "cloud-score.cotab",
+    });
+    expect(cloud.writes).toEqual(["cloud-score.cotab"]);
+    expect(local.writes).toEqual([]);
+
+    session.getDocument().getMap("score").set("artist", "Cloud edit");
+    expect(await session.controller.save()).toBe(true);
+    expect(cloud.writes).toEqual([
+      "cloud-score.cotab",
+      "cloud-score.cotab",
+    ]);
+    expect(local.writes).toEqual([]);
+
+    local.nextSave = local.target("local-copy.cotab");
+    expect(await session.controller.saveAs("local")).toBe(true);
+    expect(session.getStorageState().binding).toMatchObject({
+      providerId: "local",
+      locator: "local-copy.cotab",
+    });
+    expect(local.writes).toEqual(["local-copy.cotab"]);
+  });
+
+  it("requires an explicit provider when an unbound document has several", async () => {
+    const local = new MemoryStorageProvider("local");
+    const cloud = new MemoryStorageProvider("cloud");
+    const session = createController([local, cloud], createScore());
+
+    expect(await session.controller.save()).toBe(false);
+    expect(session.getStorageState()).toMatchObject({
+      status: "error",
+      binding: null,
+      error: "Choose a storage provider.",
+    });
+    expect(local.writes).toEqual([]);
+    expect(cloud.writes).toEqual([]);
+  });
+
   it("treats a file import as a new unbound clean baseline", async () => {
     const provider = new MemoryStorageProvider();
     const session = createController(provider, createScore());
@@ -198,8 +251,8 @@ describe("DocumentStorageController", () => {
     const stored = await provider.read("shared.cotab");
     const left = createController(provider, createScore());
     const right = createController(provider, createScore());
-    await left.controller.openStoredDocument(stored!);
-    await right.controller.openStoredDocument(stored!);
+    await left.controller.openStoredDocument(provider.id, stored!);
+    await right.controller.openStoredDocument(provider.id, stored!);
 
     left.getDocument().getMap("score").set("artist", "Left");
     right.getDocument().getMap("score").set("album", "Right");

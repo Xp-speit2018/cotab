@@ -7,40 +7,40 @@ import { registerAppAction } from "./registry";
 declare global {
   interface AppActionMap {
     "storage.save": {
-      args: void;
+      args: { providerId?: string } | undefined;
       result: Promise<boolean>;
     };
     "storage.saveAs": {
-      args: void;
+      args: { providerId?: string } | undefined;
       result: Promise<boolean>;
     };
   }
 }
 
 export function registerStorageActions(): void {
-  registerAppAction<void, Promise<boolean>>({
+  registerAppAction<{ providerId?: string } | undefined, Promise<boolean>>({
     id: "storage.save",
     domain: "storage",
     i18nKey: "shortcuts.file.save",
     category: "file",
-    execute: () => {
-      if (!engine.storage.available) {
+    execute: (args) => {
+      if (engine.storage.availableProviderIds.length === 0) {
         return Promise.resolve(false);
       }
-      return documentStorageController.save();
+      return documentStorageController.save(args?.providerId);
     },
   });
 
-  registerAppAction<void, Promise<boolean>>({
+  registerAppAction<{ providerId?: string } | undefined, Promise<boolean>>({
     id: "storage.saveAs",
     domain: "storage",
     i18nKey: "shortcuts.file.saveAs",
     category: "file",
-    execute: () => {
-      if (!engine.storage.available) {
+    execute: (args) => {
+      if (engine.storage.availableProviderIds.length === 0) {
         return Promise.resolve(false);
       }
-      return documentStorageController.saveAs();
+      return documentStorageController.saveAs(args?.providerId);
     },
   });
 }

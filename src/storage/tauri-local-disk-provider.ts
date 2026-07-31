@@ -67,6 +67,7 @@ export async function pickLocalScoreFile(): Promise<PickedLocalScoreFile | null>
 
 export class TauriLocalDiskProvider implements DocumentStorageProvider {
   readonly id = "local-disk";
+  readonly name = "Local disk";
 
   async pickOpen(): Promise<StoredDocument | null> {
     const picked = await pickLocalScoreFile();

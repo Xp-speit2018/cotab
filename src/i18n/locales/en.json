@@ -1,6 +1,13 @@
 {
   "toolbar": {
     "fileMenu": "File",
+    "editMenu": "Edit",
+    "layoutMenu": "Layout",
+    "preferencesMenu": "Preferences",
+    "helpMenu": "Help",
+    "aboutCoTab": "About CoTab",
+    "aboutDescription": "A collaborative tablature editor powered by alphaTab.",
+    "projectHome": "Project on GitHub",
     "openFile": "Open file",
     "noFileLoaded": "No file loaded",
     "stop": "Stop",
@@ -44,7 +51,6 @@
     "language": "Language",
     "undo": "Undo",
     "redo": "Redo",
-    "exportFile": "Export GP file",
     "saveDocument": "Save CoTab document",
     "saveDocumentAs": "Save As",
     "autoSave": "Auto-save"

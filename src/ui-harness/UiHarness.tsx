@@ -20,6 +20,11 @@ import {
 } from "@/components/NoteEditorSidebar/primitives";
 import { PresetCombobox } from "@/components/NoteEditorSidebar/PresetCombobox";
 import { PasswordInput } from "@/components/ui/password-input";
+import {
+  AppMenu,
+  AppMenuItem,
+  AppMenuSeparator,
+} from "@/components/ui/app-menu";
 
 function ContractSection({
   title,
@@ -199,6 +204,27 @@ function SensitiveInputSample() {
   );
 }
 
+function AppMenuSample() {
+  const [enabled, setEnabled] = useState(true);
+
+  return (
+    <div className="px-3">
+      <AppMenu label="Layout">
+        <AppMenuItem onSelect={() => {}}>Horizontal layout</AppMenuItem>
+        <AppMenuItem onSelect={() => {}}>Parchment layout</AppMenuItem>
+        <AppMenuSeparator />
+        <AppMenuItem
+          checked={enabled}
+          closeOnSelect={false}
+          onSelect={() => setEnabled((value) => !value)}
+        >
+          Edit score layout
+        </AppMenuItem>
+      </AppMenu>
+    </div>
+  );
+}
+
 export default function UiHarness() {
   return (
     <main
@@ -230,6 +256,9 @@ export default function UiHarness() {
           </ContractSection>
           <ContractSection title="Sensitive input">
             <SensitiveInputSample />
+          </ContractSection>
+          <ContractSection title="Application menu">
+            <AppMenuSample />
           </ContractSection>
         </div>
         <div className="min-w-0 border-y border-border py-4">

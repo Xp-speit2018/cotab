@@ -45,6 +45,19 @@ async function waitForLayout(page, layout, alphaTabLayoutMode) {
   }
 }
 
+async function openLayoutMenu(page) {
+  const trigger = page.getByTestId("layout-menu");
+  if (await trigger.getAttribute("aria-expanded") !== "true") {
+    await trigger.click();
+  }
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+}
+
+async function chooseLayout(page, name) {
+  await openLayoutMenu(page);
+  await page.getByRole("menuitemcheckbox", { name }).click();
+}
+
 async function waitForSystemRows(page, expectedRows) {
   await expect
     .poll(() =>
@@ -80,7 +93,8 @@ async function selectBar(page, barIndex) {
 }
 
 async function openLayoutSettings(page) {
-  await page.getByRole("button", { name: "Layout settings" }).click();
+  await openLayoutMenu(page);
+  await page.getByRole("menuitem", { name: "Layout settings" }).click();
   await expect(page.getByText("Score layout", { exact: true })).toBeVisible();
 }
 
@@ -231,7 +245,7 @@ for (const layout of ["horizontal", "parchment"]) {
     await page.goto("/");
     await waitForScore(page);
     if (layout === "parchment") {
-      await page.getByRole("button", { name: "Parchment layout" }).click();
+      await chooseLayout(page, "Parchment layout");
       await waitForLayout(page, "parchment", 2);
     }
 
@@ -323,7 +337,7 @@ for (const layout of ["horizontal", "parchment"]) {
     await page.goto("/");
     await waitForScore(page);
     if (layout === "parchment") {
-      await page.getByRole("button", { name: "Parchment layout" }).click();
+      await chooseLayout(page, "Parchment layout");
       await waitForLayout(page, "parchment", 2);
     }
 
@@ -564,7 +578,7 @@ test("Debug panel controls snap grid visibility", async ({ page }) => {
   await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(1);
   await expect(page.locator(".at-snap-grid-marker").first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await chooseLayout(page, "Parchment layout");
   await waitForLayout(page, "parchment", 2);
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(1);
@@ -592,7 +606,7 @@ test("switches layouts and snaps a later parchment system locally", async ({
   );
   expect(horizontalRows).toBe(1);
 
-  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await chooseLayout(page, "Parchment layout");
   await waitForLayout(page, "parchment", 2);
   await expect
     .poll(() =>
@@ -816,7 +830,7 @@ test("switches layouts and snaps a later parchment system locally", async ({
   });
   await expectEditorOverlays(page);
 
-  await page.getByRole("button", { name: "Horizontal layout" }).click();
+  await chooseLayout(page, "Horizontal layout");
   await waitForLayout(page, "horizontal", 1);
   await expect
     .poll(() =>
@@ -845,9 +859,12 @@ test("switches layouts and snaps a later parchment system locally", async ({
     .toEqual(editorStateBeforeSwitch);
   await expectEditorOverlays(page);
 
-  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await chooseLayout(page, "Parchment layout");
   await waitForLayout(page, "parchment", 2);
-  await page.locator('select[title="Zoom"]').selectOption("1.25");
+  await openLayoutMenu(page);
+  const zoomSlider = page.getByRole("slider");
+  await zoomSlider.focus();
+  for (let step = 0; step < 5; step++) await zoomSlider.press("ArrowRight");
   await expect
     .poll(() =>
       page.evaluate(() => ({
@@ -874,7 +891,7 @@ test("edits parchment rows with Guitar Pro-style layout controls", async ({
   await page.goto("/");
   await waitForScore(page);
 
-  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await chooseLayout(page, "Parchment layout");
   await waitForLayout(page, "parchment", 2);
   await waitForSystemRows(page, [[0, 3], [4, 7]]);
 
@@ -894,7 +911,10 @@ test("edits parchment rows with Guitar Pro-style layout controls", async ({
   await page.getByRole("button", { name: "Merge rows after bar 2" }).click();
   await waitForSystemRows(page, [[0, 3], [4, 7]]);
 
-  await page.getByRole("button", { name: "Edit score layout" }).click();
+  await openLayoutMenu(page);
+  await page.getByRole("menuitemcheckbox", {
+    name: "Edit score layout",
+  }).click();
   await expect(
     page.getByRole("button", {
       name: "Move one bar from the next row into row 1",
@@ -957,7 +977,7 @@ test("uses track layout when only one track is visible", async ({ page }) => {
   await page.goto("/");
   await waitForScore(page);
 
-  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await chooseLayout(page, "Parchment layout");
   await waitForLayout(page, "parchment", 2);
   const originalScoreLayout = await page.evaluate(() => ({
     defaultSystemsLayout: window.__ALPHATAB_API__.score.defaultSystemsLayout,

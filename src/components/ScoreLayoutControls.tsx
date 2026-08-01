@@ -35,7 +35,11 @@ import { usePlayerStore } from "@/stores/render-store";
 
 type ReflowScope = "score" | "current";
 
-export function ScoreLayoutToolbarControls() {
+export function ScoreLayoutToolbarControls({
+  variant = "toolbar",
+}: {
+  variant?: "toolbar" | "menu";
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [barsPerSystem, setBarsPerSystem] = useState(4);
@@ -89,16 +93,22 @@ export function ScoreLayoutToolbarControls() {
     setOpen(false);
   };
 
+  const menuVariant = variant === "menu";
+
   return (
-    <div className="flex items-center gap-0.5">
+    <div className={menuVariant ? "space-y-0.5" : "flex items-center gap-0.5"}>
       <Tooltip>
         <TooltipTrigger asChild>
           <span className="inline-flex">
             <Button
               variant={layoutDesignMode ? "secondary" : "ghost"}
-              size="icon"
+              size={menuVariant ? "sm" : "icon"}
+              role={menuVariant ? "menuitemcheckbox" : undefined}
+              aria-checked={menuVariant ? layoutDesignMode : undefined}
               className={cn(
-                "h-8 w-8",
+                menuVariant
+                  ? "h-8 w-full justify-start gap-2 font-normal"
+                  : "h-8 w-8",
                 layoutDesignMode
                   && "bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-300",
               )}
@@ -114,6 +124,7 @@ export function ScoreLayoutToolbarControls() {
               }
             >
               <PencilRuler className="h-4 w-4" />
+              {menuVariant && <span>{t("toolbar.layout.designMode")}</span>}
             </Button>
           </span>
         </TooltipTrigger>
@@ -130,12 +141,19 @@ export function ScoreLayoutToolbarControls() {
             <PopoverTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
-                className="h-8 w-8"
+                size={menuVariant ? "sm" : "icon"}
+                role={menuVariant ? "menuitem" : undefined}
+                className={cn(
+                  "h-8",
+                  menuVariant
+                    ? "w-full justify-start gap-2 font-normal"
+                    : "w-8",
+                )}
                 disabled={!isParchment}
                 aria-label={t("toolbar.layout.settings")}
               >
                 <SlidersHorizontal className="h-4 w-4" />
+                {menuVariant && <span>{t("toolbar.layout.settings")}</span>}
               </Button>
             </PopoverTrigger>
           </TooltipTrigger>

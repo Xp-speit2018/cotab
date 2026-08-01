@@ -390,6 +390,43 @@ test("Web Open presents storage sources and supported local score formats", asyn
   await expect(page.getByRole("button", { name: /Examples/ })).toBeVisible();
 });
 
+test("titlebar exposes application menus and centers transport with collaboration", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await waitForScore(page);
+
+  for (const menu of [
+    "file-menu",
+    "edit-menu",
+    "layout-menu",
+    "preferences-menu",
+    "help-menu",
+  ]) {
+    await expect(page.getByTestId(menu)).toBeVisible();
+  }
+
+  const centering = await page.getByTestId("transport-collaboration-center")
+    .evaluate((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        groupCenter: rect.left + rect.width / 2,
+        viewportCenter: window.innerWidth / 2,
+      };
+    });
+  expect(Math.abs(centering.groupCenter - centering.viewportCenter)).toBeLessThan(1);
+  await expect(page.getByRole("button", { name: "Collaborate" })).toBeVisible();
+
+  await page.getByTestId("preferences-menu").click();
+  await expect(page.getByRole("menuitem", { name: "Keyboard Shortcuts" }))
+    .toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByTestId("help-menu").click();
+  await page.getByRole("menuitem", { name: "About CoTab" }).click();
+  await expect(page.getByRole("dialog")).toContainText("CoTab");
+});
+
 test("Save As exports GP7 by suffix without creating a storage binding", async ({
   page,
 }) => {
@@ -1000,7 +1037,7 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
   );
 
   await openFileMenu(page);
-  const autoSave = page.getByRole("checkbox", { name: "Auto-save" });
+  const autoSave = page.getByRole("menuitemcheckbox", { name: "Auto-save" });
   await expect(autoSave).toBeChecked();
   await autoSave.click();
   await expect(autoSave).not.toBeChecked();

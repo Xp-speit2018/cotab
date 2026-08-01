@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   AlertTriangle,
   Check,
-  ChevronDown,
   CloudOff,
   FileText,
   FolderOpen,
@@ -13,17 +11,11 @@ import {
 } from "lucide-react";
 
 import { executeAppAction } from "@/app-actions";
-import { Button } from "@/components/ui/button";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  AppMenu,
+  AppMenuItem,
+  AppMenuSeparator,
+} from "@/components/ui/app-menu";
 import type { EditorStorageStatus } from "@/core/engine";
 import { cn } from "@/lib/utils";
 import { formatShortcut } from "@/shortcuts";
@@ -51,7 +43,6 @@ export function FileMenu({ onOpen }: FileMenuProps) {
     (state) => state.storage.autoSaveEnabled,
   );
   const error = useEditorStore((state) => state.storage.error);
-  const [open, setOpen] = useState(false);
 
   const statusLabel = t(`storage.status.${status}`);
   const menuLabel = `${t("toolbar.fileMenu")} · ${statusLabel}`;
@@ -62,46 +53,31 @@ export function FileMenu({ onOpen }: FileMenuProps) {
         .find((provider) => provider.id === binding.providerId)
     : null;
 
-  const run = (command: () => unknown | Promise<unknown>) => {
-    setOpen(false);
-    void command();
-  };
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              className="relative h-8 gap-1.5 px-2"
-              aria-label={menuLabel}
-              data-testid="file-menu"
-            >
-              {isSaving
-                ? <Loader2 className="h-4 w-4 animate-spin" />
-                : status === "conflict" || status === "error"
-                  ? <AlertTriangle className="h-4 w-4 text-destructive" />
-                  : <FileText className="h-4 w-4" />}
-              <span className="text-xs">{t("toolbar.fileMenu")}</span>
-              <ChevronDown className="h-3 w-3 text-muted-foreground" />
-              <span
-                className={cn(
-                  "absolute left-5 top-0.5 h-1.5 w-1.5 rounded-full",
-                  STATUS_COLORS[status],
-                )}
-              />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-80">
-          <p>{menuLabel}</p>
-          {error && <p className="mt-1 opacity-80">{error}</p>}
-        </TooltipContent>
-      </Tooltip>
-
-      <PopoverContent align="start" className="w-72 p-1.5" role="menu">
+    <AppMenu
+      label={t("toolbar.fileMenu")}
+      ariaLabel={menuLabel}
+      icon={isSaving
+        ? Loader2
+        : status === "conflict" || status === "error"
+          ? AlertTriangle
+          : FileText}
+      iconClassName={cn(
+        isSaving && "animate-spin",
+        (status === "conflict" || status === "error") && "text-destructive",
+      )}
+      title={error ? `${menuLabel}: ${error}` : menuLabel}
+      testId="file-menu"
+      contentClassName="w-72"
+      indicator={(
+        <span
+          className={cn(
+            "absolute left-4 top-0.5 h-1.5 w-1.5 rounded-full",
+            STATUS_COLORS[status],
+          )}
+        />
+      )}
+    >
         <div className="px-2 py-1.5">
           <div className="flex items-center gap-2 text-xs font-medium">
             {status === "saved" ? (
@@ -132,65 +108,38 @@ export function FileMenu({ onOpen }: FileMenuProps) {
           {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
         </div>
 
-        <div className="my-1 border-t" />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          role="menuitem"
-          className="w-full justify-start font-normal"
-          onClick={() => run(onOpen)}
-        >
-          <FolderOpen className="h-3.5 w-3.5" />
-          <span>{t("toolbar.openFile")}</span>
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          role="menuitem"
-          className="w-full justify-start font-normal"
+        <AppMenuSeparator />
+        <AppMenuItem icon={FolderOpen} onSelect={onOpen}>
+          {t("toolbar.openFile")}
+        </AppMenuItem>
+        <AppMenuItem
+          icon={Save}
           disabled={isSaving}
-          data-testid="storage-save"
-          onClick={() => run(() =>
-            executeAppAction("storage.save", undefined, { t }))}
+          testId="storage-save"
+          shortcut={formatShortcut("Mod+S")}
+          onSelect={() => executeAppAction("storage.save", undefined, { t })}
         >
-          <Save className="h-3.5 w-3.5" />
-          <span>{t("toolbar.saveDocument")}</span>
-          <span className="ml-auto text-[10px] text-muted-foreground">
-            {formatShortcut("Mod+S")}
-          </span>
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          role="menuitem"
-          className="w-full justify-start font-normal"
+          {t("toolbar.saveDocument")}
+        </AppMenuItem>
+        <AppMenuItem
+          icon={SaveAll}
           disabled={isSaving}
-          onClick={() => run(() =>
-            executeAppAction("storage.saveAs", undefined, { t }))}
+          shortcut={formatShortcut("Mod+Shift+S")}
+          onSelect={() => executeAppAction("storage.saveAs", undefined, { t })}
         >
-          <SaveAll className="h-3.5 w-3.5" />
-          <span>{t("toolbar.saveDocumentAs")}</span>
-          <span className="ml-auto text-[10px] text-muted-foreground">
-            {formatShortcut("Mod+Shift+S")}
-          </span>
-        </Button>
+          {t("toolbar.saveDocumentAs")}
+        </AppMenuItem>
 
-        <div className="my-1 border-t" />
-        <label className="flex h-8 items-center gap-2 rounded-md px-2 text-sm hover:bg-accent">
-          <input
-            type="checkbox"
-            checked={autoSaveEnabled}
-            onChange={(event) =>
-              documentStorageController.setAutoSaveEnabled(
-                event.currentTarget.checked,
-              )}
-          />
-          <span>{t("toolbar.autoSave")}</span>
-        </label>
-      </PopoverContent>
-    </Popover>
+        <AppMenuSeparator />
+        <AppMenuItem
+          checked={autoSaveEnabled}
+          closeOnSelect={false}
+          onSelect={() => documentStorageController.setAutoSaveEnabled(
+            !autoSaveEnabled,
+          )}
+        >
+          {t("toolbar.autoSave")}
+        </AppMenuItem>
+    </AppMenu>
   );
 }

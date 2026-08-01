@@ -52,7 +52,11 @@ function isInputFocused(): boolean {
   if (!el) return false;
   const tag = el.tagName.toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select") return true;
-  return (el as HTMLElement).isContentEditable === true;
+  const htmlElement = el as HTMLElement;
+  if (htmlElement.isContentEditable) return true;
+  return htmlElement.matches(
+    '[role="slider"], [role="spinbutton"], [role="combobox"], [role="textbox"]',
+  );
 }
 
 function handleKeyDown(e: KeyboardEvent): void {

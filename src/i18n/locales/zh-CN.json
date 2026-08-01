@@ -1,6 +1,13 @@
 {
   "toolbar": {
     "fileMenu": "文件",
+    "editMenu": "编辑",
+    "layoutMenu": "布局",
+    "preferencesMenu": "偏好设置",
+    "helpMenu": "帮助",
+    "aboutCoTab": "关于 CoTab",
+    "aboutDescription": "基于 alphaTab 的协作式吉他谱编辑器。",
+    "projectHome": "GitHub 项目主页",
     "openFile": "打开文件",
     "noFileLoaded": "未加载文件",
     "stop": "停止",
@@ -44,7 +51,6 @@
     "language": "语言",
     "undo": "撤销",
     "redo": "重做",
-    "exportFile": "导出 GP 文件",
     "saveDocument": "保存 CoTab 文档",
     "saveDocumentAs": "另存为",
     "autoSave": "自动保存"

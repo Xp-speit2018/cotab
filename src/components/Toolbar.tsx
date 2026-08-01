@@ -3,17 +3,9 @@ import {
   Play,
   Pause,
   Square,
-  Globe,
-  Check,
-  Keyboard,
   Users,
-  Undo2,
-  Redo2,
   Repeat2,
-  GalleryHorizontal,
-  Rows3,
 } from "lucide-react";
-import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -21,11 +13,6 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
 import { executeAppAction } from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
 import {
@@ -36,8 +23,13 @@ import {
 } from "@/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import { cn } from "@/lib/utils";
-import { ScoreLayoutToolbarControls } from "@/components/ScoreLayoutControls";
 import { FileMenu } from "@/components/FileMenu";
+import {
+  EditMenu,
+  HelpMenu,
+  LayoutMenu,
+  PreferencesMenu,
+} from "@/components/ToolbarMenus";
 import {
   documentStorageController,
   documentStorageProviders,
@@ -56,18 +48,14 @@ function formatTime(ms: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-const ZOOM_OPTIONS = [0.25, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2];
-
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function Toolbar() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   const isPlayerReady = usePlayerStore((s) => s.isPlayerReady);
   const playerState = usePlayerStore((s) => s.playerState);
   const isLooping = usePlayerStore((s) => s.isLooping);
-  const zoom = usePlayerStore((s) => s.zoom);
-  const scoreLayout = usePlayerStore((s) => s.scoreLayout);
   const scoreTitle = usePlayerStore((s) => s.scoreTitle);
   const scoreArtist = usePlayerStore((s) => s.scoreArtist);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
@@ -77,8 +65,6 @@ export function Toolbar() {
   const transport = usePlayerStore((s) => s.transport);
   const tabConnected = useEditorStore((s) => s.connected);
   const tabRoomCode = useEditorStore((s) => s.roomCode);
-  const canUndo = useEditorStore((s) => s.canUndo);
-  const canRedo = useEditorStore((s) => s.canRedo);
   const transportModifier = useShortcutStore((s) => s.transportModifier);
   const transportModifierActive = useTransportModifierActive();
   const storageStatus = useEditorStore((state) => state.storage.status);
@@ -164,65 +150,27 @@ export function Toolbar() {
   };
 
   return (
-    <div className="flex h-12 w-full min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b bg-card px-2">
-      {/* ── Left: File + Song Info ──────────────────────────────────────── */}
-      <FileMenu
-        onOpen={handleOpenFile}
-      />
-
-      <div className="ml-1 mr-2 min-w-0 flex-shrink overflow-hidden">
-        <span className="block truncate text-sm font-medium leading-tight">
-          {scoreTitle || t("toolbar.noFileLoaded")}
-        </span>
-        {scoreArtist && (
-          <span className="block truncate text-xs text-muted-foreground leading-tight">
-            {scoreArtist}
-          </span>
-        )}
+    <div className="grid h-12 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b bg-card px-2">
+      <div className="flex min-w-0 items-center overflow-hidden">
+        <div className="flex shrink-0 items-center">
+          <FileMenu onOpen={handleOpenFile} />
+          <EditMenu />
+          <LayoutMenu />
+          <PreferencesMenu />
+          <HelpMenu />
+        </div>
       </div>
 
-      <Separator orientation="vertical" className="mx-1 h-6" />
-
-      {/* ── Undo / Redo ────────────────────────────────────────────────── */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            disabled={!canUndo}
-            onClick={() => executeAppAction("document.undo", {}, { t })}
-          >
-            <Undo2 className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("toolbar.undo")}</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            disabled={!canRedo}
-            onClick={() => executeAppAction("document.redo", {}, { t })}
-          >
-            <Redo2 className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("toolbar.redo")}</TooltipContent>
-      </Tooltip>
-
-      <Separator orientation="vertical" className="mx-1 h-6" />
-
-      {/* ── Center: Playback Controls ──────────────────────────────────── */}
       <div
-        className={cn(
-          "flex items-center gap-1 rounded-md px-0.5 transition-colors",
-          transportModifierActive && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-        )}
+        className="flex min-w-0 items-center justify-center gap-1"
+        data-testid="transport-collaboration-center"
       >
+        <div
+          className={cn(
+            "flex items-center gap-1 rounded-md px-0.5 transition-colors",
+            transportModifierActive && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+          )}
+        >
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -288,7 +236,7 @@ export function Toolbar() {
           <TooltipContent>{t("toolbar.loop")}</TooltipContent>
         </Tooltip>
 
-        <div className="flex min-w-[250px] max-w-[38vw] flex-col justify-center gap-0.5 px-1 leading-tight">
+        <div className="flex min-w-[220px] max-w-[28vw] flex-col justify-center gap-0.5 px-1 leading-tight">
           <div className="flex min-w-0 items-center gap-1">
             <span
               className={cn(
@@ -318,78 +266,9 @@ export function Toolbar() {
               : t("toolbar.loading", { percent: Math.floor(soundFontProgress * 100) })}
           </span>
         </div>
-      </div>
-
-      <Separator orientation="vertical" className="mx-1 h-6" />
-
-      {/* ── Right: Zoom, Language ───────────────────────────────────────── */}
-      <div className="flex items-center gap-1">
-        <div
-          role="group"
-          aria-label={t("toolbar.scoreLayout")}
-          className="flex h-8 items-center rounded-md border p-0.5"
-        >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={scoreLayout === "horizontal" ? "secondary" : "ghost"}
-                size="icon"
-                className="h-6 w-7"
-                aria-label={t("toolbar.horizontalLayout")}
-                aria-pressed={scoreLayout === "horizontal"}
-                onClick={() =>
-                  executeAppAction(
-                    "view.setScoreLayout",
-                    { layout: "horizontal" },
-                    { t },
-                  )
-                }
-              >
-                <GalleryHorizontal className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("toolbar.horizontalLayout")}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={scoreLayout === "parchment" ? "secondary" : "ghost"}
-                size="icon"
-                className="h-6 w-7"
-                aria-label={t("toolbar.parchmentLayout")}
-                aria-pressed={scoreLayout === "parchment"}
-                onClick={() =>
-                  executeAppAction(
-                    "view.setScoreLayout",
-                    { layout: "parchment" },
-                    { t },
-                  )
-                }
-              >
-                <Rows3 className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("toolbar.parchmentLayout")}</TooltipContent>
-          </Tooltip>
         </div>
 
-        <ScoreLayoutToolbarControls />
-
-        {/* Zoom */}
-        <select
-          value={zoom}
-          onChange={(e) => usePlayerStore.getState().setZoom(Number(e.target.value))}
-          className="h-8 rounded-md border bg-transparent px-2 text-xs"
-          title={t("toolbar.zoom")}
-        >
-          {ZOOM_OPTIONS.map((z) => (
-            <option key={z} value={z}>
-              {z}x
-            </option>
-          ))}
-        </select>
-
-        {/* Collaborate */}
+        <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -412,64 +291,17 @@ export function Toolbar() {
           </TooltipTrigger>
           <TooltipContent>{t("room.button")}</TooltipContent>
         </Tooltip>
+      </div>
 
-        {/* Keyboard Shortcuts */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={() => useShortcutStore.getState().setConfigPanelOpen(true)}
-            >
-              <Keyboard className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("shortcuts.title")}</TooltipContent>
-        </Tooltip>
-
-        {/* Language Selector */}
-        <Popover>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <PopoverTrigger
-                className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
-                title={t("toolbar.language")}
-              >
-                <Globe className="h-4 w-4" />
-              </PopoverTrigger>
-            </TooltipTrigger>
-            <TooltipContent>{t("toolbar.language")}</TooltipContent>
-          </Tooltip>
-
-          <PopoverContent align="end" className="w-44 p-1">
-            <div className="px-2 py-1.5">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">
-                {t("toolbar.language")}
-              </span>
-            </div>
-            {Object.entries(SUPPORTED_LANGUAGES).map(([code, label]) => {
-              const isActive = i18n.language === code;
-              return (
-                <button
-                  key={code}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent",
-                    !isActive && "text-muted-foreground",
-                  )}
-                  onClick={() => i18n.changeLanguage(code)}
-                >
-                  {isActive ? (
-                    <Check className="h-3.5 w-3.5" />
-                  ) : (
-                    <span className="h-3.5 w-3.5" />
-                  )}
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </PopoverContent>
-        </Popover>
+      <div className="min-w-0 overflow-hidden px-2 text-right">
+        <span className="block truncate text-sm font-medium leading-tight">
+          {scoreTitle || t("toolbar.noFileLoaded")}
+        </span>
+        {scoreArtist && (
+          <span className="block truncate text-xs leading-tight text-muted-foreground">
+            {scoreArtist}
+          </span>
+        )}
       </div>
     </div>
   );

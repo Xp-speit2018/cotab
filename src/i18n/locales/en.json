@@ -105,6 +105,7 @@
       "server": "Server URL",
       "username": "Username",
       "password": "Password",
+      "revealPassword": "Hold to show password",
       "documentPath": "Document path",
       "invalidServer": "Enter a valid HTTP or HTTPS WebDAV server URL.",
       "pathRequired": "Enter a document path.",

@@ -34,6 +34,25 @@ describe.skipIf(!baseUrl)("WebDAV container integration", () => {
     });
   });
 
+  it("allows local browser preview origins", async () => {
+    const origin = "http://localhost:4173";
+    const response = await fetch(locator, {
+      method: "OPTIONS",
+      headers: {
+        Origin: origin,
+        "Access-Control-Request-Method": "PUT",
+        "Access-Control-Request-Headers":
+          "authorization,content-type,if-none-match",
+      },
+    });
+
+    expect(response.ok).toBe(true);
+    expect(response.headers.get("access-control-allow-origin")).toBe(origin);
+    expect(response.headers.get("access-control-allow-methods")).toContain("PUT");
+    expect(response.headers.get("access-control-allow-headers"))
+      .toContain("If-None-Match");
+  });
+
   it("creates, reads, updates, and detects a stale ETag", async () => {
     const target = await provider.pickSave(path);
     expect(target).toMatchObject({ locator, revision: null });

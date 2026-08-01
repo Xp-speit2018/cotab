@@ -19,6 +19,7 @@ import {
   ToggleBtn,
 } from "@/components/NoteEditorSidebar/primitives";
 import { PresetCombobox } from "@/components/NoteEditorSidebar/PresetCombobox";
+import { PasswordInput } from "@/components/ui/password-input";
 
 function ContractSection({
   title,
@@ -177,6 +178,27 @@ function CommandSamples() {
   );
 }
 
+function SensitiveInputSample() {
+  const [password, setPassword] = useState("cotab-dev");
+
+  return (
+    <div className="px-3">
+      <label
+        htmlFor="harness-password"
+        className="block text-[11px] text-muted-foreground"
+      >
+        Password
+      </label>
+      <PasswordInput
+        id="harness-password"
+        value={password}
+        revealLabel="Hold to show password"
+        onChange={(event) => setPassword(event.currentTarget.value)}
+      />
+    </div>
+  );
+}
+
 export default function UiHarness() {
   return (
     <main
@@ -205,6 +227,9 @@ export default function UiHarness() {
           </ContractSection>
           <ContractSection title="Commands">
             <CommandSamples />
+          </ContractSection>
+          <ContractSection title="Sensitive input">
+            <SensitiveInputSample />
           </ContractSection>
         </div>
         <div className="min-w-0 border-y border-border py-4">

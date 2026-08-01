@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   Tooltip,
   TooltipContent,
@@ -229,18 +230,18 @@ export function WebDavLocationDialog() {
                 onChange={(event) => setUsername(event.currentTarget.value)}
               />
             </label>
-            <label htmlFor={passwordId} className="block space-y-1">
-              <span className="text-xs font-medium">
+            <div className="space-y-1">
+              <label htmlFor={passwordId} className="block text-xs font-medium">
                 {t("storage.webdav.password")}
-              </span>
-              <Input
+              </label>
+              <PasswordInput
                 id={passwordId}
-                type="password"
                 value={password}
                 autoComplete="current-password"
+                revealLabel={t("storage.webdav.revealPassword")}
                 onChange={(event) => setPassword(event.currentTarget.value)}
               />
-            </label>
+            </div>
           </div>
           <label htmlFor={pathId} className="block space-y-1">
             <span className="text-xs font-medium">

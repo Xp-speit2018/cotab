@@ -105,6 +105,7 @@
       "server": "服务器 URL",
       "username": "用户名",
       "password": "密码",
+      "revealPassword": "按住以显示密码",
       "documentPath": "文档路径",
       "invalidServer": "请输入有效的 HTTP 或 HTTPS WebDAV 服务器 URL。",
       "pathRequired": "请输入文档路径。",

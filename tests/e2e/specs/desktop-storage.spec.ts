@@ -588,7 +588,17 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
     "dav.example.test/files/alice",
   );
   await page.getByLabel("Username").fill("alice");
-  await page.getByLabel("Password").fill("not-persisted");
+  const password = page.getByLabel("Password", { exact: true });
+  await password.fill("not-persisted");
+  await expect(password).toHaveAttribute("type", "password");
+  const revealPassword = page.getByRole("button", {
+    name: "Hold to show password",
+  });
+  await revealPassword.hover();
+  await page.mouse.down();
+  await expect(password).toHaveAttribute("type", "text");
+  await page.mouse.up();
+  await expect(password).toHaveAttribute("type", "password");
   await expect(page.getByLabel("Document path")).toHaveValue(
     "Taijin Kyofusho.cotab",
   );
@@ -657,7 +667,8 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
     "https://dav.example.test/files/alice/",
   );
   await expect(page.getByLabel("Username")).toHaveValue("alice");
-  await expect(page.getByLabel("Password")).toHaveValue("not-persisted");
+  await expect(page.getByLabel("Password", { exact: true }))
+    .toHaveValue("not-persisted");
   await page.getByLabel("Document path").fill("Taijin Kyofusho.cotab");
   await page.getByRole("button", { name: "Open", exact: true }).click();
 

@@ -100,7 +100,10 @@ export function DocumentStorageControls() {
             />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>{saveLabel}</TooltipContent>
+        <TooltipContent className="max-w-80">
+          <p>{saveLabel}</p>
+          {error && <p className="mt-1 opacity-80">{error}</p>}
+        </TooltipContent>
       </Tooltip>
 
       <Popover open={menuOpen} onOpenChange={setMenuOpen}>

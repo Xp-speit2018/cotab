@@ -21,6 +21,7 @@ import {
   createWebDavConnection,
   finishWebDavLocation,
   getWebDavConnection,
+  normalizeWebDavBaseUrl,
   removeWebDavProfile,
   useWebDavLocation,
   type WebDavConnectionConfig,
@@ -80,14 +81,7 @@ export function WebDavLocationDialog() {
     }
     let normalizedBaseUrl: string;
     try {
-      const url = new URL(baseUrl.trim());
-      if (url.protocol !== "http:" && url.protocol !== "https:") {
-        throw new Error();
-      }
-      if (!url.pathname.endsWith("/")) url.pathname += "/";
-      url.search = "";
-      url.hash = "";
-      normalizedBaseUrl = url.href;
+      normalizedBaseUrl = normalizeWebDavBaseUrl(baseUrl).href;
     } catch {
       setError(t("storage.webdav.invalidServer"));
       return;
@@ -216,9 +210,9 @@ export function WebDavLocationDialog() {
             </span>
             <Input
               id={baseUrlId}
-              type="url"
+              inputMode="url"
               value={baseUrl}
-              placeholder="https://cloud.example.com/dav/files/user/"
+              placeholder="localhost:6065 or https://cloud.example.com/dav/"
               autoComplete="url"
               onChange={(event) => setBaseUrl(event.currentTarget.value)}
             />

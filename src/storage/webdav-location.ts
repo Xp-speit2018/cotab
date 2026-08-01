@@ -40,6 +40,33 @@ const LEGACY_CONFIG_KEY = "cotab:webdav-config-v1";
 const runtimePasswords = new Map<string, string>();
 let activeConfig: WebDavConnectionConfig | null = null;
 
+function isLoopbackHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+  return normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    normalized === "[::1]" ||
+    normalized === "::1" ||
+    /^127(?:\.\d{1,3}){3}$/.test(normalized);
+}
+
+export function normalizeWebDavBaseUrl(value: string): URL {
+  const trimmed = value.trim();
+  if (!trimmed) throw new Error("WebDAV server URL is required.");
+
+  const hasExplicitScheme = /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed);
+  const url = new URL(hasExplicitScheme ? trimmed : `https://${trimmed}`);
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("WebDAV server URL must use HTTP or HTTPS.");
+  }
+  if (!hasExplicitScheme && isLoopbackHost(url.hostname)) {
+    url.protocol = "http:";
+  }
+  if (!url.pathname.endsWith("/")) url.pathname += "/";
+  url.search = "";
+  url.hash = "";
+  return url;
+}
+
 export const useWebDavLocation = create<WebDavLocationState>((set) => ({
   profiles: [],
   request: null,

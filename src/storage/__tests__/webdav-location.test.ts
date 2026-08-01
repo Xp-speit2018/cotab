@@ -2,11 +2,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   finishWebDavLocation,
+  normalizeWebDavBaseUrl,
   removeWebDavProfile,
   resetWebDavLocationForTests,
   selectWebDavLocation,
   useWebDavLocation,
 } from "../webdav-location";
+
+describe("normalizeWebDavBaseUrl", () => {
+  it.each([
+    ["localhost:6065", "http://localhost:6065/"],
+    ["127.0.0.1:6065/dav", "http://127.0.0.1:6065/dav/"],
+    ["dav.example.test/files", "https://dav.example.test/files/"],
+    ["http://dav.example.test/root", "http://dav.example.test/root/"],
+  ])("normalizes %s", (input, expected) => {
+    expect(normalizeWebDavBaseUrl(input).href).toBe(expected);
+  });
+
+  it("rejects explicit non-HTTP protocols", () => {
+    expect(() => normalizeWebDavBaseUrl("ftp://dav.example.test"))
+      .toThrow("HTTP or HTTPS");
+  });
+});
 
 class MemoryStorage {
   private readonly values = new Map<string, string>();

@@ -585,7 +585,7 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
   ).toBeVisible();
   await page.getByLabel("Connection name").fill("Alice cloud");
   await page.getByLabel("Server URL").fill(
-    "https://dav.example.test/files/alice",
+    "dav.example.test/files/alice",
   );
   await page.getByLabel("Username").fill("alice");
   await page.getByLabel("Password").fill("not-persisted");

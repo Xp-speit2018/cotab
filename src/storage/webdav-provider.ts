@@ -6,6 +6,7 @@ import type {
 } from "./types";
 import {
   getActiveWebDavConfig,
+  normalizeWebDavBaseUrl,
   selectWebDavLocation,
   type WebDavConnectionConfig,
   type WebDavLocation,
@@ -32,21 +33,10 @@ export interface WebDavStorageProviderOptions {
   readonly getConfig?: () => WebDavConnectionConfig | null;
 }
 
-function normalizeBaseUrl(value: string): URL {
-  const url = new URL(value);
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("WebDAV server URL must use HTTP or HTTPS.");
-  }
-  if (!url.pathname.endsWith("/")) url.pathname += "/";
-  url.search = "";
-  url.hash = "";
-  return url;
-}
-
 function resolveLocation(config: WebDavConnectionConfig, path: string): URL {
   const relativePath = path.trim().replace(/^\/+/, "");
   if (!relativePath) throw new Error("WebDAV document path is required.");
-  const base = normalizeBaseUrl(config.baseUrl);
+  const base = normalizeWebDavBaseUrl(config.baseUrl);
   const url = new URL(relativePath, base);
   if (
     url.origin !== base.origin ||
@@ -61,7 +51,7 @@ function assertLocator(
   config: WebDavConnectionConfig,
   locator: string,
 ): URL {
-  const base = normalizeBaseUrl(config.baseUrl);
+  const base = normalizeWebDavBaseUrl(config.baseUrl);
   const url = new URL(locator);
   if (
     url.origin !== base.origin ||

@@ -33,6 +33,14 @@ export interface WebDavStorageProviderOptions {
   readonly getConfig?: () => WebDavConnectionConfig | null;
 }
 
+export interface WebDavDirectoryEntry {
+  readonly kind: "directory" | "file";
+  readonly name: string;
+  readonly path: string;
+  readonly size: number | null;
+  readonly lastModified: string | null;
+}
+
 function resolveLocation(config: WebDavConnectionConfig, path: string): URL {
   const relativePath = path.trim().replace(/^\/+/, "");
   if (!relativePath) throw new Error("WebDAV document path is required.");
@@ -87,6 +95,91 @@ function responseError(operation: string, response: Response): Error {
   return new Error(
     `WebDAV ${operation} failed (${response.status} ${response.statusText}).`,
   );
+}
+
+function elementsByLocalName(
+  root: Document | Element,
+  localName: string,
+): readonly Element[] {
+  return Array.from(root.getElementsByTagName("*"))
+    .filter((element) => element.localName === localName);
+}
+
+function childText(element: Element, localName: string): string | null {
+  const child = elementsByLocalName(element, localName)[0];
+  return child?.textContent?.trim() || null;
+}
+
+function relativeWebDavPath(root: URL, entry: URL): string | null {
+  if (entry.origin !== root.origin || !entry.pathname.startsWith(root.pathname)) {
+    return null;
+  }
+  const encoded = entry.pathname.slice(root.pathname.length);
+  try {
+    return encoded
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => decodeURIComponent(segment))
+      .join("/") + (entry.pathname.endsWith("/") && encoded ? "/" : "");
+  } catch {
+    return null;
+  }
+}
+
+export function parseWebDavDirectory(
+  xml: string,
+  root: URL,
+  directory: URL,
+): readonly WebDavDirectoryEntry[] {
+  const document = new DOMParser().parseFromString(xml.trim(), "application/xml");
+  if (elementsByLocalName(document, "parsererror").length > 0) {
+    throw new Error("WebDAV server returned an invalid directory response.");
+  }
+
+  const directoryPath = directory.pathname.endsWith("/")
+    ? directory.pathname
+    : `${directory.pathname}/`;
+  const entries = elementsByLocalName(document, "response")
+    .flatMap<WebDavDirectoryEntry>((response) => {
+      const href = childText(response, "href");
+      if (!href) return [];
+      const entryUrl = new URL(href, directory);
+      const entryPath = relativeWebDavPath(root, entryUrl);
+      if (entryPath === null) return [];
+      const normalizedEntryPath = entryUrl.pathname.endsWith("/")
+        ? entryUrl.pathname
+        : `${entryUrl.pathname}/`;
+      if (normalizedEntryPath === directoryPath) return [];
+
+      const resourceType = elementsByLocalName(response, "resourcetype")[0];
+      const isDirectory = resourceType
+        ? elementsByLocalName(resourceType, "collection").length > 0
+        : false;
+      const pathSegments = entryUrl.pathname.split("/").filter(Boolean);
+      const fallbackName = pathSegments.at(-1) ?? entryPath;
+      const displayName = childText(response, "displayname");
+      let name: string;
+      try {
+        name = displayName || decodeURIComponent(fallbackName);
+      } catch {
+        name = displayName || fallbackName;
+      }
+      const rawSize = childText(response, "getcontentlength");
+      const size = rawSize === null ? null : Number(rawSize);
+
+      return [{
+        kind: isDirectory ? "directory" : "file",
+        name,
+        path: entryPath,
+        size: Number.isFinite(size) ? size : null,
+        lastModified: childText(response, "getlastmodified"),
+      }];
+    });
+
+  return entries.sort((left, right) => {
+    if (left.kind !== right.kind) return left.kind === "directory" ? -1 : 1;
+    return left.name.localeCompare(right.name, undefined, { sensitivity: "base" });
+  });
 }
 
 function requiredEtag(response: Response): string {
@@ -145,6 +238,40 @@ function defaultWebDavFetch(
     return nativeWebDavFetch(input, init);
   }
   return fetch(input, init);
+}
+
+export async function listWebDavDirectory(
+  config: WebDavConnectionConfig,
+  directoryPath = "",
+  request: Fetch = defaultWebDavFetch,
+): Promise<readonly WebDavDirectoryEntry[]> {
+  const root = normalizeWebDavBaseUrl(config.baseUrl);
+  const relativePath = directoryPath.trim().replace(/^\/+/, "");
+  const directory = new URL(relativePath, root);
+  if (
+    directory.origin !== root.origin ||
+    !directory.pathname.startsWith(root.pathname)
+  ) {
+    throw new Error("WebDAV directory must stay within the configured server root.");
+  }
+  if (!directory.pathname.endsWith("/")) directory.pathname += "/";
+
+  const response = await request(directory, {
+    method: "PROPFIND",
+    headers: requestHeaders(config, {
+      Depth: "1",
+      "Content-Type": "application/xml; charset=utf-8",
+    }),
+    body: new TextEncoder().encode(
+      '<?xml version="1.0" encoding="utf-8"?>' +
+      '<d:propfind xmlns:d="DAV:"><d:prop>' +
+      "<d:displayname/><d:resourcetype/><d:getcontentlength/>" +
+      "<d:getlastmodified/>" +
+      "</d:prop></d:propfind>",
+    ),
+  });
+  if (!response.ok) throw responseError("PROPFIND", response);
+  return parseWebDavDirectory(await response.text(), root, directory);
 }
 
 export class WebDavStorageProvider implements DocumentStorageProvider {

@@ -1,6 +1,10 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { Window } from "happy-dom";
 
-import { WebDavStorageProvider } from "../webdav-provider";
+import {
+  listWebDavDirectory,
+  WebDavStorageProvider,
+} from "../webdav-provider";
 import type { WebDavConnectionConfig } from "../webdav-location";
 
 const baseUrl = process.env.COTAB_WEBDAV_INTEGRATION_URL;
@@ -27,11 +31,16 @@ describe.skipIf(!baseUrl)("WebDAV container integration", () => {
   });
   const locator = new URL(path, config.baseUrl).href;
 
+  beforeAll(() => {
+    vi.stubGlobal("DOMParser", new Window().DOMParser);
+  });
+
   afterAll(async () => {
     await fetch(locator, {
       method: "DELETE",
       headers: { Authorization: authorization() },
     });
+    vi.unstubAllGlobals();
   });
 
   it("allows local browser preview origins", async () => {
@@ -42,7 +51,7 @@ describe.skipIf(!baseUrl)("WebDAV container integration", () => {
         Origin: origin,
         "Access-Control-Request-Method": "PUT",
         "Access-Control-Request-Headers":
-          "authorization,content-type,if-none-match",
+          "authorization,content-type,depth,if-none-match",
       },
     });
 
@@ -51,6 +60,8 @@ describe.skipIf(!baseUrl)("WebDAV container integration", () => {
     expect(response.headers.get("access-control-allow-methods")).toContain("PUT");
     expect(response.headers.get("access-control-allow-headers"))
       .toContain("If-None-Match");
+    expect(response.headers.get("access-control-allow-headers"))
+      .toContain("Depth");
   });
 
   it("creates, reads, updates, and detects a stale ETag", async () => {
@@ -62,6 +73,11 @@ describe.skipIf(!baseUrl)("WebDAV container integration", () => {
     expect(created.kind).toBe("saved");
     if (created.kind !== "saved") throw new Error("Expected initial save");
     expect(created.revision).toBeTruthy();
+
+    const entries = await listWebDavDirectory(config);
+    expect(entries).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "file", path }),
+    ]));
 
     const stored = await provider.read(locator);
     expect(stored?.data).toEqual(initial);

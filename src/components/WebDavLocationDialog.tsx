@@ -1,5 +1,17 @@
-import { useEffect, useId, useState } from "react";
-import { Check, Cloud, FolderOpen, Plus, Save, Trash2 } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import {
+  Check,
+  ChevronLeft,
+  Cloud,
+  FileMusic,
+  Folder,
+  FolderOpen,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -27,6 +39,10 @@ import {
   useWebDavLocation,
   type WebDavConnectionConfig,
 } from "@/storage/webdav-location";
+import {
+  listWebDavDirectory,
+  type WebDavDirectoryEntry,
+} from "@/storage/webdav-provider";
 
 function normalizeDocumentPath(path: string, operation: "open" | "save"): string {
   const trimmed = path.trim().replace(/^\/+/, "");
@@ -34,6 +50,19 @@ function normalizeDocumentPath(path: string, operation: "open" | "save"): string
     return `${trimmed}.cotab`;
   }
   return trimmed;
+}
+
+function parentDirectory(path: string): string {
+  const segments = path.replace(/\/$/, "").split("/").filter(Boolean);
+  segments.pop();
+  return segments.length > 0 ? `${segments.join("/")}/` : "";
+}
+
+function formatFileSize(size: number | null): string | null {
+  if (size === null) return null;
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function WebDavLocationDialog() {
@@ -52,6 +81,19 @@ export function WebDavLocationDialog() {
   const [password, setPassword] = useState("");
   const [path, setPath] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [directory, setDirectory] = useState("");
+  const [entries, setEntries] = useState<readonly WebDavDirectoryEntry[]>([]);
+  const [browseStatus, setBrowseStatus] = useState<
+    "idle" | "loading" | "ready"
+  >("idle");
+  const browseRequestRef = useRef(0);
+
+  const resetBrowser = () => {
+    browseRequestRef.current += 1;
+    setDirectory("");
+    setEntries([]);
+    setBrowseStatus("idle");
+  };
 
   useEffect(() => {
     if (!request) return;
@@ -61,6 +103,7 @@ export function WebDavLocationDialog() {
     setUsername(request.initialConfig.username);
     setPassword(request.initialConfig.password);
     setPath(request.suggestedName);
+    resetBrowser();
     setError(null);
   }, [request]);
 
@@ -70,7 +113,43 @@ export function WebDavLocationDialog() {
     setBaseUrl(config.baseUrl);
     setUsername(config.username);
     setPassword(config.password);
+    resetBrowser();
     setError(null);
+  };
+
+  const browse = async (nextDirectory: string) => {
+    let normalizedBaseUrl: string;
+    try {
+      normalizedBaseUrl = normalizeWebDavBaseUrl(baseUrl).href;
+    } catch {
+      setError(t("storage.webdav.invalidServer"));
+      return;
+    }
+
+    const browseRequest = ++browseRequestRef.current;
+    setBrowseStatus("loading");
+    setError(null);
+    try {
+      const nextEntries = await listWebDavDirectory({
+        id: profileId,
+        name: name.trim() || "WebDAV",
+        baseUrl: normalizedBaseUrl,
+        username: username.trim(),
+        password,
+      }, nextDirectory);
+      if (browseRequest !== browseRequestRef.current) return;
+      setDirectory(nextDirectory);
+      setEntries(nextEntries);
+      setBrowseStatus("ready");
+    } catch (browseError) {
+      if (browseRequest !== browseRequestRef.current) return;
+      setBrowseStatus("idle");
+      setError(
+        browseError instanceof Error
+          ? browseError.message
+          : t("storage.webdav.browseFailed"),
+      );
+    }
   };
 
   const submit = () => {
@@ -113,7 +192,7 @@ export function WebDavLocationDialog() {
         if (!open) finishWebDavLocation(null);
       }}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Cloud className="h-4 w-4" />
@@ -215,7 +294,10 @@ export function WebDavLocationDialog() {
               value={baseUrl}
               placeholder="localhost:6065 or https://cloud.example.com/dav/"
               autoComplete="url"
-              onChange={(event) => setBaseUrl(event.currentTarget.value)}
+              onChange={(event) => {
+                setBaseUrl(event.currentTarget.value);
+                resetBrowser();
+              }}
             />
           </label>
           <div className="grid grid-cols-2 gap-3">
@@ -227,7 +309,10 @@ export function WebDavLocationDialog() {
                 id={usernameId}
                 value={username}
                 autoComplete="username"
-                onChange={(event) => setUsername(event.currentTarget.value)}
+                onChange={(event) => {
+                  setUsername(event.currentTarget.value);
+                  resetBrowser();
+                }}
               />
             </label>
             <div className="space-y-1">
@@ -239,10 +324,121 @@ export function WebDavLocationDialog() {
                 value={password}
                 autoComplete="current-password"
                 revealLabel={t("storage.webdav.revealPassword")}
-                onChange={(event) => setPassword(event.currentTarget.value)}
+                onChange={(event) => {
+                  setPassword(event.currentTarget.value);
+                  resetBrowser();
+                }}
               />
             </div>
           </div>
+          {request?.operation === "open" && (
+            <div className="space-y-1">
+              {browseStatus === "idle" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => void browse("")}
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  {t("storage.webdav.browseServer")}
+                </Button>
+              ) : (
+                <div className="overflow-hidden rounded-md border">
+                  <div className="flex h-9 items-center gap-1 border-b px-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={!directory || browseStatus === "loading"}
+                          aria-label={t("storage.webdav.parentDirectory")}
+                          onClick={() => void browse(parentDirectory(directory))}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {t("storage.webdav.parentDirectory")}
+                      </TooltipContent>
+                    </Tooltip>
+                    <span className="min-w-0 flex-1 truncate px-1 text-xs text-muted-foreground">
+                      /{directory}
+                    </span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={browseStatus === "loading"}
+                          aria-label={t("storage.webdav.refreshDirectory")}
+                          onClick={() => void browse(directory)}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {t("storage.webdav.refreshDirectory")}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <div
+                    className="max-h-44 min-h-20 overflow-y-auto p-1"
+                    aria-label={t("storage.webdav.remoteFiles")}
+                  >
+                    {browseStatus === "loading" ? (
+                      <div className="flex h-20 items-center justify-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        {t("storage.webdav.loadingDirectory")}
+                      </div>
+                    ) : entries.length === 0 ? (
+                      <div className="flex h-20 items-center justify-center text-xs text-muted-foreground">
+                        {t("storage.webdav.emptyDirectory")}
+                      </div>
+                    ) : entries.map((entry) => {
+                      const isDirectory = entry.kind === "directory";
+                      const supported = isDirectory ||
+                        entry.name.toLowerCase().endsWith(".cotab");
+                      const size = formatFileSize(entry.size);
+                      return (
+                        <Button
+                          key={`${entry.kind}:${entry.path}`}
+                          type="button"
+                          variant={path === entry.path ? "secondary" : "ghost"}
+                          className="h-9 w-full justify-start gap-2 px-2"
+                          disabled={!supported}
+                          onClick={() => {
+                            if (isDirectory) {
+                              void browse(entry.path);
+                            } else {
+                              setPath(entry.path);
+                              setError(null);
+                            }
+                          }}
+                        >
+                          {isDirectory
+                            ? <Folder className="h-4 w-4 shrink-0" />
+                            : <FileMusic className="h-4 w-4 shrink-0" />}
+                          <span className="min-w-0 flex-1 truncate text-left">
+                            {entry.name}
+                          </span>
+                          {size && (
+                            <span className="shrink-0 text-[10px] font-normal text-muted-foreground">
+                              {size}
+                            </span>
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           <label htmlFor={pathId} className="block space-y-1">
             <span className="text-xs font-medium">
               {t("storage.webdav.documentPath")}

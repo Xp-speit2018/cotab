@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
+import { Window } from "happy-dom";
 
-import { WebDavStorageProvider } from "../webdav-provider";
+import {
+  listWebDavDirectory,
+  WebDavStorageProvider,
+} from "../webdav-provider";
 import type {
   WebDavConnectionConfig,
   WebDavLocation,
@@ -19,6 +23,62 @@ function location(path: string): WebDavLocation {
 }
 
 describe("WebDavStorageProvider", () => {
+  it("lists WebDAV folders and files with PROPFIND", async () => {
+    const window = new Window();
+    vi.stubGlobal("DOMParser", window.DOMParser);
+    const request = vi.fn().mockResolvedValue(new Response(`
+      <?xml version="1.0" encoding="utf-8"?>
+      <d:multistatus xmlns:d="DAV:">
+        <d:response>
+          <d:href>/files/alice/Scores/</d:href>
+          <d:propstat><d:prop><d:displayname>Scores</d:displayname>
+            <d:resourcetype><d:collection/></d:resourcetype>
+          </d:prop></d:propstat>
+        </d:response>
+        <d:response>
+          <d:href>/files/alice/Scores/song.cotab</d:href>
+          <d:propstat><d:prop><d:displayname>song.cotab</d:displayname>
+            <d:resourcetype/><d:getcontentlength>2048</d:getcontentlength>
+            <d:getlastmodified>Sat, 01 Aug 2026 12:00:00 GMT</d:getlastmodified>
+          </d:prop></d:propstat>
+        </d:response>
+        <d:response>
+          <d:href>/files/alice/Scores/Archive/</d:href>
+          <d:propstat><d:prop><d:displayname>Archive</d:displayname>
+            <d:resourcetype><d:collection/></d:resourcetype>
+          </d:prop></d:propstat>
+        </d:response>
+      </d:multistatus>
+    `, { status: 207 }));
+
+    await expect(listWebDavDirectory(config, "Scores/", request)).resolves
+      .toEqual([
+        {
+          kind: "directory",
+          name: "Archive",
+          path: "Scores/Archive/",
+          size: null,
+          lastModified: null,
+        },
+        {
+          kind: "file",
+          name: "song.cotab",
+          path: "Scores/song.cotab",
+          size: 2048,
+          lastModified: "Sat, 01 Aug 2026 12:00:00 GMT",
+        },
+      ]);
+
+    expect(request).toHaveBeenCalledWith(
+      new URL("https://dav.example.test/files/alice/Scores/"),
+      expect.objectContaining({ method: "PROPFIND" }),
+    );
+    const headers = new Headers(request.mock.calls[0][1]?.headers);
+    expect(headers.get("depth")).toBe("1");
+    expect(headers.get("authorization")).toMatch(/^Basic /);
+    vi.unstubAllGlobals();
+  });
+
   it("creates a new document with If-None-Match and keeps the returned ETag", async () => {
     const request = vi.fn()
       .mockResolvedValueOnce(new Response(null, { status: 404 }))

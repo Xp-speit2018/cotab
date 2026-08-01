@@ -276,6 +276,43 @@ async function installWebDavMock(page: Page) {
             })
           : new Response(null, { status: 404 });
       }
+      if (method === "PROPFIND") {
+        const body = data ? `
+          <?xml version="1.0" encoding="utf-8"?>
+          <d:multistatus xmlns:d="DAV:">
+            <d:response>
+              <d:href>/files/alice/</d:href>
+              <d:propstat><d:prop>
+                <d:displayname>alice</d:displayname>
+                <d:resourcetype><d:collection/></d:resourcetype>
+              </d:prop></d:propstat>
+            </d:response>
+            <d:response>
+              <d:href>/files/alice/Taijin%20Kyofusho.cotab</d:href>
+              <d:propstat><d:prop>
+                <d:displayname>Taijin Kyofusho.cotab</d:displayname>
+                <d:resourcetype/>
+                <d:getcontentlength>${data.byteLength}</d:getcontentlength>
+              </d:prop></d:propstat>
+            </d:response>
+          </d:multistatus>
+        ` : `
+          <?xml version="1.0" encoding="utf-8"?>
+          <d:multistatus xmlns:d="DAV:">
+            <d:response>
+              <d:href>/files/alice/</d:href>
+              <d:propstat><d:prop>
+                <d:displayname>alice</d:displayname>
+                <d:resourcetype><d:collection/></d:resourcetype>
+              </d:prop></d:propstat>
+            </d:response>
+          </d:multistatus>
+        `;
+        return new Response(body, {
+          status: 207,
+          headers: { "Content-Type": "application/xml" },
+        });
+      }
       if (method === "PUT") {
         const currentEtag = data ? `"dav-${revision}"` : null;
         const conditionMatches = currentEtag === null
@@ -669,7 +706,13 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
   await expect(page.getByLabel("Username")).toHaveValue("alice");
   await expect(page.getByLabel("Password", { exact: true }))
     .toHaveValue("not-persisted");
-  await page.getByLabel("Document path").fill("Taijin Kyofusho.cotab");
+  await page.getByRole("button", { name: "Browse server" }).click();
+  await expect(page.getByLabel("WebDAV files")).toBeVisible();
+  await page.getByRole("button", {
+    name: /Taijin Kyofusho\.cotab/,
+  }).click();
+  await expect(page.getByLabel("Document path"))
+    .toHaveValue("Taijin Kyofusho.cotab");
   await page.getByRole("button", { name: "Open", exact: true }).click();
 
   await expect.poll(() => page.evaluate(async () => {

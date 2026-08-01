@@ -56,6 +56,7 @@
   "storage": {
     "document": "document",
     "discardUnsaved": "Discard unsaved local changes and open another file?",
+    "unsupportedScoreFile": "Choose a CoTab or supported Guitar Pro file.",
     "status": {
       "unbound": "Not saved",
       "saved": "Saved",
@@ -70,19 +71,15 @@
       "description": "Choose a storage provider for this document.",
       "local-disk": {
         "name": "Local disk",
-        "description": "A file on this device"
+        "description": "CoTab and Guitar Pro files on this device"
       },
       "local-file": {
         "name": "Local file",
-        "description": "A CoTab document on this device"
+        "description": "CoTab and Guitar Pro files on this device"
       },
       "webdav": {
         "name": "WebDAV",
         "description": "A file on a WebDAV server"
-      },
-      "browser-file": {
-        "name": "Import Guitar Pro",
-        "description": "Import a Guitar Pro file"
       },
       "demo-library": {
         "name": "Examples",

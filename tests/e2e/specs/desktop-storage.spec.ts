@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 interface StorageMockWindow extends Window {
   __ALPHATAB_API__?: {
-    score?: { tracks?: unknown[] };
+    score?: { tracks?: unknown[]; title?: string };
   };
   __COTAB_STORAGE_MOCK__?: {
     picks: number;
@@ -343,15 +343,72 @@ async function waitForScore(page: Page) {
   );
 }
 
-test("Web Open keeps imports and read-only examples alongside WebDAV", async ({ page }) => {
+test("Web Open presents storage sources and supported local score formats", async ({ page }) => {
   await page.goto("/");
   await waitForScore(page);
 
   await page.getByRole("button", { name: "Open file" }).click();
   await expect(page.getByRole("heading", { name: "Open from" })).toBeVisible();
   await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Import Guitar Pro/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Local file/ })).toContainText(
+    "CoTab and Guitar Pro files",
+  );
+  await expect(page.getByRole("button", { name: /Import Guitar Pro/ }))
+    .toHaveCount(0);
   await expect(page.getByRole("button", { name: /Examples/ })).toBeVisible();
+});
+
+test("Web local file source imports Guitar Pro without creating a binding", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    Object.assign(window, {
+      showOpenFilePicker: async (options: unknown) => {
+        (window as unknown as { __COTAB_OPEN_TYPES__: unknown })
+          .__COTAB_OPEN_TYPES__ = options;
+        const response = await fetch("/demos/Taijin_kyofusho.gp");
+        const file = new File(
+          [await response.arrayBuffer()],
+          "Taijin_kyofusho.gp",
+        );
+        return [{
+          kind: "file",
+          name: file.name,
+          getFile: async () => file,
+        }];
+      },
+    });
+  });
+  await page.goto("/");
+  await waitForScore(page);
+  await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    engine.getDoc()?.getMap("score").set("title", "Unsaved replacement");
+  });
+
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Open file" }).click();
+  await page.getByRole("button", { name: /Local file/ }).click();
+
+  await expect.poll(() => page.evaluate(async () => {
+    const runtime = window as unknown as StorageMockWindow;
+    const { engine } = await import("/src/core/engine.ts");
+    return {
+      title: runtime.__ALPHATAB_API__?.score?.title,
+      storage: engine.storage,
+    };
+  })).toMatchObject({
+    title: "Taijin Kyofusho",
+    storage: { binding: null, status: "unbound" },
+  });
+  expect(await page.evaluate(() => {
+    const options = (window as unknown as {
+      __COTAB_OPEN_TYPES__: {
+        types?: Array<{ accept?: Record<string, string[]> }>;
+      };
+    }).__COTAB_OPEN_TYPES__;
+    return Object.values(options.types?.[0]?.accept ?? {}).flat();
+  })).toEqual([".cotab", ".gp", ".gp3", ".gp4", ".gp5", ".gpx"]);
 });
 
 test("Bundled demos open read-only and Save chooses a writable provider", async ({
@@ -454,7 +511,8 @@ test("Web local files remain bound across Save As, Save, and Open", async ({
   page.once("dialog", (dialog) => void dialog.accept());
   await page.getByRole("button", { name: "Open file" }).click();
   await expect(page.getByRole("button", { name: /Local file/ })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Import Guitar Pro/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Import Guitar Pro/ }))
+    .toHaveCount(0);
   await page.getByRole("button", { name: /Local file/ }).click();
 
   await expect.poll(() => page.evaluate(async () => {

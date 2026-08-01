@@ -76,6 +76,31 @@ describe("BrowserLocalFileProvider", () => {
     });
   });
 
+  it("offers CoTab and Guitar Pro formats from one open picker", async () => {
+    const handle = fakeHandle("song.gp");
+    const showOpenFilePicker = vi.fn(async () => [handle]);
+    vi.stubGlobal("window", {
+      showOpenFilePicker,
+      showSaveFilePicker: vi.fn(async () => handle),
+    });
+
+    const provider = new BrowserLocalFileProvider();
+    await expect(provider.pickOpen()).resolves.toMatchObject({
+      displayName: "song.gp",
+    });
+
+    const options = showOpenFilePicker.mock.calls[0][0];
+    const extensions = Object.values(options.types?.[0]?.accept ?? {}).flat();
+    expect(extensions).toEqual([
+      ".cotab",
+      ".gp",
+      ".gp3",
+      ".gp4",
+      ".gp5",
+      ".gpx",
+    ]);
+  });
+
   it("reports an external file change as a conflict", async () => {
     const handle = fakeHandle();
     vi.stubGlobal("window", {

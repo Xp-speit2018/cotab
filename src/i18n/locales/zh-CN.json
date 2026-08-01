@@ -56,6 +56,7 @@
   "storage": {
     "document": "文档",
     "discardUnsaved": "放弃尚未保存的本地修改并打开其他文件？",
+    "unsupportedScoreFile": "请选择 CoTab 或受支持的 Guitar Pro 文件。",
     "status": {
       "unbound": "尚未保存",
       "saved": "已保存",
@@ -70,19 +71,15 @@
       "description": "为此文档选择存储服务。",
       "local-disk": {
         "name": "本地磁盘",
-        "description": "此设备上的文件"
+        "description": "此设备上的 CoTab 与 Guitar Pro 文件"
       },
       "local-file": {
         "name": "本地文件",
-        "description": "此设备上的 CoTab 文档"
+        "description": "此设备上的 CoTab 与 Guitar Pro 文件"
       },
       "webdav": {
         "name": "WebDAV",
         "description": "WebDAV 服务器上的文件"
-      },
-      "browser-file": {
-        "name": "导入 Guitar Pro",
-        "description": "导入 Guitar Pro 文件"
       },
       "demo-library": {
         "name": "示例乐谱",

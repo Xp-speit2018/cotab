@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import * as alphaTab from "@coderline/alphatab";
 import {
@@ -45,10 +44,12 @@ import { ScoreLayoutToolbarControls } from "@/components/ScoreLayoutControls";
 import { DocumentStorageControls } from "@/components/DocumentStorageControls";
 import {
   documentStorageController,
+  documentStorageProviders,
 } from "@/storage/document-storage-runtime";
 import { selectStorageProvider } from "@/storage/provider-selection";
 import { pickLocalScoreFile } from "@/storage/tauri-local-disk-provider";
 import { selectDemoDocument } from "@/storage/demo-selection";
+import { scoreFileKind } from "@/storage/score-file-types";
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim() || "untitled";
@@ -69,7 +70,6 @@ const ZOOM_OPTIONS = [0.25, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2];
 
 export function Toolbar() {
   const { t, i18n } = useTranslation();
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isPlayerReady = usePlayerStore((s) => s.isPlayerReady);
   const playerState = usePlayerStore((s) => s.playerState);
@@ -118,14 +118,6 @@ export function Toolbar() {
       })
     : null;
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      loadFile(file);
-      e.target.value = "";
-    }
-  };
-
   const handleOpenFile = async () => {
     if (
       (storageStatus === "dirty" || storageStatus === "conflict") &&
@@ -136,13 +128,27 @@ export function Toolbar() {
     try {
       const providerId = await selectStorageProvider("open");
       if (!providerId) return;
-      if (providerId === "browser-file") {
-        fileInputRef.current?.click();
-        return;
-      }
       if (providerId === "demo-library") {
         const demo = await selectDemoDocument();
         if (demo) loadUrl(demo.url);
+        return;
+      }
+      if (providerId === "local-file") {
+        const provider = documentStorageProviders.get(providerId);
+        const picked = await provider?.pickOpen();
+        if (!picked) return;
+        const kind = scoreFileKind(picked.displayName);
+        if (kind === "cotab") {
+          await documentStorageController.openStoredDocument(
+            providerId,
+            picked,
+          );
+        } else if (kind === "guitarPro") {
+          documentStorageController.unbind();
+          loadFile(picked.data);
+        } else {
+          throw new Error(t("storage.unsupportedScoreFile"));
+        }
         return;
       }
       if (providerId !== "local-disk") {
@@ -213,14 +219,6 @@ export function Toolbar() {
         </TooltipTrigger>
         <TooltipContent>{t("toolbar.exportFile")}</TooltipContent>
       </Tooltip>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".gp,.gp3,.gp4,.gp5,.gpx"
-        className="hidden"
-        onChange={handleFileChange}
-      />
 
       <div className="ml-1 mr-2 min-w-0 flex-shrink overflow-hidden">
         <span className="block truncate text-sm font-medium leading-tight">

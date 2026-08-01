@@ -102,6 +102,21 @@ describe("WebDavStorageProvider", () => {
     );
   });
 
+  it("rejects weak ETags that can never satisfy If-Match", async () => {
+    const provider = new WebDavStorageProvider({
+      fetch: async () => new Response(Uint8Array.from([1]), {
+        status: 200,
+        headers: { ETag: 'W/"revision-1"' },
+      }),
+      pickLocation: async () => location("song.cotab"),
+      getConfig: () => config,
+    });
+
+    await expect(provider.pickOpen()).rejects.toThrow(
+      "weak ETag that cannot be used with If-Match",
+    );
+  });
+
   it("does not send current credentials to a binding outside its server root", async () => {
     const request = vi.fn();
     const provider = new WebDavStorageProvider({

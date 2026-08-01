@@ -106,6 +106,11 @@ function requiredEtag(response: Response): string {
       "WebDAV server did not expose an ETag required for conflict detection.",
     );
   }
+  if (etag.startsWith("W/")) {
+    throw new Error(
+      "WebDAV server exposed a weak ETag that cannot be used with If-Match.",
+    );
+  }
   return etag;
 }
 

@@ -28,3 +28,18 @@ services:
       - "3478:3478/tcp"
       - "3478:3478/udp"
       - "49152-49251:49152-49251/udp"
+
+  webdav:
+    image: bytemark/webdav@sha256:21eed0df1238d17766080425f9ef46da2c1130e3e3aa9eaf36794d2a72e7c616
+    platform: linux/amd64
+    ports:
+      - "6065:80"
+    environment:
+      AUTH_TYPE: Basic
+      USERNAME: cotab
+      PASSWORD: cotab-dev
+      ANONYMOUS_METHODS: OPTIONS
+    volumes:
+      - ./tools/storage/webdav.apache.conf:/usr/local/apache2/conf/conf-enabled/cotab.conf:ro
+    tmpfs:
+      - /var/lib/dav/data

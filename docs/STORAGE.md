@@ -37,3 +37,16 @@ in runtime memory and is never written to localStorage, Editor State, Y.Doc, or
 the `.cotab` payload. Browser builds use Fetch and therefore require the WebDAV
 server to allow CORS. Tauri sends the same GET, HEAD, and PUT protocol through
 its native HTTP bridge so desktop storage does not depend on WebView CORS.
+
+For local integration testing, start the development WebDAV service and run the
+opt-in test against it:
+
+```sh
+docker compose up -d webdav
+COTAB_WEBDAV_INTEGRATION_URL=http://127.0.0.1:6065/ npm run test:unit -- \
+  --run src/storage/__tests__/webdav-container.test.ts
+```
+
+The development credentials are `cotab` / `cotab-dev`. The container stores
+test files in a temporary filesystem and exposes the CORS and strong ETag
+headers used by the browser provider.

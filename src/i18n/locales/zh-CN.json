@@ -1,5 +1,6 @@
 {
   "toolbar": {
+    "fileMenu": "文件",
     "openFile": "打开文件",
     "noFileLoaded": "未加载文件",
     "stop": "停止",
@@ -44,10 +45,8 @@
     "undo": "撤销",
     "redo": "重做",
     "exportFile": "导出 GP 文件",
-    "documentStorage": "文档存储",
     "saveDocument": "保存 CoTab 文档",
     "saveDocumentAs": "另存为",
-    "saveOptions": "保存选项",
     "autoSave": "自动保存"
   },
   "viewport": {

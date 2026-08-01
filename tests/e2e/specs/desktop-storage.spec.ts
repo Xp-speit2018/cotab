@@ -343,11 +343,39 @@ async function waitForScore(page: Page) {
   );
 }
 
+async function openFileMenu(page: Page) {
+  const trigger = page.getByTestId("file-menu");
+  const openCommand = page.getByRole("menuitem", { name: "Open file" });
+  if (await trigger.getAttribute("aria-expanded") !== "true") {
+    await trigger.click();
+  }
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(openCommand).toBeVisible();
+}
+
+async function chooseOpenFile(page: Page) {
+  await openFileMenu(page);
+  await page.getByRole("menuitem", { name: "Open file" }).click();
+}
+
+async function saveDocument(page: Page) {
+  await openFileMenu(page);
+  await page.getByTestId("storage-save").click();
+}
+
 test("Web Open presents storage sources and supported local score formats", async ({ page }) => {
   await page.goto("/");
   await waitForScore(page);
 
-  await page.getByRole("button", { name: "Open file" }).click();
+  await expect(page.getByTestId("file-menu")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open file" })).toHaveCount(0);
+  await openFileMenu(page);
+  await expect(page.getByRole("menuitem", { name: /Save CoTab document/ }))
+    .toBeVisible();
+  await expect(page.getByRole("menuitem", { name: /Save As/ })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Export GP file" }))
+    .toBeVisible();
+  await chooseOpenFile(page);
   await expect(page.getByRole("heading", { name: "Open from" })).toBeVisible();
   await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Local file/ })).toContainText(
@@ -387,7 +415,7 @@ test("Web local file source imports Guitar Pro without creating a binding", asyn
   });
 
   page.once("dialog", (dialog) => void dialog.accept());
-  await page.getByRole("button", { name: "Open file" }).click();
+  await chooseOpenFile(page);
   await page.getByRole("button", { name: /Local file/ }).click();
 
   await expect.poll(() => page.evaluate(async () => {
@@ -422,7 +450,7 @@ test("Bundled demos open read-only and Save chooses a writable provider", async 
   });
 
   page.once("dialog", (dialog) => void dialog.accept());
-  await page.getByRole("button", { name: "Open file" }).click();
+  await chooseOpenFile(page);
   await page.getByRole("button", { name: /Examples/ }).click();
   await expect(page.getByRole("heading", { name: "Examples" })).toBeVisible();
   await page.getByRole("button", { name: /Taijin Kyofusho/ }).click();
@@ -440,7 +468,7 @@ test("Bundled demos open read-only and Save chooses a writable provider", async 
     status: "unbound",
   });
 
-  await page.getByTestId("storage-save").click();
+  await saveDocument(page);
   await expect(page.getByRole("heading", { name: "Save to" })).toBeVisible();
   await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
 });
@@ -498,7 +526,7 @@ test("Web local files remain bound across Save As, Save, and Open", async ({
     const { engine } = await import("/src/core/engine.ts");
     engine.getDoc()?.getMap("score").set("artist", "Saved in browser file");
   });
-  await page.getByTestId("storage-save").click();
+  await saveDocument(page);
   await expect.poll(() => page.evaluate(() =>
     (window as unknown as StorageMockWindow)
       .__COTAB_BROWSER_FILE_MOCK__?.writes
@@ -509,7 +537,7 @@ test("Web local files remain bound across Save As, Save, and Open", async ({
     engine.getDoc()?.getMap("score").set("artist", "Unsaved replacement");
   });
   page.once("dialog", (dialog) => void dialog.accept());
-  await page.getByRole("button", { name: "Open file" }).click();
+  await chooseOpenFile(page);
   await expect(page.getByRole("button", { name: /Local file/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Import Guitar Pro/ }))
     .toHaveCount(0);
@@ -624,7 +652,7 @@ test("Save As switches an existing binding to another storage provider", async (
     });
   });
 
-  await page.getByTestId("storage-save").click();
+  await saveDocument(page);
   const providerDialogTitle = page.getByRole("heading", { name: "Save to" });
   await expect(providerDialogTitle).toBeVisible();
   await page.getByRole("button", { name: /Local disk/ }).click();
@@ -672,8 +700,8 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
   await page.goto("/");
   await waitForScore(page);
 
-  const save = page.getByTestId("storage-save");
-  await save.click();
+  const fileMenu = page.getByTestId("file-menu");
+  await saveDocument(page);
   await page.getByRole("button", { name: /WebDAV/ }).click();
   await expect(
     page.getByRole("heading", { name: "Save to WebDAV" }),
@@ -699,9 +727,9 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
   );
   await page.getByRole("button", { name: "Save", exact: true }).click();
 
-  await expect(save).toHaveAttribute(
+  await expect(fileMenu).toHaveAttribute(
     "aria-label",
-    /Save CoTab document · Saved/,
+    /File · Saved/,
   );
   expect(await page.evaluate(async () => {
     const runtime = window as unknown as StorageMockWindow;
@@ -729,7 +757,7 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
     const { engine } = await import("/src/core/engine.ts");
     engine.getDoc()?.getMap("score").set("artist", "WebDAV update");
   });
-  await save.click();
+  await saveDocument(page);
   await expect.poll(() =>
     page.evaluate(
       () =>
@@ -750,7 +778,7 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
     engine.getDoc()?.getMap("score").set("title", "Unsaved WebDAV replacement");
   });
   page.once("dialog", (dialog) => void dialog.accept());
-  await page.getByRole("button", { name: "Open file" }).click();
+  await chooseOpenFile(page);
   await page.getByRole("button", { name: /WebDAV/ }).click();
   await expect(
     page.getByRole("heading", { name: "Open from WebDAV" }),
@@ -796,18 +824,18 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
   await page.goto("/");
   await waitForScore(page);
 
-  const save = page.getByTestId("storage-save");
-  await expect(save).toBeVisible();
-  await expect(save).toHaveAttribute(
+  const fileMenu = page.getByTestId("file-menu");
+  await expect(fileMenu).toBeVisible();
+  await expect(fileMenu).toHaveAttribute(
     "aria-label",
-    /Save CoTab document · Not saved/,
+    /File · Not saved/,
   );
-  await save.click();
+  await saveDocument(page);
   await expect(page.getByRole("heading", { name: "Save to" })).toBeVisible();
   await page.getByRole("button", { name: /Local disk/ }).click();
-  await expect(save).toHaveAttribute(
+  await expect(fileMenu).toHaveAttribute(
     "aria-label",
-    /Save CoTab document · Saved/,
+    /File · Saved/,
   );
   await expect.poll(() =>
     page.evaluate(
@@ -846,9 +874,9 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
     const { engine } = await import("/src/core/engine.ts");
     engine.getDoc()?.getMap("score").set("title", "Auto-saved title");
   });
-  await expect(save).toHaveAttribute(
+  await expect(fileMenu).toHaveAttribute(
     "aria-label",
-    /Save CoTab document · Unsaved changes/,
+    /File · Unsaved changes/,
   );
   await expect.poll(
     () =>
@@ -858,9 +886,9 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
       ),
     { timeout: 8_000 },
   ).toBe(2);
-  await expect(save).toHaveAttribute(
+  await expect(fileMenu).toHaveAttribute(
     "aria-label",
-    /Save CoTab document · Saved/,
+    /File · Saved/,
   );
 
   await page.evaluate(async () => {
@@ -868,13 +896,13 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
     engine.getDoc()?.getMap("score").set("title", "Unsaved replacement");
   });
   page.once("dialog", (dialog) => void dialog.accept());
-  await page.getByRole("button", { name: "Open file" }).click();
+  await chooseOpenFile(page);
   await expect(page.getByRole("heading", { name: "Open from" })).toBeVisible();
   await page.getByRole("button", { name: /Local disk/ }).click();
   await expect(page.getByText("Auto-saved title", { exact: true })).toBeVisible();
-  await expect(save).toHaveAttribute(
+  await expect(fileMenu).toHaveAttribute(
     "aria-label",
-    /Save CoTab document · Saved/,
+    /File · Saved/,
   );
 
   await page.evaluate(async () => {
@@ -883,7 +911,7 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
     const { engine } = await import("/src/core/engine.ts");
     engine.getDoc()?.getMap("score").set("artist", "Local conflict edit");
   });
-  await save.click();
+  await saveDocument(page);
   await expect(
     page.getByRole("heading", {
       name: "This document changed on disk",
@@ -895,12 +923,12 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
       name: "This document changed on disk",
     }),
   ).toHaveCount(0);
-  await expect(save).toHaveAttribute(
+  await expect(fileMenu).toHaveAttribute(
     "aria-label",
-    /Save CoTab document · Saved/,
+    /File · Saved/,
   );
 
-  await page.getByRole("button", { name: "Save options" }).click();
+  await openFileMenu(page);
   const autoSave = page.getByRole("checkbox", { name: "Auto-save" });
   await expect(autoSave).toBeChecked();
   await autoSave.click();

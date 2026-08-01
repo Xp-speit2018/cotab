@@ -1,5 +1,6 @@
 {
   "toolbar": {
+    "fileMenu": "File",
     "openFile": "Open file",
     "noFileLoaded": "No file loaded",
     "stop": "Stop",
@@ -44,10 +45,8 @@
     "undo": "Undo",
     "redo": "Redo",
     "exportFile": "Export GP file",
-    "documentStorage": "Document storage",
     "saveDocument": "Save CoTab document",
     "saveDocumentAs": "Save As",
-    "saveOptions": "Save options",
     "autoSave": "Auto-save"
   },
   "viewport": {

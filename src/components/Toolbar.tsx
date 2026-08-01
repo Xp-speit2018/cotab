@@ -1,8 +1,6 @@
 import { useTranslation } from "react-i18next";
 import * as alphaTab from "@coderline/alphatab";
 import {
-  FolderOpen,
-  Download,
   Play,
   Pause,
   Square,
@@ -41,7 +39,7 @@ import {
 import { useEditorStore } from "@/stores/editor-store";
 import { cn } from "@/lib/utils";
 import { ScoreLayoutToolbarControls } from "@/components/ScoreLayoutControls";
-import { DocumentStorageControls } from "@/components/DocumentStorageControls";
+import { FileMenu } from "@/components/FileMenu";
 import {
   documentStorageController,
   documentStorageProviders,
@@ -171,54 +169,30 @@ export function Toolbar() {
     }
   };
 
+  const handleExportFile = () => {
+    const api = getApi();
+    const score = api?.score;
+    if (!score) return;
+    const exporter = new alphaTab.exporter.Gp7Exporter();
+    const data = exporter.export(score, null);
+    const filename = `${sanitizeFilename(score.title || "untitled")}.gp`;
+    const blob = new Blob([data], { type: "application/octet-stream" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex h-12 w-full min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b bg-card px-2">
       {/* ── Left: File + Song Info ──────────────────────────────────────── */}
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => void handleOpenFile()}
-            aria-label={t("toolbar.openFile")}
-          >
-            <FolderOpen className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("toolbar.openFile")}</TooltipContent>
-      </Tooltip>
-
-      <DocumentStorageControls />
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            disabled={!isPlayerReady}
-            onClick={() => {
-              const api = getApi();
-              const score = api?.score;
-              if (!score) return;
-              const exporter = new alphaTab.exporter.Gp7Exporter();
-              const data = exporter.export(score, null);
-              const filename = `${sanitizeFilename(score.title || "untitled")}.gp`;
-              const blob = new Blob([data], { type: "application/octet-stream" });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement("a");
-              a.href = url;
-              a.download = filename;
-              a.click();
-              URL.revokeObjectURL(url);
-            }}
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>{t("toolbar.exportFile")}</TooltipContent>
-      </Tooltip>
+      <FileMenu
+        canExport={isPlayerReady}
+        onOpen={handleOpenFile}
+        onExport={handleExportFile}
+      />
 
       <div className="ml-1 mr-2 min-w-0 flex-shrink overflow-hidden">
         <span className="block truncate text-sm font-medium leading-tight">

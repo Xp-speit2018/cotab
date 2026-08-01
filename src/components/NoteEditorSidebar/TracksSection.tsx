@@ -18,6 +18,16 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -202,6 +212,112 @@ function AddTrackPopover() {
         </div>
       </PopoverContent>
     </Popover>
+  );
+}
+
+function DeleteTrackControl({
+  trackIndex,
+  trackName,
+  disabled,
+}: {
+  trackIndex: number;
+  trackName: string;
+  disabled: boolean;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const confirmationName = trackName || t("sidebar.tracks.unnamedTrack");
+  const canDelete = confirmation === confirmationName;
+
+  const setDialogOpen = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    setConfirmation("");
+  };
+
+  return (
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={disabled}
+              className="h-7 cursor-default px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setDialogOpen(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {t("sidebar.tracks.deleteTrack")}
+            </Button>
+          </span>
+        </TooltipTrigger>
+        {disabled && (
+          <TooltipContent side="right">
+            {t("sidebar.tracks.deleteTrackLastTrack")}
+          </TooltipContent>
+        )}
+      </Tooltip>
+
+      <Dialog open={open} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {t("sidebar.tracks.deleteTrackTitle", {
+                name: confirmationName,
+              })}
+            </DialogTitle>
+            <DialogDescription>
+              {t("sidebar.tracks.deleteTrackDescription")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!canDelete) return;
+              executeAppAction(
+                "document.track.delete",
+                { trackIndex },
+                { t },
+              );
+              setDialogOpen(false);
+            }}
+          >
+            <label className="block space-y-2 text-sm">
+              <span className="text-muted-foreground">
+                {t("sidebar.tracks.deleteTrackPrompt", {
+                  name: confirmationName,
+                })}
+              </span>
+              <Input
+                autoFocus
+                type="text"
+                value={confirmation}
+                aria-label={t("sidebar.tracks.deleteTrackInput")}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(event) => setConfirmation(event.currentTarget.value)}
+              />
+            </label>
+
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  {t("sidebar.common.cancel")}
+                </Button>
+              </DialogClose>
+              <Button type="submit" variant="destructive" disabled={!canDelete}>
+                <Trash2 />
+                {t("sidebar.tracks.deleteTrack")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -603,7 +719,6 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   const [percussionMapOpen, setPercussionMapOpen] = useState(false);
   const [colorOpen, setColorOpen] = useState(false);
   const [nameEditing, setNameEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const track = usePlayerStore((state) => state.tracks[trackIndex]);
   const trackCount = usePlayerStore((state) => state.tracks.length);
   const visibleTrackIndices = usePlayerStore((state) => state.visibleTrackIndices);
@@ -618,12 +733,6 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
   useEffect(() => {
     if (nameEditing) nameInputRef.current?.focus();
   }, [nameEditing]);
-
-  useEffect(() => {
-    if (!confirmDelete) return;
-    const timeout = window.setTimeout(() => setConfirmDelete(false), 3000);
-    return () => window.clearTimeout(timeout);
-  }, [confirmDelete]);
 
   if (!track) return null;
 
@@ -900,41 +1009,11 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
           )}
 
           <div className="flex justify-end border-t border-border/40 px-3 pt-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    disabled={trackCount <= 1}
-                    className="h-7 cursor-default px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => {
-                      if (!confirmDelete) {
-                        setConfirmDelete(true);
-                        return;
-                      }
-                      setConfirmDelete(false);
-                      executeAppAction(
-                        "document.track.delete",
-                        { trackIndex },
-                        { t },
-                      );
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    {confirmDelete
-                      ? t("sidebar.tracks.deleteTrackConfirm")
-                      : t("sidebar.tracks.deleteTrack")}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {trackCount <= 1 && (
-                <TooltipContent side="right">
-                  {t("sidebar.tracks.deleteTrackLastTrack")}
-                </TooltipContent>
-              )}
-            </Tooltip>
+            <DeleteTrackControl
+              trackIndex={trackIndex}
+              trackName={track.name}
+              disabled={trackCount <= 1}
+            />
           </div>
         </div>
       )}

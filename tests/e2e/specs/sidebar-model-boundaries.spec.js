@@ -180,14 +180,21 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
     exact: true,
   });
   await deleteTrack.click();
-  await expect(page.getByRole("button", {
-    name: "Confirm delete",
+  const dialog = page.getByRole("dialog", { name: 'Delete "Flute"?' });
+  await expect(dialog).toBeVisible();
+  const confirmButton = dialog.getByRole("button", {
+    name: "Delete track",
     exact: true,
-  })).toBeVisible();
-  await page.getByRole("button", {
-    name: "Confirm delete",
-    exact: true,
-  }).click();
+  });
+  await expect(confirmButton).toBeDisabled();
+  const confirmation = dialog.getByRole("textbox", {
+    name: "Track name confirmation",
+  });
+  await confirmation.fill("flute");
+  await expect(confirmButton).toBeDisabled();
+  await confirmation.fill("Flute");
+  await expect(confirmButton).toBeEnabled();
+  await confirmButton.click();
 
   await expect.poll(() => page.evaluate(() =>
     window.__ALPHATAB_API__.score.tracks.some((track) => track.name === "Flute")

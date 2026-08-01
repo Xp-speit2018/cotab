@@ -1779,8 +1779,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const visibleTrackIndices = retainedVisibleIndices.length > 0
         ? [...new Set(retainedVisibleIndices)].sort((left, right) => left - right)
         : allTrackIndices;
-      const tracks: TrackInfo[] = score.tracks.map((track) =>
-        extractTrackInfo(track));
+      const tracks: TrackInfo[] = score.tracks.map((track) => ({
+        ...extractTrackInfo(track),
+        uuid: (engine.resolveYTrack(track.index)?.get("uuid") as string) ?? "",
+      }));
 
       set({
         scoreTitle: score.title || "",

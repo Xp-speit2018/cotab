@@ -116,6 +116,7 @@ export interface PercSnapGroup {
 // ─── Track / preset ─────────────────────────────────────────────────────────
 
 export interface TrackInfo {
+  uuid: string;
   index: number;
   name: string;
   shortName: string;

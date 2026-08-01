@@ -235,8 +235,8 @@ const deleteTrackAction = defineDocumentAction({
   id: "document.track.delete",
   i18nKey: "actions.edit.track.delete",
   category: "document.track",
-  argsSchema: actionArgs({ trackIndex: nonNegativeInteger }),
-  execute: ({ trackIndex }): boolean => {
+  argsSchema: actionArgs({ trackUuid: z.string().min(1) }),
+  execute: ({ trackUuid }): boolean => {
     const yScore = getScoreMap();
     if (!yScore) return false;
 
@@ -245,12 +245,20 @@ const deleteTrackAction = defineDocumentAction({
       debugLog("warn", "document.track.delete", "blocked — last track");
       return false;
     }
-    if (trackIndex < 0 || trackIndex >= yTracks.length) {
-      debugLog("warn", "document.track.delete", "invalid track index", { trackIndex });
+    const trackIndex = yTracks.toArray().findIndex(
+      (yTrack) => yTrack.get("uuid") === trackUuid,
+    );
+    if (trackIndex < 0) {
+      debugLog("warn", "document.track.delete", "unknown track uuid", {
+        trackUuid,
+      });
       return false;
     }
 
-    debugLog("info", "document.track.delete", "start", { trackIndex });
+    debugLog("info", "document.track.delete", "start", {
+      trackUuid,
+      trackIndex,
+    });
 
     transact(() => {
       yTracks.delete(trackIndex, 1);

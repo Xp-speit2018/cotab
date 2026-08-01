@@ -356,7 +356,8 @@ describe("document.track.delete", () => {
 
   it("removes track from Y.Array", () => {
     expect(trackCount()).toBe(2);
-    executeDocumentAction("document.track.delete", { trackIndex: 1 }, ctx);
+    const trackUuid = resolveYTrackHelper(1)!.get("uuid") as string;
+    executeDocumentAction("document.track.delete", { trackUuid }, ctx);
     expect(trackCount()).toBe(1);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Test Guitar");
   });
@@ -369,14 +370,38 @@ describe("document.track.delete", () => {
     seedOneTrackScore(getScoreMap()!, 1);
 
     expect(trackCount()).toBe(1);
-    const result = executeDocumentAction("document.track.delete", { trackIndex: 0 }, ctx);
+    const trackUuid = resolveYTrackHelper(0)!.get("uuid") as string;
+    const result = executeDocumentAction("document.track.delete", { trackUuid }, ctx);
     expect(result).toBe(false);
     expect(trackCount()).toBe(1);
   });
 
-  it("returns false for invalid track index", () => {
-    const result = executeDocumentAction("document.track.delete", { trackIndex: 99 }, ctx);
+  it("returns false for an unknown track UUID", () => {
+    const result = executeDocumentAction("document.track.delete", {
+      trackUuid: "missing-track",
+    }, ctx);
     expect(result).toBe(false);
+  });
+
+  it("keeps the target bound when another track changes its index", () => {
+    const targetUuid = resolveYTrackHelper(1)!.get("uuid") as string;
+    const scoreMap = getScoreMap()!;
+    scoreMap.doc!.transact(() => {
+      const yTracks = scoreMap.get("tracks") as Y.Array<Y.Map<unknown>>;
+      yTracks.insert(0, [createTrack("Inserted")]);
+    });
+
+    expect(resolveYTrackHelper(2)!.get("uuid")).toBe(targetUuid);
+    executeDocumentAction("document.track.delete", {
+      trackUuid: targetUuid,
+    }, ctx);
+
+    expect(trackCount()).toBe(2);
+    expect(
+      Array.from({ length: trackCount() }, (_, index) =>
+        resolveYTrackHelper(index)!.get("uuid")),
+    ).not.toContain(targetUuid);
+    expect(resolveYTrackHelper(0)!.get("name")).toBe("Inserted");
   });
 });
 

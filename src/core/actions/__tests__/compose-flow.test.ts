@@ -307,7 +307,8 @@ describe("compose Happy Birthday", () => {
 
     expect(trackCount()).toBe(2);
     selectBeat(sel({ trackIndex: 0 }));
-    executeDocumentAction("document.track.delete", { trackIndex: 0 }, ctx);
+    const trackUuid = resolveYTrackHelper(0)!.get("uuid") as string;
+    executeDocumentAction("document.track.delete", { trackUuid }, ctx);
     expect(trackCount()).toBe(1);
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Piano");
   });

@@ -194,6 +194,23 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
   await expect(confirmButton).toBeDisabled();
   await confirmation.fill("Flute");
   await expect(confirmButton).toBeEnabled();
+
+  const countBeforeIndexShift = await page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks.length
+  );
+  await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    const yTracks = engine.getScoreMap()?.get("tracks");
+    if (!yTracks || typeof yTracks.delete !== "function") {
+      throw new Error("Missing Y.Track array");
+    }
+    engine.localEditYDoc(() => yTracks.delete(0, 1));
+  });
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks.length
+  )).toBe(countBeforeIndexShift - 1);
+  await expect(dialog).toBeVisible();
+  await expect(confirmButton).toBeEnabled();
   await confirmButton.click();
 
   await expect.poll(() => page.evaluate(() =>

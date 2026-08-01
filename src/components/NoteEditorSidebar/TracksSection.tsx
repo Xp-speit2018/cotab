@@ -216,11 +216,11 @@ function AddTrackPopover() {
 }
 
 function DeleteTrackControl({
-  trackIndex,
+  trackUuid,
   trackName,
   disabled,
 }: {
-  trackIndex: number;
+  trackUuid: string;
   trackName: string;
   disabled: boolean;
 }) {
@@ -280,7 +280,7 @@ function DeleteTrackControl({
               if (!canDelete) return;
               executeAppAction(
                 "document.track.delete",
-                { trackIndex },
+                { trackUuid },
                 { t },
               );
               setDialogOpen(false);
@@ -712,7 +712,13 @@ function StaffMetaEditor({
   );
 }
 
-function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
+function TrackMetaRow({
+  trackIndex,
+  trackUuid,
+}: {
+  trackIndex: number;
+  trackUuid: string;
+}) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
@@ -1010,7 +1016,7 @@ function TrackMetaRow({ trackIndex }: { trackIndex: number }) {
 
           <div className="flex justify-end border-t border-border/40 px-3 pt-2">
             <DeleteTrackControl
-              trackIndex={trackIndex}
+              trackUuid={trackUuid}
               trackName={track.name}
               disabled={trackCount <= 1}
             />
@@ -1044,7 +1050,11 @@ export function TracksSection({
       <CollapsibleContent>
         <div className="py-1">
           {tracks.map((track) => (
-            <TrackMetaRow key={track.index} trackIndex={track.index} />
+            <TrackMetaRow
+              key={track.uuid || track.index}
+              trackIndex={track.index}
+              trackUuid={track.uuid}
+            />
           ))}
         </div>
         <Separator />

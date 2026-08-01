@@ -5,8 +5,8 @@ import type {
   StoredDocument,
 } from "./types";
 import {
-  COTAB_FILE_EXTENSIONS,
   OPEN_SCORE_FILE_EXTENSIONS,
+  SAVE_SCORE_FILE_EXTENSIONS,
 } from "./score-file-types";
 
 interface FilePickerAcceptType {
@@ -32,14 +32,14 @@ interface FilePickerWindow extends Window {
   ): Promise<FileSystemFileHandle>;
 }
 
-const COTAB_FILE_TYPE: FilePickerAcceptType = {
-  description: "CoTab document",
-  accept: { "application/octet-stream": COTAB_FILE_EXTENSIONS },
-};
-
 const OPEN_SCORE_FILE_TYPE: FilePickerAcceptType = {
   description: "CoTab or Guitar Pro score",
   accept: { "application/octet-stream": OPEN_SCORE_FILE_EXTENSIONS },
+};
+
+const SAVE_SCORE_FILE_TYPE: FilePickerAcceptType = {
+  description: "CoTab or Guitar Pro score",
+  accept: { "application/octet-stream": SAVE_SCORE_FILE_EXTENSIONS },
 };
 
 function isPickerCancellation(error: unknown): boolean {
@@ -101,7 +101,7 @@ export class BrowserLocalFileProvider implements DocumentStorageProvider {
     try {
       const handle = await this.pickerWindow().showSaveFilePicker({
         suggestedName,
-        types: [COTAB_FILE_TYPE],
+        types: [SAVE_SCORE_FILE_TYPE],
         excludeAcceptAllOption: true,
       });
       const file = await handle.getFile();

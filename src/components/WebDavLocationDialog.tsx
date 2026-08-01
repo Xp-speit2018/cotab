@@ -46,7 +46,13 @@ import {
 
 function normalizeDocumentPath(path: string, operation: "open" | "save"): string {
   const trimmed = path.trim().replace(/^\/+/, "");
-  if (operation === "save" && trimmed && !trimmed.toLowerCase().endsWith(".cotab")) {
+  const lower = trimmed.toLowerCase();
+  if (
+    operation === "save" &&
+    trimmed &&
+    !lower.endsWith(".cotab") &&
+    !lower.endsWith(".gp")
+  ) {
     return `${trimmed}.cotab`;
   }
   return trimmed;

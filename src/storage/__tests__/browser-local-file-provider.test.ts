@@ -101,6 +101,24 @@ describe("BrowserLocalFileProvider", () => {
     ]);
   });
 
+  it("offers CoTab and GP7 formats from one save picker", async () => {
+    const handle = fakeHandle("song.gp");
+    const showSaveFilePicker = vi.fn(async () => handle);
+    vi.stubGlobal("window", {
+      showOpenFilePicker: vi.fn(async () => [handle]),
+      showSaveFilePicker,
+    });
+
+    const provider = new BrowserLocalFileProvider();
+    await expect(provider.pickSave("song.cotab")).resolves.toMatchObject({
+      displayName: "song.gp",
+    });
+
+    const options = showSaveFilePicker.mock.calls[0][0];
+    const extensions = Object.values(options.types?.[0]?.accept ?? {}).flat();
+    expect(extensions).toEqual([".cotab", ".gp"]);
+  });
+
   it("reports an external file change as a conflict", async () => {
     const handle = fakeHandle();
     vi.stubGlobal("window", {

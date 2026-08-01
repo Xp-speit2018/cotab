@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { scoreFileKind } from "../score-file-types";
+import { saveScoreFileKind, scoreFileKind } from "../score-file-types";
 
 describe("scoreFileKind", () => {
   it.each([
@@ -13,5 +13,19 @@ describe("scoreFileKind", () => {
     ["song.pdf", null],
   ] as const)("classifies %s", (name, expected) => {
     expect(scoreFileKind(name)).toBe(expected);
+  });
+});
+
+describe("saveScoreFileKind", () => {
+  it.each([
+    ["score.cotab", "cotab"],
+    ["score.COTAB", "cotab"],
+    ["score.gp", "guitarPro"],
+    ["score.GP", "guitarPro"],
+    ["score.gp5", null],
+    ["score.gpx", null],
+    ["score", null],
+  ])("classifies %s as %s", (name, expected) => {
+    expect(saveScoreFileKind(name)).toBe(expected);
   });
 });

@@ -340,17 +340,17 @@ fn pick_local_score_file() -> Result<Option<PickedLocalScoreFile>, String> {
 #[tauri::command]
 fn pick_local_document_path(suggested_name: String) -> Result<Option<LocalStorageTarget>, String> {
     let Some(mut path) = rfd::FileDialog::new()
-        .add_filter("CoTab document", &["cotab"])
+        .add_filter("CoTab or Guitar Pro score", &["cotab", "gp"])
         .set_file_name(suggested_name)
         .save_file()
     else {
         return Ok(None);
     };
-    if path
-        .extension()
-        .map(|value| !value.to_string_lossy().eq_ignore_ascii_case("cotab"))
-        .unwrap_or(true)
-    {
+    let supported_extension = path.extension().is_some_and(|value| {
+        let extension = value.to_string_lossy();
+        extension.eq_ignore_ascii_case("cotab") || extension.eq_ignore_ascii_case("gp")
+    });
+    if !supported_extension {
         path.set_extension("cotab");
     }
     let current = read_local_document_path(&path)?;

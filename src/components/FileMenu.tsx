@@ -5,7 +5,6 @@ import {
   Check,
   ChevronDown,
   CloudOff,
-  Download,
   FileText,
   FolderOpen,
   Loader2,
@@ -41,12 +40,10 @@ const STATUS_COLORS: Record<EditorStorageStatus, string> = {
 };
 
 interface FileMenuProps {
-  canExport: boolean;
   onOpen(): void | Promise<void>;
-  onExport(): void;
 }
 
-export function FileMenu({ canExport, onOpen, onExport }: FileMenuProps) {
+export function FileMenu({ onOpen }: FileMenuProps) {
   const { t } = useTranslation();
   const status = useEditorStore((state) => state.storage.status);
   const binding = useEditorStore((state) => state.storage.binding);
@@ -179,20 +176,6 @@ export function FileMenu({ canExport, onOpen, onExport }: FileMenuProps) {
           <span className="ml-auto text-[10px] text-muted-foreground">
             {formatShortcut("Mod+Shift+S")}
           </span>
-        </Button>
-
-        <div className="my-1 border-t" />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          role="menuitem"
-          className="w-full justify-start font-normal"
-          disabled={!canExport}
-          onClick={() => run(onExport)}
-        >
-          <Download className="h-3.5 w-3.5" />
-          <span>{t("toolbar.exportFile")}</span>
         </Button>
 
         <div className="my-1 border-t" />

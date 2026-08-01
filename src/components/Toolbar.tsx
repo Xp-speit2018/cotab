@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import * as alphaTab from "@coderline/alphatab";
 import {
   Play,
   Pause,
@@ -29,7 +28,6 @@ import {
 } from "@/components/ui/popover";
 import { executeAppAction } from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
-import { getApi } from "@/stores/render-api";
 import {
   formatShortcut,
   transportModifierToKeyCombo,
@@ -48,10 +46,6 @@ import { selectStorageProvider } from "@/storage/provider-selection";
 import { pickLocalScoreFile } from "@/storage/tauri-local-disk-provider";
 import { selectDemoDocument } from "@/storage/demo-selection";
 import { scoreFileKind } from "@/storage/score-file-types";
-
-function sanitizeFilename(name: string): string {
-  return name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").trim() || "untitled";
-}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -169,29 +163,11 @@ export function Toolbar() {
     }
   };
 
-  const handleExportFile = () => {
-    const api = getApi();
-    const score = api?.score;
-    if (!score) return;
-    const exporter = new alphaTab.exporter.Gp7Exporter();
-    const data = exporter.export(score, null);
-    const filename = `${sanitizeFilename(score.title || "untitled")}.gp`;
-    const blob = new Blob([data], { type: "application/octet-stream" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="flex h-12 w-full min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden border-b bg-card px-2">
       {/* ── Left: File + Song Info ──────────────────────────────────────── */}
       <FileMenu
-        canExport={isPlayerReady}
         onOpen={handleOpenFile}
-        onExport={handleExportFile}
       />
 
       <div className="ml-1 mr-2 min-w-0 flex-shrink overflow-hidden">

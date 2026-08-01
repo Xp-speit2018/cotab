@@ -93,6 +93,14 @@ export class DocumentStorageController {
     return this.providers.list();
   }
 
+  getSuggestedSaveName(): string {
+    const doc = this.getDocument();
+    const title = doc?.getMap("score").get("title");
+    const value = typeof title === "string" ? title.trim() : "";
+    const safe = value.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_") || "untitled";
+    return `${safe}.cotab`;
+  }
+
   async open(providerId?: string): Promise<boolean> {
     try {
       const provider = this.resolveProvider(providerId);
@@ -159,7 +167,7 @@ export class DocumentStorageController {
         providerId ?? this.storage.binding?.providerId,
       );
       if (!provider) return false;
-      const target = await provider.pickSave(this.suggestedName());
+      const target = await provider.pickSave(this.getSuggestedSaveName());
       if (!target) return false;
       return this.saveToTarget(provider, target);
     } catch (error) {
@@ -216,6 +224,20 @@ export class DocumentStorageController {
       status: "error",
       error: error instanceof Error ? error.message : String(error),
     });
+  }
+
+  async saveCotabToTarget(
+    providerId: string,
+    target: DocumentStorageTarget,
+  ): Promise<boolean> {
+    try {
+      const provider = this.resolveProvider(providerId);
+      if (!provider) return false;
+      return await this.saveToTarget(provider, target);
+    } catch (error) {
+      this.reportError(error);
+      return false;
+    }
   }
 
   destroy(): void {
@@ -365,14 +387,6 @@ export class DocumentStorageController {
       clearTimeout(this.saveTimer);
       this.saveTimer = null;
     }
-  }
-
-  private suggestedName(): string {
-    const doc = this.getDocument();
-    const title = doc?.getMap("score").get("title");
-    const value = typeof title === "string" ? title.trim() : "";
-    const safe = value.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_") || "untitled";
-    return `${safe}.cotab`;
   }
 
   private resolveProvider(

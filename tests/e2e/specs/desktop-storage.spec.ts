@@ -28,6 +28,10 @@ interface StorageMockWindow extends Window {
     readonly savePicks: number;
     readonly writes: number;
   };
+  __COTAB_GP_EXPORT_MOCK__?: {
+    readonly bytes: number[];
+    readonly saveOptions: unknown;
+  };
 }
 
 async function installBrowserLocalFileMock(page: Page) {
@@ -374,7 +378,7 @@ test("Web Open presents storage sources and supported local score formats", asyn
     .toBeVisible();
   await expect(page.getByRole("menuitem", { name: /Save As/ })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Export GP file" }))
-    .toBeVisible();
+    .toHaveCount(0);
   await chooseOpenFile(page);
   await expect(page.getByRole("heading", { name: "Open from" })).toBeVisible();
   await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
@@ -384,6 +388,73 @@ test("Web Open presents storage sources and supported local score formats", asyn
   await expect(page.getByRole("button", { name: /Import Guitar Pro/ }))
     .toHaveCount(0);
   await expect(page.getByRole("button", { name: /Examples/ })).toBeVisible();
+});
+
+test("Save As exports GP7 by suffix without creating a storage binding", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    let bytes: number[] = [];
+    let saveOptions: unknown = null;
+    const handle = {
+      kind: "file" as const,
+      name: "Taijin Kyofusho.gp",
+      async getFile() {
+        return new File([new Uint8Array(bytes)], this.name, { lastModified: 1 });
+      },
+      async createWritable() {
+        return {
+          async write(value: ArrayBufferView) {
+            bytes = Array.from(new Uint8Array(
+              value.buffer,
+              value.byteOffset,
+              value.byteLength,
+            ));
+          },
+          async close() {},
+        };
+      },
+    };
+    Object.assign(window, {
+      showOpenFilePicker: async () => [handle],
+      showSaveFilePicker: async (options: unknown) => {
+        saveOptions = options;
+        return handle;
+      },
+    });
+    (window as unknown as StorageMockWindow).__COTAB_GP_EXPORT_MOCK__ = {
+      get bytes() {
+        return bytes;
+      },
+      get saveOptions() {
+        return saveOptions;
+      },
+    };
+  });
+
+  await page.goto("/");
+  await waitForScore(page);
+  const initialStorage = await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    return engine.storage;
+  });
+
+  await openFileMenu(page);
+  await page.getByRole("menuitem", { name: /Save As/ }).click();
+  await page.getByRole("button", { name: /Local file/ }).click();
+
+  await expect.poll(() => page.evaluate(() =>
+    (window as unknown as StorageMockWindow).__COTAB_GP_EXPORT_MOCK__?.bytes.length,
+  )).toBeGreaterThan(100);
+  const result = await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    const mock = (window as unknown as StorageMockWindow).__COTAB_GP_EXPORT_MOCK__;
+    return { storage: engine.storage, saveOptions: mock?.saveOptions };
+  });
+  expect(result.storage).toEqual(initialStorage);
+  expect(result.saveOptions).toMatchObject({
+    types: [{ accept: { "application/octet-stream": [".cotab", ".gp"] } }],
+  });
 });
 
 test("Web local file source imports Guitar Pro without creating a binding", async ({

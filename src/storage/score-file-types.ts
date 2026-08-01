@@ -10,6 +10,7 @@ export const OPEN_SCORE_FILE_EXTENSIONS = [
   ...COTAB_FILE_EXTENSIONS,
   ...GUITAR_PRO_FILE_EXTENSIONS,
 ] as const;
+export const SAVE_SCORE_FILE_EXTENSIONS = [".cotab", ".gp"] as const;
 
 export type ScoreFileKind = "cotab" | "guitarPro";
 
@@ -20,4 +21,11 @@ export function scoreFileKind(name: string): ScoreFileKind | null {
       normalized.endsWith(extension))
     ? "guitarPro"
     : null;
+}
+
+export function saveScoreFileKind(name: string): ScoreFileKind | null {
+  const normalized = name.trim().toLowerCase();
+  if (normalized.endsWith(".cotab")) return "cotab";
+  if (normalized.endsWith(".gp")) return "guitarPro";
+  return null;
 }

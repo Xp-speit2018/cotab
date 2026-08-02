@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   DEFAULT_SECTION_LAYOUT,
   loadSectionLayout,
+  resetSidebarLayoutPreferences,
 } from "../layout";
 
 class MemoryStorage {
@@ -15,12 +16,18 @@ class MemoryStorage {
   setItem(key: string, value: string): void {
     this.values.set(key, value);
   }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
+  }
 }
 
 describe("sidebar section layout migration", () => {
   beforeEach(() => {
     vi.stubGlobal("localStorage", new MemoryStorage());
   });
+
+  afterEach(() => vi.unstubAllGlobals());
 
   it("preserves an existing layout and adds newly introduced sections", () => {
     localStorage.setItem("cotab:sidebar-section-layout-v1", JSON.stringify({
@@ -49,5 +56,25 @@ describe("sidebar section layout migration", () => {
     expect(new Set(Object.values(layout).flat())).toEqual(
       new Set(Object.values(DEFAULT_SECTION_LAYOUT).flat()),
     );
+  });
+
+  it("clears every persisted workspace layout value", () => {
+    for (const key of [
+      "cotab:left-sidebar-width",
+      "cotab:right-sidebar-width",
+      "cotab:left-sidebar-collapsed",
+      "cotab:right-sidebar-collapsed",
+      "cotab:sidebar-tab-placement-v1",
+      "cotab:sidebar-section-layout-v1",
+      "cotab:sidebar-tab-layout-v5",
+    ]) {
+      localStorage.setItem(key, "custom");
+    }
+
+    resetSidebarLayoutPreferences();
+
+    expect(loadSectionLayout()).toEqual(DEFAULT_SECTION_LAYOUT);
+    expect(localStorage.getItem("cotab:left-sidebar-width")).toBeNull();
+    expect(localStorage.getItem("cotab:sidebar-tab-placement-v1")).toBeNull();
   });
 });

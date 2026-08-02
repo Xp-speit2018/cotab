@@ -21,16 +21,37 @@ export const SUPPORTED_LANGUAGES: Record<string, string> = {
   "zh-CN": "简体中文",
 };
 
+const LANGUAGE_KEY = "cotab:language";
+
+function loadLanguage(): string {
+  if (typeof localStorage === "undefined") return "en";
+  try {
+    const language = localStorage.getItem(LANGUAGE_KEY);
+    return language && language in SUPPORTED_LANGUAGES ? language : "en";
+  } catch {
+    return "en";
+  }
+}
+
 i18n.use(initReactI18next).init({
   resources: {
     en: { translation: en },
     "zh-CN": { translation: zhCN },
   },
-  lng: "en",
+  lng: loadLanguage(),
   fallbackLng: "en",
   interpolation: {
     escapeValue: false, // React already escapes by default
   },
+});
+
+i18n.on("languageChanged", (language) => {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(LANGUAGE_KEY, language);
+  } catch {
+    // The language still applies for the current session.
+  }
 });
 
 export default i18n;

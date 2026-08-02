@@ -163,7 +163,7 @@ export function Toolbar() {
 
       <div
         className="flex min-w-0 items-center justify-center gap-1"
-        data-testid="transport-collaboration-center"
+        data-testid="transport-center"
       >
         <div
           className={cn(
@@ -268,6 +268,19 @@ export function Toolbar() {
         </div>
         </div>
 
+      </div>
+
+      <div className="flex min-w-0 items-center justify-end">
+        <div className="min-w-0 overflow-hidden px-2 text-right">
+          <span className="block truncate text-sm font-medium leading-tight">
+            {scoreTitle || t("toolbar.noFileLoaded")}
+          </span>
+          {scoreArtist && (
+            <span className="block truncate text-xs leading-tight text-muted-foreground">
+              {scoreArtist}
+            </span>
+          )}
+        </div>
         <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
         <Tooltip>
           <TooltipTrigger asChild>
@@ -291,17 +304,6 @@ export function Toolbar() {
           </TooltipTrigger>
           <TooltipContent>{t("room.button")}</TooltipContent>
         </Tooltip>
-      </div>
-
-      <div className="min-w-0 overflow-hidden px-2 text-right">
-        <span className="block truncate text-sm font-medium leading-tight">
-          {scoreTitle || t("toolbar.noFileLoaded")}
-        </span>
-        {scoreArtist && (
-          <span className="block truncate text-xs leading-tight text-muted-foreground">
-            {scoreArtist}
-          </span>
-        )}
       </div>
     </div>
   );

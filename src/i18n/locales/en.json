@@ -8,6 +8,14 @@
     "aboutCoTab": "About CoTab",
     "aboutDescription": "A collaborative tablature editor powered by alphaTab.",
     "projectHome": "Project on GitHub",
+    "preferences": {
+      "general": "General",
+      "keyboard": "Keyboard",
+      "interface": "Interface",
+      "agent": "Agent",
+      "resetWorkspaceLayout": "Reset workspace layout",
+      "codexProxyDescription": "Configure the proxy used when CoTab starts the local Codex process."
+    },
     "openFile": "Open file",
     "noFileLoaded": "No file loaded",
     "stop": "Stop",

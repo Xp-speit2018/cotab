@@ -385,7 +385,7 @@
   color: rgba(40, 120, 255, 0.80);
 }
 
-/* Hide "rendered by alphaTab" watermark */
-.at-surface-svg[height="12px"] {
+/* alphaTab appends its attribution annotation as the final render partial. */
+.at-main > .at-surface > div:last-child > .at-surface-svg {
   display: none;
 }

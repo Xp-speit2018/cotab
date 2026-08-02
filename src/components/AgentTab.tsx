@@ -23,7 +23,6 @@ import {
   History,
   ListTree,
   Loader2,
-  Network,
   Plus,
   Search,
   Send,
@@ -40,7 +39,6 @@ import {
   type AgentHistoryEntry,
   type AgentTimelineEntry,
 } from "@/agent/agent-session";
-import { normalizeCodexProxyUrl } from "@/agent/codex-proxy-settings";
 import { engine } from "@/core/engine";
 import { Button } from "@/components/ui/button";
 import {
@@ -462,106 +460,6 @@ function HistoryView({
   );
 }
 
-function ProxySettingsPopover() {
-  const { t } = useTranslation();
-  const session = useSyncExternalStore(agentSession.subscribe, agentSession.getSnapshot);
-  const [open, setOpen] = useState(false);
-  const [enabled, setEnabled] = useState(session.proxy.enabled);
-  const [url, setUrl] = useState(session.proxy.url);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setEnabled(session.proxy.enabled);
-    setUrl(session.proxy.url);
-    setError(null);
-  }, [open, session.proxy.enabled, session.proxy.url]);
-
-  const apply = async () => {
-    let normalizedUrl = url.trim();
-    if (enabled) {
-      try {
-        normalizedUrl = normalizeCodexProxyUrl(normalizedUrl);
-      } catch {
-        setError(t("agent.proxy.invalid"));
-        return;
-      }
-    }
-
-    setSaving(true);
-    try {
-      await agentSession.setProxy({ enabled, url: normalizedUrl });
-      setError(null);
-    } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : String(applyError));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <Button
-              variant={session.proxy.enabled ? "secondary" : "ghost"}
-              size="icon"
-              className="h-7 w-7"
-              aria-label={t("agent.proxy.title")}
-              disabled={session.phase === "connecting" || session.phase === "working"}
-            >
-              <Network className="h-3.5 w-3.5" />
-            </Button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent>{t("agent.proxy.title")}</TooltipContent>
-      </Tooltip>
-      <PopoverContent align="end" className="w-72 p-3">
-        <div className="text-xs font-medium">{t("agent.proxy.title")}</div>
-        <label className="mt-2 flex cursor-pointer items-center gap-2 rounded py-1">
-          <input
-            type="checkbox"
-            checked={enabled}
-            className="h-3.5 w-3.5 accent-primary"
-            onChange={(event) => setEnabled(event.target.checked)}
-          />
-          <span className="text-xs">{t("agent.proxy.enabled")}</span>
-        </label>
-        <label className="mt-2 block">
-          <span className="mb-1 block text-[10px] font-medium text-muted-foreground">
-            {t("agent.proxy.url")}
-          </span>
-          <input
-            type="url"
-            value={url}
-            disabled={!enabled}
-            spellCheck={false}
-            autoCapitalize="none"
-            autoComplete="off"
-            aria-label={t("agent.proxy.url")}
-            placeholder="http://127.0.0.1:9098"
-            className="h-8 w-full rounded-md border bg-background px-2 font-mono text-xs outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-            onChange={(event) => setUrl(event.target.value)}
-          />
-        </label>
-        {error && <div className="mt-2 text-[11px] text-destructive">{error}</div>}
-        <div className="mt-3 flex justify-end">
-          <Button
-            size="xs"
-            disabled={saving || (enabled && !url.trim())}
-            onClick={() => void apply()}
-          >
-            {saving && <Loader2 className="h-3 w-3 animate-spin" />}
-            {t("agent.proxy.apply")}
-          </Button>
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 function Composer() {
   const { t } = useTranslation();
   const session = useSyncExternalStore(agentSession.subscribe, agentSession.getSnapshot);
@@ -839,8 +737,6 @@ export function AgentTab() {
         <span className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground">
           {connectionLabel}
         </span>
-
-        <ProxySettingsPopover />
 
         <Tooltip>
           <TooltipTrigger asChild>

@@ -217,6 +217,18 @@ export function saveSectionLayout(layout: SectionLayout): void {
   }
 }
 
+export function resetSidebarLayoutPreferences(): void {
+  try {
+    for (const key of Object.values(WIDTH_KEYS)) localStorage.removeItem(key);
+    for (const key of Object.values(COLLAPSED_KEYS)) localStorage.removeItem(key);
+    localStorage.removeItem(TAB_PLACEMENT_KEY);
+    localStorage.removeItem(SECTION_LAYOUT_KEY);
+    localStorage.removeItem(LEGACY_SECTION_LAYOUT_KEY);
+  } catch {
+    // Reset still applies to the current session.
+  }
+}
+
 export function findSectionTab(
   layout: SectionLayout,
   sectionId: SectionId,

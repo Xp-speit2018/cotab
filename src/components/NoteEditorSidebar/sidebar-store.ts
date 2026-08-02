@@ -3,6 +3,7 @@ import { isTauriRuntime } from "@/agent/target";
 import {
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
+  DEFAULT_SECTION_LAYOUT,
   findSectionTab,
   loadSectionLayout,
   loadSidebarCollapsed,
@@ -18,6 +19,10 @@ import {
   type SectionTabId,
   type SidebarSide,
   type SidebarTabPlacement,
+  resetSidebarLayoutPreferences,
+  defaultTabPlacement,
+  DEFAULT_AGENT_SIDEBAR_WIDTH,
+  DEFAULT_SIDEBAR_WIDTH,
 } from "./layout";
 
 interface SidebarLayoutState {
@@ -40,6 +45,7 @@ interface SidebarLayoutState {
     destination: SectionTabId,
     beforeSectionId?: SectionId,
   ) => void;
+  resetLayout: () => void;
 }
 
 const desktop = isTauriRuntime();
@@ -148,4 +154,22 @@ export const useSidebarLayoutStore = create<SidebarLayoutState>((set, get) => ({
       collapsed: { ...state.collapsed, [side]: false },
     };
   }),
+
+  resetLayout: () => {
+    resetSidebarLayoutPreferences();
+    const placement = defaultTabPlacement(desktop);
+    set({
+      placement,
+      sections: DEFAULT_SECTION_LAYOUT,
+      activeTab: {
+        left: placement.left[0] ?? null,
+        right: placement.right[0] ?? null,
+      },
+      collapsed: { left: false, right: !desktop },
+      width: {
+        left: DEFAULT_SIDEBAR_WIDTH,
+        right: DEFAULT_AGENT_SIDEBAR_WIDTH,
+      },
+    });
+  },
 }));

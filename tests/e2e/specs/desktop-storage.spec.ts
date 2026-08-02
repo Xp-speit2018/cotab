@@ -377,6 +377,8 @@ test("Web Open presents storage sources and supported local score formats", asyn
   await expect(page.getByRole("menuitem", { name: /Save CoTab document/ }))
     .toBeVisible();
   await expect(page.getByRole("menuitem", { name: /Save As/ })).toBeVisible();
+  await expect(page.getByRole("menuitemcheckbox", { name: "Auto-save" }))
+    .toHaveCount(0);
   await expect(page.getByRole("menuitem", { name: "Export GP file" }))
     .toHaveCount(0);
   await chooseOpenFile(page);
@@ -390,7 +392,7 @@ test("Web Open presents storage sources and supported local score formats", asyn
   await expect(page.getByRole("button", { name: /Examples/ })).toBeVisible();
 });
 
-test("titlebar exposes application menus and centers transport with collaboration", async ({
+test("titlebar exposes application menus, centers transport, and right-aligns collaboration", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -407,7 +409,7 @@ test("titlebar exposes application menus and centers transport with collaboratio
     await expect(page.getByTestId(menu)).toBeVisible();
   }
 
-  const centering = await page.getByTestId("transport-collaboration-center")
+  const centering = await page.getByTestId("transport-center")
     .evaluate((element) => {
       const rect = element.getBoundingClientRect();
       return {
@@ -416,15 +418,34 @@ test("titlebar exposes application menus and centers transport with collaboratio
       };
     });
   expect(Math.abs(centering.groupCenter - centering.viewportCenter)).toBeLessThan(1);
-  await expect(page.getByRole("button", { name: "Collaborate" })).toBeVisible();
+  const collaborate = page.getByRole("button", { name: "Collaborate" });
+  await expect(collaborate).toBeVisible();
+  expect(await collaborate.evaluate((element) =>
+    window.innerWidth - element.getBoundingClientRect().right,
+  )).toBeLessThanOrEqual(8);
 
   await page.getByTestId("preferences-menu").click();
+  await expect(page.getByRole("menuitemcheckbox", { name: "Auto-save" }))
+    .toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Keyboard Shortcuts" }))
     .toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByTestId("help-menu").click();
   await page.getByRole("menuitem", { name: "About CoTab" }).click();
   await expect(page.getByRole("dialog")).toContainText("CoTab");
+});
+
+test("persists the selected interface language", async ({ page }) => {
+  await page.goto("/");
+  await waitForScore(page);
+
+  await page.getByTestId("preferences-menu").click();
+  await page.getByRole("menuitemcheckbox", { name: "简体中文" }).click();
+  await expect(page.getByTestId("preferences-menu")).toHaveText("偏好设置");
+
+  await page.reload();
+  await waitForScore(page);
+  await expect(page.getByTestId("preferences-menu")).toHaveText("偏好设置");
 });
 
 test("Save As exports GP7 by suffix without creating a storage binding", async ({
@@ -1036,7 +1057,7 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
     /File · Saved/,
   );
 
-  await openFileMenu(page);
+  await page.getByTestId("preferences-menu").click();
   const autoSave = page.getByRole("menuitemcheckbox", { name: "Auto-save" });
   await expect(autoSave).toBeChecked();
   await autoSave.click();

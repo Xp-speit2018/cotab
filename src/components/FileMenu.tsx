@@ -39,9 +39,6 @@ export function FileMenu({ onOpen }: FileMenuProps) {
   const { t } = useTranslation();
   const status = useEditorStore((state) => state.storage.status);
   const binding = useEditorStore((state) => state.storage.binding);
-  const autoSaveEnabled = useEditorStore(
-    (state) => state.storage.autoSaveEnabled,
-  );
   const error = useEditorStore((state) => state.storage.error);
 
   const statusLabel = t(`storage.status.${status}`);
@@ -128,17 +125,6 @@ export function FileMenu({ onOpen }: FileMenuProps) {
           onSelect={() => executeAppAction("storage.saveAs", undefined, { t })}
         >
           {t("toolbar.saveDocumentAs")}
-        </AppMenuItem>
-
-        <AppMenuSeparator />
-        <AppMenuItem
-          checked={autoSaveEnabled}
-          closeOnSelect={false}
-          onSelect={() => documentStorageController.setAutoSaveEnabled(
-            !autoSaveEnabled,
-          )}
-        >
-          {t("toolbar.autoSave")}
         </AppMenuItem>
     </AppMenu>
   );

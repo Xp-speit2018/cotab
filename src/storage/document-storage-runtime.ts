@@ -10,6 +10,7 @@ import {
 } from "./tauri-local-disk-provider";
 import { DocumentStorageProviderRegistry } from "./provider-registry";
 import { WebDavStorageProvider } from "./webdav-provider";
+import { loadAutoSavePreference } from "./storage-preferences";
 
 const localDiskAvailable = isLocalDiskStorageAvailable();
 
@@ -45,6 +46,8 @@ export const documentStorageController = new DocumentStorageController({
   getStorageState: () => engine.storage,
   setStorageState: (storage) => engine.localSetStorageState(storage),
 });
+
+documentStorageController.setAutoSaveEnabled(loadAutoSavePreference());
 
 engine.registerHooks({
   onDocumentReplaced: (doc) => {

@@ -4,12 +4,17 @@ import {
   ExternalLink,
   GalleryHorizontal,
   Keyboard,
+  Network,
+  PanelLeft,
   Redo2,
   Rows3,
   Undo2,
 } from "lucide-react";
 
 import { executeAppAction } from "@/app-actions";
+import { isTauriRuntime } from "@/agent/target";
+import { CodexProxyPreferencesDialog } from "@/components/CodexProxyPreferencesDialog";
+import { useSidebarLayoutStore } from "@/components/NoteEditorSidebar/sidebar-store";
 import { ScoreLayoutToolbarControls } from "@/components/ScoreLayoutControls";
 import {
   AppMenu,
@@ -30,6 +35,8 @@ import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { formatShortcut, useShortcutStore } from "@/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import { usePlayerStore } from "@/stores/render-store";
+import { documentStorageController } from "@/storage/document-storage-runtime";
+import { saveAutoSavePreference } from "@/storage/storage-preferences";
 
 export function EditMenu() {
   const { t } = useTranslation();
@@ -122,30 +129,76 @@ export function LayoutMenu() {
 
 export function PreferencesMenu() {
   const { t, i18n } = useTranslation();
+  const [proxyOpen, setProxyOpen] = useState(false);
+  const autoSaveEnabled = useEditorStore(
+    (state) => state.storage.autoSaveEnabled,
+  );
 
   return (
-    <AppMenu
-      label={t("toolbar.preferencesMenu")}
-      testId="preferences-menu"
-    >
-      <AppMenuItem
-        icon={Keyboard}
-        onSelect={() => useShortcutStore.getState().setConfigPanelOpen(true)}
+    <>
+      <AppMenu
+        label={t("toolbar.preferencesMenu")}
+        testId="preferences-menu"
+        contentClassName="w-72"
       >
-        {t("shortcuts.title")}
-      </AppMenuItem>
-      <AppMenuSeparator />
-      <AppMenuLabel>{t("toolbar.language")}</AppMenuLabel>
-      {Object.entries(SUPPORTED_LANGUAGES).map(([code, label]) => (
+        <AppMenuLabel>{t("toolbar.preferences.general")}</AppMenuLabel>
         <AppMenuItem
-          key={code}
-          checked={i18n.language === code}
-          onSelect={() => i18n.changeLanguage(code)}
+          checked={autoSaveEnabled}
+          closeOnSelect={false}
+          onSelect={() => {
+            const enabled = !autoSaveEnabled;
+            saveAutoSavePreference(enabled);
+            documentStorageController.setAutoSaveEnabled(enabled);
+          }}
         >
-          {label}
+          {t("toolbar.autoSave")}
         </AppMenuItem>
-      ))}
-    </AppMenu>
+
+        <AppMenuSeparator />
+        <AppMenuLabel>{t("toolbar.preferences.keyboard")}</AppMenuLabel>
+        <AppMenuItem
+          icon={Keyboard}
+          onSelect={() => useShortcutStore.getState().setConfigPanelOpen(true)}
+        >
+          {t("shortcuts.title")}
+        </AppMenuItem>
+
+        <AppMenuSeparator />
+        <AppMenuLabel>{t("toolbar.preferences.interface")}</AppMenuLabel>
+        <div className="px-2 py-1 text-xs text-muted-foreground">
+          {t("toolbar.language")}
+        </div>
+        {Object.entries(SUPPORTED_LANGUAGES).map(([code, label]) => (
+          <AppMenuItem
+            key={code}
+            checked={i18n.language === code}
+            onSelect={() => i18n.changeLanguage(code)}
+          >
+            {label}
+          </AppMenuItem>
+        ))}
+        <AppMenuItem
+          icon={PanelLeft}
+          onSelect={() => useSidebarLayoutStore.getState().resetLayout()}
+        >
+          {t("toolbar.preferences.resetWorkspaceLayout")}
+        </AppMenuItem>
+
+        {isTauriRuntime() && (
+          <>
+            <AppMenuSeparator />
+            <AppMenuLabel>{t("toolbar.preferences.agent")}</AppMenuLabel>
+            <AppMenuItem icon={Network} onSelect={() => setProxyOpen(true)}>
+              {t("agent.proxy.title")}
+            </AppMenuItem>
+          </>
+        )}
+      </AppMenu>
+      <CodexProxyPreferencesDialog
+        open={proxyOpen}
+        onOpenChange={setProxyOpen}
+      />
+    </>
   );
 }
 

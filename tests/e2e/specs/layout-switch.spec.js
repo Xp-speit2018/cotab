@@ -589,6 +589,27 @@ test("Debug panel controls snap grid visibility", async ({ page }) => {
   await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(0);
 });
 
+test("hides the alphaTab attribution at every supported zoom", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+  await waitForScore(page);
+
+  for (const zoom of [0.5, 1, 1.25, 2]) {
+    await page.evaluate((value) => {
+      window.__PLAYER_STORE__.getState().setZoom(value);
+    }, zoom);
+    await expect.poll(() =>
+      page.evaluate(() => window.__ALPHATAB_API__.settings.display.scale)
+    ).toBe(zoom);
+    await expect(
+      page.locator(".at-surface-svg").filter({ hasText: "rendered by alphaTab" }),
+    ).toBeHidden();
+    await expect(page.locator(".at-surface-svg:visible").first()).toBeVisible();
+  }
+});
+
 test("switches layouts and snaps a later parchment system locally", async ({
   page,
 }) => {

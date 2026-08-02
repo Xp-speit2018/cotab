@@ -8,6 +8,14 @@
     "aboutCoTab": "关于 CoTab",
     "aboutDescription": "基于 alphaTab 的协作式吉他谱编辑器。",
     "projectHome": "GitHub 项目主页",
+    "preferences": {
+      "general": "通用",
+      "keyboard": "键盘",
+      "interface": "界面",
+      "agent": "Agent",
+      "resetWorkspaceLayout": "重置工作区布局",
+      "codexProxyDescription": "配置 CoTab 启动本地 Codex 进程时使用的代理。"
+    },
     "openFile": "打开文件",
     "noFileLoaded": "未加载文件",
     "stop": "停止",

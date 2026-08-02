@@ -131,8 +131,9 @@ for (const layout of ["horizontal", "parchment"] as const) {
       };
       return runtime.__ALPHATAB_API__?.score?.masterBars?.length === 58;
     });
-    if (layout === "parchment") {
-      await page.getByRole("button", { name: "Parchment layout" }).click();
+    if (layout === "horizontal") {
+      await page.getByTestId("layout-menu").click();
+      await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
       await page.waitForFunction(() => {
         const runtime = window as unknown as {
           __ALPHATAB_API__?: {
@@ -140,7 +141,7 @@ for (const layout of ["horizontal", "parchment"] as const) {
             boundsLookup?: { isFinished?: boolean };
           };
         };
-        return runtime.__ALPHATAB_API__?.settings?.display?.layoutMode === 2
+        return runtime.__ALPHATAB_API__?.settings?.display?.layoutMode === 1
           && runtime.__ALPHATAB_API__?.boundsLookup?.isFinished === true;
       });
     }

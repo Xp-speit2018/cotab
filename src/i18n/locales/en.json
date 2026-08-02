@@ -11,9 +11,10 @@
     "preferences": {
       "general": "General",
       "keyboard": "Keyboard",
-      "interface": "Interface",
+      "developer": "Developer",
       "agent": "Agent",
-      "resetWorkspaceLayout": "Reset workspace layout",
+      "showDebugTab": "Show Debug tab",
+      "showSnapGrid": "Show snap grid",
       "codexProxyDescription": "Configure the proxy used when CoTab starts the local Codex process."
     },
     "openFile": "Open file",
@@ -604,10 +605,6 @@
       "title": "AlphaTab State",
       "help": "Live runtime monitor for the AlphaTab API, player, score, bounds lookup, and playback fields.",
       "topLevel": "AlphaTabApi"
-    },
-
-    "debug": {
-      "showSnapGrid": "Snap Grid"
     },
 
     "log": {

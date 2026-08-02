@@ -390,11 +390,13 @@ test("complex field editors commit semantic values and show matching summaries",
   )).toBe("Play softly.\nLet the final chord ring.");
   await expect(instructions).toContainText("Play softly. Let the final chord ring.");
 
-  await page.getByRole("button", {
-    name: "Toggle Lead Guitar details",
-    exact: true,
-  }).click();
   const abbreviation = page.getByText("Abbreviation", { exact: true }).first();
+  if (!await abbreviation.isVisible()) {
+    await page.getByRole("button", {
+      name: "Toggle Lead Guitar details",
+      exact: true,
+    }).click();
+  }
   const instrument = page.getByRole("button", { name: /^Instrument / }).first();
   const [abbreviationBox, instrumentBox] = await Promise.all([
     abbreviation.boundingBox(),

@@ -58,6 +58,26 @@ async function chooseLayout(page, name) {
   await page.getByRole("menuitemcheckbox", { name }).click();
 }
 
+test("uses parchment as the default score layout", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/");
+  await waitForScore(page);
+  await waitForLayout(page, "parchment", 2);
+  await openLayoutMenu(page);
+  await expect(page.getByRole("menuitemcheckbox", { name: "Edit score layout" }))
+    .toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Layout settings" }))
+    .toBeVisible();
+
+  await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
+  await waitForLayout(page, "horizontal", 1);
+  await openLayoutMenu(page);
+  await expect(page.getByRole("menuitemcheckbox", { name: "Edit score layout" }))
+    .toHaveCount(0);
+  await expect(page.getByRole("menuitem", { name: "Layout settings" }))
+    .toHaveCount(0);
+});
+
 async function waitForSystemRows(page, expectedRows) {
   await expect
     .poll(() =>
@@ -244,10 +264,11 @@ for (const layout of ["horizontal", "parchment"]) {
     await page.setViewportSize({ width: 1400, height: 900 });
     await page.goto("/");
     await waitForScore(page);
-    if (layout === "parchment") {
-      await chooseLayout(page, "Parchment layout");
-      await waitForLayout(page, "parchment", 2);
-    }
+    await chooseLayout(
+      page,
+      layout === "horizontal" ? "Horizontal layout" : "Parchment layout",
+    );
+    await waitForLayout(page, layout, layout === "horizontal" ? 1 : 2);
 
     const scenario = await findCrossStaffNavigationScenario(page);
     const { x: _sourceX, y: _sourceY, ...expectedSource } = scenario.source;
@@ -336,10 +357,11 @@ for (const layout of ["horizontal", "parchment"]) {
     await page.setViewportSize({ width: 1400, height: 900 });
     await page.goto("/");
     await waitForScore(page);
-    if (layout === "parchment") {
-      await chooseLayout(page, "Parchment layout");
-      await waitForLayout(page, "parchment", 2);
-    }
+    await chooseLayout(
+      page,
+      layout === "horizontal" ? "Horizontal layout" : "Parchment layout",
+    );
+    await waitForLayout(page, layout, layout === "horizontal" ? 1 : 2);
 
     const scenario = await page.evaluate(() => {
       const api = window.__ALPHATAB_API__;
@@ -414,6 +436,8 @@ test("mouse and keyboard selector moves keep the cursor in view", async ({ page 
   await page.setViewportSize({ width: 1400, height: 320 });
   await page.goto("/");
   await waitForScore(page);
+  await chooseLayout(page, "Horizontal layout");
+  await waitForLayout(page, "horizontal", 1);
 
   const target = await page.evaluate(() => {
     const api = window.__ALPHATAB_API__;
@@ -563,29 +587,32 @@ test("mouse and keyboard selector moves keep the cursor in view", async ({ page 
   expect(keyboardFocus.bottomGap).toBeGreaterThanOrEqual(24);
 });
 
-test("Debug panel controls snap grid visibility", async ({ page }) => {
+test("Developer preferences control snap grid visibility", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto("/");
   await waitForScore(page);
 
-  await page.getByRole("button", { name: "Debug", exact: true }).click();
-  const toggle = page.getByRole("button", { name: "Snap Grid", exact: true });
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await page.getByTestId("preferences-menu").click();
+  const toggle = page.getByRole("menuitemcheckbox", {
+    name: "Show snap grid",
+  });
+  await expect(toggle).not.toBeChecked();
   await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(0);
 
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(toggle).toBeChecked();
   await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(1);
   await expect(page.locator(".at-snap-grid-marker").first()).toBeVisible();
 
   await chooseLayout(page, "Parchment layout");
   await waitForLayout(page, "parchment", 2);
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("preferences-menu").click();
+  await expect(toggle).toBeChecked();
   await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(1);
   await expect(page.locator(".at-snap-grid-marker").first()).toBeVisible();
 
   await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(toggle).not.toBeChecked();
   await expect(page.locator(".at-snap-grid-overlay")).toHaveCount(0);
 });
 
@@ -616,6 +643,8 @@ test("switches layouts and snaps a later parchment system locally", async ({
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto("/");
   await waitForScore(page);
+  await chooseLayout(page, "Horizontal layout");
+  await waitForLayout(page, "horizontal", 1);
 
   const horizontalRows = await page.evaluate(() =>
     new Set(

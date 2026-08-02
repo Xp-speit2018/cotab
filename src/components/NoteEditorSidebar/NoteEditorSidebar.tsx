@@ -9,7 +9,6 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Grid3X3,
   PanelLeftClose,
   PanelLeftOpen,
   PanelRightClose,
@@ -22,7 +21,6 @@ import {
 } from "@/components/ui/tooltip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResizeHandle } from "@/components/ui/resize-handle";
-import { Toggle } from "@/components/ui/toggle";
 import { usePlayerStore } from "@/stores/render-store";
 import type { SelectedNoteInfo } from "@/stores/render-types";
 import { cn } from "@/lib/utils";
@@ -137,31 +135,6 @@ function SidebarCollapseButton({
         {label}
       </TooltipContent>
     </Tooltip>
-  );
-}
-
-function DebugToolbar() {
-  const { t } = useTranslation();
-  const showSnapGrid = usePlayerStore((state) => state.showSnapGrid);
-  const setShowSnapGrid = usePlayerStore((state) => state.setShowSnapGrid);
-  const label = t("sidebar.debug.showSnapGrid");
-
-  return (
-    <div className="flex h-9 shrink-0 items-center border-b px-2">
-      <Toggle
-        size="sm"
-        pressed={showSnapGrid}
-        onPressedChange={setShowSnapGrid}
-        aria-label={label}
-        className={cn(
-          "h-7 gap-1.5 px-2 text-xs",
-          showSnapGrid && "bg-primary/15 text-primary ring-1 ring-primary/30",
-        )}
-      >
-        <Grid3X3 className="h-3.5 w-3.5" />
-        <span>{label}</span>
-      </Toggle>
-    </div>
   );
 }
 
@@ -339,7 +312,6 @@ export function EditorSidebar({ side }: { side: SidebarSide }) {
         </Suspense>
       ) : sectionTab ? (
         <>
-          {sectionTab === "debug" && <DebugToolbar />}
           <ScrollArea className="min-h-0 flex-1 overflow-hidden">
             <div className="pb-4 pr-3">
               <SortableContext

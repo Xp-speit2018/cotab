@@ -10,6 +10,10 @@ import * as alphaTab from "@coderline/alphatab";
 import { create } from "zustand";
 
 import { useEditorStore } from "@/stores/editor-store";
+import {
+  loadSnapGridVisible,
+  saveSnapGridVisible,
+} from "@/preferences/developer-preferences";
 import type {
   AccentuationType,
   BendType,
@@ -1359,12 +1363,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   selectedNoteIndex: -1,
   selectedString: null,
   zoom: 1,
-  scoreLayout: "horizontal",
+  scoreLayout: "parchment",
   layoutDesignMode: false,
   systemLayoutRows: [],
   sidebarVisible: true,
   roomDialogOpen: false,
-  showSnapGrid: false,
+  showSnapGrid: loadSnapGridVisible(),
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -2264,6 +2268,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   },
 
   setShowSnapGrid: (show) => {
+    saveSnapGridVisible(show);
     set({ showSnapGrid: show });
     const sel = get().selectedBeat;
     updateSnapGridOverlay(

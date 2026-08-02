@@ -423,12 +423,34 @@ test("titlebar exposes application menus, centers transport, and right-aligns co
   expect(await collaborate.evaluate((element) =>
     window.innerWidth - element.getBoundingClientRect().right,
   )).toBeLessThanOrEqual(8);
+  const toolbar = page.getByTestId("app-toolbar");
+  await expect(toolbar.getByText("Taijin Kyofusho", { exact: true }))
+    .toHaveCount(0);
+  await expect(toolbar.getByText("The Evapatoria Report", { exact: true }))
+    .toHaveCount(0);
+  await expect(page.getByTestId("file-menu").locator("svg")).toHaveCount(0);
 
   await page.getByTestId("preferences-menu").click();
   await expect(page.getByRole("menuitemcheckbox", { name: "Auto-save" }))
     .toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Keyboard Shortcuts" }))
     .toBeVisible();
+  const debugTabPreference = page.getByRole("menuitemcheckbox", {
+    name: "Show Debug tab",
+  });
+  await expect(debugTabPreference).toBeChecked();
+  await debugTabPreference.click();
+  await expect(page.getByRole("button", { name: "Debug", exact: true }))
+    .toHaveCount(0);
+  await debugTabPreference.click();
+  await expect(
+    page.locator('[data-sidebar-side="left"]')
+      .getByRole("button", { name: "Debug", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.locator('[data-sidebar-side="right"]')
+      .getByRole("button", { name: "Meta", exact: true }),
+  ).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByTestId("help-menu").click();
   await page.getByRole("menuitem", { name: "About CoTab" }).click();

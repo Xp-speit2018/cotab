@@ -1,9 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  loadDebugTabEnabled,
+  saveDebugTabEnabled,
+} from "@/preferences/developer-preferences";
 
 import {
   DEFAULT_SECTION_LAYOUT,
+  defaultTabPlacement,
   loadSectionLayout,
-  resetSidebarLayoutPreferences,
+  loadTabPlacement,
 } from "../layout";
 
 class MemoryStorage {
@@ -58,23 +63,46 @@ describe("sidebar section layout migration", () => {
     );
   });
 
-  it("clears every persisted workspace layout value", () => {
-    for (const key of [
-      "cotab:left-sidebar-width",
-      "cotab:right-sidebar-width",
-      "cotab:left-sidebar-collapsed",
-      "cotab:right-sidebar-collapsed",
-      "cotab:sidebar-tab-placement-v1",
-      "cotab:sidebar-section-layout-v1",
-      "cotab:sidebar-tab-layout-v5",
-    ]) {
-      localStorage.setItem(key, "custom");
-    }
+  it("places Notes and Debug left and Meta and Agent right by default", () => {
+    expect(defaultTabPlacement(true)).toEqual({
+      left: ["notes", "debug"],
+      right: ["meta", "agent"],
+    });
+    expect(defaultTabPlacement(false)).toEqual({
+      left: ["notes", "debug"],
+      right: ["meta"],
+    });
+  });
 
-    resetSidebarLayoutPreferences();
+  it("migrates the previous default placement to the new sidebar split", () => {
+    localStorage.setItem("cotab:sidebar-tab-placement-v1", JSON.stringify({
+      left: ["notes", "meta", "debug"],
+      right: ["agent"],
+    }));
 
-    expect(loadSectionLayout()).toEqual(DEFAULT_SECTION_LAYOUT);
-    expect(localStorage.getItem("cotab:left-sidebar-width")).toBeNull();
-    expect(localStorage.getItem("cotab:sidebar-tab-placement-v1")).toBeNull();
+    expect(loadTabPlacement(true, true)).toEqual({
+      left: ["notes", "debug"],
+      right: ["meta", "agent"],
+    });
+  });
+
+  it("persists Debug tab visibility without losing other tab placement", () => {
+    localStorage.setItem("cotab:sidebar-tab-placement-v2", JSON.stringify({
+      left: ["notes"],
+      right: ["meta", "agent"],
+    }));
+    saveDebugTabEnabled(false);
+
+    expect(loadDebugTabEnabled()).toBe(false);
+    expect(loadTabPlacement(true, false)).toEqual({
+      left: ["notes"],
+      right: ["meta", "agent"],
+    });
+
+    saveDebugTabEnabled(true);
+    expect(loadTabPlacement(true, true)).toEqual({
+      left: ["notes", "debug"],
+      right: ["meta", "agent"],
+    });
   });
 });

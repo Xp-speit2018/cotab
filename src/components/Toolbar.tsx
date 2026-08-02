@@ -12,7 +12,6 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import { Separator } from "@/components/ui/separator";
 import { executeAppAction } from "@/app-actions";
 import { usePlayerStore } from "@/stores/render-store";
 import {
@@ -56,8 +55,6 @@ export function Toolbar() {
   const isPlayerReady = usePlayerStore((s) => s.isPlayerReady);
   const playerState = usePlayerStore((s) => s.playerState);
   const isLooping = usePlayerStore((s) => s.isLooping);
-  const scoreTitle = usePlayerStore((s) => s.scoreTitle);
-  const scoreArtist = usePlayerStore((s) => s.scoreArtist);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
   const loadFile = usePlayerStore((s) => s.loadFile);
   const loadUrl = usePlayerStore((s) => s.loadUrl);
@@ -150,7 +147,10 @@ export function Toolbar() {
   };
 
   return (
-    <div className="grid h-12 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b bg-card px-2">
+    <div
+      className="grid h-12 w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b bg-card px-2"
+      data-testid="app-toolbar"
+    >
       <div className="flex min-w-0 items-center overflow-hidden">
         <div className="flex shrink-0 items-center">
           <FileMenu onOpen={handleOpenFile} />
@@ -271,17 +271,6 @@ export function Toolbar() {
       </div>
 
       <div className="flex min-w-0 items-center justify-end">
-        <div className="min-w-0 overflow-hidden px-2 text-right">
-          <span className="block truncate text-sm font-medium leading-tight">
-            {scoreTitle || t("toolbar.noFileLoaded")}
-          </span>
-          {scoreArtist && (
-            <span className="block truncate text-xs leading-tight text-muted-foreground">
-              {scoreArtist}
-            </span>
-          )}
-        </div>
-        <Separator orientation="vertical" className="mx-1 h-6 shrink-0" />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

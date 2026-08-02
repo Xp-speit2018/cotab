@@ -1,3 +1,5 @@
+import { loadDebugTabEnabled } from "@/preferences/developer-preferences";
+
 export const DEFAULT_SIDEBAR_WIDTH = 280;
 export const DEFAULT_AGENT_SIDEBAR_WIDTH = 400;
 export const COLLAPSED_SIDEBAR_WIDTH = 36;
@@ -12,7 +14,8 @@ const COLLAPSED_KEYS = {
   left: "cotab:left-sidebar-collapsed",
   right: "cotab:right-sidebar-collapsed",
 } as const;
-const TAB_PLACEMENT_KEY = "cotab:sidebar-tab-placement-v1";
+const TAB_PLACEMENT_KEY = "cotab:sidebar-tab-placement-v2";
+const LEGACY_TAB_PLACEMENT_KEY = "cotab:sidebar-tab-placement-v1";
 const SECTION_LAYOUT_KEY = "cotab:sidebar-section-layout-v1";
 const LEGACY_SECTION_LAYOUT_KEY = "cotab:sidebar-tab-layout-v5";
 
@@ -85,14 +88,14 @@ export function saveSidebarWidth(side: SidebarSide, width: number): void {
   }
 }
 
-export function loadSidebarCollapsed(side: SidebarSide, desktop: boolean): boolean {
+export function loadSidebarCollapsed(side: SidebarSide): boolean {
   try {
     const value = localStorage.getItem(COLLAPSED_KEYS[side]);
     if (value !== null) return value === "true";
   } catch {
     // Use defaults.
   }
-  return side === "right" && !desktop;
+  return false;
 }
 
 export function saveSidebarCollapsed(side: SidebarSide, collapsed: boolean): void {
@@ -103,43 +106,75 @@ export function saveSidebarCollapsed(side: SidebarSide, collapsed: boolean): voi
   }
 }
 
-export function availableEditorTabs(desktop: boolean): EditorTabId[] {
-  return desktop
-    ? ["notes", "meta", "debug", "agent"]
-    : ["notes", "meta", "debug"];
+export function availableEditorTabs(
+  desktop: boolean,
+  debugTabEnabled = loadDebugTabEnabled(),
+): EditorTabId[] {
+  return [
+    "notes",
+    "meta",
+    ...(debugTabEnabled ? ["debug" as const] : []),
+    ...(desktop ? ["agent" as const] : []),
+  ];
 }
 
-export function defaultTabPlacement(desktop: boolean): SidebarTabPlacement {
+export function defaultTabPlacement(
+  desktop: boolean,
+  debugTabEnabled = loadDebugTabEnabled(),
+): SidebarTabPlacement {
   return {
-    left: ["notes", "meta", "debug"],
-    right: desktop ? ["agent"] : [],
+    left: debugTabEnabled ? ["notes", "debug"] : ["notes"],
+    right: desktop ? ["meta", "agent"] : ["meta"],
   };
 }
 
-export function loadTabPlacement(desktop: boolean): SidebarTabPlacement {
-  const available = availableEditorTabs(desktop);
+export function loadTabPlacement(
+  desktop: boolean,
+  debugTabEnabled = loadDebugTabEnabled(),
+): SidebarTabPlacement {
+  const available = availableEditorTabs(desktop, debugTabEnabled);
+  const allAvailable = availableEditorTabs(desktop, true);
   try {
-    const parsed = JSON.parse(localStorage.getItem(TAB_PLACEMENT_KEY) ?? "null") as
+    const current = localStorage.getItem(TAB_PLACEMENT_KEY);
+    const legacy = current === null
+      ? localStorage.getItem(LEGACY_TAB_PLACEMENT_KEY)
+      : null;
+    const parsed = JSON.parse(current ?? legacy ?? "null") as
       | Partial<SidebarTabPlacement>
       | null;
     if (parsed && Array.isArray(parsed.left) && Array.isArray(parsed.right)) {
+      const legacyDefault = desktop
+        ? { left: ["notes", "meta", "debug"], right: ["agent"] }
+        : { left: ["notes", "meta", "debug"], right: [] };
+      if (
+        legacy !== null
+        && JSON.stringify(parsed) === JSON.stringify(legacyDefault)
+      ) {
+        return defaultTabPlacement(desktop, debugTabEnabled);
+      }
       const ordered = [...parsed.left, ...parsed.right].filter(
-        (id): id is EditorTabId => available.includes(id as EditorTabId),
+        (id): id is EditorTabId => allAvailable.includes(id as EditorTabId),
       );
       if (
-        ordered.length === available.length &&
-        new Set(ordered).size === available.length
+        new Set(ordered).size === ordered.length &&
+        available.every((id) => id === "debug" || ordered.includes(id))
       ) {
-        return {
+        const placement: SidebarTabPlacement = {
           left: parsed.left.filter((id): id is EditorTabId => available.includes(id as EditorTabId)),
           right: parsed.right.filter((id): id is EditorTabId => available.includes(id as EditorTabId)),
         };
+        if (debugTabEnabled && !ordered.includes("debug")) {
+          const notesIndex = placement.left.indexOf("notes");
+          placement.left.splice(notesIndex + 1, 0, "debug");
+        }
+        if (legacy !== null) saveTabPlacement(placement);
+        return placement;
       }
     }
   } catch {
     // Use defaults.
   }
-  return defaultTabPlacement(desktop);
+  return defaultTabPlacement(desktop, debugTabEnabled);
 }
 
 export function saveTabPlacement(placement: SidebarTabPlacement): void {
@@ -214,18 +249,6 @@ export function saveSectionLayout(layout: SectionLayout): void {
     localStorage.setItem(SECTION_LAYOUT_KEY, JSON.stringify(layout));
   } catch {
     // Layout still applies for the current session.
-  }
-}
-
-export function resetSidebarLayoutPreferences(): void {
-  try {
-    for (const key of Object.values(WIDTH_KEYS)) localStorage.removeItem(key);
-    for (const key of Object.values(COLLAPSED_KEYS)) localStorage.removeItem(key);
-    localStorage.removeItem(TAB_PLACEMENT_KEY);
-    localStorage.removeItem(SECTION_LAYOUT_KEY);
-    localStorage.removeItem(LEGACY_SECTION_LAYOUT_KEY);
-  } catch {
-    // Reset still applies to the current session.
   }
 }
 

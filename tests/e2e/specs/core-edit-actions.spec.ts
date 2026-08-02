@@ -169,6 +169,17 @@ test("live document edits reuse the rendered AlphaTab viewport", async ({
       && runtime.__ALPHATAB_API__?.canvasElement.element.querySelector("svg"),
     );
   });
+  await page.getByTestId("layout-menu").click();
+  await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
+  await page.waitForFunction(() =>
+    (window as unknown as { __ALPHATAB_API__?: {
+      settings?: { display?: { layoutMode?: number } };
+    } }).__ALPHATAB_API__?.settings?.display?.layoutMode === 1,
+  );
+  await expect.poll(() => page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>(".at-viewport");
+    return viewport ? viewport.scrollWidth - viewport.clientWidth : 0;
+  })).toBeGreaterThan(0);
 
   const initial = await page.evaluate(() => {
     const runtime = window as unknown as RuntimeWindow;
@@ -352,7 +363,24 @@ test("parchment edits preserve systems before the first changed master bar", asy
     runtime.__FIXED_SYSTEM_PROBE__ = probe;
   });
 
-  await page.getByRole("button", { name: "Parchment layout" }).click();
+  await page.getByTestId("layout-menu").click();
+  await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
+  await page.waitForFunction(() => {
+    const runtime = window as unknown as RuntimeWindow & {
+      __ALPHATAB_API__: {
+        settings?: { display?: { layoutMode?: number } };
+      };
+    };
+    return runtime.__ALPHATAB_API__.settings?.display?.layoutMode === 1
+      && (runtime.__FIXED_SYSTEM_PROBE__?.completedRenders ?? 0) > 0;
+  });
+  await page.evaluate(() => {
+    const probe = (window as unknown as RuntimeWindow).__FIXED_SYSTEM_PROBE__!;
+    probe.initial = [];
+    probe.completedRenders = 0;
+  });
+  await page.getByTestId("layout-menu").click();
+  await page.getByRole("menuitemcheckbox", { name: "Parchment layout" }).click();
   await page.waitForFunction(() => {
     const probe = (window as unknown as RuntimeWindow).__FIXED_SYSTEM_PROBE__;
     const systemStarts = new Set(

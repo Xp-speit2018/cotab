@@ -1,9 +1,12 @@
 import { create } from "zustand";
 import { isTauriRuntime } from "@/agent/target";
 import {
+  loadDebugTabEnabled,
+  saveDebugTabEnabled,
+} from "@/preferences/developer-preferences";
+import {
   MAX_SIDEBAR_WIDTH,
   MIN_SIDEBAR_WIDTH,
-  DEFAULT_SECTION_LAYOUT,
   findSectionTab,
   loadSectionLayout,
   loadSidebarCollapsed,
@@ -19,10 +22,6 @@ import {
   type SectionTabId,
   type SidebarSide,
   type SidebarTabPlacement,
-  resetSidebarLayoutPreferences,
-  defaultTabPlacement,
-  DEFAULT_AGENT_SIDEBAR_WIDTH,
-  DEFAULT_SIDEBAR_WIDTH,
 } from "./layout";
 
 interface SidebarLayoutState {
@@ -31,6 +30,7 @@ interface SidebarLayoutState {
   activeTab: Record<SidebarSide, EditorTabId | null>;
   collapsed: Record<SidebarSide, boolean>;
   width: Record<SidebarSide, number>;
+  debugTabEnabled: boolean;
   setActiveTab: (side: SidebarSide, tabId: EditorTabId) => void;
   setCollapsed: (side: SidebarSide, collapsed: boolean) => void;
   setWidth: (side: SidebarSide, width: number) => void;
@@ -45,11 +45,12 @@ interface SidebarLayoutState {
     destination: SectionTabId,
     beforeSectionId?: SectionId,
   ) => void;
-  resetLayout: () => void;
+  setDebugTabEnabled: (enabled: boolean) => void;
 }
 
 const desktop = isTauriRuntime();
-const initialPlacement = loadTabPlacement(desktop);
+const initialDebugTabEnabled = loadDebugTabEnabled();
+const initialPlacement = loadTabPlacement(desktop, initialDebugTabEnabled);
 
 export const useSidebarLayoutStore = create<SidebarLayoutState>((set, get) => ({
   placement: initialPlacement,
@@ -59,13 +60,14 @@ export const useSidebarLayoutStore = create<SidebarLayoutState>((set, get) => ({
     right: initialPlacement.right[0] ?? null,
   },
   collapsed: {
-    left: loadSidebarCollapsed("left", desktop),
-    right: loadSidebarCollapsed("right", desktop),
+    left: loadSidebarCollapsed("left"),
+    right: loadSidebarCollapsed("right"),
   },
   width: {
     left: loadSidebarWidth("left"),
     right: loadSidebarWidth("right"),
   },
+  debugTabEnabled: initialDebugTabEnabled,
 
   setActiveTab: (side, tabId) => set((state) => ({
     activeTab: { ...state.activeTab, [side]: tabId },
@@ -155,21 +157,24 @@ export const useSidebarLayoutStore = create<SidebarLayoutState>((set, get) => ({
     };
   }),
 
-  resetLayout: () => {
-    resetSidebarLayoutPreferences();
-    const placement = defaultTabPlacement(desktop);
-    set({
-      placement,
-      sections: DEFAULT_SECTION_LAYOUT,
-      activeTab: {
-        left: placement.left[0] ?? null,
-        right: placement.right[0] ?? null,
-      },
-      collapsed: { left: false, right: !desktop },
-      width: {
-        left: DEFAULT_SIDEBAR_WIDTH,
-        right: DEFAULT_AGENT_SIDEBAR_WIDTH,
-      },
-    });
-  },
+  setDebugTabEnabled: (enabled) => set((state) => {
+    if (state.debugTabEnabled === enabled) return state;
+    const placement: SidebarTabPlacement = {
+      left: state.placement.left.filter((id) => id !== "debug"),
+      right: state.placement.right.filter((id) => id !== "debug"),
+    };
+    if (enabled) {
+      const notesIndex = placement.left.indexOf("notes");
+      placement.left.splice(notesIndex + 1, 0, "debug");
+    }
+    const activeTab = { ...state.activeTab };
+    for (const side of ["left", "right"] as const) {
+      if (!placement[side].includes(activeTab[side] as EditorTabId)) {
+        activeTab[side] = placement[side][0] ?? null;
+      }
+    }
+    saveDebugTabEnabled(enabled);
+    saveTabPlacement(placement);
+    return { debugTabEnabled: enabled, placement, activeTab };
+  }),
 }));

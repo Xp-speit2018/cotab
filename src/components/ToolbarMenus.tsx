@@ -5,7 +5,6 @@ import {
   GalleryHorizontal,
   Keyboard,
   Network,
-  PanelLeft,
   Redo2,
   Rows3,
   Undo2,
@@ -89,22 +88,26 @@ export function LayoutMenu() {
           {t("toolbar.horizontalLayout")}
         </span>
       </AppMenuItem>
-      <AppMenuItem
-        checked={scoreLayout === "parchment"}
-        onSelect={() => executeAppAction(
-          "view.setScoreLayout",
-          { layout: "parchment" },
-          { t },
+      <div className={scoreLayout === "parchment" ? "bg-muted/35" : undefined}>
+        <AppMenuItem
+          checked={scoreLayout === "parchment"}
+          onSelect={() => executeAppAction(
+            "view.setScoreLayout",
+            { layout: "parchment" },
+            { t },
+          )}
+        >
+          <span className="flex items-center gap-2">
+            <Rows3 className="h-3.5 w-3.5" />
+            {t("toolbar.parchmentLayout")}
+          </span>
+        </AppMenuItem>
+        {scoreLayout === "parchment" && (
+          <div className="mb-1 ml-5 border-l pl-1 pr-1">
+            <ScoreLayoutToolbarControls variant="menu" />
+          </div>
         )}
-      >
-        <span className="flex items-center gap-2">
-          <Rows3 className="h-3.5 w-3.5" />
-          {t("toolbar.parchmentLayout")}
-        </span>
-      </AppMenuItem>
-
-      <AppMenuSeparator />
-      <ScoreLayoutToolbarControls variant="menu" />
+      </div>
 
       <AppMenuSeparator />
       <div className="space-y-2 px-2 py-1.5">
@@ -133,6 +136,10 @@ export function PreferencesMenu() {
   const autoSaveEnabled = useEditorStore(
     (state) => state.storage.autoSaveEnabled,
   );
+  const debugTabEnabled = useSidebarLayoutStore(
+    (state) => state.debugTabEnabled,
+  );
+  const showSnapGrid = usePlayerStore((state) => state.showSnapGrid);
 
   return (
     <>
@@ -164,10 +171,7 @@ export function PreferencesMenu() {
         </AppMenuItem>
 
         <AppMenuSeparator />
-        <AppMenuLabel>{t("toolbar.preferences.interface")}</AppMenuLabel>
-        <div className="px-2 py-1 text-xs text-muted-foreground">
-          {t("toolbar.language")}
-        </div>
+        <AppMenuLabel>{t("toolbar.language")}</AppMenuLabel>
         {Object.entries(SUPPORTED_LANGUAGES).map(([code, label]) => (
           <AppMenuItem
             key={code}
@@ -177,11 +181,24 @@ export function PreferencesMenu() {
             {label}
           </AppMenuItem>
         ))}
+
+        <AppMenuSeparator />
+        <AppMenuLabel>{t("toolbar.preferences.developer")}</AppMenuLabel>
         <AppMenuItem
-          icon={PanelLeft}
-          onSelect={() => useSidebarLayoutStore.getState().resetLayout()}
+          checked={debugTabEnabled}
+          closeOnSelect={false}
+          onSelect={() => useSidebarLayoutStore
+            .getState()
+            .setDebugTabEnabled(!debugTabEnabled)}
         >
-          {t("toolbar.preferences.resetWorkspaceLayout")}
+          {t("toolbar.preferences.showDebugTab")}
+        </AppMenuItem>
+        <AppMenuItem
+          checked={showSnapGrid}
+          closeOnSelect={false}
+          onSelect={() => usePlayerStore.getState().setShowSnapGrid(!showSnapGrid)}
+        >
+          {t("toolbar.preferences.showSnapGrid")}
         </AppMenuItem>
 
         {isTauriRuntime() && (

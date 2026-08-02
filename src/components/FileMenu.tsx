@@ -1,11 +1,8 @@
 import { useTranslation } from "react-i18next";
 import {
-  AlertTriangle,
   Check,
   CloudOff,
-  FileText,
   FolderOpen,
-  Loader2,
   Save,
   SaveAll,
 } from "lucide-react";
@@ -54,23 +51,15 @@ export function FileMenu({ onOpen }: FileMenuProps) {
     <AppMenu
       label={t("toolbar.fileMenu")}
       ariaLabel={menuLabel}
-      icon={isSaving
-        ? Loader2
-        : status === "conflict" || status === "error"
-          ? AlertTriangle
-          : FileText}
-      iconClassName={cn(
-        isSaving && "animate-spin",
-        (status === "conflict" || status === "error") && "text-destructive",
-      )}
       title={error ? `${menuLabel}: ${error}` : menuLabel}
       testId="file-menu"
       contentClassName="w-72"
       indicator={(
         <span
           className={cn(
-            "absolute left-4 top-0.5 h-1.5 w-1.5 rounded-full",
+            "h-1.5 w-1.5 rounded-full",
             STATUS_COLORS[status],
+            isSaving && "animate-pulse",
           )}
         />
       )}

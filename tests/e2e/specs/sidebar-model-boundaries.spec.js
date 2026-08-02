@@ -62,11 +62,6 @@ test("separates MasterBar, Bar, Track, and Staff ownership in the sidebar", asyn
     exact: true,
   })).toBeVisible();
 
-  await page.getByRole("button", { name: "Meta", exact: true }).click();
-  await page.getByRole("button", {
-    name: "Toggle Lead Guitar details",
-    exact: true,
-  }).click();
   await expect(page.getByText(/^Staff [12]$/, { exact: true })).toHaveCount(0);
 
   await page.evaluate(() => {
@@ -110,7 +105,7 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
   const menuBounds = await menu.boundingBox();
   expect(triggerBounds).not.toBeNull();
   expect(menuBounds).not.toBeNull();
-  expect(menuBounds.x).toBeGreaterThanOrEqual(triggerBounds.x + triggerBounds.width);
+  expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(triggerBounds.x);
 
   const before = await page.evaluate(() =>
     window.__ALPHATAB_API__.score.tracks.length

@@ -410,6 +410,12 @@ async function dragBetween(source: Locator, destination: Locator, page: Page) {
   await page.mouse.up();
 }
 
+async function openAgentSidebar(page: Page): Promise<Locator> {
+  const sidebar = page.locator('[data-sidebar-side="right"]');
+  await sidebar.getByRole("button", { name: "Agent", exact: true }).click();
+  return sidebar;
+}
+
 test("Web build exposes no Agent product surface", async ({ page }) => {
   await page.goto("/");
 
@@ -443,7 +449,10 @@ test("Zoom rebuilds CoTab overlays on AlphaTab's new cursor layer", async ({ pag
   await expect(playhead).toBeVisible();
   await playhead.evaluate((element) => element.setAttribute("data-before-zoom", ""));
 
-  await page.locator('select[title="Zoom"]').selectOption("1.25");
+  await page.evaluate(async () => {
+    const { usePlayerStore } = await import("/src/stores/render-store.ts");
+    usePlayerStore.getState().setZoom(1.25);
+  });
   await expect(page.locator("[data-before-zoom]")).toHaveCount(0);
   await expect(playhead).toBeVisible();
   expect(await playhead.evaluate((element) =>
@@ -500,7 +509,10 @@ test("Desktop agent peer edits through an isolated logical Yjs peer", async ({ p
   });
   expect(results.edit.ok).toBe(true);
   expect(results.title).toBe("Desktop Agent Score");
-  await expect(page.getByText("Desktop Agent Score", { exact: true })).toBeVisible();
+  await expect(
+    page.locator('[data-sidebar-side="right"]')
+      .getByRole("button", { name: "Title", exact: true }),
+  ).toContainText("Desktop Agent Score");
 });
 
 test("Desktop Agent is a right sidebar tab that reduces score width", async ({ page }) => {
@@ -550,10 +562,10 @@ test("Sidebar tabs move in both directions", async ({ page }) => {
   await expect(leftSidebar.getByRole("button", { name: "Notes", exact: true })).toHaveCount(0);
 
   expect(await page.evaluate(() =>
-    JSON.parse(localStorage.getItem("cotab:sidebar-tab-placement-v1") ?? "null"),
+    JSON.parse(localStorage.getItem("cotab:sidebar-tab-placement-v2") ?? "null"),
   )).toEqual({
-    left: ["agent", "meta", "debug"],
-    right: ["notes"],
+    left: ["agent", "debug"],
+    right: ["meta", "notes"],
   });
 });
 
@@ -564,7 +576,7 @@ test("Desktop Local Codex connects from Agent tab and executes a tool call", asy
     Boolean((window as unknown as AlphaTabWindow).__ALPHATAB_API__?.score?.tracks?.length),
   );
 
-  const rightSidebar = page.locator('[data-sidebar-side="right"]');
+  const rightSidebar = await openAgentSidebar(page);
   await expect(rightSidebar.getByText("Local Codex", { exact: true })).toBeVisible();
   await expect(rightSidebar.getByText("codex-cli test", { exact: true }).first()).toBeVisible();
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
@@ -608,8 +620,15 @@ test("Agent drum continuation matches Y.Doc, AlphaTab, and rendered geometry", a
     }).__ALPHATAB_API__;
     return api?.score?.masterBars?.length === 58;
   });
+  await page.getByTestId("layout-menu").click();
+  await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
+  await page.waitForFunction(() =>
+    (window as unknown as { __ALPHATAB_API__?: {
+      settings?: { display?: { layoutMode?: number } };
+    } }).__ALPHATAB_API__?.settings?.display?.layoutMode === 1,
+  );
 
-  const rightSidebar = page.locator('[data-sidebar-side="right"]');
+  const rightSidebar = await openAgentSidebar(page);
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
   await expect.poll(() => page.evaluate(() => {
     const viewport = document.querySelector<HTMLElement>(".at-viewport");
@@ -853,7 +872,7 @@ test("Agent composer configures the Codex model and reasoning effort", async ({ 
   await installTauriMock(page);
   await page.goto("/");
 
-  const rightSidebar = page.locator('[data-sidebar-side="right"]');
+  const rightSidebar = await openAgentSidebar(page);
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
   const composer = rightSidebar.getByPlaceholder("Edit the current score...");
 
@@ -884,7 +903,7 @@ test("Agent composer toggles the native Codex plan mode", async ({ page }) => {
   await installTauriMock(page);
   await page.goto("/");
 
-  const rightSidebar = page.locator('[data-sidebar-side="right"]');
+  const rightSidebar = await openAgentSidebar(page);
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
   const composer = rightSidebar.getByPlaceholder("Edit the current score...");
   await composer.fill("Inspect the score");
@@ -904,7 +923,7 @@ test("Agent resource permissions configure local, web, and writable roots", asyn
   await installTauriMock(page);
   await page.goto("/");
 
-  const rightSidebar = page.locator('[data-sidebar-side="right"]');
+  const rightSidebar = await openAgentSidebar(page);
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
   const resourcesButton = rightSidebar.getByRole("button", { name: "External resources" });
   const disconnectButton = rightSidebar.getByRole("button", { name: "Disconnect", exact: true });
@@ -955,9 +974,8 @@ test("Agent proxy can be enabled, persisted, and applied to Codex app-server", a
   await installTauriMock(page);
   await page.goto("/");
 
-  const rightSidebar = page.locator('[data-sidebar-side="right"]');
-  const proxyButton = rightSidebar.getByRole("button", { name: "Codex proxy" });
-  await proxyButton.click();
+  await page.getByTestId("preferences-menu").click();
+  await page.getByRole("menuitem", { name: "Codex proxy" }).click();
   await page.getByLabel("Enable proxy").check();
   await page.getByLabel("Proxy URL").fill("http://localhost:9098");
   await page.getByRole("button", { name: "Apply", exact: true }).click();
@@ -966,6 +984,7 @@ test("Agent proxy can be enabled, persisted, and applied to Codex app-server", a
     JSON.parse(localStorage.getItem("cotab:codex-proxy-v1") ?? "null"),
   )).toEqual({ enabled: true, url: "http://localhost:9098" });
 
+  const rightSidebar = await openAgentSidebar(page);
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
   await expect.poll(() => page.evaluate(() =>
     (window as unknown as AlphaTabWindow).__COTAB_TEST_SETTINGS__,
@@ -974,7 +993,8 @@ test("Agent proxy can be enabled, persisted, and applied to Codex app-server", a
     proxyUrl: "http://localhost:9098",
   });
 
-  await proxyButton.click();
+  await page.getByTestId("preferences-menu").click();
+  await page.getByRole("menuitem", { name: "Codex proxy" }).click();
   await page.getByLabel("Proxy URL").fill("http://127.0.0.1:9098");
   await page.getByRole("button", { name: "Apply", exact: true }).click();
   await expect.poll(() => page.evaluate(() =>

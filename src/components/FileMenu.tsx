@@ -54,15 +54,6 @@ export function FileMenu({ onOpen }: FileMenuProps) {
       title={error ? `${menuLabel}: ${error}` : menuLabel}
       testId="file-menu"
       contentClassName="w-72"
-      indicator={(
-        <span
-          className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            STATUS_COLORS[status],
-            isSaving && "animate-pulse",
-          )}
-        />
-      )}
     >
         <div className="px-2 py-1.5">
           <div className="flex items-center gap-2 text-xs font-medium">

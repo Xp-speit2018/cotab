@@ -29,14 +29,8 @@ import {
   LayoutMenu,
   PreferencesMenu,
 } from "@/components/ToolbarMenus";
-import {
-  documentStorageController,
-  documentStorageProviders,
-} from "@/storage/document-storage-runtime";
-import { selectStorageProvider } from "@/storage/provider-selection";
-import { pickLocalScoreFile } from "@/storage/tauri-local-disk-provider";
-import { selectDemoDocument } from "@/storage/demo-selection";
-import { scoreFileKind } from "@/storage/score-file-types";
+import { openDocumentFromProvider } from "@/workspace/open-document";
+import { useDocumentWorkspaceStore } from "@/workspace/document-workspace";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -56,17 +50,19 @@ export function Toolbar() {
   const playerState = usePlayerStore((s) => s.playerState);
   const isLooping = usePlayerStore((s) => s.isLooping);
   const soundFontProgress = usePlayerStore((s) => s.soundFontProgress);
-  const loadFile = usePlayerStore((s) => s.loadFile);
-  const loadUrl = usePlayerStore((s) => s.loadUrl);
+  const trackCount = usePlayerStore((s) => s.tracks.length);
   const selector = usePlayerStore((s) => s.selector);
   const transport = usePlayerStore((s) => s.transport);
   const tabConnected = useEditorStore((s) => s.connected);
   const tabRoomCode = useEditorStore((s) => s.roomCode);
   const transportModifier = useShortcutStore((s) => s.transportModifier);
   const transportModifierActive = useTransportModifierActive();
-  const storageStatus = useEditorStore((state) => state.storage.status);
+  const hasActiveDocument = useDocumentWorkspaceStore(
+    (state) => state.activeTabId !== "",
+  );
 
   const isPlaying = playerState === "playing";
+  const hasPlayableScore = trackCount > 0;
   const playButtonLabel = isPlaying
     ? t("toolbar.pause")
     : playerState === "paused"
@@ -94,56 +90,7 @@ export function Toolbar() {
     : null;
 
   const handleOpenFile = async () => {
-    if (
-      (storageStatus === "dirty" || storageStatus === "conflict") &&
-      !window.confirm(t("storage.discardUnsaved"))
-    ) {
-      return;
-    }
-    try {
-      const providerId = await selectStorageProvider("open");
-      if (!providerId) return;
-      if (providerId === "demo-library") {
-        const demo = await selectDemoDocument();
-        if (demo) loadUrl(demo.url);
-        return;
-      }
-      if (providerId === "local-file") {
-        const provider = documentStorageProviders.get(providerId);
-        const picked = await provider?.pickOpen();
-        if (!picked) return;
-        const kind = scoreFileKind(picked.displayName);
-        if (kind === "cotab") {
-          await documentStorageController.openStoredDocument(
-            providerId,
-            picked,
-          );
-        } else if (kind === "guitarPro") {
-          documentStorageController.unbind();
-          loadFile(picked.data);
-        } else {
-          throw new Error(t("storage.unsupportedScoreFile"));
-        }
-        return;
-      }
-      if (providerId !== "local-disk") {
-        await documentStorageController.open(providerId);
-        return;
-      }
-      const picked = await pickLocalScoreFile();
-      if (!picked) return;
-      if (picked.kind === "cotab") {
-        await documentStorageController.openStoredDocument(
-          "local-disk",
-          picked.document,
-        );
-      } else {
-        documentStorageController.unbind();
-        loadFile(picked.document.data);
-      }
-    } catch (error) {
-      documentStorageController.reportError(error);
-    }
+    await openDocumentFromProvider(t);
   };
 
   return (
@@ -162,8 +109,12 @@ export function Toolbar() {
       </div>
 
       <div
-        className="flex min-w-0 items-center justify-center gap-1"
+        className={cn(
+          "flex min-w-0 items-center justify-center gap-1",
+          !hasActiveDocument && "invisible",
+        )}
         data-testid="transport-center"
+        aria-hidden={!hasActiveDocument}
       >
         <div
           className={cn(
@@ -181,7 +132,7 @@ export function Toolbar() {
                 transportModifierActive && "hover:bg-emerald-500/15",
               )}
               onClick={() => executeAppAction("transport.stop", undefined, { t })}
-              disabled={!isPlayerReady}
+              disabled={!isPlayerReady || !hasPlayableScore}
               aria-label={t("toolbar.stopToPlayhead")}
             >
               <Square className="h-4 w-4" />
@@ -201,7 +152,7 @@ export function Toolbar() {
               )}
               aria-label={playButtonLabel}
               onClick={() => executeAppAction("transport.playPause", undefined, { t })}
-              disabled={!isPlayerReady}
+              disabled={!isPlayerReady || !hasPlayableScore}
             >
               {isPlaying ? (
                 <Pause className="h-4 w-4" />
@@ -228,7 +179,7 @@ export function Toolbar() {
               aria-pressed={isLooping}
               aria-label={t("toolbar.loop")}
               onClick={() => executeAppAction("transport.toggleLoop", undefined, { t })}
-              disabled={!isPlayerReady || !transport.loopRange}
+              disabled={!isPlayerReady || !hasPlayableScore || !transport.loopRange}
             >
               <Repeat2 className="h-4 w-4" />
             </Button>
@@ -261,9 +212,11 @@ export function Toolbar() {
           </div>
           <span className="truncate font-mono text-[11px] text-muted-foreground tabular-nums">
             {loopLabel ? `${loopLabel} · ` : ""}
-            {isPlayerReady
-              ? `${formatTime(transport.currentTime)} / ${formatTime(transport.endTime)}`
-              : t("toolbar.loading", { percent: Math.floor(soundFontProgress * 100) })}
+            {!hasPlayableScore
+              ? `${formatTime(0)} / ${formatTime(0)}`
+              : isPlayerReady
+                ? `${formatTime(transport.currentTime)} / ${formatTime(transport.endTime)}`
+                : t("toolbar.loading", { percent: Math.floor(soundFontProgress * 100) })}
           </span>
         </div>
         </div>
@@ -278,6 +231,7 @@ export function Toolbar() {
               size="sm"
               className="relative h-8 gap-1.5 px-2 font-normal text-muted-foreground hover:text-foreground"
               onClick={() => usePlayerStore.setState({ roomDialogOpen: true })}
+              disabled={!hasActiveDocument}
             >
               <Users className="h-3.5 w-3.5" />
               {tabConnected && (

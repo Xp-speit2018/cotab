@@ -67,6 +67,16 @@
   "viewport": {
     "loadingScore": "Loading score..."
   },
+  "workspace": {
+    "documents": "Open documents",
+    "untitled": "Untitled",
+    "newBlankFile": "New blank file",
+    "noDocument": "No score open",
+    "openPrompt": "Open a CoTab or Guitar Pro file to begin.",
+    "closeDocument": "Close {{title}}",
+    "closeUnsaved": "Close this document and discard its unsaved changes?",
+    "collaborating": "Connected to a collaboration room"
+  },
   "storage": {
     "document": "document",
     "discardUnsaved": "Discard unsaved local changes and open another file?",
@@ -83,6 +93,10 @@
       "chooseOpen": "Open from",
       "chooseSave": "Save to",
       "description": "Choose a storage provider for this document.",
+      "blank-file": {
+        "name": "Blank file",
+        "description": "Create an unsaved score without choosing storage"
+      },
       "local-disk": {
         "name": "Local disk",
         "description": "CoTab and Guitar Pro files on this device"
@@ -312,7 +326,6 @@
       "deleteBarNotEmpty": "Bar contains notes — cannot delete",
       "deleteTrack": "Delete Track",
       "deleteTrackConfirm": "Click again to confirm",
-      "deleteTrackLastTrack": "Cannot delete the last track",
       "articulationTitle": "Articulations",
       "articulationHelp": "Toggle percussion articulations on the selected beat. Articulations sharing a staff line are mutually exclusive.",
       "articulationSelectedOnly": "Selected position only",
@@ -377,6 +390,7 @@
 
     "tracks": {
       "title": "Tracks",
+      "empty": "No tracks",
       "help": "Click a track to expand and edit its properties. Toggle visibility with the eye icon.",
       "addTrack": "Add Track",
       "allInstruments": "All instruments",
@@ -389,7 +403,6 @@
       "deleteTrackPrompt": "Type \"{{name}}\" to confirm.",
       "deleteTrackInput": "Track name confirmation",
       "unnamedTrack": "Unnamed track",
-      "deleteTrackLastTrack": "The last track cannot be deleted.",
       "presets": {
         "acousticGuitar": "Acoustic Guitar",
         "electricGuitarClean": "Electric Guitar (Clean)",

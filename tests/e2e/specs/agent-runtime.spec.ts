@@ -20,7 +20,7 @@ interface RuntimeResult {
 }
 
 test("agent logical peer synchronizes bidirectionally with EditorEngine", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() => {
     const core = (window as unknown as Record<string, unknown>).__COTAB_STORE__ as {
       engine?: { getScoreMap: () => import("yjs").Map<unknown> | null };
@@ -124,7 +124,7 @@ for (const layout of ["horizontal", "parchment"] as const) {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
 
-    await page.goto("/");
+    await page.goto("/?demo=taijin-kyofusho");
     await page.waitForFunction(() => {
       const runtime = window as unknown as {
         __ALPHATAB_API__?: { score?: { masterBars?: unknown[] } };
@@ -293,7 +293,7 @@ for (const layout of ["horizontal", "parchment"] as const) {
 }
 
 test("agent reports a selection-scoped action that did not mutate Y.Doc", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() => {
     const core = (window as unknown as Record<string, unknown>).__COTAB_STORE__ as {
       engine?: { getScoreMap: () => import("yjs").Map<unknown> | null };
@@ -339,7 +339,7 @@ test("agent receives AlphaTab model-build failures as tool diagnostics", async (
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() => {
     const runtime = window as unknown as {
       __ALPHATAB_API__?: { score?: { masterBars?: unknown[] } };

@@ -61,7 +61,7 @@ async function enableFirstStaffStandardNotation(page) {
 
 test("tooltips do not block hovering the next editor control", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 
@@ -99,7 +99,7 @@ test("single-line property rows reveal their edit range without changing label c
   page,
 }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await page.getByRole("button", { name: "Meta", exact: true }).click();
 
@@ -147,7 +147,7 @@ test("single-line property rows reveal their edit range without changing label c
 
 test("toggle state emphasizes the symbol without drawing a backdrop", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 
@@ -183,7 +183,7 @@ test("toggle state emphasizes the symbol without drawing a backdrop", async ({ p
 
 test("selected note identity is hidden and dynamics are beat-scoped", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 
@@ -196,7 +196,7 @@ test("selected note identity is hidden and dynamics are beat-scoped", async ({ p
 
 test("standard notation fields follow the selected staff visibility", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 
@@ -216,7 +216,7 @@ test("standard notation fields follow the selected staff visibility", async ({ p
 
 test("optional parameterized fields reveal details only after activation", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 1100 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
   await enableFirstStaffStandardNotation(page);
@@ -261,7 +261,7 @@ test("optional parameterized fields reveal details only after activation", async
 
 test("articulations are visible only for percussion tracks", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 
@@ -295,7 +295,7 @@ test("articulations are visible only for percussion tracks", async ({ page }) =>
 
 test("playing techniques use distinct notation symbols", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 

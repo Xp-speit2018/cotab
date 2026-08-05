@@ -417,7 +417,7 @@ async function openAgentSidebar(page: Page): Promise<Locator> {
 }
 
 test("Web build exposes no Agent product surface", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   await expect(page.getByRole("button", { name: "Agent", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Agents", exact: true })).toHaveCount(0);
@@ -429,7 +429,7 @@ test("Web build exposes no Agent product surface", async ({ page }) => {
 });
 
 test("Zoom rebuilds CoTab overlays on AlphaTab's new cursor layer", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() =>
     Boolean((window as unknown as AlphaTabWindow).__ALPHATAB_API__?.score?.tracks?.length),
   );
@@ -462,7 +462,7 @@ test("Zoom rebuilds CoTab overlays on AlphaTab's new cursor layer", async ({ pag
 
 test("Desktop agent peer edits through an isolated logical Yjs peer", async ({ page }) => {
   await installTauriMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() =>
     Boolean((window as unknown as AlphaTabWindow).__ALPHATAB_API__?.score?.tracks?.length),
   );
@@ -517,7 +517,7 @@ test("Desktop agent peer edits through an isolated logical Yjs peer", async ({ p
 
 test("Desktop Agent is a right sidebar tab that reduces score width", async ({ page }) => {
   await installTauriMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   const score = page.locator("[data-score-viewport]");
   const rightSidebar = page.locator('[data-sidebar-side="right"]');
@@ -542,7 +542,7 @@ test("Desktop Agent is a right sidebar tab that reduces score width", async ({ p
 
 test("Sidebar tabs move in both directions", async ({ page }) => {
   await installTauriMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   const leftSidebar = page.locator('[data-sidebar-side="left"]');
   const rightSidebar = page.locator('[data-sidebar-side="right"]');
@@ -571,7 +571,7 @@ test("Sidebar tabs move in both directions", async ({ page }) => {
 
 test("Desktop Local Codex connects from Agent tab and executes a tool call", async ({ page }) => {
   await installTauriMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() =>
     Boolean((window as unknown as AlphaTabWindow).__ALPHATAB_API__?.score?.tracks?.length),
   );
@@ -613,7 +613,7 @@ test("Agent drum continuation matches Y.Doc, AlphaTab, and rendered geometry", a
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   await installTauriMock(page, "continue-drums");
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() => {
     const api = (window as unknown as {
       __ALPHATAB_API__?: { score?: { masterBars?: unknown[] } };
@@ -870,7 +870,7 @@ test("Agent drum continuation matches Y.Doc, AlphaTab, and rendered geometry", a
 
 test("Agent composer configures the Codex model and reasoning effort", async ({ page }) => {
   await installTauriMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   const rightSidebar = await openAgentSidebar(page);
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
@@ -901,7 +901,7 @@ test("Agent composer configures the Codex model and reasoning effort", async ({ 
 
 test("Agent composer toggles the native Codex plan mode", async ({ page }) => {
   await installTauriMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   const rightSidebar = await openAgentSidebar(page);
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
@@ -921,7 +921,7 @@ test("Agent composer toggles the native Codex plan mode", async ({ page }) => {
 
 test("Agent resource permissions configure local, web, and writable roots", async ({ page }) => {
   await installTauriMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   const rightSidebar = await openAgentSidebar(page);
   await rightSidebar.getByRole("button", { name: "Connect", exact: true }).click();
@@ -972,7 +972,7 @@ test("Agent resource permissions configure local, web, and writable roots", asyn
 
 test("Agent proxy can be enabled, persisted, and applied to Codex app-server", async ({ page }) => {
   await installTauriMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   await page.getByTestId("preferences-menu").click();
   await page.getByRole("menuitem", { name: "Codex proxy" }).click();

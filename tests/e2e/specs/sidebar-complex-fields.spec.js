@@ -74,7 +74,7 @@ test("tuning presets and custom string pitches stay bidirectionally synchronized
   page,
 }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   await page.getByRole("button", { name: "Meta", exact: true }).click();
@@ -111,7 +111,7 @@ test("complex field editors commit semantic values and show matching summaries",
   page,
 }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await selectFirstMelodicNote(page);
 

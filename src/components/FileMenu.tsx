@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { formatShortcut } from "@/shortcuts";
 import { documentStorageController } from "@/storage/document-storage-runtime";
 import { useEditorStore } from "@/stores/editor-store";
+import { useDocumentWorkspaceStore } from "@/workspace/document-workspace";
 
 const STATUS_COLORS: Record<EditorStorageStatus, string> = {
   unbound: "bg-muted-foreground/45",
@@ -37,6 +38,9 @@ export function FileMenu({ onOpen }: FileMenuProps) {
   const status = useEditorStore((state) => state.storage.status);
   const binding = useEditorStore((state) => state.storage.binding);
   const error = useEditorStore((state) => state.storage.error);
+  const hasActiveDocument = useDocumentWorkspaceStore(
+    (state) => state.activeTabId !== "",
+  );
 
   const statusLabel = t(`storage.status.${status}`);
   const menuLabel = `${t("toolbar.fileMenu")} · ${statusLabel}`;
@@ -91,7 +95,7 @@ export function FileMenu({ onOpen }: FileMenuProps) {
         </AppMenuItem>
         <AppMenuItem
           icon={Save}
-          disabled={isSaving}
+          disabled={isSaving || !hasActiveDocument}
           testId="storage-save"
           shortcut={formatShortcut("Mod+S")}
           onSelect={() => executeAppAction("storage.save", undefined, { t })}
@@ -100,7 +104,7 @@ export function FileMenu({ onOpen }: FileMenuProps) {
         </AppMenuItem>
         <AppMenuItem
           icon={SaveAll}
-          disabled={isSaving}
+          disabled={isSaving || !hasActiveDocument}
           shortcut={formatShortcut("Mod+Shift+S")}
           onSelect={() => executeAppAction("storage.saveAs", undefined, { t })}
         >

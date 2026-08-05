@@ -362,8 +362,7 @@ describe("document.track.delete", () => {
     expect(resolveYTrackHelper(0)!.get("name")).toBe("Test Guitar");
   });
 
-  it("is blocked when only 1 track remains", () => {
-    // Reset to single track state
+  it("allows the last track to be removed", () => {
     resetMockState();
     destroyDoc();
     initDoc();
@@ -372,8 +371,8 @@ describe("document.track.delete", () => {
     expect(trackCount()).toBe(1);
     const trackUuid = resolveYTrackHelper(0)!.get("uuid") as string;
     const result = executeDocumentAction("document.track.delete", { trackUuid }, ctx);
-    expect(result).toBe(false);
-    expect(trackCount()).toBe(1);
+    expect(result).toBe(true);
+    expect(trackCount()).toBe(0);
   });
 
   it("returns false for an unknown track UUID", () => {

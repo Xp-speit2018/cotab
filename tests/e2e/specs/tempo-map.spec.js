@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 
 test("shows and edits the complete Taijin Kyofusho tempo map", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await expect.poll(() => page.evaluate(() =>
     window.__PLAYER_STORE__?.getState().scoreMasterBarCount ?? 0,
   )).toBe(58);

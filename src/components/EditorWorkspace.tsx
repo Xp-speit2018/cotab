@@ -11,6 +11,8 @@ import {
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { EditorSidebar } from "@/components/NoteEditorSidebar";
 import { ScoreViewport } from "@/components/ScoreViewport";
+import { DocumentTabBar } from "@/components/DocumentTabBar";
+import { EmptyWorkspace } from "@/components/EmptyWorkspace";
 import type {
   EditorTabId,
   SectionId,
@@ -19,6 +21,7 @@ import type {
 } from "@/components/NoteEditorSidebar/layout";
 import { COLLAPSED_SIDEBAR_WIDTH } from "@/components/NoteEditorSidebar/layout";
 import { useSidebarLayoutStore } from "@/components/NoteEditorSidebar/sidebar-store";
+import { useDocumentWorkspaceStore } from "@/workspace/document-workspace";
 
 interface DragData {
   readonly type?: "tab" | "section" | "sidebar" | "tab-content";
@@ -52,6 +55,7 @@ export function EditorWorkspace() {
   const placement = useSidebarLayoutStore((state) => state.placement);
   const collapsed = useSidebarLayoutStore((state) => state.collapsed);
   const width = useSidebarLayoutStore((state) => state.width);
+  const hasDocuments = useDocumentWorkspaceStore((state) => state.tabs.length > 0);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -93,7 +97,9 @@ export function EditorWorkspace() {
   }, [moveSection, moveTab]);
 
   const sidebarWidth = (side: SidebarSide) =>
-    collapsed[side] || placement[side].length === 0
+    !hasDocuments
+      ? 0
+      : collapsed[side] || placement[side].length === 0
       ? COLLAPSED_SIDEBAR_WIDTH
       : width[side];
 
@@ -107,11 +113,25 @@ export function EditorWorkspace() {
         className="relative grid min-h-0 flex-1 overflow-hidden"
         style={{
           gridTemplateColumns: `${sidebarWidth("left")}px minmax(0, 1fr) ${sidebarWidth("right")}px`,
+          gridTemplateRows: "2rem minmax(0, 1fr)",
         }}
       >
-        <EditorSidebar side="left" />
-        <ScoreViewport />
-        <EditorSidebar side="right" />
+        {hasDocuments && (
+          <div className="row-span-2 flex min-h-0 min-w-0">
+            <EditorSidebar side="left" />
+          </div>
+        )}
+        <div className="col-start-2 row-start-1 min-w-0">
+          <DocumentTabBar />
+        </div>
+        <div className="col-start-2 row-start-2 flex min-h-0 min-w-0">
+          {hasDocuments ? <ScoreViewport /> : <EmptyWorkspace />}
+        </div>
+        {hasDocuments && (
+          <div className="col-start-3 row-span-2 row-start-1 flex min-h-0 min-w-0">
+            <EditorSidebar side="right" />
+          </div>
+        )}
       </div>
     </DndContext>
   );

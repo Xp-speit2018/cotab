@@ -60,7 +60,7 @@ async function chooseLayout(page, name) {
 
 test("uses parchment as the default score layout", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await waitForLayout(page, "parchment", 2);
   await openLayoutMenu(page);
@@ -262,7 +262,7 @@ for (const layout of ["horizontal", "parchment"]) {
     page,
   }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
-    await page.goto("/");
+    await page.goto("/?demo=taijin-kyofusho");
     await waitForScore(page);
     await chooseLayout(
       page,
@@ -355,7 +355,7 @@ for (const layout of ["horizontal", "parchment"]) {
     page,
   }) => {
     await page.setViewportSize({ width: 1400, height: 900 });
-    await page.goto("/");
+    await page.goto("/?demo=taijin-kyofusho");
     await waitForScore(page);
     await chooseLayout(
       page,
@@ -434,7 +434,7 @@ for (const layout of ["horizontal", "parchment"]) {
 
 test("mouse and keyboard selector moves keep the cursor in view", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 320 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await chooseLayout(page, "Horizontal layout");
   await waitForLayout(page, "horizontal", 1);
@@ -589,7 +589,7 @@ test("mouse and keyboard selector moves keep the cursor in view", async ({ page 
 
 test("Developer preferences control snap grid visibility", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   await page.getByTestId("preferences-menu").click();
@@ -620,7 +620,7 @@ test("hides the alphaTab attribution at every supported zoom", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   for (const zoom of [0.5, 1, 1.25, 2]) {
@@ -641,7 +641,7 @@ test("switches layouts and snaps a later parchment system locally", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await chooseLayout(page, "Horizontal layout");
   await waitForLayout(page, "horizontal", 1);
@@ -938,7 +938,7 @@ test("edits parchment rows with Guitar Pro-style layout controls", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   await chooseLayout(page, "Parchment layout");
@@ -1024,7 +1024,7 @@ test("edits parchment rows with Guitar Pro-style layout controls", async ({
 
 test("uses track layout when only one track is visible", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   await chooseLayout(page, "Parchment layout");

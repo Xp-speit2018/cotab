@@ -6,7 +6,7 @@
  */
 
 import { create } from "zustand";
-import { engine } from "@/core/engine";
+import { engine, subscribeActiveEngine } from "@/core/engine";
 
 // Re-export types that components need
 export type { SelectedBeat, SelectionRange } from "@/core/engine";
@@ -50,36 +50,60 @@ export const useEditorStore = create<EditorReactiveState>(() => ({
   syncState: engine.syncState,
 }));
 
-// Register hooks to sync engine state to Zustand store
-// (Module-level registration lives for app lifetime; ignore return value)
-engine.registerHooks({
-  // Selector changes: sync local selector state from engine to Zustand.
-  onLocalSelectorChange: () => {
-    useEditorStore.setState({
-      selector: engine.selector,
-      ...getUndoState(),
-    });
-  },
-  onLocalTransportChange: () => {
-    useEditorStore.setState({
-      transport: engine.transport,
-    });
-  },
-  onLocalStorageChange: () => {
-    useEditorStore.setState({
-      storage: engine.storage,
-    });
-  },
-  // Connection metadata changes: sync from engine to Zustand
-  onConnectionMetaChange: () => {
-    useEditorStore.setState({
-      connected: engine.connected,
-      roomCode: engine.roomCode,
-      peers: engine.peers,
-      connectionStatus: engine.connectionStatus,
-      connectionError: engine.connectionError,
-      userName: engine.userName,
-      syncState: engine.syncState,
-    });
-  },
+function engineSnapshot(): EditorReactiveState {
+  return {
+    selector: engine.selector,
+    transport: engine.transport,
+    storage: engine.storage,
+    ...getUndoState(),
+    connected: engine.connected,
+    roomCode: engine.roomCode,
+    peers: engine.peers,
+    connectionStatus: engine.connectionStatus,
+    connectionError: engine.connectionError,
+    userName: engine.userName,
+    syncState: engine.syncState,
+  };
+}
+
+function bindEngineHooks(): () => void {
+  return engine.registerHooks({
+    // Selector changes: sync local selector state from engine to Zustand.
+    onLocalSelectorChange: () => {
+      useEditorStore.setState({
+        selector: engine.selector,
+        ...getUndoState(),
+      });
+    },
+    onLocalTransportChange: () => {
+      useEditorStore.setState({
+        transport: engine.transport,
+      });
+    },
+    onLocalStorageChange: () => {
+      useEditorStore.setState({
+        storage: engine.storage,
+      });
+    },
+    // Connection metadata changes: sync from engine to Zustand.
+    onConnectionMetaChange: () => {
+      useEditorStore.setState({
+        connected: engine.connected,
+        roomCode: engine.roomCode,
+        peers: engine.peers,
+        connectionStatus: engine.connectionStatus,
+        connectionError: engine.connectionError,
+        userName: engine.userName,
+        syncState: engine.syncState,
+      });
+    },
+  });
+}
+
+let unsubscribeEngineHooks = bindEngineHooks();
+
+subscribeActiveEngine(() => {
+  unsubscribeEngineHooks();
+  unsubscribeEngineHooks = bindEngineHooks();
+  useEditorStore.setState(engineSnapshot());
 });

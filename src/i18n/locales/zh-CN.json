@@ -67,6 +67,16 @@
   "viewport": {
     "loadingScore": "正在加载乐谱..."
   },
+  "workspace": {
+    "documents": "已打开的文档",
+    "untitled": "未命名",
+    "newBlankFile": "新建空白文件",
+    "noDocument": "尚未打开乐谱",
+    "openPrompt": "打开 CoTab 或 Guitar Pro 文件以开始。",
+    "closeDocument": "关闭 {{title}}",
+    "closeUnsaved": "关闭此文档并放弃未保存的修改？",
+    "collaborating": "已连接协作房间"
+  },
   "storage": {
     "document": "文档",
     "discardUnsaved": "放弃尚未保存的本地修改并打开其他文件？",
@@ -83,6 +93,10 @@
       "chooseOpen": "从何处打开",
       "chooseSave": "保存到",
       "description": "为此文档选择存储服务。",
+      "blank-file": {
+        "name": "空白文件",
+        "description": "新建未保存的乐谱，不选择存储位置"
+      },
       "local-disk": {
         "name": "本地磁盘",
         "description": "此设备上的 CoTab 与 Guitar Pro 文件"
@@ -312,7 +326,6 @@
       "deleteBarNotEmpty": "小节包含音符——无法删除",
       "deleteTrack": "删除音轨",
       "deleteTrackConfirm": "再次点击以确认",
-      "deleteTrackLastTrack": "无法删除最后一个音轨",
       "articulationTitle": "奏法",
       "articulationHelp": "切换选中节拍上的打击乐奏法。共享同一谱线位置的奏法互斥。",
       "articulationSelectedOnly": "仅选中位置",
@@ -376,6 +389,7 @@
 
     "tracks": {
       "title": "音轨",
+      "empty": "暂无音轨",
       "help": "点击音轨展开编辑属性。使用眼睛图标切换可见性。",
       "addTrack": "添加音轨",
       "allInstruments": "全部乐器",
@@ -388,7 +402,6 @@
       "deleteTrackPrompt": "请输入“{{name}}”以确认。",
       "deleteTrackInput": "音轨名称确认",
       "unnamedTrack": "未命名音轨",
-      "deleteTrackLastTrack": "无法删除最后一个音轨。",
       "presets": {
         "acousticGuitar": "木吉他",
         "electricGuitarClean": "电吉他（清音）",

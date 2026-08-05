@@ -76,7 +76,7 @@ declare global {
 }
 
 test("Selection does not change the transport playback start", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   await page.waitForFunction(() => {
     const store = window.__PLAYER_STORE__;
@@ -172,7 +172,7 @@ test("Selection does not change the transport playback start", async ({ page }) 
 });
 
 test("Explicit transport playhead starts playback from the selector", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   await page.waitForFunction(() => {
     const store = window.__PLAYER_STORE__;

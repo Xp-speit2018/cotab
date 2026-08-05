@@ -15,7 +15,7 @@ import {
 } from "@/core/editor/document-change";
 import { engine } from "@/core/engine";
 import { debugLog } from "@/core/editor/action-log";
-import { getApi } from "./render-api";
+import { getApi, getMainElement } from "./render-api";
 
 export type RendererPipelinePhase =
   | "unavailable"
@@ -127,6 +127,7 @@ let _unsubscribePostRenderFinished: (() => void) | null = null;
 let _unsubscribeRendererError: (() => void) | null = null;
 let _rendererBusy = false;
 let _rebuildPending = false;
+let _rendererSurfaceHidden = false;
 let _flushScheduled = false;
 let _schedulerVersion = 0;
 let _pendingRevision: number | null = null;
@@ -391,6 +392,33 @@ function restoreRenderCursorScroll(): void {
   api.settings.player.scrollMode = mode;
 }
 
+function hideRendererSurface(): void {
+  const main = getMainElement();
+  if (!main) return;
+  main.style.display = "none";
+  main.style.visibility = "hidden";
+  main.setAttribute("aria-hidden", "true");
+  _rendererSurfaceHidden = true;
+}
+
+function prepareRendererSurface(): void {
+  if (!_rendererSurfaceHidden) return;
+  const main = getMainElement();
+  if (!main) return;
+  main.style.removeProperty("display");
+  void main.offsetWidth;
+}
+
+function showRendererSurface(): void {
+  const main = getMainElement();
+  if (main) {
+    main.style.removeProperty("display");
+    main.style.removeProperty("visibility");
+    main.removeAttribute("aria-hidden");
+  }
+  _rendererSurfaceHidden = false;
+}
+
 function finishRendererUpdate(error?: unknown): void {
   if (!_rendererBusy && !_activeUpdate) {
     if (error !== undefined) recordUnscopedError("alphatab", error);
@@ -403,8 +431,10 @@ function finishRendererUpdate(error?: unknown): void {
 
   if (update?.kind === "ydoc") {
     if (error === undefined) {
+      showRendererSurface();
       settleSuccess(update);
     } else {
+      if (_rendererSurfaceHidden) hideRendererSurface();
       settleFailure(
         update.revision,
         "alphatab",
@@ -415,8 +445,10 @@ function finishRendererUpdate(error?: unknown): void {
       );
     }
   } else if (error !== undefined) {
+    if (_rendererSurfaceHidden) hideRendererSurface();
     recordUnscopedError("alphatab", error);
   } else {
+    showRendererSurface();
     publishDiagnostics({
       phase: "idle",
       activeUpdateKind: null,
@@ -434,6 +466,8 @@ function startRendererUpdate(
   trackIndexes: number[],
   update: ActiveRendererUpdate,
 ): boolean {
+  const reuseViewport = !_rendererSurfaceHidden;
+  prepareRendererSurface();
   _rendererBusy = true;
   _activeUpdate = update;
   publishDiagnostics({
@@ -453,9 +487,9 @@ function startRendererUpdate(
       // AlphaTab's normal playback-follow behavior.
       suppressRenderCursorScroll(api);
       const renderHints: {
-        reuseViewport: true;
+        reuseViewport: boolean;
         firstChangedMasterBar?: number;
-      } = { reuseViewport: true };
+      } = { reuseViewport };
       if (
         update.firstChangedMasterBar !== null
         && api.settings.display.layoutMode === LayoutMode.Parchment
@@ -572,19 +606,48 @@ function flushRebuild(): void {
     _rebuildPending = false;
     _pendingRevision = null;
     _pendingFirstChangedMasterBar = null;
+    const startedAt = Date.now();
     publishDiagnostics({
+      phase: "rendering",
       rebuildPending: false,
       pendingRevision: null,
       pendingFirstChangedMasterBar: null,
+      activeRevision: revision,
+      activeUpdateKind: "ydoc",
+      activeFirstChangedMasterBar: firstChangedMasterBar,
+      lastStartedAt: startedAt,
+      currentError: null,
     });
-    settleFailure(
-      revision,
-      "precondition",
-      new Error("Renderer rebuild requested for a score without tracks."),
-      Date.now(),
-      null,
-      firstChangedMasterBar,
-    );
+    try {
+      api.pause();
+      hideRendererSurface();
+      const yMasterBars = scoreMap.get("masterBars") as
+        | Y.Array<unknown>
+        | undefined;
+      settleSuccess({
+        kind: "ydoc",
+        revision,
+        requestedAt,
+        startedAt,
+        firstChangedMasterBar,
+        score: {
+          masterBarCount: yMasterBars?.length ?? 0,
+          trackCount: 0,
+          staffCount: 0,
+          renderedTrackIndexes: [],
+        },
+      });
+    } catch (error) {
+      settleFailure(
+        revision,
+        "render",
+        error,
+        startedAt,
+        null,
+        firstChangedMasterBar,
+      );
+    }
+    continueQueuedUpdates();
     return;
   }
 
@@ -810,6 +873,7 @@ export function uninstallRendererObserver(): void {
 
   _rendererApi = null;
   _rendererBusy = false;
+  showRendererSurface();
   _activeUpdate = null;
   _pendingSourceLoad = null;
   _pendingRevision = null;

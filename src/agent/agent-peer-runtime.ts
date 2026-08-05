@@ -1,4 +1,4 @@
-import { engine } from "@/core/engine";
+import { engine, subscribeActiveEngine } from "@/core/engine";
 import type { DocumentPeerConnection } from "@/core/editor/collaboration";
 import type { MinimalMcpCallResult } from "@/protocol/minimal-mcp";
 import {
@@ -311,6 +311,12 @@ class AgentPeerRuntime {
     this.setSnapshot({ status: "stopped", clientId: null, error: null });
   }
 
+  rebindDocument(): void {
+    if (!this.worker) return;
+    this.unregisterPeer?.();
+    this.unregisterPeer = engine.registerDocumentPeer(this.peerConnection);
+  }
+
   async callTool(
     tool: string,
     args: unknown = {},
@@ -350,3 +356,5 @@ class AgentPeerRuntime {
 }
 
 export const agentPeerRuntime = new AgentPeerRuntime();
+
+subscribeActiveEngine(() => agentPeerRuntime.rebindDocument());

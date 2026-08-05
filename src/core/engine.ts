@@ -1074,6 +1074,30 @@ export class EditorEngine {
   }
 }
 
-// ─── Singleton ──────────────────────────────────────────────────────────────
+// ─── Active document engine ─────────────────────────────────────────────────
 
-export const engine = new EditorEngine();
+export type ActiveEngineListener = (
+  current: EditorEngine,
+  previous: EditorEngine,
+) => void;
+
+const activeEngineListeners = new Set<ActiveEngineListener>();
+
+/**
+ * Live binding for the active document session. Existing core actions import
+ * this value directly, so switching tabs changes their target without adding
+ * a second action facade.
+ */
+export let engine = new EditorEngine();
+
+export function setActiveEngine(next: EditorEngine): void {
+  if (next === engine) return;
+  const previous = engine;
+  engine = next;
+  for (const listener of activeEngineListeners) listener(next, previous);
+}
+
+export function subscribeActiveEngine(listener: ActiveEngineListener): () => void {
+  activeEngineListeners.add(listener);
+  return () => activeEngineListeners.delete(listener);
+}

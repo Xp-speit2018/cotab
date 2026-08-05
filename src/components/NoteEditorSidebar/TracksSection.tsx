@@ -218,11 +218,9 @@ function AddTrackPopover() {
 function DeleteTrackControl({
   trackUuid,
   trackName,
-  disabled,
 }: {
   trackUuid: string;
   trackName: string;
-  disabled: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -237,28 +235,16 @@ function DeleteTrackControl({
 
   return (
     <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={disabled}
-              className="h-7 cursor-default px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setDialogOpen(true)}
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              {t("sidebar.tracks.deleteTrack")}
-            </Button>
-          </span>
-        </TooltipTrigger>
-        {disabled && (
-          <TooltipContent side="right">
-            {t("sidebar.tracks.deleteTrackLastTrack")}
-          </TooltipContent>
-        )}
-      </Tooltip>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-7 cursor-default px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
+        onClick={() => setDialogOpen(true)}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        {t("sidebar.tracks.deleteTrack")}
+      </Button>
 
       <Dialog open={open} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
@@ -726,7 +712,6 @@ function TrackMetaRow({
   const [colorOpen, setColorOpen] = useState(false);
   const [nameEditing, setNameEditing] = useState(false);
   const track = usePlayerStore((state) => state.tracks[trackIndex]);
-  const trackCount = usePlayerStore((state) => state.tracks.length);
   const visibleTrackIndices = usePlayerStore((state) => state.visibleTrackIndices);
   const selectedBeat = usePlayerStore((state) => state.selectedBeat);
   const [nameDraft, setNameDraft] = useState(track?.name ?? "");
@@ -1018,7 +1003,6 @@ function TrackMetaRow({
             <DeleteTrackControl
               trackUuid={trackUuid}
               trackName={track.name}
-              disabled={trackCount <= 1}
             />
           </div>
         </div>
@@ -1036,8 +1020,6 @@ export function TracksSection({
   const [isOpen, setIsOpen] = useState(true);
   const tracks = usePlayerStore((state) => state.tracks);
 
-  if (tracks.length === 0) return null;
-
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <SectionHeader
@@ -1049,13 +1031,19 @@ export function TracksSection({
       />
       <CollapsibleContent>
         <div className="py-1">
-          {tracks.map((track) => (
-            <TrackMetaRow
-              key={track.uuid || track.index}
-              trackIndex={track.index}
-              trackUuid={track.uuid}
-            />
-          ))}
+          {tracks.length === 0
+            ? (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  {t("sidebar.tracks.empty")}
+                </div>
+              )
+            : tracks.map((track) => (
+                <TrackMetaRow
+                  key={track.uuid || track.index}
+                  trackIndex={track.index}
+                  trackUuid={track.uuid}
+                />
+              ))}
         </div>
         <Separator />
       </CollapsibleContent>

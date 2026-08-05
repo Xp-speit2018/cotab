@@ -111,7 +111,7 @@ type RuntimeWindow = Window & {
 test("keyboard editing projects shortcut values into document action objects", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() =>
     Boolean((window as unknown as RuntimeWindow).__PLAYER_STORE__?.getState().isPlayerReady),
   );
@@ -161,7 +161,7 @@ test("live document edits reuse the rendered AlphaTab viewport", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() => {
     const runtime = window as unknown as RuntimeWindow;
     return Boolean(
@@ -328,7 +328,7 @@ test("parchment edits preserve systems before the first changed master bar", asy
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() => {
     const runtime = window as unknown as RuntimeWindow;
     const state = runtime.__PLAYER_STORE__?.getState();
@@ -508,7 +508,7 @@ test("parchment edits preserve systems before the first changed master bar", asy
 });
 
 test("core edit controls refresh the selected AlphaTab snapshot", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() =>
     Boolean((window as unknown as RuntimeWindow).__PLAYER_STORE__?.getState().isPlayerReady),
   );
@@ -602,7 +602,7 @@ test("core edit controls refresh the selected AlphaTab snapshot", async ({ page 
 });
 
 test("track visibility is a local ViewAction and survives rendering", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await page.waitForFunction(() =>
     Boolean((window as unknown as RuntimeWindow).__PLAYER_STORE__?.getState().isPlayerReady),
   );

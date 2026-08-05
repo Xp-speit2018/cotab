@@ -11,7 +11,7 @@ import { type Page, expect } from "@playwright/test";
 
 /** Navigate to the app and wait for the score viewport to be visible. */
 export async function waitForScoreLoaded(page: Page): Promise<void> {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   // AlphaTab renders into .at-main; wait for it to appear
   await page.waitForSelector(".at-main", { timeout: 30_000 });
 }

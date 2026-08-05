@@ -1,4 +1,4 @@
-import { BookOpen, Cloud, HardDrive } from "lucide-react";
+import { BookOpen, Cloud, FilePlus2, HardDrive } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -51,6 +51,23 @@ export function StorageProviderDialog() {
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1">
+          {request?.operation === "open" && (
+            <Button
+              variant="ghost"
+              className="h-auto w-full justify-start gap-3 px-3 py-2.5"
+              onClick={() => finishStorageProviderSelection("blank-file")}
+            >
+              <FilePlus2 className="h-4 w-4" />
+              <span className="min-w-0 text-left">
+                <span className="block text-sm font-medium">
+                  {t("storage.provider.blank-file.name")}
+                </span>
+                <span className="block text-xs font-normal text-muted-foreground">
+                  {t("storage.provider.blank-file.description")}
+                </span>
+              </span>
+            </Button>
+          )}
           {providers.map((provider) => (
             <Button
               key={provider.id}

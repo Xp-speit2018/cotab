@@ -241,10 +241,7 @@ const deleteTrackAction = defineDocumentAction({
     if (!yScore) return false;
 
     const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
-    if (!yTracks || yTracks.length <= 1) {
-      debugLog("warn", "document.track.delete", "blocked — last track");
-      return false;
-    }
+    if (!yTracks) return false;
     const trackIndex = yTracks.toArray().findIndex(
       (yTrack) => yTrack.get("uuid") === trackUuid,
     );

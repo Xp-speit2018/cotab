@@ -17,6 +17,11 @@ export function ScoreViewport() {
   const destroy = usePlayerStore((s) => s.destroy);
   const showLoadingOverlay = usePlayerStore((s) => s.showLoadingOverlay);
   const scoreLayout = usePlayerStore((s) => s.scoreLayout);
+  const trackCount = usePlayerStore((s) => s.tracks.length);
+  const scoreTitle = usePlayerStore((s) => s.scoreTitle);
+  const scoreSubTitle = usePlayerStore((s) => s.scoreSubTitle);
+  const scoreArtist = usePlayerStore((s) => s.scoreArtist);
+  const scoreAlbum = usePlayerStore((s) => s.scoreAlbum);
   const transportModifierActive = useTransportModifierActive();
 
   useEffect(() => {
@@ -71,6 +76,27 @@ export function ScoreViewport() {
           transportModifierActive && "at-transport-mode",
         )}
       >
+        {trackCount === 0 && (
+          <div
+            data-testid="empty-score-header"
+            className="mx-auto box-border w-full max-w-[1200px] px-16 pt-16 text-center font-serif text-black"
+          >
+            {scoreTitle && (
+              <h1 className="m-0 text-[32px] font-normal leading-tight">
+                {scoreTitle}
+              </h1>
+            )}
+            {scoreSubTitle && (
+              <div className="mt-3 text-xl leading-tight">{scoreSubTitle}</div>
+            )}
+            {scoreArtist && (
+              <div className="mt-5 text-xl leading-tight">{scoreArtist}</div>
+            )}
+            {scoreAlbum && (
+              <div className="mt-2 text-xl leading-tight">{scoreAlbum}</div>
+            )}
+          </div>
+        )}
         {/* AlphaTab Main (rendering target) */}
         <div ref={mainRef} className="at-main" />
       </div>

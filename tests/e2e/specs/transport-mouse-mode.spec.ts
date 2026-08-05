@@ -109,12 +109,24 @@ declare global {
 }
 
 test("transport modifier routes score mouse input to transport state", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
 
   await page.waitForFunction(() => window.__PLAYER_STORE__?.getState().isPlayerReady);
+  await page.waitForFunction(() =>
+    Boolean(window.__ALPHATAB_API__?.boundsLookup?.staffSystems?.length),
+  );
 
   const viewport = page.locator(".at-viewport");
-  await viewport.click({ position: { x: 300, y: 150 } });
+  const scoreY = await page.evaluate(() => {
+    const api = window.__ALPHATAB_API__!;
+    const viewportRect = document.querySelector(".at-viewport")!.getBoundingClientRect();
+    const mainRect = document.querySelector(".at-main")!.getBoundingClientRect();
+    const beat = api.boundsLookup.staffSystems[0].bars[0].bars[0].beats[0];
+    const scale = api.settings.display.scale;
+    return mainRect.top - viewportRect.top
+      + (beat.realBounds.y + beat.realBounds.h / 2) * scale;
+  });
+  await viewport.click({ position: { x: 300, y: scoreY } });
 
   await page.waitForFunction(() => Boolean(window.__PLAYER_STORE__?.getState().selectedBeat));
 
@@ -133,7 +145,7 @@ test("transport modifier routes score mouse input to transport state", async ({ 
 
   const box = await viewport.boundingBox();
   expect(box).not.toBeNull();
-  const y = box!.y + 150;
+  const y = box!.y + scoreY;
 
   await page.mouse.move(box!.x + 260, y);
   await page.mouse.down();
@@ -177,7 +189,7 @@ test("transport modifier routes score mouse input to transport state", async ({ 
 
   await page.keyboard.down("Alt");
   await expect(viewport).toHaveClass(/at-transport-mode/);
-  await viewport.click({ position: { x: 520, y: 150 } });
+  await viewport.click({ position: { x: 520, y: scoreY } });
   await page.keyboard.up("Alt");
 
   const afterTransportClick = await page.evaluate(() => {
@@ -523,7 +535,7 @@ test("transport modifier routes score mouse input to transport state", async ({ 
   expect(loopState.tickPosition).toBe(beforeLoopToggle.tickPosition);
 
   await page.keyboard.down("Alt");
-  await viewport.click({ position: { x: 420, y: 150 } });
+  await viewport.click({ position: { x: 420, y: scoreY } });
   await page.keyboard.up("Alt");
 
   const afterTransportSingleClick = await page.evaluate(() => {

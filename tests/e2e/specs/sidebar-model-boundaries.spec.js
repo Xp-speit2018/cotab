@@ -33,7 +33,7 @@ test("separates MasterBar, Bar, Track, and Staff ownership in the sidebar", asyn
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   await page.evaluate(() => {
@@ -93,7 +93,7 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await page.getByRole("button", { name: "Meta", exact: true }).click();
 

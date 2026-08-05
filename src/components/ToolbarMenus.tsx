@@ -34,8 +34,8 @@ import { SUPPORTED_LANGUAGES } from "@/i18n";
 import { formatShortcut, useShortcutStore } from "@/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import { usePlayerStore } from "@/stores/render-store";
-import { documentStorageController } from "@/storage/document-storage-runtime";
 import { saveAutoSavePreference } from "@/storage/storage-preferences";
+import { setWorkspaceAutoSaveEnabled } from "@/workspace/document-workspace";
 
 export function EditMenu() {
   const { t } = useTranslation();
@@ -155,7 +155,7 @@ export function PreferencesMenu() {
           onSelect={() => {
             const enabled = !autoSaveEnabled;
             saveAutoSavePreference(enabled);
-            documentStorageController.setAutoSaveEnabled(enabled);
+            setWorkspaceAutoSaveEnabled(enabled);
           }}
         >
           {t("toolbar.autoSave")}

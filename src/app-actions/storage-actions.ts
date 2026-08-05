@@ -62,6 +62,7 @@ export function registerStorageActions(): void {
     i18nKey: "shortcuts.file.save",
     category: "file",
     execute: async (args) => {
+      if (!engine.getDoc()) return false;
       if (engine.storage.availableProviderIds.length === 0) {
         return false;
       }
@@ -86,6 +87,7 @@ export function registerStorageActions(): void {
     i18nKey: "shortcuts.file.saveAs",
     category: "file",
     execute: async (args) => {
+      if (!engine.getDoc()) return false;
       if (engine.storage.availableProviderIds.length === 0) {
         return false;
       }

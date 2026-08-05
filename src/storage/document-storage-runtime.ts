@@ -1,4 +1,7 @@
-import { engine } from "@/core/engine";
+import {
+  engine,
+  type EditorEngine,
+} from "@/core/engine";
 import { DocumentStorageController } from "./document-storage-controller";
 import {
   BrowserLocalFileProvider,
@@ -24,33 +27,70 @@ export const documentStorageProviders = new DocumentStorageProviderRegistry(
   ],
 );
 
-function publishAvailableProviders(): void {
-  engine.localSetStorageState({
-    ...engine.storage,
-    availableProviderIds: documentStorageProviders.ids(),
-  });
+export interface DocumentStorageRuntime {
+  readonly controller: DocumentStorageController;
+  dispose(): void;
 }
 
-publishAvailableProviders();
-documentStorageProviders.subscribe(publishAvailableProviders);
+const storageEngines = new Set<EditorEngine>();
 
-export const documentStorageController = new DocumentStorageController({
-  providers: documentStorageProviders,
-  getDocument: () => engine.getDoc(),
-  replaceDocument: (doc) => {
-    const previous = engine.getDoc();
-    engine.replaceDoc(doc, doc.getMap("score"));
-    engine.getUndoManager()?.clear();
-    if (previous && previous !== doc) previous.destroy();
-  },
-  getStorageState: () => engine.storage,
-  setStorageState: (storage) => engine.localSetStorageState(storage),
-});
+export function createDocumentStorageRuntime(
+  sessionEngine: EditorEngine,
+): DocumentStorageRuntime {
+  storageEngines.add(sessionEngine);
+  sessionEngine.localSetStorageState({
+    ...sessionEngine.storage,
+    availableProviderIds: documentStorageProviders.ids(),
+  });
 
-documentStorageController.setAutoSaveEnabled(loadAutoSavePreference());
+  const controller = new DocumentStorageController({
+    providers: documentStorageProviders,
+    getDocument: () => sessionEngine.getDoc(),
+    replaceDocument: (doc) => {
+      const previous = sessionEngine.getDoc();
+      sessionEngine.replaceDoc(doc, doc.getMap("score"));
+      sessionEngine.getUndoManager()?.clear();
+      if (previous && previous !== doc) previous.destroy();
+    },
+    getStorageState: () => sessionEngine.storage,
+    setStorageState: (storage) => sessionEngine.localSetStorageState(storage),
+  });
+  controller.setAutoSaveEnabled(loadAutoSavePreference());
 
-engine.registerHooks({
-  onDocumentReplaced: (doc) => {
-    documentStorageController.handleDocumentReplaced(doc);
-  },
+  const unregisterEngineHooks = sessionEngine.registerHooks({
+    onDocumentReplaced: (doc) => controller.handleDocumentReplaced(doc),
+  });
+
+  return {
+    controller,
+    dispose: () => {
+      storageEngines.delete(sessionEngine);
+      unregisterEngineHooks();
+      controller.destroy();
+    },
+  };
+}
+
+const initialRuntime = createDocumentStorageRuntime(engine);
+
+/** Live binding for storage actions targeting the active document session. */
+export let documentStorageController = initialRuntime.controller;
+
+export function setActiveDocumentStorageController(
+  controller: DocumentStorageController,
+): void {
+  documentStorageController = controller;
+}
+
+export function getInitialDocumentStorageRuntime(): DocumentStorageRuntime {
+  return initialRuntime;
+}
+
+documentStorageProviders.subscribe(() => {
+  for (const sessionEngine of storageEngines) {
+    sessionEngine.localSetStorageState({
+      ...sessionEngine.storage,
+      availableProviderIds: documentStorageProviders.ids(),
+    });
+  }
 });

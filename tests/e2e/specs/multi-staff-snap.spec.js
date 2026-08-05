@@ -46,7 +46,7 @@ async function clickAlphaTabPoint(page, point) {
 
 test("dual notation staff snaps and navigates by visible staff", async ({ page }) => {
   await page.setViewportSize({ width: 1500, height: 950 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await enableFirstStaffStandardNotation(page);
 

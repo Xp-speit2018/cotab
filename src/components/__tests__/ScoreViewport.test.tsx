@@ -10,6 +10,11 @@ import { ScoreViewport } from "../ScoreViewport";
 const viewportState = vi.hoisted(() => ({
   scoreLayout: "horizontal" as "horizontal" | "parchment",
   showLoadingOverlay: false,
+  tracks: [] as unknown[],
+  scoreTitle: "Untitled",
+  scoreSubTitle: "",
+  scoreArtist: "",
+  scoreAlbum: "",
 }));
 
 vi.mock("@/stores/render-store", () => ({
@@ -19,6 +24,11 @@ vi.mock("@/stores/render-store", () => ({
       destroy: vi.fn(),
       showLoadingOverlay: viewportState.showLoadingOverlay,
       scoreLayout: viewportState.scoreLayout,
+      tracks: viewportState.tracks,
+      scoreTitle: viewportState.scoreTitle,
+      scoreSubTitle: viewportState.scoreSubTitle,
+      scoreArtist: viewportState.scoreArtist,
+      scoreAlbum: viewportState.scoreAlbum,
     };
     return selector(mockState);
   }),
@@ -36,6 +46,11 @@ describe("ScoreViewport", () => {
     vi.clearAllMocks();
     viewportState.scoreLayout = "horizontal";
     viewportState.showLoadingOverlay = false;
+    viewportState.tracks = [];
+    viewportState.scoreTitle = "Untitled";
+    viewportState.scoreSubTitle = "";
+    viewportState.scoreArtist = "";
+    viewportState.scoreAlbum = "";
   });
 
   it("mounts without throwing", () => {
@@ -60,6 +75,28 @@ describe("ScoreViewport", () => {
     render(<ScoreViewport />);
     const main = document.querySelector(".at-main");
     expect(main).toBeInTheDocument();
+  });
+
+  it("renders score metadata when no staff can be laid out", () => {
+    viewportState.scoreTitle = "Empty score";
+    viewportState.scoreSubTitle = "Sketch";
+    viewportState.scoreArtist = "Composer";
+
+    render(<ScoreViewport />);
+
+    const header = document.querySelector('[data-testid="empty-score-header"]');
+    expect(header).toHaveTextContent("Empty score");
+    expect(header).toHaveTextContent("Sketch");
+    expect(header).toHaveTextContent("Composer");
+  });
+
+  it("leaves score metadata rendering to AlphaTab when tracks exist", () => {
+    viewportState.tracks = [{}];
+
+    render(<ScoreViewport />);
+
+    expect(document.querySelector('[data-testid="empty-score-header"]'))
+      .not.toBeInTheDocument();
   });
 
   it("maps vertical wheel movement to the horizontal timeline", () => {

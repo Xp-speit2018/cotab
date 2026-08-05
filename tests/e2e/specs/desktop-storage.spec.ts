@@ -368,11 +368,12 @@ async function saveDocument(page: Page) {
 }
 
 test("Web Open presents storage sources and supported local score formats", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   await expect(page.getByTestId("file-menu")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open file" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "New blank file" })).toBeVisible();
+  await expect(page.getByTestId("document-tab-bar")).toBeVisible();
   await openFileMenu(page);
   await expect(page.getByRole("menuitem", { name: /Save CoTab document/ }))
     .toBeVisible();
@@ -383,6 +384,9 @@ test("Web Open presents storage sources and supported local score formats", asyn
     .toHaveCount(0);
   await chooseOpenFile(page);
   await expect(page.getByRole("heading", { name: "Open from" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Blank file/ })).toContainText(
+    "without choosing storage",
+  );
   await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Local file/ })).toContainText(
     "CoTab and Guitar Pro files",
@@ -396,7 +400,7 @@ test("titlebar exposes application menus, centers transport, and right-aligns co
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   for (const menu of [
@@ -458,7 +462,7 @@ test("titlebar exposes application menus, centers transport, and right-aligns co
 });
 
 test("persists the selected interface language", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   await page.getByTestId("preferences-menu").click();
@@ -512,7 +516,7 @@ test("Save As exports GP7 by suffix without creating a storage binding", async (
     };
   });
 
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   const initialStorage = await page.evaluate(async () => {
     const { engine } = await import("/src/core/engine.ts");
@@ -558,7 +562,7 @@ test("Web local file source imports Guitar Pro without creating a binding", asyn
       },
     });
   });
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await page.evaluate(async () => {
     const { engine } = await import("/src/core/engine.ts");
@@ -593,7 +597,7 @@ test("Web local file source imports Guitar Pro without creating a binding", asyn
 test("Bundled demos open read-only and Save chooses a writable provider", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
   await page.evaluate(async () => {
     const { engine } = await import("/src/core/engine.ts");
@@ -627,7 +631,7 @@ test("Bundled demos open read-only and Save chooses a writable provider", async 
 test("Web Save As offers local download and WebDAV without native handles", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   const saveAsShortcut = await page.evaluate(() =>
@@ -641,11 +645,11 @@ test("Web Save As offers local download and WebDAV without native handles", asyn
   await expect(page.getByRole("button", { name: /WebDAV/ })).toBeVisible();
 });
 
-test("Web local files remain bound across Save As, Save, and Open", async ({
+test("Web local files remain bound and reopening the same target focuses its tab", async ({
   page,
 }) => {
   await installBrowserLocalFileMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   const saveAsShortcut = await page.evaluate(() =>
@@ -687,7 +691,6 @@ test("Web local files remain bound across Save As, Save, and Open", async ({
     const { engine } = await import("/src/core/engine.ts");
     engine.getDoc()?.getMap("score").set("artist", "Unsaved replacement");
   });
-  page.once("dialog", (dialog) => void dialog.accept());
   await chooseOpenFile(page);
   await expect(page.getByRole("button", { name: /Local file/ })).toBeVisible();
   await expect(page.getByRole("button", { name: /Import Guitar Pro/ }))
@@ -701,14 +704,15 @@ test("Web local files remain bound across Save As, Save, and Open", async ({
       openPicks: (window as unknown as StorageMockWindow)
         .__COTAB_BROWSER_FILE_MOCK__?.openPicks,
     };
-  })).toEqual({ artist: "Saved in browser file", openPicks: 1 });
+  })).toEqual({ artist: "Unsaved replacement", openPicks: 1 });
+  await expect(page.getByRole("tab")).toHaveCount(1);
 });
 
 test("Cmd+S prompts for an unbound document while an inline editor is focused", async ({
   page,
 }) => {
   await installLocalStorageMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   await page.getByRole("button", { name: "Meta", exact: true }).click();
@@ -760,7 +764,7 @@ test("Save As switches an existing binding to another storage provider", async (
   page,
 }) => {
   await installLocalStorageMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   await page.evaluate(async () => {
@@ -848,7 +852,7 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
 }) => {
   await installLocalStorageMock(page);
   await installWebDavMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   const fileMenu = page.getByTestId("file-menu");
@@ -928,7 +932,6 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
     const { engine } = await import("/src/core/engine.ts");
     engine.getDoc()?.getMap("score").set("title", "Unsaved WebDAV replacement");
   });
-  page.once("dialog", (dialog) => void dialog.accept());
   await chooseOpenFile(page);
   await page.getByRole("button", { name: /WebDAV/ }).click();
   await expect(
@@ -961,18 +964,19 @@ test("WebDAV saves with ETag preconditions and keeps credentials out of persiste
       providerId: engine.storage.binding?.providerId,
     };
   })).toEqual({
-    title: "Taijin Kyofusho",
+    title: "Unsaved WebDAV replacement",
     artist: "WebDAV update",
-    status: "saved",
+    status: "dirty",
     providerId: "webdav",
   });
+  await expect(page.getByRole("tab")).toHaveCount(1);
 });
 
 test("desktop local storage saves, auto-saves, reopens, and resolves conflicts", async ({
   page,
 }) => {
   await installLocalStorageMock(page);
-  await page.goto("/");
+  await page.goto("/?demo=taijin-kyofusho");
   await waitForScore(page);
 
   const fileMenu = page.getByTestId("file-menu");
@@ -1046,14 +1050,14 @@ test("desktop local storage saves, auto-saves, reopens, and resolves conflicts",
     const { engine } = await import("/src/core/engine.ts");
     engine.getDoc()?.getMap("score").set("title", "Unsaved replacement");
   });
-  page.once("dialog", (dialog) => void dialog.accept());
   await chooseOpenFile(page);
   await expect(page.getByRole("heading", { name: "Open from" })).toBeVisible();
   await page.getByRole("button", { name: /Local disk/ }).click();
-  await expect(page.getByText("Auto-saved title", { exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: /Unsaved replacement/ }))
+    .toBeVisible();
   await expect(fileMenu).toHaveAttribute(
     "aria-label",
-    /File · Saved/,
+    /File · Unsaved changes/,
   );
 
   await page.evaluate(async () => {

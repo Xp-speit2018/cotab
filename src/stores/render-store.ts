@@ -100,6 +100,7 @@ import {
 } from "./snap-grid";
 import { importScoreToYDoc } from "@/core/converters";
 import { engine } from "@/core/engine";
+import { FULL_DOCUMENT_CHANGE } from "@/core/editor/document-change";
 import { FILE_IMPORT_ORIGIN } from "@/core/origins";
 import { eventMatchesTransportModifier } from "@/shortcuts/transport-modifier";
 import {
@@ -111,6 +112,7 @@ import {
   isRebuildingFromYDoc,
   installRendererObserver,
   loadAlphaTabSource,
+  rebuildFromYDoc,
   shouldImportLoadedScore,
   uninstallRendererObserver,
 } from "./renderer-bridge";
@@ -138,6 +140,13 @@ const SELECTOR_RANGE_SNAP_THRESHOLD_PX = 12;
 const SELECTOR_FOCUS_MARGIN_PX = 32;
 const SELECTOR_FOCUS_MIN_DURATION_MS = 90;
 const SELECTOR_FOCUS_MAX_DURATION_MS = 180;
+
+export interface DocumentViewState {
+  readonly zoom: number;
+  readonly scoreLayout: ScoreLayout;
+  readonly scrollLeft: number;
+  readonly scrollTop: number;
+}
 
 function finishRenderLoadingWhenRendererSettles(): void {
   queueMicrotask(() => {
@@ -170,6 +179,95 @@ function cancelSelectorFocusAnimation(): void {
     cancelAnimationFrame(_selectorFocusAnimationFrame);
     _selectorFocusAnimationFrame = null;
   }
+}
+
+function synchronizeEmptyScoreProjection(): boolean {
+  const scoreMap = engine.getScoreMap();
+  const tracks = scoreMap?.get("tracks") as { length: number } | undefined;
+  if (!scoreMap || (tracks?.length ?? 0) > 0) return false;
+
+  const readText = (key: string): string => {
+    const value = scoreMap.get(key);
+    return typeof value === "string" ? value : "";
+  };
+  const masterBars = scoreMap.get("masterBars") as
+    | { length: number }
+    | undefined;
+
+  if (engine.selector.trackIndex !== null) engine.localClearSelection();
+  if (engine.transport.playhead !== null) engine.localSetTransportPlayhead(null);
+  if (engine.transport.loopRange !== null) engine.localSetTransportLoopRange(null);
+  invalidateCoTabRenderOverlays();
+
+  usePlayerStore.setState({
+    selector: createRenderSelectorState(),
+    transport: createRenderTransportState(),
+    playerState: "stopped",
+    currentTime: 0,
+    endTime: 0,
+    isLooping: false,
+    scoreTitle: readText("title"),
+    scoreSubTitle: readText("subTitle"),
+    scoreArtist: readText("artist"),
+    scoreAlbum: readText("album"),
+    scoreWords: readText("words"),
+    scoreMusic: readText("music"),
+    scoreCopyright: readText("copyright"),
+    scoreTab: readText("tab"),
+    scoreInstructions: readText("instructions"),
+    scoreNotices: readText("notices"),
+    scoreTempo: 0,
+    scoreTempoLabel: "",
+    scoreMasterBarCount: masterBars?.length ?? 0,
+    scoreTempoMap: [],
+    tracks: [],
+    visibleTrackIndices: [],
+    systemLayoutRows: [],
+    selectedBeat: null,
+    selectionRange: null,
+    selectedTrackInfo: null,
+    selectedStaffInfo: null,
+    selectedBarInfo: null,
+    selectedMasterBarInfo: null,
+    selectedVoiceInfo: null,
+    selectedBeatInfo: null,
+    selectedNoteIndex: -1,
+    selectedString: null,
+  });
+  return true;
+}
+
+function bindActiveEngineHooks(): void {
+  _unsubscribeHooks?.();
+  _unsubscribeHooks = engine.registerHooks({
+    onLocalSelectionSet: (sel) => {
+      _processingHook = true;
+      try {
+        usePlayerStore.getState().setSelection(sel);
+      } finally {
+        _processingHook = false;
+      }
+    },
+    onPeerSelectionSet: (_sel) => {
+      // Future: show peer cursor
+    },
+    onLocalYDocEdit: synchronizeEmptyScoreProjection,
+    onPeerYDocEdit: synchronizeEmptyScoreProjection,
+    onLocalTransportChange: (transport) => {
+      usePlayerStore.setState((state) => ({
+        transport: {
+          ...state.transport,
+          playhead: transport.playhead,
+          playheadBeatUuid: transport.playheadBeatUuid,
+          loopRange: transport.loopRange,
+        },
+      }));
+      updateTransportPlayheadOverlay(
+        usePlayerStore.getState().transport.tickPosition,
+      );
+      updateTransportLoopOverlay(transport.loopRange);
+    },
+  });
 }
 
 // Re-export for consumers that still import from player-store
@@ -1383,35 +1481,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       iceServers: parseIceServers(import.meta.env.VITE_WEBRTC_ICE_SERVERS),
     }));
 
-    _unsubscribeHooks = engine.registerHooks({
-      onLocalSelectionSet: (sel) => {
-        _processingHook = true;
-        try {
-          get().setSelection(sel);
-        } finally {
-          _processingHook = false;
-        }
-      },
-      onPeerSelectionSet: (_sel) => {
-        // Future: show peer cursor
-      },
-      onLocalTransportChange: (transport) => {
-        set((state) => ({
-          transport: {
-            ...state.transport,
-            playhead: transport.playhead,
-            playheadBeatUuid: transport.playheadBeatUuid,
-            loopRange: transport.loopRange,
-          },
-        }));
-        updateTransportPlayheadOverlay(get().transport.tickPosition);
-        updateTransportLoopOverlay(transport.loopRange);
-      },
-    });
+    bindActiveEngineHooks();
     _renderLoadingController = createRenderLoadingController({
       publish: (state) => set(state),
     });
-    _renderLoadingController.start();
 
     setMainElement(mainEl);
     setViewportElement(viewportEl);
@@ -1944,8 +2017,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       updateTransportPlayheadOverlay(finishedTickPosition);
     });
 
-    // Load the demo file
-    loadScoreSource("/demos/Taijin_kyofusho.gp");
+    rebuildFromYDoc(FULL_DOCUMENT_CHANGE);
   },
 
   destroy: () => {
@@ -1956,8 +2028,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     cancelSelectorFocusAnimation();
     _unsubscribeHooks?.();
     _unsubscribeHooks = null;
-    engine.destroyDoc();
-
     const cursor = getCursorElement();
     if (cursor) {
       cursor.remove();
@@ -2547,6 +2617,188 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }));
   },
 }));
+
+export function captureActiveDocumentViewState(): DocumentViewState {
+  const state = usePlayerStore.getState();
+  const viewport = getViewportElement();
+  return {
+    zoom: state.zoom,
+    scoreLayout: state.scoreLayout,
+    scrollLeft: viewport?.scrollLeft ?? 0,
+    scrollTop: viewport?.scrollTop ?? 0,
+  };
+}
+
+export async function waitForActiveRenderer(timeoutMs = 5_000): Promise<void> {
+  const startedAt = performance.now();
+  let observedApi = false;
+  while (true) {
+    const api = getApi();
+    if (api && !observedApi) {
+      observedApi = true;
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      continue;
+    }
+    const diagnostics = getRendererDiagnostics();
+    if (
+      api
+      && diagnostics.installed
+      && !diagnostics.rendererBusy
+      && !diagnostics.rebuildPending
+      && !diagnostics.sourceLoadPending
+      && diagnostics.activeUpdateKind === null
+    ) {
+      return;
+    }
+    if (performance.now() - startedAt >= timeoutMs) {
+      throw new Error("Timed out waiting for the score renderer.");
+    }
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  }
+}
+
+/** Rebind the single AlphaTab surface to the newly active document engine. */
+export function activateCurrentDocumentRenderer(view: DocumentViewState): void {
+  const api = getApi();
+  if (!api) return;
+  const targetEngine = engine;
+  const scoreMap = targetEngine.getScoreMap();
+  const readScoreText = (key: string) => {
+    const value = scoreMap?.get(key);
+    return typeof value === "string" ? value : "";
+  };
+  const masterBars = scoreMap?.get("masterBars") as
+    | { length: number }
+    | undefined;
+
+  api.pause();
+  cancelSelectorFocusAnimation();
+  invalidateCoTabRenderOverlays();
+  uninstallRendererObserver();
+  bindActiveEngineHooks();
+
+  api.settings.display.scale = view.zoom;
+  api.settings.display.layoutMode = view.scoreLayout === "parchment"
+    ? alphaTab.LayoutMode.Parchment
+    : alphaTab.LayoutMode.Horizontal;
+  api.updateSettings();
+
+  const selector = engine.selector;
+  if (
+    selector.trackIndex !== null
+    && selector.staffIndex !== null
+    && selector.voiceIndex !== null
+    && selector.barIndex !== null
+    && selector.beatIndex !== null
+  ) {
+    engine.pendingSelection = {
+      trackIndex: selector.trackIndex,
+      staffIndex: selector.staffIndex,
+      voiceIndex: selector.voiceIndex,
+      barIndex: selector.barIndex,
+      beatIndex: selector.beatIndex,
+      string: selector.string,
+      ...(selector.renderedStave
+        ? { renderedStave: selector.renderedStave }
+        : {}),
+    };
+  }
+
+  usePlayerStore.setState({
+    zoom: view.zoom,
+    scoreLayout: view.scoreLayout,
+    layoutDesignMode: false,
+    selector: createRenderSelectorState(),
+    transport: {
+      ...createRenderTransportState(),
+      playhead: engine.transport.playhead,
+      playheadBeatUuid: engine.transport.playheadBeatUuid,
+      loopRange: engine.transport.loopRange,
+    },
+    playerState: "stopped",
+    currentTime: 0,
+    endTime: 0,
+    scoreTitle: readScoreText("title"),
+    scoreSubTitle: readScoreText("subTitle"),
+    scoreArtist: readScoreText("artist"),
+    scoreAlbum: readScoreText("album"),
+    scoreWords: readScoreText("words"),
+    scoreMusic: readScoreText("music"),
+    scoreCopyright: readScoreText("copyright"),
+    scoreTab: readScoreText("tab"),
+    scoreInstructions: readScoreText("instructions"),
+    scoreNotices: readScoreText("notices"),
+    scoreTempo: 0,
+    scoreTempoLabel: "",
+    scoreMasterBarCount: masterBars?.length ?? 0,
+    scoreTempoMap: [],
+    tracks: [],
+    visibleTrackIndices: [],
+    systemLayoutRows: [],
+    selectedBeat: null,
+    selectionRange: null,
+    selectedTrackInfo: null,
+    selectedStaffInfo: null,
+    selectedBarInfo: null,
+    selectedMasterBarInfo: null,
+    selectedVoiceInfo: null,
+    selectedBeatInfo: null,
+    selectedNoteIndex: -1,
+    selectedString: null,
+  });
+
+  const restoreViewport = api.postRenderFinished.on(() => {
+    restoreViewport();
+    if (engine !== targetEngine) return;
+    const previousScrollMode = api.settings.player.scrollMode;
+    api.settings.player.scrollMode = alphaTab.ScrollMode.Off;
+    const playhead = targetEngine.transport.playhead;
+    if (playhead) {
+      usePlayerStore.getState().setTransportPlayhead(playhead);
+    } else {
+      api.tickPosition = 0;
+      const position = readApiTransportPosition(0);
+      usePlayerStore.setState((state) => ({
+        currentTime: position.currentTime,
+        endTime: position.endTime,
+        transport: {
+          ...state.transport,
+          currentTime: position.currentTime,
+          endTime: position.endTime,
+          tickPosition: position.tickPosition,
+        },
+      }));
+      updateTransportPlayheadOverlay(0);
+    }
+
+    let restoreAttempts = 0;
+    const restorePosition = () => {
+      if (engine !== targetEngine || getApi() !== api) {
+        api.settings.player.scrollMode = previousScrollMode;
+        return;
+      }
+      const viewport = getViewportElement();
+      if (!viewport) {
+        api.settings.player.scrollMode = previousScrollMode;
+        return;
+      }
+      viewport.scrollLeft = view.scrollLeft;
+      viewport.scrollTop = view.scrollTop;
+      const restored = viewport.scrollLeft === view.scrollLeft
+        && viewport.scrollTop === view.scrollTop;
+      if (!restored && restoreAttempts < 30) {
+        restoreAttempts += 1;
+        requestAnimationFrame(restorePosition);
+        return;
+      }
+      api.settings.player.scrollMode = previousScrollMode;
+    };
+    restorePosition();
+  });
+
+  installRendererObserver();
+  rebuildFromYDoc(FULL_DOCUMENT_CHANGE);
+}
 
 // Expose store on window for e2e diagnostics (dev only)
 if (import.meta.env.DEV) {

@@ -434,6 +434,41 @@ test("titlebar exposes application menus, centers transport, and right-aligns co
     .toHaveCount(0);
   await expect(page.getByTestId("file-menu").locator("svg")).toHaveCount(0);
 
+  const menuWidths: number[] = [];
+  for (const menu of [
+    "file-menu",
+    "edit-menu",
+    "layout-menu",
+    "preferences-menu",
+    "help-menu",
+  ]) {
+    await page.getByTestId(menu).click();
+    const content = page.locator("[data-app-menu-content]:visible");
+    menuWidths.push(await content.evaluate(
+      (element) => element.getBoundingClientRect().width,
+    ));
+    const itemHeights = await content.locator("[data-app-menu-item]")
+      .evaluateAll((elements) => elements.map(
+        (element) => element.getBoundingClientRect().height,
+      ));
+    expect(itemHeights.every((height) => height === 32)).toBe(true);
+    await page.keyboard.press("Escape");
+  }
+  expect(new Set(menuWidths).size).toBe(1);
+
+  await page.getByTestId("edit-menu").click();
+  const editMenu = page.getByRole("menu");
+  await expect(editMenu.getByText("Beat", { exact: true })).toBeVisible();
+  await expect(editMenu.getByText("Note", { exact: true })).toBeVisible();
+  await expect(editMenu.getByText("Bar", { exact: true })).toBeVisible();
+  await expect(editMenu.getByText("Track", { exact: true })).toBeVisible();
+  await page.getByRole("menuitem", { name: "New Track...", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Add Track", exact: true }))
+    .toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Instrument" }))
+    .toBeVisible();
+  await page.keyboard.press("Escape");
+
   await page.getByTestId("preferences-menu").click();
   await expect(page.getByRole("menuitemcheckbox", { name: "Auto-save" }))
     .toBeVisible();
@@ -466,7 +501,7 @@ test("persists the selected interface language", async ({ page }) => {
   await waitForScore(page);
 
   await page.getByTestId("preferences-menu").click();
-  await page.getByRole("menuitemcheckbox", { name: "简体中文" }).click();
+  await page.getByRole("menuitemradio", { name: "简体中文" }).click();
   await expect(page.getByTestId("preferences-menu")).toHaveText("偏好设置");
 
   await page.reload();

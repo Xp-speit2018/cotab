@@ -1,6 +1,7 @@
 {
   "toolbar": {
     "fileMenu": "File",
+    "applicationMenu": "Application menu",
     "editMenu": "Edit",
     "layoutMenu": "Layout",
     "preferencesMenu": "Preferences",
@@ -36,6 +37,7 @@
     "transportMode": "Transport {{modifier}}",
     "loading": "Loading {{percent}}%",
     "zoom": "Zoom",
+    "view": "View",
     "scoreLayout": "Score layout",
     "horizontalLayout": "Horizontal layout",
     "parchmentLayout": "Parchment layout",
@@ -60,6 +62,23 @@
     "language": "Language",
     "undo": "Undo",
     "redo": "Redo",
+    "edit": {
+      "cut": "Cut",
+      "copy": "Copy",
+      "paste": "Paste",
+      "beat": "Beat",
+      "note": "Note",
+      "bar": "Bar",
+      "track": "Track",
+      "insertRestBefore": "Insert Rest Before",
+      "insertRestAfter": "Insert Rest After",
+      "deleteNote": "Delete Note",
+      "insertBarBefore": "Insert Bar Before",
+      "insertBarAfter": "Insert Bar After",
+      "deleteBar": "Delete Bar",
+      "newTrack": "New Track...",
+      "deleteTrack": "Delete Track..."
+    },
     "saveDocument": "Save CoTab document",
     "saveDocumentAs": "Save As",
     "autoSave": "Auto-save"
@@ -393,9 +412,12 @@
       "empty": "No tracks",
       "help": "Click a track to expand and edit its properties. Toggle visibility with the eye icon.",
       "addTrack": "Add Track",
+      "addTrackDescription": "Choose a complete notation preset or create a standard-notation track from any instrument.",
+      "createTrack": "Create Track",
+      "trackDetails": "Track details",
       "allInstruments": "All instruments",
       "chooseInstrument": "Choose an instrument",
-      "standardInstrumentHelp": "Creates one standard-notation staff. Use a preset below for tablature, grand staff, or percussion.",
+      "standardInstrumentHelp": "Changes the playback instrument. Choosing an instrument before a quick preset creates one standard-notation staff.",
       "quickPresets": "Quick presets",
       "deleteTrack": "Delete track",
       "deleteTrackTitle": "Delete \"{{name}}\"?",
@@ -976,7 +998,8 @@
       "cut": { "name": "Cut" }
     },
     "view": {
-      "toggleSidebar": { "name": "Toggle Sidebar" }
+      "toggleSidebar": { "name": "Toggle Sidebar" },
+      "openTrackCreator": { "name": "Open Track Creator" }
     },
 
     "percussionMapping": {

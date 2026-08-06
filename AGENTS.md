@@ -105,6 +105,13 @@ preserve its interaction contracts:
   chosen preset or one unique exact label match may update state. Free-form,
   ambiguous, unmatched, and invalid-regex input must leave the previous value
   unchanged.
+- The application menu bar uses the `AppMenuBar` and `AppMenu` primitives.
+  Compose menu content with `AppMenuGroup`, `AppMenuItem`, `AppMenuRadioItem`,
+  `AppMenuCheckboxItem`, `AppMenuPanel`, and `AppMenuControl`; do not add local
+  menu widths or raw button rows. One-of-many choices are radio items, while
+  independent persistent settings are checkbox items. The UI harness enforces
+  common trigger geometry, menu width, row height, and immediate open-state
+  feedback.
 
 This preset-only rule includes selectors implemented inside custom popovers or
 dialogs, not only HTML or Radix select elements. Multi-select checklists and

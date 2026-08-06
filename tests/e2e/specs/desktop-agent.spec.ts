@@ -621,7 +621,7 @@ test("Agent drum continuation matches Y.Doc, AlphaTab, and rendered geometry", a
     return api?.score?.masterBars?.length === 58;
   });
   await page.getByTestId("layout-menu").click();
-  await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
+  await page.getByRole("menuitemradio", { name: "Horizontal layout" }).click();
   await page.waitForFunction(() =>
     (window as unknown as { __ALPHATAB_API__?: {
       settings?: { display?: { layoutMode?: number } };

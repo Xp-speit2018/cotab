@@ -1,6 +1,8 @@
 import { getApi } from "@/stores/render-api";
 import { usePlayerStore } from "@/stores/render-store";
 import type { ScoreLayout } from "@/stores/render-types";
+import { useDocumentWorkspaceStore } from "@/workspace/document-workspace";
+import { useWorkspaceUiStore } from "@/workspace/workspace-ui-store";
 import { registerAppAction } from "./registry";
 
 declare global {
@@ -17,10 +19,26 @@ declare global {
       args: { enabled: boolean };
       result: boolean;
     };
+    "view.openTrackCreator": {
+      args: undefined;
+      result: boolean;
+    };
   }
 }
 
 export function registerViewActions(): void {
+  registerAppAction<undefined, boolean>({
+    id: "view.openTrackCreator",
+    domain: "view",
+    i18nKey: "actions.view.openTrackCreator",
+    category: "view",
+    execute: () => {
+      if (!useDocumentWorkspaceStore.getState().activeTabId) return false;
+      useWorkspaceUiStore.getState().setTrackCreatorOpen(true);
+      return true;
+    },
+  });
+
   registerAppAction<{ layout: ScoreLayout }, boolean>({
     id: "view.setScoreLayout",
     domain: "view",

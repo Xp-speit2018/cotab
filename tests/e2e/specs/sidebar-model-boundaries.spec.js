@@ -89,7 +89,7 @@ test("separates MasterBar, Bar, Track, and Staff ownership in the sidebar", asyn
   await expect(page.getByText("MasterBar", { exact: true })).toHaveCount(1);
 });
 
-test("adds a metadata-aligned track from the Tracks header popover", async ({
+test("adds a metadata-aligned track from the shared Track Creator", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1400, height: 900 });
@@ -98,20 +98,42 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
   await page.getByRole("button", { name: "Meta", exact: true }).click();
 
   const addTrack = page.getByRole("button", { name: "Add Track", exact: true });
-  const triggerBounds = await addTrack.boundingBox();
   await addTrack.click();
-  const menu = page.getByRole("menu", { name: "Add Track", exact: true });
-  await expect(menu).toBeVisible();
-  const menuBounds = await menu.boundingBox();
-  expect(triggerBounds).not.toBeNull();
-  expect(menuBounds).not.toBeNull();
-  expect(menuBounds.x + menuBounds.width).toBeLessThanOrEqual(triggerBounds.x);
+  const creator = page.getByRole("dialog", { name: "Add Track", exact: true });
+  await expect(creator).toBeVisible();
 
   const before = await page.evaluate(() =>
     window.__ALPHATAB_API__.score.tracks.length
   );
-  await page.getByRole("menuitem", { name: /^Acoustic Piano/ }).click();
-  await expect(menu).toBeHidden();
+  await creator.getByRole("button", { name: /^Acoustic Piano/ }).click();
+  await expect(creator.getByLabel("Name", { exact: true }))
+    .toHaveValue("Acoustic Piano");
+  await expect(creator.getByLabel("Abbreviation", { exact: true }))
+    .toHaveValue("Pno.");
+  const presetInstrument = creator.getByRole("combobox", {
+    name: "Instrument",
+    exact: true,
+  });
+  await expect(presetInstrument).toContainText("Acoustic Grand Piano");
+  await presetInstrument.click();
+  const instrumentList = page.getByRole("listbox", {
+    name: "Instrument",
+    exact: true,
+  });
+  await instrumentList.hover();
+  await page.mouse.wheel(0, 500);
+  await expect.poll(() => instrumentList.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(0);
+  await page.keyboard.press("Escape");
+  await expect(instrumentList).toBeHidden();
+  await expect(creator).toBeVisible();
+  await creator.getByLabel("Name", { exact: true }).fill("Session Piano");
+  await creator.getByLabel("Abbreviation", { exact: true }).fill("Keys");
+  await expect.poll(() => page.evaluate(() =>
+    window.__ALPHATAB_API__.score.tracks.length
+  )).toBe(before);
+  await creator.getByRole("button", { name: "Create Track", exact: true }).click();
+  await expect(creator).toBeHidden();
 
   await expect.poll(() => page.evaluate(() => {
     const track = window.__ALPHATAB_API__.score.tracks.at(-1);
@@ -128,8 +150,8 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
     };
   })).toEqual({
     trackCount: before + 1,
-    name: "Acoustic Piano",
-    shortName: "Pno.",
+    name: "Session Piano",
+    shortName: "Keys",
     program: 0,
     staffCount: 2,
     notation: [
@@ -140,7 +162,7 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
 
   await addTrack.click();
   const instrumentCombobox = page.getByRole("combobox", {
-    name: "All instruments",
+    name: "Instrument",
     exact: true,
   });
   await instrumentCombobox.click();
@@ -149,6 +171,9 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
   });
   await instrumentSearch.fill("^Flute$");
   await page.getByRole("option", { name: /^Flute/ }).click();
+  await expect(page.getByRole("dialog", { name: "Add Track", exact: true })
+    .getByLabel("Name", { exact: true })).toHaveValue("Flute");
+  await page.getByRole("button", { name: "Create Track", exact: true }).click();
 
   await expect.poll(() => page.evaluate(() => {
     const track = window.__ALPHATAB_API__.score.tracks.at(-1);
@@ -193,8 +218,8 @@ test("adds a metadata-aligned track from the Tracks header popover", async ({
   const countBeforeIndexShift = await page.evaluate(() =>
     window.__ALPHATAB_API__.score.tracks.length
   );
-  await page.evaluate(async () => {
-    const { engine } = await import("/src/core/engine.ts");
+  await page.evaluate(() => {
+    const { engine } = window.__COTAB_STORE__;
     const yTracks = engine.getScoreMap()?.get("tracks");
     if (!yTracks || typeof yTracks.delete !== "function") {
       throw new Error("Missing Y.Track array");

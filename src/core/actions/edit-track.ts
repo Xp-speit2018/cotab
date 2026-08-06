@@ -166,20 +166,37 @@ const addTrackAction = defineDocumentAction({
   id: "document.track.add",
   i18nKey: "actions.edit.track.add",
   category: "document.track",
-  argsSchema: actionArgs({ presetId: z.enum(trackPresetIds) }),
-  execute: ({ presetId }) => {
+  argsSchema: actionArgs({
+    presetId: z.enum(trackPresetIds),
+    name: z.string().optional(),
+    shortName: z.string().optional(),
+    program: integer.min(0).max(127).optional(),
+    bank: integer.min(0).max(16383).optional(),
+  }),
+  execute: ({ presetId, name, shortName, program, bank }) => {
     const preset = TRACK_PRESETS.find((p) => p.id === presetId);
     if (!preset) return;
     const yScore = getScoreMap();
     if (!yScore) return;
 
+    const spec: TrackCreationSpec = {
+      ...preset,
+      defaultName: name ?? preset.defaultName,
+      shortName: shortName ?? preset.shortName,
+      playbackInfo: {
+        program: program ?? preset.playbackInfo.program,
+        bank: bank ?? preset.playbackInfo.bank,
+      },
+    };
+
     const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
     const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
-    const channel = getNextChannel(yTracks, preset);
+    const channel = getNextChannel(yTracks, spec);
 
     debugLog("info", "document.track.add", "start", {
       presetId,
       presetName: preset.defaultName,
+      trackName: spec.defaultName,
       trackCount: yTracks.length,
     });
 
@@ -187,7 +204,7 @@ const addTrackAction = defineDocumentAction({
       if (yMasterBars.length === 0) {
         yMasterBars.push([createMasterBar()]);
       }
-      appendTrackFromPresetY(yTracks, preset, yMasterBars.length, channel);
+      appendTrackFromPresetY(yTracks, spec, yMasterBars.length, channel);
     });
 
     debugLog("info", "document.track.add", "complete");
@@ -201,13 +218,20 @@ const addInstrumentTrackAction = defineDocumentAction({
   argsSchema: actionArgs({
     program: integer.min(0).max(127),
     bank: integer.min(0).max(16383),
+    name: z.string().optional(),
+    shortName: z.string().optional(),
   }),
-  execute: ({ program, bank }) => {
+  execute: ({ program, bank, name, shortName }) => {
     const instrument = generalMidiInstrument(program);
     const yScore = getScoreMap();
     if (!instrument || !yScore) return false;
 
-    const spec = standardNotationTrackSpec(instrument.name, program, bank);
+    const baseSpec = standardNotationTrackSpec(instrument.name, program, bank);
+    const spec: TrackCreationSpec = {
+      ...baseSpec,
+      defaultName: name ?? baseSpec.defaultName,
+      shortName: shortName ?? baseSpec.shortName,
+    };
     const yTracks = yScore.get("tracks") as Y.Array<Y.Map<unknown>>;
     const yMasterBars = yScore.get("masterBars") as Y.Array<Y.Map<unknown>>;
     const channel = getNextChannel(yTracks, spec);

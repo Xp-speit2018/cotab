@@ -3,7 +3,9 @@ import {
   ExternalLink,
   Plus,
   RotateCcw,
+  Save,
   Settings,
+  Undo2,
 } from "lucide-react";
 import {
   Collapsible,
@@ -22,7 +24,16 @@ import { PresetCombobox } from "@/components/NoteEditorSidebar/PresetCombobox";
 import { PasswordInput } from "@/components/ui/password-input";
 import {
   AppMenu,
+  AppMenuBar,
+  AppMenuButton,
+  AppMenuCheckboxItem,
+  AppMenuControl,
+  AppMenuGroup,
   AppMenuItem,
+  AppMenuLink,
+  AppMenuPanel,
+  AppMenuRadioGroup,
+  AppMenuRadioItem,
   AppMenuSeparator,
 } from "@/components/ui/app-menu";
 
@@ -205,22 +216,111 @@ function SensitiveInputSample() {
 }
 
 function AppMenuSample() {
-  const [enabled, setEnabled] = useState(true);
+  const [autoSave, setAutoSave] = useState(true);
+  const [layout, setLayout] = useState("parchment");
+  const [language, setLanguage] = useState("English");
 
   return (
-    <div className="px-3">
-      <AppMenu label="Layout">
-        <AppMenuItem onSelect={() => {}}>Horizontal layout</AppMenuItem>
-        <AppMenuItem onSelect={() => {}}>Parchment layout</AppMenuItem>
-        <AppMenuSeparator />
-        <AppMenuItem
-          checked={enabled}
-          closeOnSelect={false}
-          onSelect={() => setEnabled((value) => !value)}
-        >
-          Edit score layout
-        </AppMenuItem>
-      </AppMenu>
+    <div className="px-3" data-harness-menu-bar>
+      <AppMenuBar ariaLabel="Application menu">
+        <AppMenu label="File">
+          <AppMenuPanel>
+            <p className="text-xs font-medium">Saved</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Local file · Harness.cotab
+            </p>
+          </AppMenuPanel>
+          <AppMenuSeparator />
+          <AppMenuItem icon={Save} shortcut="Ctrl+S" onSelect={() => {}}>
+            Save
+          </AppMenuItem>
+        </AppMenu>
+
+        <AppMenu label="Edit">
+          <AppMenuGroup>
+            <AppMenuItem icon={Undo2} shortcut="Ctrl+Z" onSelect={() => {}}>
+              Undo
+            </AppMenuItem>
+          </AppMenuGroup>
+          <AppMenuSeparator />
+          <AppMenuGroup label="Beat">
+            <AppMenuItem onSelect={() => {}}>Insert Rest Before</AppMenuItem>
+            <AppMenuItem onSelect={() => {}}>Insert Rest After</AppMenuItem>
+          </AppMenuGroup>
+          <AppMenuSeparator />
+          <AppMenuGroup label="Track">
+            <AppMenuItem onSelect={() => {}}>New Track...</AppMenuItem>
+          </AppMenuGroup>
+        </AppMenu>
+
+        <AppMenu label="Layout">
+          <AppMenuGroup label="Score layout">
+            <AppMenuRadioGroup value={layout} onValueChange={setLayout}>
+              <AppMenuRadioItem value="horizontal">
+                Horizontal layout
+              </AppMenuRadioItem>
+              <AppMenuRadioItem value="parchment">
+                Parchment layout
+              </AppMenuRadioItem>
+            </AppMenuRadioGroup>
+          </AppMenuGroup>
+          <AppMenuGroup label="Parchment layout">
+            <AppMenuCheckboxItem
+              checked={false}
+              closeOnSelect={false}
+              onSelect={() => {}}
+            >
+              Edit score layout
+            </AppMenuCheckboxItem>
+            <AppMenuButton icon={Settings}>Layout settings</AppMenuButton>
+          </AppMenuGroup>
+          <AppMenuSeparator />
+          <AppMenuGroup label="View">
+            <AppMenuControl>
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Zoom</span>
+                <span className="font-mono tabular-nums">100%</span>
+              </div>
+              <input
+                type="range"
+                aria-label="Zoom"
+                min="25"
+                max="200"
+                defaultValue="100"
+                className="w-full"
+              />
+            </AppMenuControl>
+          </AppMenuGroup>
+        </AppMenu>
+
+        <AppMenu label="Preferences">
+          <AppMenuGroup label="General">
+            <AppMenuCheckboxItem
+              checked={autoSave}
+              closeOnSelect={false}
+              onSelect={() => setAutoSave((value) => !value)}
+            >
+              Auto-save
+            </AppMenuCheckboxItem>
+          </AppMenuGroup>
+          <AppMenuSeparator />
+          <AppMenuGroup label="Language">
+            <AppMenuRadioGroup value={language} onValueChange={setLanguage}>
+              <AppMenuRadioItem value="English">English</AppMenuRadioItem>
+              <AppMenuRadioItem value="简体中文">简体中文</AppMenuRadioItem>
+            </AppMenuRadioGroup>
+          </AppMenuGroup>
+        </AppMenu>
+
+        <AppMenu label="Help">
+          <AppMenuItem icon={Settings} onSelect={() => {}}>
+            About CoTab
+          </AppMenuItem>
+          <AppMenuLink href="https://github.com/Xp-speit2018/cotab" icon={ExternalLink}>
+            Project on GitHub
+          </AppMenuLink>
+        </AppMenu>
+      </AppMenuBar>
     </div>
   );
 }

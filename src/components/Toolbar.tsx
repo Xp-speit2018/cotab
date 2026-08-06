@@ -23,6 +23,7 @@ import {
 import { useEditorStore } from "@/stores/editor-store";
 import { cn } from "@/lib/utils";
 import { FileMenu } from "@/components/FileMenu";
+import { AppMenuBar } from "@/components/ui/app-menu";
 import {
   EditMenu,
   HelpMenu,
@@ -99,13 +100,13 @@ export function Toolbar() {
       data-testid="app-toolbar"
     >
       <div className="flex min-w-0 items-center overflow-hidden">
-        <div className="flex shrink-0 items-center">
+        <AppMenuBar ariaLabel={t("toolbar.applicationMenu")}>
           <FileMenu onOpen={handleOpenFile} />
           <EditMenu />
           <LayoutMenu />
           <PreferencesMenu />
           <HelpMenu />
-        </div>
+        </AppMenuBar>
       </div>
 
       <div

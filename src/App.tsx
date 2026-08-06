@@ -8,6 +8,7 @@ import { DocumentStorageConflictDialog } from "@/components/DocumentStorageConfl
 import { StorageProviderDialog } from "@/components/StorageProviderDialog";
 import { WebDavLocationDialog } from "@/components/WebDavLocationDialog";
 import { DemoSelectionDialog } from "@/components/DemoSelectionDialog";
+import { TrackCreatorDialog } from "@/components/TrackCreatorDialog";
 import { DEMO_DOCUMENTS } from "@/storage/demo-selection";
 import { openDemoDocument } from "@/workspace/open-document";
 import { installShortcutManager, uninstallShortcutManager, updateTranslation } from "@/shortcuts";
@@ -43,6 +44,7 @@ export default function App() {
       <StorageProviderDialog />
       <WebDavLocationDialog />
       <DemoSelectionDialog />
+      <TrackCreatorDialog />
     </div>
   );
 }

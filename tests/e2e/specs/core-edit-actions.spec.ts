@@ -108,6 +108,51 @@ type RuntimeWindow = Window & {
   };
 };
 
+test("Edit menu exposes only structural actions in flat object groups", async ({ page }) => {
+  await page.goto("/?demo=taijin-kyofusho");
+  await page.waitForFunction(() =>
+    Boolean((window as unknown as RuntimeWindow).__PLAYER_STORE__?.getState().isPlayerReady),
+  );
+
+  await page.evaluate(() => {
+    const runtime = window as unknown as RuntimeWindow;
+    const beat = runtime.__ALPHATAB_API__.score.tracks[0].staves[0]
+      .bars[8].voices[0].beats[0];
+    runtime.__PLAYER_STORE__.getState().setSelection({
+      trackIndex: 0,
+      staffIndex: 0,
+      voiceIndex: 0,
+      barIndex: 8,
+      beatIndex: 0,
+      string: beat.notes[0].string,
+    });
+  });
+
+  await page.getByTestId("edit-menu").click();
+  const menu = page.getByRole("menu");
+  await expect(menu.getByText("Beat", { exact: true })).toBeVisible();
+  await expect(menu.getByText("Note", { exact: true })).toBeVisible();
+  await expect(menu.getByText("Bar", { exact: true })).toBeVisible();
+  await expect(menu.getByText("Track", { exact: true })).toBeVisible();
+  await expect(menu.getByRole("menuitem", {
+    name: /^Insert Rest Before/,
+  })).toBeVisible();
+  await expect(menu.getByRole("menuitem", {
+    name: /^Delete Note/,
+  })).toBeVisible();
+  await expect(menu.getByRole("menuitem", {
+    name: /^Insert Bar After/,
+  })).toBeVisible();
+  await expect(menu.getByRole("menuitem", {
+    name: "New Track...",
+    exact: true,
+  })).toBeVisible();
+  await expect(menu.getByText("Duration", { exact: true })).toHaveCount(0);
+  await expect(menu.getByText("Dots", { exact: true })).toHaveCount(0);
+  await expect(menu.locator("[data-app-menu-separator]"))
+    .toHaveCount(5);
+});
+
 test("keyboard editing projects shortcut values into document action objects", async ({
   page,
 }) => {
@@ -170,7 +215,7 @@ test("live document edits reuse the rendered AlphaTab viewport", async ({
     );
   });
   await page.getByTestId("layout-menu").click();
-  await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
+  await page.getByRole("menuitemradio", { name: "Horizontal layout" }).click();
   await page.waitForFunction(() =>
     (window as unknown as { __ALPHATAB_API__?: {
       settings?: { display?: { layoutMode?: number } };
@@ -364,7 +409,7 @@ test("parchment edits preserve systems before the first changed master bar", asy
   });
 
   await page.getByTestId("layout-menu").click();
-  await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
+  await page.getByRole("menuitemradio", { name: "Horizontal layout" }).click();
   await page.waitForFunction(() => {
     const runtime = window as unknown as RuntimeWindow & {
       __ALPHATAB_API__: {
@@ -380,7 +425,7 @@ test("parchment edits preserve systems before the first changed master bar", asy
     probe.completedRenders = 0;
   });
   await page.getByTestId("layout-menu").click();
-  await page.getByRole("menuitemcheckbox", { name: "Parchment layout" }).click();
+  await page.getByRole("menuitemradio", { name: "Parchment layout" }).click();
   await page.waitForFunction(() => {
     const probe = (window as unknown as RuntimeWindow).__FIXED_SYSTEM_PROBE__;
     const systemStarts = new Set(

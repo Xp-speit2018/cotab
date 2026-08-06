@@ -1,6 +1,7 @@
 {
   "toolbar": {
     "fileMenu": "文件",
+    "applicationMenu": "应用菜单",
     "editMenu": "编辑",
     "layoutMenu": "布局",
     "preferencesMenu": "偏好设置",
@@ -36,6 +37,7 @@
     "transportMode": "走带 {{modifier}}",
     "loading": "加载中 {{percent}}%",
     "zoom": "缩放",
+    "view": "视图",
     "scoreLayout": "乐谱布局",
     "horizontalLayout": "横向布局",
     "parchmentLayout": "卷轴布局",
@@ -60,6 +62,23 @@
     "language": "语言",
     "undo": "撤销",
     "redo": "重做",
+    "edit": {
+      "cut": "剪切",
+      "copy": "复制",
+      "paste": "粘贴",
+      "beat": "节拍",
+      "note": "音符",
+      "bar": "小节",
+      "track": "音轨",
+      "insertRestBefore": "在前方插入休止符",
+      "insertRestAfter": "在后方插入休止符",
+      "deleteNote": "删除音符",
+      "insertBarBefore": "在前方插入小节",
+      "insertBarAfter": "在后方插入小节",
+      "deleteBar": "删除小节",
+      "newTrack": "新建音轨...",
+      "deleteTrack": "删除音轨..."
+    },
     "saveDocument": "保存 CoTab 文档",
     "saveDocumentAs": "另存为",
     "autoSave": "自动保存"
@@ -392,9 +411,12 @@
       "empty": "暂无音轨",
       "help": "点击音轨展开编辑属性。使用眼睛图标切换可见性。",
       "addTrack": "添加音轨",
+      "addTrackDescription": "选择完整记谱预设，或从任意乐器创建标准谱音轨。",
+      "createTrack": "创建音轨",
+      "trackDetails": "音轨详情",
       "allInstruments": "全部乐器",
       "chooseInstrument": "选择乐器",
-      "standardInstrumentHelp": "创建一个标准谱 Staff。如需六线谱、大谱表或打击乐，请使用下方快捷预设。",
+      "standardInstrumentHelp": "修改播放音色。未选择快捷预设时，选择乐器会创建一个标准谱 Staff。",
       "quickPresets": "快捷预设",
       "deleteTrack": "删除音轨",
       "deleteTrackTitle": "删除“{{name}}”？",
@@ -975,7 +997,8 @@
       "cut": { "name": "剪切" }
     },
     "view": {
-      "toggleSidebar": { "name": "切换侧边栏" }
+      "toggleSidebar": { "name": "切换侧边栏" },
+      "openTrackCreator": { "name": "打开音轨创建器" }
     },
 
     "percussionMapping": {

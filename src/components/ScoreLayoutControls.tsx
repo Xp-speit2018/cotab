@@ -11,6 +11,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
+  AppMenuButton,
+  AppMenuCheckboxItem,
+} from "@/components/ui/app-menu";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -97,68 +101,83 @@ export function ScoreLayoutToolbarControls({
 
   return (
     <div className={menuVariant ? "space-y-0.5" : "flex items-center gap-0.5"}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex">
-            <Button
-              variant={layoutDesignMode ? "secondary" : "ghost"}
-              size={menuVariant ? "sm" : "icon"}
-              role={menuVariant ? "menuitemcheckbox" : undefined}
-              aria-checked={menuVariant ? layoutDesignMode : undefined}
-              className={cn(
-                menuVariant
-                  ? "h-8 w-full justify-start gap-2 font-normal"
-                  : "h-8 w-8",
-                layoutDesignMode
-                  && "bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-300",
-              )}
-              disabled={!isParchment}
-              aria-label={t("toolbar.layout.designMode")}
-              aria-pressed={layoutDesignMode}
-              onClick={() =>
-                executeAppAction(
-                  "view.setLayoutDesignMode",
-                  { enabled: !layoutDesignMode },
-                  { t },
-                )
-              }
-            >
-              <PencilRuler className="h-4 w-4" />
-              {menuVariant && <span>{t("toolbar.layout.designMode")}</span>}
-            </Button>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>
-          {isParchment
-            ? t("toolbar.layout.designMode")
-            : t("toolbar.layout.parchmentOnly")}
-        </TooltipContent>
-      </Tooltip>
-
-      <Popover open={open} onOpenChange={setOpen}>
+      {menuVariant ? (
+        <AppMenuCheckboxItem
+          checked={layoutDesignMode}
+          disabled={!isParchment}
+          closeOnSelect={false}
+          onSelect={() => executeAppAction(
+            "view.setLayoutDesignMode",
+            { enabled: !layoutDesignMode },
+            { t },
+          )}
+        >
+          {t("toolbar.layout.designMode")}
+        </AppMenuCheckboxItem>
+      ) : (
         <Tooltip>
           <TooltipTrigger asChild>
-            <PopoverTrigger asChild>
+            <span className="inline-flex">
               <Button
-                variant="ghost"
-                size={menuVariant ? "sm" : "icon"}
-                role={menuVariant ? "menuitem" : undefined}
+                variant={layoutDesignMode ? "secondary" : "ghost"}
+                size="icon"
                 className={cn(
-                  "h-8",
-                  menuVariant
-                    ? "w-full justify-start gap-2 font-normal"
-                    : "w-8",
+                  "h-8 w-8",
+                  layoutDesignMode
+                    && "bg-amber-500/15 text-amber-800 hover:bg-amber-500/20 dark:text-amber-300",
                 )}
                 disabled={!isParchment}
-                aria-label={t("toolbar.layout.settings")}
+                aria-label={t("toolbar.layout.designMode")}
+                aria-pressed={layoutDesignMode}
+                onClick={() =>
+                  executeAppAction(
+                    "view.setLayoutDesignMode",
+                    { enabled: !layoutDesignMode },
+                    { t },
+                  )
+                }
               >
-                <SlidersHorizontal className="h-4 w-4" />
-                {menuVariant && <span>{t("toolbar.layout.settings")}</span>}
+                <PencilRuler className="h-4 w-4" />
               </Button>
-            </PopoverTrigger>
+            </span>
           </TooltipTrigger>
-          <TooltipContent>{t("toolbar.layout.settings")}</TooltipContent>
+          <TooltipContent>
+            {isParchment
+              ? t("toolbar.layout.designMode")
+              : t("toolbar.layout.parchmentOnly")}
+          </TooltipContent>
         </Tooltip>
+      )}
+
+      <Popover open={open} onOpenChange={setOpen}>
+        {menuVariant ? (
+          <PopoverTrigger asChild>
+            <AppMenuButton
+              icon={SlidersHorizontal}
+              disabled={!isParchment}
+              aria-label={t("toolbar.layout.settings")}
+            >
+              {t("toolbar.layout.settings")}
+            </AppMenuButton>
+          </PopoverTrigger>
+        ) : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!isParchment}
+                  aria-label={t("toolbar.layout.settings")}
+                >
+                  <SlidersHorizontal className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+            </TooltipTrigger>
+            <TooltipContent>{t("toolbar.layout.settings")}</TooltipContent>
+          </Tooltip>
+        )}
 
         <PopoverContent align="end" className="w-72 p-3">
           <div className="flex items-center justify-between gap-3">

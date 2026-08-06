@@ -10,7 +10,9 @@ import {
 import { executeAppAction } from "@/app-actions";
 import {
   AppMenu,
+  AppMenuGroup,
   AppMenuItem,
+  AppMenuPanel,
   AppMenuSeparator,
 } from "@/components/ui/app-menu";
 import type { EditorStorageStatus } from "@/core/engine";
@@ -57,9 +59,8 @@ export function FileMenu({ onOpen }: FileMenuProps) {
       ariaLabel={menuLabel}
       title={error ? `${menuLabel}: ${error}` : menuLabel}
       testId="file-menu"
-      contentClassName="w-72"
     >
-        <div className="px-2 py-1.5">
+        <AppMenuPanel>
           <div className="flex items-center gap-2 text-xs font-medium">
             {status === "saved" ? (
               <Check className="h-3.5 w-3.5 text-emerald-600" />
@@ -87,29 +88,31 @@ export function FileMenu({ onOpen }: FileMenuProps) {
             </p>
           )}
           {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
-        </div>
+        </AppMenuPanel>
 
         <AppMenuSeparator />
-        <AppMenuItem icon={FolderOpen} onSelect={onOpen}>
-          {t("toolbar.openFile")}
-        </AppMenuItem>
-        <AppMenuItem
-          icon={Save}
-          disabled={isSaving || !hasActiveDocument}
-          testId="storage-save"
-          shortcut={formatShortcut("Mod+S")}
-          onSelect={() => executeAppAction("storage.save", undefined, { t })}
-        >
-          {t("toolbar.saveDocument")}
-        </AppMenuItem>
-        <AppMenuItem
-          icon={SaveAll}
-          disabled={isSaving || !hasActiveDocument}
-          shortcut={formatShortcut("Mod+Shift+S")}
-          onSelect={() => executeAppAction("storage.saveAs", undefined, { t })}
-        >
-          {t("toolbar.saveDocumentAs")}
-        </AppMenuItem>
+        <AppMenuGroup>
+          <AppMenuItem icon={FolderOpen} onSelect={onOpen}>
+            {t("toolbar.openFile")}
+          </AppMenuItem>
+          <AppMenuItem
+            icon={Save}
+            disabled={isSaving || !hasActiveDocument}
+            testId="storage-save"
+            shortcut={formatShortcut("Mod+S")}
+            onSelect={() => executeAppAction("storage.save", undefined, { t })}
+          >
+            {t("toolbar.saveDocument")}
+          </AppMenuItem>
+          <AppMenuItem
+            icon={SaveAll}
+            disabled={isSaving || !hasActiveDocument}
+            shortcut={formatShortcut("Mod+Shift+S")}
+            onSelect={() => executeAppAction("storage.saveAs", undefined, { t })}
+          >
+            {t("toolbar.saveDocumentAs")}
+          </AppMenuItem>
+        </AppMenuGroup>
     </AppMenu>
   );
 }

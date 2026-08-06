@@ -55,7 +55,7 @@ async function openLayoutMenu(page) {
 
 async function chooseLayout(page, name) {
   await openLayoutMenu(page);
-  await page.getByRole("menuitemcheckbox", { name }).click();
+  await page.getByRole("menuitemradio", { name }).click();
 }
 
 test("uses parchment as the default score layout", async ({ page }) => {
@@ -69,7 +69,7 @@ test("uses parchment as the default score layout", async ({ page }) => {
   await expect(page.getByRole("menuitem", { name: "Layout settings" }))
     .toBeVisible();
 
-  await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
+  await page.getByRole("menuitemradio", { name: "Horizontal layout" }).click();
   await waitForLayout(page, "horizontal", 1);
   await openLayoutMenu(page);
   await expect(page.getByRole("menuitemcheckbox", { name: "Edit score layout" }))
@@ -115,7 +115,8 @@ async function selectBar(page, barIndex) {
 async function openLayoutSettings(page) {
   await openLayoutMenu(page);
   await page.getByRole("menuitem", { name: "Layout settings" }).click();
-  await expect(page.getByText("Score layout", { exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Score layout", { exact: true }))
+    .toBeVisible();
 }
 
 async function expectEditorOverlays(page) {

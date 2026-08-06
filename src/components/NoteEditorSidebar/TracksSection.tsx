@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type * as alphaTab from "@coderline/alphatab";
 import {
@@ -6,13 +6,9 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  Drum,
   Eye,
   EyeOff,
-  Guitar,
-  Music,
   Pencil,
-  Piano,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -46,11 +42,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { executeAppAction } from "@/app-actions";
-import {
-  TRACK_PRESETS,
-  type TrackPreset,
-  type TrackPresetId,
-} from "@/core/presets";
 import { cn } from "@/lib/utils";
 import { getApi } from "@/stores/render-api";
 import { GP7_DEF_BY_ID } from "@/stores/percussion-data";
@@ -70,7 +61,6 @@ import {
 import { ChordLibraryEditor } from "./editors/ChordEditors";
 import {
   InstrumentEditor,
-  generalMidiInstrumentOptions,
   instrumentSummary,
 } from "./editors/InstrumentEditor";
 import { PercussionMapEditor } from "./editors/PercussionMapEditor";
@@ -81,137 +71,112 @@ import {
 import { MusicGlyph, musicGlyphs } from "./notation-icons";
 import { PresetCombobox } from "./PresetCombobox";
 
-function TrackPresetIcon({ presetId }: { presetId: TrackPresetId }) {
-  if (presetId === "drumkit") return <Drum className="h-4 w-4" />;
-  if (presetId === "acousticPiano") return <Piano className="h-4 w-4" />;
-  if (presetId === "violin") return <Music className="h-4 w-4" />;
-  return <Guitar className="h-4 w-4" />;
-}
-
-function trackPresetSummary(
-  preset: TrackPreset,
-  t: ReturnType<typeof useTranslation>["t"],
-): string {
-  const notation = [
-    preset.staves.some((staff) => staff.showStandardNotation)
-      ? t("sidebar.tracks.standardNotation")
-      : null,
-    preset.staves.some((staff) => staff.showTablature)
-      ? t("sidebar.tracks.tablature")
-      : null,
-  ].filter(Boolean).join(" + ");
-  const stringCount = preset.staves[0]?.stringTuning.tunings.length ?? 0;
-  return [
-    preset.staves.length > 1
-      ? t("sidebar.staff.count", { count: preset.staves.length })
-      : preset.staves[0]?.isPercussion
-        ? t("sidebar.tracks.percussion")
-        : null,
-    notation,
-    stringCount > 0
-      ? t("sidebar.tracks.stringCount", { count: stringCount })
-      : null,
-  ].filter(Boolean).join(" · ");
-}
-
-function AddTrackPopover() {
+function AddTrackButton() {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const instrumentOptions = useMemo(
-    () => generalMidiInstrumentOptions(t("sidebar.tracks.commonInstruments")),
-    [t],
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          data-interaction="command"
+          aria-label={t("sidebar.tracks.addTrack")}
+          className="flex h-7 w-7 shrink-0 cursor-default items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground"
+          onClick={() => executeAppAction(
+            "view.openTrackCreator",
+            undefined,
+            { t },
+          )}
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={4}>
+        {t("sidebar.tracks.addTrack")}
+      </TooltipContent>
+    </Tooltip>
   );
+}
 
-  const addTrack = (presetId: TrackPresetId) => {
-    setOpen(false);
-    executeAppAction("document.track.add", { presetId }, { t });
-  };
+export function DeleteTrackDialog({
+  open,
+  onOpenChange,
+  trackUuid,
+  trackName,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  trackUuid: string;
+  trackName: string;
+}) {
+  const { t } = useTranslation();
+  const [confirmation, setConfirmation] = useState("");
+  const confirmationName = trackName || t("sidebar.tracks.unnamedTrack");
+  const canDelete = confirmation === confirmationName;
 
-  const addInstrumentTrack = (program: number | null) => {
-    if (program === null) return;
-    setOpen(false);
-    executeAppAction("document.track.addInstrument", {
-      program,
-      bank: 0,
-    }, { t });
+  const setDialogOpen = (nextOpen: boolean) => {
+    onOpenChange(nextOpen);
+    setConfirmation("");
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip open={open ? false : undefined}>
-        <TooltipTrigger asChild>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              data-interaction="command"
-              aria-label={t("sidebar.tracks.addTrack")}
-              className="flex h-7 w-7 shrink-0 cursor-default items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="top" sideOffset={4}>
-          {t("sidebar.tracks.addTrack")}
-        </TooltipContent>
-      </Tooltip>
-      <PopoverContent
-        side="right"
-        align="start"
-        sideOffset={40}
-        collisionPadding={12}
-        className="w-72 p-2"
-      >
-        <PopoverHeader className="px-1 pb-1">
-          <PopoverTitle>{t("sidebar.tracks.addTrack")}</PopoverTitle>
-        </PopoverHeader>
-        <div className="px-1 pb-2">
-          <div className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">
-            {t("sidebar.tracks.allInstruments")}
-          </div>
-          <PresetCombobox<number | null>
-            value={null}
-            valueLabel={t("sidebar.tracks.chooseInstrument")}
-            ariaLabel={t("sidebar.tracks.allInstruments")}
-            options={instrumentOptions}
-            onValueChange={addInstrumentTrack}
-            align="start"
-            portalled={false}
-            contentClassName="w-[min(28rem,calc(100vw-2rem))]"
-            optionContainerClassName="sm:grid sm:grid-cols-2"
-          />
-          <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-            {t("sidebar.tracks.standardInstrumentHelp")}
-          </p>
-        </div>
-        <div className="border-t px-1 pt-2 text-[10px] font-medium uppercase text-muted-foreground">
-          {t("sidebar.tracks.quickPresets")}
-        </div>
-        <div role="menu" aria-label={t("sidebar.tracks.addTrack")}>
-          {TRACK_PRESETS.map((preset) => (
-            <button
-              key={preset.id}
-              type="button"
-              role="menuitem"
-              className="flex min-h-11 w-full items-center gap-3 px-2 py-1.5 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring"
-              onClick={() => addTrack(preset.id)}
-            >
-              <span className="flex h-7 w-7 shrink-0 items-center justify-center text-muted-foreground">
-                <TrackPresetIcon presetId={preset.id} />
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-xs font-medium">
-                  {t(preset.nameKey)}
-                </span>
-                <span className="block truncate text-[10px] text-muted-foreground">
-                  {trackPresetSummary(preset, t)}
-                </span>
-              </span>
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
+    <Dialog open={open} onOpenChange={setDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {t("sidebar.tracks.deleteTrackTitle", {
+              name: confirmationName,
+            })}
+          </DialogTitle>
+          <DialogDescription>
+            {t("sidebar.tracks.deleteTrackDescription")}
+          </DialogDescription>
+        </DialogHeader>
+
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!canDelete) return;
+            executeAppAction(
+              "document.track.delete",
+              { trackUuid },
+              { t },
+            );
+            setDialogOpen(false);
+          }}
+        >
+          <label className="block space-y-2 text-sm">
+            <span className="text-muted-foreground">
+              {t("sidebar.tracks.deleteTrackPrompt", {
+                name: confirmationName,
+              })}
+            </span>
+            <Input
+              autoFocus
+              type="text"
+              value={confirmation}
+              aria-label={t("sidebar.tracks.deleteTrackInput")}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(event) => setConfirmation(event.currentTarget.value)}
+            />
+          </label>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline">
+                {t("sidebar.common.cancel")}
+              </Button>
+            </DialogClose>
+            <Button type="submit" variant="destructive" disabled={!canDelete}>
+              <Trash2 />
+              {t("sidebar.tracks.deleteTrack")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -224,14 +189,6 @@ function DeleteTrackControl({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [confirmation, setConfirmation] = useState("");
-  const confirmationName = trackName || t("sidebar.tracks.unnamedTrack");
-  const canDelete = confirmation === confirmationName;
-
-  const setDialogOpen = (nextOpen: boolean) => {
-    setOpen(nextOpen);
-    setConfirmation("");
-  };
 
   return (
     <>
@@ -240,69 +197,17 @@ function DeleteTrackControl({
         variant="ghost"
         size="sm"
         className="h-7 cursor-default px-2 text-[11px] text-destructive hover:bg-destructive/10 hover:text-destructive"
-        onClick={() => setDialogOpen(true)}
+        onClick={() => setOpen(true)}
       >
         <Trash2 className="h-3.5 w-3.5" />
         {t("sidebar.tracks.deleteTrack")}
       </Button>
-
-      <Dialog open={open} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {t("sidebar.tracks.deleteTrackTitle", {
-                name: confirmationName,
-              })}
-            </DialogTitle>
-            <DialogDescription>
-              {t("sidebar.tracks.deleteTrackDescription")}
-            </DialogDescription>
-          </DialogHeader>
-
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!canDelete) return;
-              executeAppAction(
-                "document.track.delete",
-                { trackUuid },
-                { t },
-              );
-              setDialogOpen(false);
-            }}
-          >
-            <label className="block space-y-2 text-sm">
-              <span className="text-muted-foreground">
-                {t("sidebar.tracks.deleteTrackPrompt", {
-                  name: confirmationName,
-                })}
-              </span>
-              <Input
-                autoFocus
-                type="text"
-                value={confirmation}
-                aria-label={t("sidebar.tracks.deleteTrackInput")}
-                autoComplete="off"
-                spellCheck={false}
-                onChange={(event) => setConfirmation(event.currentTarget.value)}
-              />
-            </label>
-
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button type="button" variant="outline">
-                  {t("sidebar.common.cancel")}
-                </Button>
-              </DialogClose>
-              <Button type="submit" variant="destructive" disabled={!canDelete}>
-                <Trash2 />
-                {t("sidebar.tracks.deleteTrack")}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <DeleteTrackDialog
+        open={open}
+        onOpenChange={setOpen}
+        trackUuid={trackUuid}
+        trackName={trackName}
+      />
     </>
   );
 }
@@ -1026,7 +931,7 @@ export function TracksSection({
         title={t("sidebar.tracks.title")}
         helpText={t("sidebar.tracks.help")}
         isOpen={isOpen}
-        actions={<AddTrackPopover />}
+        actions={<AddTrackButton />}
         dragHandleProps={dragHandleProps}
       />
       <CollapsibleContent>

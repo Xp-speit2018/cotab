@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  ClipboardPaste,
+  Copy as CopyIcon,
   ExternalLink,
-  GalleryHorizontal,
   Keyboard,
   Network,
   Redo2,
-  Rows3,
+  Scissors,
   Undo2,
 } from "lucide-react";
 
@@ -14,12 +15,17 @@ import { executeAppAction } from "@/app-actions";
 import { isTauriRuntime } from "@/agent/target";
 import { CodexProxyPreferencesDialog } from "@/components/CodexProxyPreferencesDialog";
 import { useSidebarLayoutStore } from "@/components/NoteEditorSidebar/sidebar-store";
+import { DeleteTrackDialog } from "@/components/NoteEditorSidebar/TracksSection";
 import { ScoreLayoutToolbarControls } from "@/components/ScoreLayoutControls";
 import {
   AppMenu,
+  AppMenuCheckboxItem,
+  AppMenuControl,
+  AppMenuGroup,
   AppMenuItem,
-  AppMenuLabel,
   AppMenuLink,
+  AppMenuRadioGroup,
+  AppMenuRadioItem,
   AppMenuSeparator,
 } from "@/components/ui/app-menu";
 import {
@@ -35,32 +41,212 @@ import { formatShortcut, useShortcutStore } from "@/shortcuts";
 import { useEditorStore } from "@/stores/editor-store";
 import { usePlayerStore } from "@/stores/render-store";
 import { saveAutoSavePreference } from "@/storage/storage-preferences";
-import { setWorkspaceAutoSaveEnabled } from "@/workspace/document-workspace";
+import {
+  setWorkspaceAutoSaveEnabled,
+  useDocumentWorkspaceStore,
+} from "@/workspace/document-workspace";
+
+function useMenuShortcut(actionId: string): string | undefined {
+  const keys = useShortcutStore((state) =>
+    state.bindings.find((binding) => binding.id === actionId)?.keys);
+  return keys ? formatShortcut(keys) : undefined;
+}
 
 export function EditMenu() {
   const { t } = useTranslation();
+  const [deleteTrackOpen, setDeleteTrackOpen] = useState(false);
   const canUndo = useEditorStore((state) => state.canUndo);
   const canRedo = useEditorStore((state) => state.canRedo);
+  const selectedBeat = usePlayerStore((state) => state.selectedBeatInfo);
+  const selectedNoteIndex = usePlayerStore((state) => state.selectedNoteIndex);
+  const hasBar = usePlayerStore((state) => state.selectedBarInfo !== null);
+  const selectedTrack = usePlayerStore((state) => {
+    const trackIndex = state.selector.trackIndex;
+    return trackIndex === null ? null : state.tracks[trackIndex] ?? null;
+  });
+  const hasDocument = useDocumentWorkspaceStore(
+    (state) => state.activeTabId !== "",
+  );
+  const undoShortcut = useMenuShortcut("document.undo");
+  const redoShortcut = useMenuShortcut("document.redo");
+  const cutShortcut = useMenuShortcut("document.cut");
+  const copyShortcut = useMenuShortcut("document.copy");
+  const pasteShortcut = useMenuShortcut("document.paste");
+  const insertRestBeforeShortcut = useMenuShortcut(
+    "document.beat.insertRestBefore",
+  );
+  const insertRestAfterShortcut = useMenuShortcut(
+    "document.beat.insertRestAfter",
+  );
+  const deleteNoteShortcut = useMenuShortcut("document.beat.deleteNote");
+  const insertBarBeforeShortcut = useMenuShortcut("document.bar.insertBefore");
+  const insertBarAfterShortcut = useMenuShortcut("document.bar.insertAfter");
+  const deleteBarShortcut = useMenuShortcut("document.bar.delete");
+  const deleteTrackShortcut = useMenuShortcut("document.track.delete");
+  const hasBeat = selectedBeat !== null;
+  const hasNote = selectedBeat !== null
+    && selectedNoteIndex >= 0
+    && selectedNoteIndex < selectedBeat.notes.length;
 
   return (
-    <AppMenu label={t("toolbar.editMenu")} testId="edit-menu">
-      <AppMenuItem
-        icon={Undo2}
-        shortcut={formatShortcut("Mod+Z")}
-        disabled={!canUndo}
-        onSelect={() => executeAppAction("document.undo", {}, { t })}
-      >
-        {t("toolbar.undo")}
-      </AppMenuItem>
-      <AppMenuItem
-        icon={Redo2}
-        shortcut={formatShortcut("Mod+Shift+Z")}
-        disabled={!canRedo}
-        onSelect={() => executeAppAction("document.redo", {}, { t })}
-      >
-        {t("toolbar.redo")}
-      </AppMenuItem>
-    </AppMenu>
+    <>
+      <AppMenu label={t("toolbar.editMenu")} testId="edit-menu">
+        <AppMenuGroup>
+          <AppMenuItem
+            icon={Undo2}
+            shortcut={undoShortcut}
+            disabled={!canUndo}
+            onSelect={() => executeAppAction("document.undo", {}, { t })}
+          >
+            {t("toolbar.undo")}
+          </AppMenuItem>
+          <AppMenuItem
+            icon={Redo2}
+            shortcut={redoShortcut}
+            disabled={!canRedo}
+            onSelect={() => executeAppAction("document.redo", {}, { t })}
+          >
+            {t("toolbar.redo")}
+          </AppMenuItem>
+        </AppMenuGroup>
+
+        <AppMenuSeparator />
+        <AppMenuGroup>
+          <AppMenuItem
+            icon={Scissors}
+            shortcut={cutShortcut}
+            disabled={!hasBeat}
+            onSelect={() => executeAppAction("document.cut", {}, { t })}
+          >
+            {t("toolbar.edit.cut")}
+          </AppMenuItem>
+          <AppMenuItem
+            icon={CopyIcon}
+            shortcut={copyShortcut}
+            disabled={!hasBeat}
+            onSelect={() => executeAppAction("document.copy", {}, { t })}
+          >
+            {t("toolbar.edit.copy")}
+          </AppMenuItem>
+          <AppMenuItem
+            icon={ClipboardPaste}
+            shortcut={pasteShortcut}
+            disabled={!hasBeat}
+            onSelect={() => executeAppAction("document.paste", {}, { t })}
+          >
+            {t("toolbar.edit.paste")}
+          </AppMenuItem>
+        </AppMenuGroup>
+
+        <AppMenuSeparator />
+        <AppMenuGroup label={t("toolbar.edit.beat")}>
+          <AppMenuItem
+            shortcut={insertRestBeforeShortcut}
+            disabled={!hasBeat}
+            onSelect={() => executeAppAction(
+              "document.beat.insertRestBefore",
+              {},
+              { t },
+            )}
+          >
+            {t("toolbar.edit.insertRestBefore")}
+          </AppMenuItem>
+          <AppMenuItem
+            shortcut={insertRestAfterShortcut}
+            disabled={!hasBeat}
+            onSelect={() => executeAppAction(
+              "document.beat.insertRestAfter",
+              {},
+              { t },
+            )}
+          >
+            {t("toolbar.edit.insertRestAfter")}
+          </AppMenuItem>
+        </AppMenuGroup>
+
+        <AppMenuSeparator />
+        <AppMenuGroup label={t("toolbar.edit.note")}>
+          <AppMenuItem
+            shortcut={deleteNoteShortcut}
+            disabled={!hasNote}
+            onSelect={() => executeAppAction(
+              "document.beat.deleteNote",
+              {},
+              { t },
+            )}
+          >
+            {t("toolbar.edit.deleteNote")}
+          </AppMenuItem>
+        </AppMenuGroup>
+
+        <AppMenuSeparator />
+        <AppMenuGroup label={t("toolbar.edit.bar")}>
+          <AppMenuItem
+            shortcut={insertBarBeforeShortcut}
+            disabled={!hasBar}
+            onSelect={() => executeAppAction(
+              "document.bar.insertBefore",
+              {},
+              { t },
+            )}
+          >
+            {t("toolbar.edit.insertBarBefore")}
+          </AppMenuItem>
+          <AppMenuItem
+            shortcut={insertBarAfterShortcut}
+            disabled={!hasBar}
+            onSelect={() => executeAppAction(
+              "document.bar.insertAfter",
+              {},
+              { t },
+            )}
+          >
+            {t("toolbar.edit.insertBarAfter")}
+          </AppMenuItem>
+          <AppMenuItem
+            shortcut={deleteBarShortcut}
+            disabled={!hasBar}
+            onSelect={() => executeAppAction(
+              "document.bar.delete",
+              {},
+              { t },
+            )}
+          >
+            {t("toolbar.edit.deleteBar")}
+          </AppMenuItem>
+        </AppMenuGroup>
+
+        <AppMenuSeparator />
+        <AppMenuGroup label={t("toolbar.edit.track")}>
+          <AppMenuItem
+            disabled={!hasDocument}
+            onSelect={() => executeAppAction(
+              "view.openTrackCreator",
+              undefined,
+              { t },
+            )}
+          >
+            {t("toolbar.edit.newTrack")}
+          </AppMenuItem>
+          <AppMenuItem
+            shortcut={deleteTrackShortcut}
+            disabled={!selectedTrack}
+            onSelect={() => setDeleteTrackOpen(true)}
+          >
+            {t("toolbar.edit.deleteTrack")}
+          </AppMenuItem>
+        </AppMenuGroup>
+      </AppMenu>
+
+      {selectedTrack && (
+        <DeleteTrackDialog
+          open={deleteTrackOpen}
+          onOpenChange={setDeleteTrackOpen}
+          trackUuid={selectedTrack.uuid}
+          trackName={selectedTrack.name}
+        />
+      )}
+    </>
   );
 }
 
@@ -73,44 +259,37 @@ export function LayoutMenu() {
     <AppMenu
       label={t("toolbar.layoutMenu")}
       testId="layout-menu"
-      contentClassName="w-72"
     >
-      <AppMenuItem
-        checked={scoreLayout === "horizontal"}
-        onSelect={() => executeAppAction(
-          "view.setScoreLayout",
-          { layout: "horizontal" },
-          { t },
-        )}
-      >
-        <span className="flex items-center gap-2">
-          <GalleryHorizontal className="h-3.5 w-3.5" />
-          {t("toolbar.horizontalLayout")}
-        </span>
-      </AppMenuItem>
-      <div className={scoreLayout === "parchment" ? "bg-muted/35" : undefined}>
-        <AppMenuItem
-          checked={scoreLayout === "parchment"}
-          onSelect={() => executeAppAction(
+      <AppMenuGroup label={t("toolbar.scoreLayout")}>
+        <AppMenuRadioGroup
+          value={scoreLayout}
+          onValueChange={(layout) => executeAppAction(
             "view.setScoreLayout",
-            { layout: "parchment" },
+            { layout: layout as "horizontal" | "parchment" },
             { t },
           )}
         >
-          <span className="flex items-center gap-2">
-            <Rows3 className="h-3.5 w-3.5" />
+          <AppMenuRadioItem value="horizontal">
+            {t("toolbar.horizontalLayout")}
+          </AppMenuRadioItem>
+          <AppMenuRadioItem value="parchment">
             {t("toolbar.parchmentLayout")}
-          </span>
-        </AppMenuItem>
-        {scoreLayout === "parchment" && (
-          <div className="mb-1 ml-5 border-l pl-1 pr-1">
+          </AppMenuRadioItem>
+        </AppMenuRadioGroup>
+      </AppMenuGroup>
+
+      {scoreLayout === "parchment" && (
+        <>
+          <AppMenuSeparator />
+          <AppMenuGroup label={t("toolbar.parchmentLayout")}>
             <ScoreLayoutToolbarControls variant="menu" />
-          </div>
-        )}
-      </div>
+          </AppMenuGroup>
+        </>
+      )}
 
       <AppMenuSeparator />
-      <div className="space-y-2 px-2 py-1.5">
+      <AppMenuGroup label={t("toolbar.view")}>
+        <AppMenuControl className="space-y-2">
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted-foreground">{t("toolbar.zoom")}</span>
           <span className="font-mono tabular-nums">{Math.round(zoom * 100)}%</span>
@@ -125,7 +304,8 @@ export function LayoutMenu() {
           onValueChange={([value]) =>
             usePlayerStore.getState().setZoom(value / 100)}
         />
-      </div>
+        </AppMenuControl>
+      </AppMenuGroup>
     </AppMenu>
   );
 }
@@ -146,68 +326,73 @@ export function PreferencesMenu() {
       <AppMenu
         label={t("toolbar.preferencesMenu")}
         testId="preferences-menu"
-        contentClassName="w-72"
       >
-        <AppMenuLabel>{t("toolbar.preferences.general")}</AppMenuLabel>
-        <AppMenuItem
-          checked={autoSaveEnabled}
-          closeOnSelect={false}
-          onSelect={() => {
-            const enabled = !autoSaveEnabled;
-            saveAutoSavePreference(enabled);
-            setWorkspaceAutoSaveEnabled(enabled);
-          }}
-        >
-          {t("toolbar.autoSave")}
-        </AppMenuItem>
-
-        <AppMenuSeparator />
-        <AppMenuLabel>{t("toolbar.preferences.keyboard")}</AppMenuLabel>
-        <AppMenuItem
-          icon={Keyboard}
-          onSelect={() => useShortcutStore.getState().setConfigPanelOpen(true)}
-        >
-          {t("shortcuts.title")}
-        </AppMenuItem>
-
-        <AppMenuSeparator />
-        <AppMenuLabel>{t("toolbar.language")}</AppMenuLabel>
-        {Object.entries(SUPPORTED_LANGUAGES).map(([code, label]) => (
-          <AppMenuItem
-            key={code}
-            checked={i18n.language === code}
-            onSelect={() => i18n.changeLanguage(code)}
+        <AppMenuGroup label={t("toolbar.preferences.general")}>
+          <AppMenuCheckboxItem
+            checked={autoSaveEnabled}
+            closeOnSelect={false}
+            onSelect={() => {
+              const enabled = !autoSaveEnabled;
+              saveAutoSavePreference(enabled);
+              setWorkspaceAutoSaveEnabled(enabled);
+            }}
           >
-            {label}
-          </AppMenuItem>
-        ))}
+            {t("toolbar.autoSave")}
+          </AppMenuCheckboxItem>
+        </AppMenuGroup>
 
         <AppMenuSeparator />
-        <AppMenuLabel>{t("toolbar.preferences.developer")}</AppMenuLabel>
-        <AppMenuItem
-          checked={debugTabEnabled}
-          closeOnSelect={false}
-          onSelect={() => useSidebarLayoutStore
-            .getState()
-            .setDebugTabEnabled(!debugTabEnabled)}
-        >
-          {t("toolbar.preferences.showDebugTab")}
-        </AppMenuItem>
-        <AppMenuItem
-          checked={showSnapGrid}
-          closeOnSelect={false}
-          onSelect={() => usePlayerStore.getState().setShowSnapGrid(!showSnapGrid)}
-        >
-          {t("toolbar.preferences.showSnapGrid")}
-        </AppMenuItem>
+        <AppMenuGroup label={t("toolbar.preferences.keyboard")}>
+          <AppMenuItem
+            icon={Keyboard}
+            onSelect={() => useShortcutStore.getState().setConfigPanelOpen(true)}
+          >
+            {t("shortcuts.title")}
+          </AppMenuItem>
+        </AppMenuGroup>
+
+        <AppMenuSeparator />
+        <AppMenuGroup label={t("toolbar.language")}>
+          <AppMenuRadioGroup
+            value={i18n.language}
+            onValueChange={(code) => void i18n.changeLanguage(code)}
+          >
+            {Object.entries(SUPPORTED_LANGUAGES).map(([code, label]) => (
+              <AppMenuRadioItem key={code} value={code}>
+                {label}
+              </AppMenuRadioItem>
+            ))}
+          </AppMenuRadioGroup>
+        </AppMenuGroup>
+
+        <AppMenuSeparator />
+        <AppMenuGroup label={t("toolbar.preferences.developer")}>
+          <AppMenuCheckboxItem
+            checked={debugTabEnabled}
+            closeOnSelect={false}
+            onSelect={() => useSidebarLayoutStore
+              .getState()
+              .setDebugTabEnabled(!debugTabEnabled)}
+          >
+            {t("toolbar.preferences.showDebugTab")}
+          </AppMenuCheckboxItem>
+          <AppMenuCheckboxItem
+            checked={showSnapGrid}
+            closeOnSelect={false}
+            onSelect={() => usePlayerStore.getState().setShowSnapGrid(!showSnapGrid)}
+          >
+            {t("toolbar.preferences.showSnapGrid")}
+          </AppMenuCheckboxItem>
+        </AppMenuGroup>
 
         {isTauriRuntime() && (
           <>
             <AppMenuSeparator />
-            <AppMenuLabel>{t("toolbar.preferences.agent")}</AppMenuLabel>
-            <AppMenuItem icon={Network} onSelect={() => setProxyOpen(true)}>
-              {t("agent.proxy.title")}
-            </AppMenuItem>
+            <AppMenuGroup label={t("toolbar.preferences.agent")}>
+              <AppMenuItem icon={Network} onSelect={() => setProxyOpen(true)}>
+                {t("agent.proxy.title")}
+              </AppMenuItem>
+            </AppMenuGroup>
           </>
         )}
       </AppMenu>
@@ -226,15 +411,17 @@ export function HelpMenu() {
   return (
     <>
       <AppMenu label={t("toolbar.helpMenu")} testId="help-menu">
-        <AppMenuItem onSelect={() => setAboutOpen(true)}>
-          {t("toolbar.aboutCoTab")}
-        </AppMenuItem>
-        <AppMenuLink
-          href="https://github.com/Xp-speit2018/cotab"
-          icon={ExternalLink}
-        >
-          {t("toolbar.projectHome")}
-        </AppMenuLink>
+        <AppMenuGroup>
+          <AppMenuItem onSelect={() => setAboutOpen(true)}>
+            {t("toolbar.aboutCoTab")}
+          </AppMenuItem>
+          <AppMenuLink
+            href="https://github.com/Xp-speit2018/cotab"
+            icon={ExternalLink}
+          >
+            {t("toolbar.projectHome")}
+          </AppMenuLink>
+        </AppMenuGroup>
       </AppMenu>
 
       <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>

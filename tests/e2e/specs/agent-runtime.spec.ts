@@ -133,7 +133,7 @@ for (const layout of ["horizontal", "parchment"] as const) {
     });
     if (layout === "horizontal") {
       await page.getByTestId("layout-menu").click();
-      await page.getByRole("menuitemcheckbox", { name: "Horizontal layout" }).click();
+      await page.getByRole("menuitemradio", { name: "Horizontal layout" }).click();
       await page.waitForFunction(() => {
         const runtime = window as unknown as {
           __ALPHATAB_API__?: {

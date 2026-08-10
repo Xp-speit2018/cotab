@@ -10,7 +10,6 @@ export function ChordCandidateList({
   candidates: readonly ChordCandidate[];
   selectedName: string;
   labels: {
-    possibleChords: string;
     noCandidates: string;
     bestMatch: string;
     alternatives: string;
@@ -19,8 +18,7 @@ export function ChordCandidateList({
   onSelect: (candidate: ChordCandidate) => void;
 }) {
   return (
-    <div className="space-y-1.5" data-chord-candidates>
-      <div className="text-xs font-medium text-foreground">{labels.possibleChords}</div>
+    <div data-chord-candidates>
       {candidates.length === 0 ? (
         <div className="rounded border border-dashed px-2 py-3 text-center text-[11px] text-muted-foreground">
           {labels.noCandidates}
@@ -36,7 +34,7 @@ export function ChordCandidateList({
                 "w-full rounded-md border-2 px-3 py-2 text-left transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 selectedName === candidate.symbol
-                  ? "border-primary bg-primary/15"
+                  ? "border-input bg-accent text-accent-foreground"
                   : "border-primary/55 bg-primary/5 hover:bg-primary/10",
               )}
               onClick={() => onSelect(candidate)}
@@ -72,7 +70,7 @@ export function ChordCandidateList({
                       "rounded-full border px-2.5 py-1 font-mono text-xs transition-colors",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       selectedName === candidate.symbol
-                        ? "border-primary bg-primary/10 font-semibold text-primary"
+                        ? "border-input bg-accent font-semibold text-accent-foreground"
                         : "border-border bg-background hover:bg-accent/50",
                     )}
                     onClick={() => onSelect(candidate)}

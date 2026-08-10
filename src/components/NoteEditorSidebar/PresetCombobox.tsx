@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import {
@@ -66,6 +66,7 @@ export function PresetCombobox<T extends PresetValue>({
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
   const skipImplicitCommit = useRef(false);
+  const listboxRef = useRef<HTMLDivElement>(null);
   const listboxId = useId();
   const selected = options.find((option) => Object.is(option.value, value));
   const regex = useMemo(() => regexFor(query), [query]);
@@ -134,6 +135,14 @@ export function PresetCombobox<T extends PresetValue>({
     }
   };
 
+  useEffect(() => {
+    if (!open || activeIndex < 0) return;
+    const activeOption = listboxRef.current?.querySelector<HTMLElement>(
+      `[data-preset-option-index="${activeIndex}"]`,
+    );
+    activeOption?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeIndex, open]);
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
@@ -168,6 +177,14 @@ export function PresetCombobox<T extends PresetValue>({
         align={align}
         portalled={portalled}
         className={cn("w-64 p-1", contentClassName)}
+        onWheel={(event) => {
+          const listbox = listboxRef.current;
+          if (!listbox) return;
+          event.stopPropagation();
+          if (listbox.contains(event.target as Node) || event.deltaY === 0) return;
+          listbox.scrollTop += event.deltaY;
+          event.preventDefault();
+        }}
         onEscapeKeyDown={() => {
           skipImplicitCommit.current = true;
         }}
@@ -207,10 +224,11 @@ export function PresetCombobox<T extends PresetValue>({
           />
         </div>
         <div
+          ref={listboxRef}
           id={listboxId}
           role="listbox"
           aria-label={ariaLabel}
-          className="max-h-64 overflow-y-auto py-1"
+          className="max-h-64 overscroll-contain overflow-y-auto py-1"
         >
           {!regexValid ? (
             <div role="alert" className="px-2 py-3 text-center text-xs text-destructive">
@@ -236,6 +254,7 @@ export function PresetCombobox<T extends PresetValue>({
                   <button
                     key={`${group ?? ""}:${typeof option.value}:${String(option.value)}:${index}`}
                     id={`${listboxId}-${index}`}
+                    data-preset-option-index={index}
                     type="button"
                     role="option"
                     aria-selected={Object.is(option.value, value)}

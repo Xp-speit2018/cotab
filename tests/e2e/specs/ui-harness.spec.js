@@ -215,6 +215,92 @@ test("preset menus filter by regex without accepting free-form values", async ({
   await expect(trigger).toContainText("DADGAD");
 });
 
+test("preset keyboard navigation keeps the active option visible", async ({ page }) => {
+  const editor = page.locator("[data-harness-chord-editor]");
+  await editor.getByRole("combobox", { name: "Root note" }).click();
+
+  const search = page.getByRole("searchbox", { name: "Search presets" });
+  const listbox = page.getByRole("listbox", { name: "Root note" });
+  for (let index = 0; index < 12; index += 1) {
+    await search.press("ArrowDown");
+  }
+
+  const activeOptionId = await search.getAttribute("aria-activedescendant");
+  expect(activeOptionId).not.toBeNull();
+  const activeOption = page.locator(`[id="${activeOptionId}"]`);
+  await expect(activeOption).toHaveText("B");
+  await expect.poll(() => listbox.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  await expect.poll(async () => {
+    const [listboxBounds, optionBounds] = await Promise.all([
+      listbox.boundingBox(),
+      activeOption.boundingBox(),
+    ]);
+    if (!listboxBounds || !optionBounds) return false;
+    return optionBounds.y >= listboxBounds.y
+      && optionBounds.y + optionBounds.height <= listboxBounds.y + listboxBounds.height;
+  }).toBe(true);
+});
+
+test("preset popovers scroll their options with the mouse wheel", async ({ page }) => {
+  const editor = page.locator("[data-harness-chord-editor]");
+  await editor.getByRole("combobox", { name: "Root note" }).click();
+
+  const search = page.getByRole("searchbox", { name: "Search presets" });
+  const listbox = page.getByRole("listbox", { name: "Root note" });
+  await expect.poll(() => listbox.evaluate(
+    (element) => element.scrollHeight > element.clientHeight,
+  )).toBe(true);
+
+  await search.hover();
+  await page.mouse.wheel(0, 160);
+  await expect.poll(() => listbox.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+});
+
+test("chord editor sections follow one hierarchy and explain their roles", async ({ page }) => {
+  const editor = page.locator("[data-harness-chord-editor]");
+  const sections = editor.locator("[data-chord-section]");
+  await expect(sections).toHaveCount(5);
+  expect(await sections.evaluateAll((elements) => elements.map(
+    (element) => element.getAttribute("data-chord-section"),
+  ))).toEqual([
+    "fretboard",
+    "composition",
+    "recognition",
+    "voicings",
+    "score-display",
+  ]);
+
+  const recognition = editor.locator('[data-chord-section="recognition"]');
+  const voicings = editor.locator('[data-chord-section="voicings"]');
+  const [recognitionBounds, voicingBounds] = await Promise.all([
+    recognition.boundingBox(),
+    voicings.boundingBox(),
+  ]);
+  expect(recognitionBounds).not.toBeNull();
+  expect(voicingBounds).not.toBeNull();
+  expect(Math.abs(recognitionBounds.y - voicingBounds.y)).toBeLessThanOrEqual(1);
+  expect(voicingBounds.x).toBeGreaterThan(recognitionBounds.x);
+
+  for (const help of [
+    "Choose which strings sound and select frets. Labels can show note names or intervals.",
+    "Choose the root, bass, and chord tones. Changes update the chord and recommendations.",
+    "Ranks chord names that match the notes selected on the fretboard.",
+    "Compares playable shapes for this chord. Density favors fewer or more sounding strings.",
+    "Controls how the chord name and diagram appear in the score.",
+  ]) {
+    await editor.getByRole("button", { name: help, exact: true }).hover();
+    await expect(page.getByRole("tooltip", { name: help, exact: true })).toBeVisible();
+  }
+  await expect(editor.getByText("Score display", { exact: true })).toBeVisible();
+  await expect(editor.getByText("Fingering recommendations", { exact: true })).toBeVisible();
+  await expect(editor.locator(
+    '[data-chord-section="composition"] [data-chord-section-title]',
+  )).toHaveText("Chord structure");
+  const rootControl = editor.locator("[data-chord-root-control]");
+  await expect(rootControl).toContainText("Root");
+  await expect(rootControl.getByRole("combobox", { name: "Root note" })).toBeVisible();
+});
+
 test("interactive fretboard suggests a chord without committing it", async ({ page }) => {
   const editor = page.locator("[data-harness-chord-editor]");
   for (const name of [
@@ -258,8 +344,43 @@ test("interactive fretboard suggests a chord without committing it", async ({ pa
   )).toHaveText("5");
   await expect(editor.locator("[data-chord-function-legend]")).toContainText("Root");
 
+  const voicingSection = editor.locator("[data-chord-voicings]");
+  const voicingCards = voicingSection.locator("[data-voicing-family]");
+  await expect(voicingCards).toHaveCount(4);
+  const families = await voicingCards.evaluateAll((cards) => cards.map(
+    (card) => card.getAttribute("data-voicing-family"),
+  ));
+  expect(new Set(families).size).toBe(families.length);
+  await expect(voicingSection).toContainText("Open");
+  await expect(voicingSection).toContainText("Movable");
+  await expect(voicingSection.locator('[data-voicing-family="open:open"]'))
+    .toContainText("Root on string 5");
+
+  await voicingSection.getByRole("radio", { name: "Compact" }).click();
+  await expect(voicingSection.locator('[data-voicing-family="open:open"]'))
+    .toContainText("3 strings");
+  await voicingSection.getByRole("radio", { name: "Full" }).click();
+  await expect(voicingSection).toContainText("6 strings");
+  await voicingSection.getByRole("radio", { name: "Balanced" }).click();
+
   await best.click();
   await expect(nameInput).toHaveValue("C");
+  const selectedStyle = await voicingSection.getByRole("radio", { name: "Balanced" })
+    .evaluate((element) => ({
+      backgroundColor: getComputedStyle(element).backgroundColor,
+      borderColor: getComputedStyle(element).borderColor,
+    }));
+  for (const selectedControl of [
+    best,
+    voicingSection.locator("[data-voicing-family][aria-pressed='true']"),
+    composition.locator("[data-chord-bass] [aria-pressed='true']"),
+    editor.getByLabel("Show name in score"),
+  ]) {
+    await expect.poll(() => selectedControl.evaluate((element) => ({
+      backgroundColor: getComputedStyle(element).backgroundColor,
+      borderColor: getComputedStyle(element).borderColor,
+    }))).toEqual(selectedStyle);
+  }
 
   const marker = editor.getByRole("button", {
     name: "String 4, Fret 2",
@@ -292,4 +413,42 @@ test("interactive fretboard suggests a chord without committing it", async ({ pa
     fretLineBox.y + fretLineBox.height
       - (lastStringBox.y + lastStringBox.height / 2),
   )).toBeLessThanOrEqual(1);
+
+  await editor.getByRole("combobox", { name: "Root note" }).click();
+  await page.getByRole("option", { name: "F", exact: true }).click();
+  await composition.locator("[data-tone='3']").click();
+  await expect(nameInput).toHaveValue("F5");
+  await expect(editor.locator("[data-chord-voicings]")).toBeVisible();
+  await expect(editor.locator("[data-chord-candidates]")).toContainText("F5");
+
+  const extendedFretboard = editor.locator("[data-interactive-fretboard]");
+  const defaultScrollWidth = await extendedFretboard.evaluate((element) => element.scrollWidth);
+  await editor.getByRole("spinbutton", { name: "First fret" }).fill("5");
+  await expect(extendedFretboard).toHaveAttribute("data-last-displayed-fret", "15");
+  await expect(editor.getByRole("button", {
+    name: "String 1, Fret 1",
+    exact: true,
+  })).toBeVisible();
+  await expect(editor.getByRole("button", {
+    name: "String 1, Fret 16",
+    exact: true,
+  })).toHaveCount(0);
+  await expect.poll(() => extendedFretboard.evaluate((element) => element.scrollWidth))
+    .toBe(defaultScrollWidth);
+
+  await editor.getByRole("spinbutton", { name: "First fret" }).fill("13");
+  await expect(extendedFretboard).toHaveAttribute("data-last-displayed-fret", "17");
+  await expect(editor.getByRole("button", {
+    name: "String 1, Fret 17",
+    exact: true,
+  })).toBeAttached();
+  await expect.poll(() => extendedFretboard.evaluate(
+    (element, baseline) => element.scrollWidth > baseline,
+    defaultScrollWidth,
+  )).toBe(true);
+  await extendedFretboard.evaluate((element) => {
+    element.scrollLeft = element.scrollWidth;
+  });
+  await expect.poll(() => extendedFretboard.evaluate((element) => element.scrollLeft))
+    .toBeGreaterThan(0);
 });

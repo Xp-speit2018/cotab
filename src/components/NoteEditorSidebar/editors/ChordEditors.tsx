@@ -1,11 +1,29 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Check, Plus, Trash2 } from "lucide-react";
 import type { ChordSchema } from "@/core/schema";
 import type { ChordDefinitionInfo } from "@/stores/render-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { analyzeChordFingering } from "@/core/chords";
+import {
+  analyzeChordFingering,
+  candidateToChordFormula,
+  CHORD_TONE_DEFINITIONS,
+  formatChordFormula,
+  formatPitchClass,
+  generateChordVoicings,
+  modulo12,
+  type ChordFormula,
+  type ChordToneId,
+  type VoicingDensity,
+} from "@/core/chords";
 import { PresetCombobox } from "../PresetCombobox";
 import { ChordCandidateList } from "./ChordCandidateList";
 import { ChordCompositionChart } from "./ChordCompositionChart";
@@ -16,6 +34,49 @@ import {
 } from "./InteractiveFretboard";
 
 const DIAGRAM_FRETS = 5;
+const EMPTY_FORMULA: ChordFormula = {
+  rootPitchClass: 0,
+  bassPitchClass: 0,
+  tones: ["1"],
+};
+
+function ChordSectionHeading({
+  title,
+  help,
+  actions,
+}: {
+  title: ReactNode;
+  help: string;
+  actions?: ReactNode;
+}) {
+  return (
+    <div
+      data-chord-section-heading
+      className="flex min-h-7 flex-wrap items-center justify-between gap-2"
+    >
+      <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-foreground">
+        <span data-chord-section-title className="flex min-w-0 items-center gap-2">
+          {title}
+        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              aria-label={help}
+              className="flex h-4 w-4 shrink-0 cursor-default items-center justify-center rounded-full border border-border text-[9px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              ?
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-60">
+            {help}
+          </TooltipContent>
+        </Tooltip>
+      </div>
+      {actions}
+    </div>
+  );
+}
 
 function copyChord(chord: ChordSchema): ChordSchema {
   return {
@@ -202,7 +263,6 @@ export function ChordLibraryEditor({
     barreFrets: string;
     showName: string;
     showDiagram: string;
-    showFingering: string;
     save: string;
     delete: string;
     confirmDelete: string;
@@ -226,10 +286,25 @@ export function ChordLibraryEditor({
     fifthFunction: string;
     thirdFunction: string;
     rootFunction: string;
+    rootPicker: string;
     scoreDisplay: string;
     diagramPreview: string;
     diagramHidden: string;
-    fingeringUnavailable: string;
+    voicingSuggestions: string;
+    voicingDensity: string;
+    voicingCompact: string;
+    voicingBalanced: string;
+    voicingFull: string;
+    voicingOpen: string;
+    voicingMovable: string;
+    voicingStrings: string;
+    voicingRootPosition: (stringNumber: number) => string;
+    fretboardHelp: string;
+    chordRecognitionHelp: string;
+    chordCompositionHelp: string;
+    voicingSuggestionsHelp: string;
+    voicingSuggestionsEmpty: string;
+    scoreDisplayHelp: string;
   };
   onSave: (id: string, chord: ChordSchema) => void;
   onDelete: (id: string) => void;
@@ -245,6 +320,8 @@ export function ChordLibraryEditor({
     selectedDefinition ? copyChord(selectedDefinition) : emptyChord(stringCount));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [fretboardLabelMode, setFretboardLabelMode] = useState<FretboardLabelMode>("notes");
+  const [formulaOverride, setFormulaOverride] = useState<ChordFormula | null>(null);
+  const [voicingDensity, setVoicingDensity] = useState<VoicingDensity>("balanced");
   const candidates = useMemo(() => analyzeChordFingering({
     tuning,
     frets: draft.strings,
@@ -253,6 +330,22 @@ export function ChordLibraryEditor({
   const activeCandidate = candidates.find((candidate) => candidate.symbol === draft.name)
     ?? candidates[0]
     ?? null;
+  const analyzedFormula = useMemo(
+    () => activeCandidate ? candidateToChordFormula(activeCandidate) : null,
+    [activeCandidate],
+  );
+  const formula = formulaOverride
+    ?? analyzedFormula
+    ?? EMPTY_FORMULA;
+  const voicingSuggestions = useMemo(() => formula.tones.length < 2
+    ? []
+    : generateChordVoicings({
+      formula,
+      tuning,
+      capo,
+      maxResults: 8,
+      density: voicingDensity,
+    }), [capo, formula, tuning, voicingDensity]);
 
   useEffect(() => {
     if (selectedDefinition) setDraft(copyChord(selectedDefinition));
@@ -262,15 +355,70 @@ export function ChordLibraryEditor({
     setSelectedId(definition.id);
     setDraft(copyChord(definition));
     setConfirmDelete(false);
+    setFormulaOverride(null);
   };
   const startNew = () => {
     setSelectedId(null);
     setDraft(emptyChord(stringCount));
     setConfirmDelete(false);
+    setFormulaOverride(null);
+  };
+
+  const applyFormula = (nextFormula: ChordFormula) => {
+    const normalizedFormula = {
+      ...nextFormula,
+      rootPitchClass: modulo12(nextFormula.rootPitchClass),
+      bassPitchClass: modulo12(nextFormula.bassPitchClass),
+      tones: nextFormula.tones.includes("1")
+        ? nextFormula.tones
+        : (["1", ...nextFormula.tones] as ChordToneId[]),
+    };
+    const [bestVoicing] = normalizedFormula.tones.length < 2
+      ? []
+      : generateChordVoicings({
+        formula: normalizedFormula,
+        tuning,
+        capo,
+        maxResults: 1,
+        density: voicingDensity,
+      });
+    setFormulaOverride(normalizedFormula);
+    setDraft((current) => ({
+      ...current,
+      name: formatChordFormula(normalizedFormula),
+      strings: bestVoicing?.strings ?? current.strings,
+      firstFret: bestVoicing?.firstFret ?? current.firstFret,
+      barreFrets: bestVoicing ? [] : current.barreFrets,
+    }));
+  };
+
+  const toggleFormulaTone = (tone: ChordToneId) => {
+    if (tone === "1") return;
+    const selected = formula.tones.includes(tone);
+    let tones = selected
+      ? formula.tones.filter((item) => item !== tone)
+      : [...formula.tones, tone];
+    const chordFunction = CHORD_TONE_DEFINITIONS[tone].chordFunction;
+    if (!selected && chordFunction !== "extensions") {
+      tones = tones.filter((item) => item === tone
+        || item === "1"
+        || CHORD_TONE_DEFINITIONS[item].chordFunction !== chordFunction);
+    }
+    const pitchClasses = new Set(tones.map((item) => modulo12(
+      formula.rootPitchClass + CHORD_TONE_DEFINITIONS[item].semitones,
+    )));
+    applyFormula({
+      ...formula,
+      tones,
+      bassPitchClass: pitchClasses.has(formula.bassPitchClass)
+        ? formula.bassPitchClass
+        : formula.rootPitchClass,
+    });
   };
 
   return (
-    <div className="grid min-h-[420px] grid-cols-1 gap-4 md:grid-cols-[150px_minmax(0,1fr)]">
+    <TooltipProvider>
+      <div className="grid min-h-[420px] grid-cols-1 gap-4 md:grid-cols-[150px_minmax(0,1fr)]">
       <div className="border-b pb-3 md:border-b-0 md:border-r md:pb-0 md:pr-3">
         <Button
           type="button"
@@ -309,10 +457,12 @@ export function ChordLibraryEditor({
               onChange={(event) => setDraft({ ...draft, name: event.target.value })}
             />
           </label>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs text-muted-foreground">{labels.fretboard}</div>
-              <div className="flex rounded-md border p-0.5">
+          <section className="space-y-1.5" data-chord-section="fretboard">
+            <ChordSectionHeading
+              title={labels.fretboard}
+              help={labels.fretboardHelp}
+              actions={(
+                <div className="flex rounded-md border p-0.5">
                 {([
                   ["notes", labels.showNoteNames],
                   ["intervals", labels.showIntervals],
@@ -332,8 +482,9 @@ export function ChordLibraryEditor({
                     {label}
                   </button>
                 ))}
-              </div>
-            </div>
+                </div>
+              )}
+            />
             <ChordFunctionLegend
               labels={{
                 root: labels.rootFunction,
@@ -347,6 +498,7 @@ export function ChordLibraryEditor({
               tuning={tuning}
               frets={draft.strings}
               firstFret={draft.firstFret}
+              fretWindowSize={DIAGRAM_FRETS}
               capo={capo}
               candidate={activeCandidate}
               labelMode={fretboardLabelMode}
@@ -357,32 +509,45 @@ export function ChordLibraryEditor({
                 string: labels.string,
                 fret: labels.fret,
               }}
-              onChange={(strings) => setDraft({ ...draft, strings })}
+              onChange={(strings) => {
+                setFormulaOverride(null);
+                setDraft({ ...draft, strings });
+              }}
             />
-          </div>
+          </section>
 
-          <ChordCandidateList
-            candidates={candidates}
-            selectedName={draft.name}
-            labels={{
-              possibleChords: labels.possibleChords,
-              noCandidates: labels.noChordCandidates,
-              bestMatch: labels.bestMatch,
-              alternatives: labels.alternativeChords,
-              bass: labels.bass,
-            }}
-            onSelect={(candidate) => setDraft({ ...draft, name: candidate.symbol })}
-          />
-
-          <section className="space-y-1.5">
-            <div className="flex items-center gap-2 py-1 text-xs font-medium">
-              <span>{labels.chordComposition}</span>
-              {activeCandidate && (
-                <span className="font-mono text-sm font-semibold">{activeCandidate.symbol}</span>
-              )}
-            </div>
+          <section className="space-y-1.5" data-chord-section="composition">
+            <ChordSectionHeading
+              title={labels.chordComposition}
+              help={labels.chordCompositionHelp}
+              actions={<div
+                data-chord-root-control
+                className="flex items-center gap-1.5 text-[10px] text-muted-foreground"
+              >
+                <span>{labels.rootFunction}</span>
+                <PresetCombobox
+                  value={formula.rootPitchClass}
+                  ariaLabel={labels.rootPicker}
+                  options={Array.from({ length: 12 }, (_, pitchClass) => ({
+                    value: pitchClass,
+                    label: formatPitchClass(pitchClass),
+                  }))}
+                  onValueChange={(rootPitchClass) => {
+                    const transpose = modulo12(rootPitchClass - formula.rootPitchClass);
+                    applyFormula({
+                      ...formula,
+                      rootPitchClass,
+                      bassPitchClass: modulo12(formula.bassPitchClass + transpose),
+                    });
+                  }}
+                  align="end"
+                  triggerClassName="h-7 w-24 shrink-0"
+                  contentClassName="w-36"
+                />
+              </div>}
+            />
             <ChordCompositionChart
-              candidate={activeCandidate}
+              formula={formula}
               labels={{
                 empty: labels.chordCompositionEmpty,
                 semitones: labels.semitoneDistance,
@@ -393,13 +558,124 @@ export function ChordLibraryEditor({
                 root: labels.rootFunction,
                 bass: labels.bass,
               }}
+              onToneToggle={toggleFormulaTone}
+              onBassChange={(bassPitchClass) => applyFormula({
+                ...formula,
+                bassPitchClass,
+              })}
             />
           </section>
 
-          <section className="space-y-1 border-t pt-2">
-            <div className="text-xs font-medium">
-              {labels.scoreDisplay}
-            </div>
+          <div className="grid gap-3 lg:grid-cols-2" data-chord-analysis-grid>
+            <section
+              className="min-w-0 space-y-1.5 rounded-md border bg-muted/10 p-3"
+              data-chord-section="recognition"
+            >
+              <ChordSectionHeading
+                title={labels.possibleChords}
+                help={labels.chordRecognitionHelp}
+              />
+              <ChordCandidateList
+                candidates={candidates}
+                selectedName={draft.name}
+                labels={{
+                  noCandidates: labels.noChordCandidates,
+                  bestMatch: labels.bestMatch,
+                  alternatives: labels.alternativeChords,
+                  bass: labels.bass,
+                }}
+                onSelect={(candidate) => {
+                  setFormulaOverride(candidateToChordFormula(candidate));
+                  setDraft({ ...draft, name: candidate.symbol });
+                }}
+              />
+            </section>
+
+            <section
+              className="min-w-0 space-y-1.5 rounded-md border bg-muted/10 p-3"
+              data-chord-section="voicings"
+              data-chord-voicings
+            >
+              <ChordSectionHeading
+                title={labels.voicingSuggestions}
+                help={labels.voicingSuggestionsHelp}
+                actions={voicingSuggestions.length > 0 ? <ToggleGroup
+                  type="single"
+                  value={voicingDensity}
+                  aria-label={labels.voicingDensity}
+                  variant="outline"
+                  size="sm"
+                  onValueChange={(value) => {
+                    if (value) setVoicingDensity(value as VoicingDensity);
+                  }}
+                >
+                  <ToggleGroupItem value="compact" className="h-7 px-2 text-[10px]">
+                    {labels.voicingCompact}
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="balanced" className="h-7 px-2 text-[10px]">
+                    {labels.voicingBalanced}
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="full" className="h-7 px-2 text-[10px]">
+                    {labels.voicingFull}
+                  </ToggleGroupItem>
+                </ToggleGroup> : undefined}
+              />
+              {voicingSuggestions.length === 0 ? (
+                <div className="rounded border border-dashed px-2 py-3 text-center text-[11px] text-muted-foreground">
+                  {labels.voicingSuggestionsEmpty}
+                </div>
+              ) : <div className="grid gap-1.5 sm:grid-cols-2">
+                {voicingSuggestions.map((voicing) => {
+                  const selected = voicing.strings.every((fret, stringIndex) =>
+                    draft.strings[stringIndex] === fret);
+                  const shape = [...voicing.strings]
+                    .reverse()
+                    .map((fret) => fret < 0 ? "×" : fret.toString())
+                    .join(" ");
+                  return (
+                    <button
+                      key={voicing.strings.join(",")}
+                      type="button"
+                      aria-pressed={selected}
+                      data-voicing-family={voicing.familyKey}
+                      className={cn(
+                        "min-w-0 rounded-md border px-2.5 py-2 text-left transition-colors",
+                        selected
+                          ? "border-input bg-accent text-accent-foreground"
+                          : "border-border bg-background hover:bg-accent/50",
+                      )}
+                      onClick={() => {
+                        setFormulaOverride(formula);
+                        setDraft({
+                          ...draft,
+                          name: formatChordFormula(formula),
+                          strings: voicing.strings,
+                          firstFret: voicing.firstFret,
+                          barreFrets: [],
+                        });
+                      }}
+                    >
+                      <span className="block truncate font-mono text-[11px] font-semibold">
+                        {shape}
+                      </span>
+                      <span className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[9px] text-muted-foreground">
+                        <span>{voicing.position === "open"
+                          ? labels.voicingOpen
+                          : labels.voicingMovable}</span>
+                        <span>{voicing.soundingStrings} {labels.voicingStrings}</span>
+                        {voicing.rootString !== null && (
+                          <span>{labels.voicingRootPosition(voicing.rootString)}</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>}
+            </section>
+          </div>
+
+          <section className="space-y-1.5 border-t pt-2" data-chord-section="score-display">
+            <ChordSectionHeading title={labels.scoreDisplay} help={labels.scoreDisplayHelp} />
             <div className="grid gap-4 rounded-md border bg-muted/10 p-3 sm:grid-cols-[minmax(0,1fr)_220px]">
                 <div className="space-y-3">
                   <label className="block w-24 space-y-1 text-xs text-muted-foreground">
@@ -449,22 +725,22 @@ export function ChordLibraryEditor({
                     ["showDiagram", labels.showDiagram],
                   ] as const).map(([field, label]) => (
                     <label key={field} className="flex items-center gap-2 text-xs">
-                      <input
-                        type="checkbox"
-                        checked={draft[field]}
-                        className="h-4 w-4 accent-primary"
-                        onChange={(event) => setDraft({
-                          ...draft,
-                          [field]: event.target.checked,
-                        })}
-                      />
+                      <span className="relative h-4 w-4 shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={draft[field]}
+                          className="peer h-4 w-4 cursor-default appearance-none rounded border border-input bg-background text-accent-foreground transition-colors checked:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          onChange={(event) => setDraft({
+                            ...draft,
+                            [field]: event.target.checked,
+                          })}
+                        />
+                        <Check className="pointer-events-none absolute inset-0 h-4 w-4 p-0.5 text-accent-foreground opacity-0 peer-checked:opacity-100" />
+                      </span>
                       {label}
                     </label>
                   ))}
 
-                  <div className="text-[10px] leading-relaxed text-muted-foreground">
-                    {labels.showFingering}: {labels.fingeringUnavailable}
-                  </div>
                 </div>
 
                 <div className="border-t pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
@@ -510,6 +786,7 @@ export function ChordLibraryEditor({
           {labels.save}
         </Button>
       </div>
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

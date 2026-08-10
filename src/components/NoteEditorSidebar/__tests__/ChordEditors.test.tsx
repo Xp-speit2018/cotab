@@ -14,7 +14,6 @@ const labels = {
   barreFrets: "Barre hint",
   showName: "Show name in score",
   showDiagram: "Show diagram in score",
-  showFingering: "Show fingering",
   save: "Save",
   delete: "Delete",
   confirmDelete: "Confirm delete",
@@ -38,10 +37,25 @@ const labels = {
   fifthFunction: "Fifth",
   thirdFunction: "Third",
   rootFunction: "Root",
-  scoreDisplay: "Score display and fingering",
+  rootPicker: "Root note",
+  scoreDisplay: "Score display",
   diagramPreview: "Diagram preview",
   diagramHidden: "The chord diagram is hidden in the score.",
-  fingeringUnavailable: "Per-string finger numbers are unavailable.",
+  voicingSuggestions: "Fingering recommendations",
+  voicingDensity: "Voicing density",
+  voicingCompact: "Compact",
+  voicingBalanced: "Balanced",
+  voicingFull: "Full",
+  voicingOpen: "Open",
+  voicingMovable: "Movable",
+  voicingStrings: "strings",
+  voicingRootPosition: (stringNumber: number) => `Root on string ${stringNumber}`,
+  fretboardHelp: "Choose which strings sound and select frets. Labels can show note names or intervals.",
+  chordRecognitionHelp: "Ranks chord names that match the notes selected on the fretboard.",
+  chordCompositionHelp: "Choose the root, bass, and chord tones. Changes update the chord and recommendations.",
+  voicingSuggestionsHelp: "Compares playable shapes for this chord. Density favors fewer or more sounding strings.",
+  voicingSuggestionsEmpty: "Choose at least two chord tones to generate playable fingerings.",
+  scoreDisplayHelp: "Controls how the chord name and diagram appear in the score.",
 };
 
 const STANDARD_TUNING = [64, 59, 55, 50, 45, 40];
@@ -67,7 +81,7 @@ describe("ChordLibraryEditor", () => {
     fireEvent.click(screen.getByRole("button", { name: "String 4, Fret 2", exact: true }));
     fireEvent.click(screen.getByRole("button", { name: "String 5, Fret 3", exact: true }));
 
-    const candidates = screen.getByText("Chord recognition").parentElement!;
+    const candidates = container.querySelector("[data-chord-section='recognition']")!;
     const cCandidate = within(candidates).getByRole("button", { name: /^C / });
     expect(cCandidate).toHaveTextContent("Recommended");
     const fretboard = screen.getByRole("group", { name: "Fretboard" });
@@ -87,6 +101,7 @@ describe("ChordLibraryEditor", () => {
     expect(Array.from(composition.querySelectorAll("[data-chord-lane]"))
       .map((lane) => lane.getAttribute("data-chord-lane")))
       .toEqual(["extensions", "sixthSeventh", "fifth", "third", "root"]);
+    expect(composition.querySelector("[data-chord-bass]")).toHaveTextContent("BassC");
     expect(composition.querySelector("[data-chord-option][data-chord-function='root'][data-selected='true']"))
       .toHaveTextContent("1");
     expect(composition.querySelector("[data-chord-option][data-chord-function='third'][data-selected='true']"))
@@ -118,7 +133,7 @@ describe("ChordLibraryEditor", () => {
   });
 
   it("uses capo when suggesting the sounding chord name", () => {
-    render(
+    const { container } = render(
       <ChordLibraryEditor
         definitions={[]}
         stringCount={6}
@@ -139,9 +154,41 @@ describe("ChordLibraryEditor", () => {
       }));
     }
 
-    const candidates = screen.getByText("Chord recognition").parentElement!;
+    const candidates = container.querySelector("[data-chord-section='recognition']")!;
     expect(within(candidates).getByRole("button", { name: /^D / }))
       .toHaveTextContent("Recommended");
+  });
+
+  it("keeps chord structure visible and generates a voicing from direct edits", () => {
+    const { container } = render(
+      <ChordLibraryEditor
+        definitions={[]}
+        stringCount={6}
+        tuning={STANDARD_TUNING}
+        capo={0}
+        labels={labels}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    const composition = container.querySelector("[data-chord-composition]")!;
+    expect(composition).toBeInTheDocument();
+    expect(composition.querySelector("[data-tone='1']"))
+      .toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Root note" }));
+    fireEvent.click(screen.getByRole("option", { name: "F", exact: true }));
+    fireEvent.click(within(composition).getByRole("button", { name: "5", exact: true }));
+
+    expect(screen.getByLabelText("Name")).toHaveValue("F5");
+    expect(composition.querySelector("[data-tone='5']"))
+      .toHaveAttribute("aria-pressed", "true");
+    expect(container.querySelector("[data-chord-voicings]")).toHaveTextContent(
+      "Fingering recommendations",
+    );
+    expect(container.querySelector("[data-chord-section='recognition']"))
+      .toHaveTextContent("F5");
   });
 
   it("shows score options directly and honors diagram visibility in preview", () => {
@@ -173,14 +220,26 @@ describe("ChordLibraryEditor", () => {
     expect(container.querySelector("[data-diagram-string='6']")).toHaveTextContent("×");
     expect(container.querySelector("[data-diagram-string='1']")).toHaveTextContent("○");
 
-    fireEvent.click(screen.getByRole("button", { name: "1", exact: true }));
+    const barreControls = screen.getByText("Barre hint").parentElement!;
+    fireEvent.click(within(barreControls).getByRole("button", { name: "1", exact: true }));
     expect(container.querySelector("[data-chord-barre='1']")).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText("Show diagram in score"));
     expect(container.querySelector("[data-chord-diagram]")).not.toBeInTheDocument();
     expect(container.querySelector("[data-chord-diagram-hidden]"))
       .toHaveTextContent("The chord diagram is hidden in the score.");
-    expect(screen.getByText(/Per-string finger numbers are unavailable/))
-      .toBeInTheDocument();
+    expect(screen.queryByText(/Per-string finger numbers are unavailable/))
+      .not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("First fret"), { target: { value: "5" } });
+    const fretboard = container.querySelector("[data-interactive-fretboard]")!;
+    expect(fretboard).toHaveAttribute("data-last-displayed-fret", "15");
+    expect(fretboard.querySelector("[data-fret-line='1']")).toBeInTheDocument();
+    expect(fretboard.querySelector("[data-fret-line='16']")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("First fret"), { target: { value: "13" } });
+    expect(fretboard).toHaveAttribute("data-last-displayed-fret", "17");
+    expect(fretboard.querySelector("[data-fret-line='17']")).toBeInTheDocument();
+    expect(fretboard.querySelector("[data-fret-line='18']")).not.toBeInTheDocument();
   });
 });

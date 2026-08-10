@@ -214,3 +214,82 @@ test("preset menus filter by regex without accepting free-form values", async ({
   await page.getByRole("option", { name: "DADGAD" }).click();
   await expect(trigger).toContainText("DADGAD");
 });
+
+test("interactive fretboard suggests a chord without committing it", async ({ page }) => {
+  const editor = page.locator("[data-harness-chord-editor]");
+  for (const name of [
+    "String 1, Open",
+    "String 2, Fret 1",
+    "String 3, Open",
+    "String 4, Fret 2",
+    "String 5, Fret 3",
+  ]) {
+    await editor.getByRole("button", { name, exact: true }).click();
+  }
+
+  const best = editor.locator("[data-chord-candidates]")
+    .getByRole("button")
+    .first();
+  await expect(best).toContainText("C");
+  await expect(best).toContainText("Recommended");
+  const nameInput = editor.getByRole("textbox", { name: "Name", exact: true });
+  await expect(nameInput).toHaveValue("");
+
+  await expect(editor.getByRole("button", {
+    name: "String 4, Fret 2",
+    exact: true,
+  })).toContainText("E");
+  await editor.getByRole("button", { name: "Intervals", exact: true }).click();
+  await expect(editor.getByRole("button", {
+    name: "String 4, Fret 2",
+    exact: true,
+  })).toContainText("3");
+
+  const composition = editor.locator("[data-chord-composition]");
+  await expect(editor.getByText("Chord structure", { exact: true })).toBeVisible();
+  await expect(composition.locator(
+    "[data-chord-option][data-chord-function='root'][data-selected='true']",
+  )).toHaveText("1");
+  await expect(composition.locator(
+    "[data-chord-option][data-chord-function='third'][data-selected='true']",
+  )).toHaveText("3");
+  await expect(composition.locator(
+    "[data-chord-option][data-chord-function='fifth'][data-selected='true']",
+  )).toHaveText("5");
+  await expect(editor.locator("[data-chord-function-legend]")).toContainText("Root");
+
+  await best.click();
+  await expect(nameInput).toHaveValue("C");
+
+  const marker = editor.getByRole("button", {
+    name: "String 4, Fret 2",
+    exact: true,
+  })
+    .locator("[data-fret-marker]");
+  const stringLine = editor.locator("[data-string-line='4']");
+  const [markerBox, lineBox] = await Promise.all([
+    marker.boundingBox(),
+    stringLine.boundingBox(),
+  ]);
+  expect(markerBox).not.toBeNull();
+  expect(lineBox).not.toBeNull();
+  expect(Math.abs(
+    markerBox.y + markerBox.height / 2 - (lineBox.y + lineBox.height / 2),
+  )).toBeLessThanOrEqual(1);
+
+  const [firstStringBox, lastStringBox, fretLineBox] = await Promise.all([
+    editor.locator("[data-string-line='1']").boundingBox(),
+    editor.locator("[data-string-line='6']").boundingBox(),
+    editor.locator("[data-fret-line='1']").boundingBox(),
+  ]);
+  expect(firstStringBox).not.toBeNull();
+  expect(lastStringBox).not.toBeNull();
+  expect(fretLineBox).not.toBeNull();
+  expect(Math.abs(
+    fretLineBox.y - (firstStringBox.y + firstStringBox.height / 2),
+  )).toBeLessThanOrEqual(1);
+  expect(Math.abs(
+    fretLineBox.y + fretLineBox.height
+      - (lastStringBox.y + lastStringBox.height / 2),
+  )).toBeLessThanOrEqual(1);
+});

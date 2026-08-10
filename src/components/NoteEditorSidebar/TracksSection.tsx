@@ -492,16 +492,17 @@ function StaffMetaEditor({
           value={t("sidebar.tracks.chordCount", { count: staff.chords.length })}
           title={t("sidebar.tracks.chordLibrary")}
           description={t("sidebar.tracks.chordLibraryHelp")}
-          contentClassName="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-4xl"
+          contentClassName="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-6xl"
         >
           <ChordLibraryEditor
             definitions={staff.chords}
             stringCount={Math.max(1, staff.stringCount)}
+            tuning={staff.tuningValues}
+            capo={staff.capo}
             labels={{
               newChord: t("sidebar.tracks.newChord"),
               name: t("sidebar.tracks.chordName"),
               firstFret: t("sidebar.tracks.firstFret"),
-              strings: t("sidebar.tracks.chordStrings"),
               barreFrets: t("sidebar.tracks.barreFrets"),
               showName: t("sidebar.tracks.showChordName"),
               showDiagram: t("sidebar.tracks.showChordDiagram"),
@@ -509,6 +510,30 @@ function StaffMetaEditor({
               save: t("sidebar.common.save"),
               delete: t("sidebar.common.delete"),
               confirmDelete: t("sidebar.common.confirmDelete"),
+              fretboard: t("sidebar.tracks.chordFretboard"),
+              mute: t("sidebar.tracks.mutedString"),
+              open: t("sidebar.tracks.openString"),
+              string: t("sidebar.tracks.string"),
+              fret: t("sidebar.tracks.fret"),
+              possibleChords: t("sidebar.tracks.possibleChords"),
+              noChordCandidates: t("sidebar.tracks.noChordCandidates"),
+              bestMatch: t("sidebar.tracks.bestChordMatch"),
+              alternativeChords: t("sidebar.tracks.alternativeChords"),
+              bass: t("sidebar.tracks.chordBass"),
+              showNoteNames: t("sidebar.tracks.showChordNoteNames"),
+              showIntervals: t("sidebar.tracks.showChordIntervals"),
+              chordComposition: t("sidebar.tracks.chordComposition"),
+              chordCompositionEmpty: t("sidebar.tracks.chordCompositionEmpty"),
+              semitoneDistance: t("sidebar.tracks.semitoneDistance"),
+              extensions: t("sidebar.tracks.chordExtensions"),
+              sixthSeventh: t("sidebar.tracks.chordSixthSeventh"),
+              fifthFunction: t("sidebar.tracks.chordFifthFunction"),
+              thirdFunction: t("sidebar.tracks.chordThirdFunction"),
+              rootFunction: t("sidebar.tracks.chordRootFunction"),
+              scoreDisplay: t("sidebar.tracks.chordScoreDisplay"),
+              diagramPreview: t("sidebar.tracks.chordDiagramPreview"),
+              diagramHidden: t("sidebar.tracks.chordDiagramHidden"),
+              fingeringUnavailable: t("sidebar.tracks.chordFingeringUnavailable"),
             }}
             onSave={(id, chord) => executeAppAction(
               "document.staff.setChord",

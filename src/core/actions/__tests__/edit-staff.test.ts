@@ -181,7 +181,7 @@ describe("document.staff.setChord", () => {
       chord: {
         name: "C",
         firstFret: 1,
-        strings: [-1, 3, 2, 0, 1, 0],
+        strings: [0, 1, 0, 2, 3, -1],
         barreFrets: [],
         showName: true,
         showDiagram: true,
@@ -194,7 +194,7 @@ describe("document.staff.setChord", () => {
     expect(chords.get("c-major")?.get("name")).toBe("C");
     expect(
       (chords.get("c-major")?.get("strings") as Y.Array<number>).toArray(),
-    ).toEqual([-1, 3, 2, 0, 1, 0]);
+    ).toEqual([0, 1, 0, 2, 3, -1]);
 
     executeDocumentAction("document.staff.setChord", {
       trackIndex: 0,
@@ -213,7 +213,7 @@ describe("document.staff.setChord", () => {
       chord: {
         name: "C",
         firstFret: 1,
-        strings: [-1, 3, 2, 0, 1, 0],
+        strings: [0, 1, 0, 2, 3, -1],
         barreFrets: [],
         showName: true,
         showDiagram: true,

@@ -321,6 +321,7 @@ export interface TempoAutomationSchema extends AutomationSchema {
 export interface ChordSchema {
   name: string;
   firstFret: number;
+  /** AlphaTab string order: first/highest-pitched string to last/lowest-pitched string. */
   strings: number[];
   barreFrets: number[];
   showName: boolean;

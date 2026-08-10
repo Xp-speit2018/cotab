@@ -22,6 +22,7 @@ import {
 } from "@/components/NoteEditorSidebar/primitives";
 import { PresetCombobox } from "@/components/NoteEditorSidebar/PresetCombobox";
 import { PasswordInput } from "@/components/ui/password-input";
+import { ChordLibraryEditor } from "@/components/NoteEditorSidebar/editors/ChordEditors";
 import {
   AppMenu,
   AppMenuBar,
@@ -325,6 +326,57 @@ function AppMenuSample() {
   );
 }
 
+function ChordEditorSample() {
+  return (
+    <div data-harness-chord-editor>
+      <ChordLibraryEditor
+        definitions={[]}
+        stringCount={6}
+        tuning={[64, 59, 55, 50, 45, 40]}
+        capo={0}
+        labels={{
+          newChord: "New chord",
+          name: "Name",
+          firstFret: "First fret",
+          barreFrets: "Barre hint",
+          showName: "Show name in score",
+          showDiagram: "Show diagram in score",
+          showFingering: "Show fingering",
+          save: "Save",
+          delete: "Delete",
+          confirmDelete: "Confirm delete",
+          fretboard: "Fretboard",
+          mute: "Muted",
+          open: "Open",
+          string: "String",
+          fret: "Fret",
+          possibleChords: "Chord recognition",
+          noChordCandidates: "Choose notes on the fretboard.",
+          bestMatch: "Recommended",
+          alternativeChords: "Other possibilities",
+          bass: "Bass",
+          showNoteNames: "Note names",
+          showIntervals: "Intervals",
+          chordComposition: "Chord structure",
+          chordCompositionEmpty: "Choose notes to inspect their harmonic functions.",
+          semitoneDistance: "Semitones",
+          extensions: "Extensions",
+          sixthSeventh: "6th / 7th",
+          fifthFunction: "Fifth",
+          thirdFunction: "Third",
+          rootFunction: "Root",
+          scoreDisplay: "Score display and fingering",
+          diagramPreview: "Diagram preview",
+          diagramHidden: "The chord diagram is hidden in the score.",
+          fingeringUnavailable: "Per-string finger numbers are unavailable.",
+        }}
+        onSave={() => {}}
+        onDelete={() => {}}
+      />
+    </div>
+  );
+}
+
 export default function UiHarness() {
   return (
     <main
@@ -337,7 +389,7 @@ export default function UiHarness() {
           /__ui-harness
         </code>
       </header>
-      <div className="mx-auto grid w-full max-w-5xl grid-cols-1 items-start gap-6 p-4 md:grid-cols-[320px_1fr]">
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-start gap-6 p-4 md:grid-cols-[320px_1fr]">
         <div
           data-harness-inspector
           className="w-full min-w-0 border border-border bg-sidebar text-sidebar-foreground md:w-80"
@@ -361,7 +413,7 @@ export default function UiHarness() {
             <AppMenuSample />
           </ContractSection>
         </div>
-        <div className="min-w-0 border-y border-border py-4">
+        <div className="min-w-0 space-y-6 border-y border-border py-4">
           <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-4 gap-y-2 px-3 text-xs">
             <dt className="text-muted-foreground">Command</dt>
             <dd>Default cursor, hover emphasis, tooltip</dd>
@@ -374,6 +426,9 @@ export default function UiHarness() {
             <dt className="text-muted-foreground">Link</dt>
             <dd>Pointer cursor reserved for navigation</dd>
           </dl>
+          <div className="border-t border-border px-3 pt-4">
+            <ChordEditorSample />
+          </div>
         </div>
       </div>
     </main>

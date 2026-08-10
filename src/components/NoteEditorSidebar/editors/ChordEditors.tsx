@@ -5,7 +5,15 @@ import type { ChordDefinitionInfo } from "@/stores/render-types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { analyzeChordFingering } from "@/core/chords";
 import { PresetCombobox } from "../PresetCombobox";
+import { ChordCandidateList } from "./ChordCandidateList";
+import { ChordCompositionChart } from "./ChordCompositionChart";
+import { ChordFunctionLegend } from "./ChordFunctionLegend";
+import {
+  InteractiveFretboard,
+  type FretboardLabelMode,
+} from "./InteractiveFretboard";
 
 const DIAGRAM_FRETS = 5;
 
@@ -25,7 +33,7 @@ function emptyChord(stringCount: number): ChordSchema {
     barreFrets: [],
     showName: true,
     showDiagram: true,
-    showFingering: true,
+    showFingering: false,
   };
 }
 
@@ -33,10 +41,27 @@ function createChordId(): string {
   return `cotab-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`;
 }
 
-function ChordDiagram({ chord }: { chord: ChordSchema }) {
+function ChordDiagram({
+  chord,
+  hiddenLabel,
+}: {
+  chord: ChordSchema;
+  hiddenLabel: string;
+}) {
+  if (!chord.showDiagram) {
+    return (
+      <div
+        data-chord-diagram-hidden
+        className="flex min-h-32 items-center justify-center rounded-md border border-dashed px-4 text-center text-[11px] text-muted-foreground"
+      >
+        {hiddenLabel}
+      </div>
+    );
+  }
+
   const stringCount = Math.max(1, chord.strings.length);
   return (
-    <div className="mx-auto w-48 py-2">
+    <div className="mx-auto w-48 py-2" data-chord-diagram>
       {chord.showName && (
         <div className="mb-2 truncate text-center text-sm font-semibold">
           {chord.name || "—"}
@@ -50,11 +75,16 @@ function ChordDiagram({ chord }: { chord: ChordSchema }) {
         )}
         {Array.from({ length: stringCount }, (_, index) => {
           const left = stringCount === 1 ? 50 : (index / (stringCount - 1)) * 100;
-          const fret = chord.strings[index] ?? -1;
+          const alphaTabStringIndex = stringCount - index - 1;
+          const fret = chord.strings[alphaTabStringIndex] ?? -1;
           const marker = fret < 0 ? "×" : fret === 0 ? "○" : null;
           const relativeFret = fret - chord.firstFret + 1;
           return (
-            <div key={index}>
+            <div
+              key={index}
+              data-diagram-string={stringCount - index}
+              data-alphatab-string-index={alphaTabStringIndex}
+            >
               <div
                 className="absolute top-6 h-[100px] w-px bg-foreground/60"
                 style={{ left: `${left}%` }}
@@ -95,6 +125,7 @@ function ChordDiagram({ chord }: { chord: ChordSchema }) {
           return (
             <div
               key={fret}
+              data-chord-barre={fret}
               className="absolute left-0 h-2.5 w-full -translate-y-1/2 rounded-full bg-foreground"
               style={{ top: `${24 + (relativeFret - 0.5) * 20}px` }}
             />
@@ -154,17 +185,20 @@ export function ChordPickerEditor({
 export function ChordLibraryEditor({
   definitions,
   stringCount,
+  tuning,
+  capo,
   labels,
   onSave,
   onDelete,
 }: {
   definitions: readonly ChordDefinitionInfo[];
   stringCount: number;
+  tuning: readonly number[];
+  capo: number;
   labels: {
     newChord: string;
     name: string;
     firstFret: string;
-    strings: string;
     barreFrets: string;
     showName: string;
     showDiagram: string;
@@ -172,6 +206,30 @@ export function ChordLibraryEditor({
     save: string;
     delete: string;
     confirmDelete: string;
+    fretboard: string;
+    mute: string;
+    open: string;
+    string: string;
+    fret: string;
+    possibleChords: string;
+    noChordCandidates: string;
+    bestMatch: string;
+    alternativeChords: string;
+    bass: string;
+    showNoteNames: string;
+    showIntervals: string;
+    chordComposition: string;
+    chordCompositionEmpty: string;
+    semitoneDistance: string;
+    extensions: string;
+    sixthSeventh: string;
+    fifthFunction: string;
+    thirdFunction: string;
+    rootFunction: string;
+    scoreDisplay: string;
+    diagramPreview: string;
+    diagramHidden: string;
+    fingeringUnavailable: string;
   };
   onSave: (id: string, chord: ChordSchema) => void;
   onDelete: (id: string) => void;
@@ -186,6 +244,15 @@ export function ChordLibraryEditor({
   const [draft, setDraft] = useState<ChordSchema>(() =>
     selectedDefinition ? copyChord(selectedDefinition) : emptyChord(stringCount));
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [fretboardLabelMode, setFretboardLabelMode] = useState<FretboardLabelMode>("notes");
+  const candidates = useMemo(() => analyzeChordFingering({
+    tuning,
+    frets: draft.strings,
+    capo,
+  }), [capo, draft.strings, tuning]);
+  const activeCandidate = candidates.find((candidate) => candidate.symbol === draft.name)
+    ?? candidates[0]
+    ?? null;
 
   useEffect(() => {
     if (selectedDefinition) setDraft(copyChord(selectedDefinition));
@@ -232,9 +299,9 @@ export function ChordLibraryEditor({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_200px]">
+      <div className="grid grid-cols-1 gap-4">
         <div className="space-y-3">
-          <label className="block space-y-1 text-xs text-muted-foreground">
+          <label className="block max-w-64 space-y-1 text-xs text-muted-foreground">
             <span>{labels.name}</span>
             <Input
               value={draft.name}
@@ -242,92 +309,172 @@ export function ChordLibraryEditor({
               onChange={(event) => setDraft({ ...draft, name: event.target.value })}
             />
           </label>
-          <label className="block space-y-1 text-xs text-muted-foreground">
-            <span>{labels.firstFret}</span>
-            <Input
-              type="number"
-              min={1}
-              max={24}
-              value={draft.firstFret}
-              className="h-8 text-xs"
-              onChange={(event) => setDraft({
-                ...draft,
-                firstFret: Math.max(1, Number(event.target.value)),
-              })}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs text-muted-foreground">{labels.fretboard}</div>
+              <div className="flex rounded-md border p-0.5">
+                {([
+                  ["notes", labels.showNoteNames],
+                  ["intervals", labels.showIntervals],
+                ] as const).map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={fretboardLabelMode === mode}
+                    className={cn(
+                      "rounded px-2 py-0.5 text-[10px] transition-colors",
+                      fretboardLabelMode === mode
+                        ? "bg-secondary text-secondary-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    onClick={() => setFretboardLabelMode(mode)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <ChordFunctionLegend
+              labels={{
+                root: labels.rootFunction,
+                third: labels.thirdFunction,
+                fifth: labels.fifthFunction,
+                sixthSeventh: labels.sixthSeventh,
+                extensions: labels.extensions,
+              }}
             />
-          </label>
-
-          <div className="space-y-1">
-            <div className="text-xs text-muted-foreground">{labels.strings}</div>
-            <div className="grid gap-1" style={{ gridTemplateColumns: `repeat(${Math.max(1, stringCount)}, minmax(0, 1fr))` }}>
-              {draft.strings.map((fret, index) => (
-                <Input
-                  key={index}
-                  type="number"
-                  min={-1}
-                  max={36}
-                  value={fret}
-                  aria-label={`${labels.strings} ${index + 1}`}
-                  className="h-8 px-1 text-center text-xs tabular-nums"
-                  onChange={(event) => {
-                    const strings = [...draft.strings];
-                    strings[index] = Number(event.target.value);
-                    setDraft({ ...draft, strings });
-                  }}
-                />
-              ))}
-            </div>
+            <InteractiveFretboard
+              tuning={tuning}
+              frets={draft.strings}
+              firstFret={draft.firstFret}
+              capo={capo}
+              candidate={activeCandidate}
+              labelMode={fretboardLabelMode}
+              labels={{
+                fretboard: labels.fretboard,
+                mute: labels.mute,
+                open: labels.open,
+                string: labels.string,
+                fret: labels.fret,
+              }}
+              onChange={(strings) => setDraft({ ...draft, strings })}
+            />
           </div>
 
-          <div className="space-y-1">
-            <div className="text-xs text-muted-foreground">{labels.barreFrets}</div>
-            <div className="flex gap-1">
-              {Array.from({ length: DIAGRAM_FRETS }, (_, index) => draft.firstFret + index)
-                .map((fret) => {
-                  const active = draft.barreFrets.includes(fret);
-                  return (
-                    <Button
-                      key={fret}
-                      type="button"
-                      variant={active ? "secondary" : "outline"}
-                      size="icon-xs"
-                      aria-pressed={active}
-                      onClick={() => setDraft({
+          <ChordCandidateList
+            candidates={candidates}
+            selectedName={draft.name}
+            labels={{
+              possibleChords: labels.possibleChords,
+              noCandidates: labels.noChordCandidates,
+              bestMatch: labels.bestMatch,
+              alternatives: labels.alternativeChords,
+              bass: labels.bass,
+            }}
+            onSelect={(candidate) => setDraft({ ...draft, name: candidate.symbol })}
+          />
+
+          <section className="space-y-1.5">
+            <div className="flex items-center gap-2 py-1 text-xs font-medium">
+              <span>{labels.chordComposition}</span>
+              {activeCandidate && (
+                <span className="font-mono text-sm font-semibold">{activeCandidate.symbol}</span>
+              )}
+            </div>
+            <ChordCompositionChart
+              candidate={activeCandidate}
+              labels={{
+                empty: labels.chordCompositionEmpty,
+                semitones: labels.semitoneDistance,
+                extensions: labels.extensions,
+                sixthSeventh: labels.sixthSeventh,
+                fifth: labels.fifthFunction,
+                third: labels.thirdFunction,
+                root: labels.rootFunction,
+                bass: labels.bass,
+              }}
+            />
+          </section>
+
+          <section className="space-y-1 border-t pt-2">
+            <div className="text-xs font-medium">
+              {labels.scoreDisplay}
+            </div>
+            <div className="grid gap-4 rounded-md border bg-muted/10 p-3 sm:grid-cols-[minmax(0,1fr)_220px]">
+                <div className="space-y-3">
+                  <label className="block w-24 space-y-1 text-xs text-muted-foreground">
+                    <span>{labels.firstFret}</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={24}
+                      value={draft.firstFret}
+                      className="h-8 text-xs"
+                      onChange={(event) => setDraft({
                         ...draft,
-                        barreFrets: active
-                          ? draft.barreFrets.filter((value) => value !== fret)
-                          : [...draft.barreFrets, fret].sort((a, b) => a - b),
+                        firstFret: Math.max(1, Number(event.target.value)),
                       })}
-                    >
-                      {fret}
-                    </Button>
-                  );
-                })}
-            </div>
-          </div>
+                    />
+                  </label>
 
-          {([
-            ["showName", labels.showName],
-            ["showDiagram", labels.showDiagram],
-            ["showFingering", labels.showFingering],
-          ] as const).map(([field, label]) => (
-            <label key={field} className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={draft[field]}
-                className="h-4 w-4 accent-primary"
-                onChange={(event) => setDraft({
-                  ...draft,
-                  [field]: event.target.checked,
-                })}
-              />
-              {label}
-            </label>
-          ))}
-        </div>
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground">{labels.barreFrets}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {Array.from({ length: DIAGRAM_FRETS }, (_, index) => draft.firstFret + index)
+                        .map((fret) => {
+                          const active = draft.barreFrets.includes(fret);
+                          return (
+                            <Button
+                              key={fret}
+                              type="button"
+                              variant={active ? "secondary" : "outline"}
+                              size="icon-xs"
+                              aria-pressed={active}
+                              onClick={() => setDraft({
+                                ...draft,
+                                barreFrets: active
+                                  ? draft.barreFrets.filter((value) => value !== fret)
+                                  : [...draft.barreFrets, fret].sort((a, b) => a - b),
+                              })}
+                            >
+                              {fret}
+                            </Button>
+                          );
+                        })}
+                    </div>
+                  </div>
 
-        <div className="border-l pl-4">
-          <ChordDiagram chord={draft} />
+                  {([
+                    ["showName", labels.showName],
+                    ["showDiagram", labels.showDiagram],
+                  ] as const).map(([field, label]) => (
+                    <label key={field} className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={draft[field]}
+                        className="h-4 w-4 accent-primary"
+                        onChange={(event) => setDraft({
+                          ...draft,
+                          [field]: event.target.checked,
+                        })}
+                      />
+                      {label}
+                    </label>
+                  ))}
+
+                  <div className="text-[10px] leading-relaxed text-muted-foreground">
+                    {labels.showFingering}: {labels.fingeringUnavailable}
+                  </div>
+                </div>
+
+                <div className="border-t pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+                  <div className="mb-1 text-[10px] text-muted-foreground">
+                    {labels.diagramPreview}
+                  </div>
+                  <ChordDiagram chord={draft} hiddenLabel={labels.diagramHidden} />
+                </div>
+              </div>
+          </section>
         </div>
       </div>
 

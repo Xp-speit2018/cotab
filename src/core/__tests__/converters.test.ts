@@ -490,6 +490,7 @@ describe("direct AlphaTab model field round-trip", () => {
     expect(staff.transpositionPitch).toBe(-2);
     expect(staff.displayTranspositionPitch).toBe(3);
     expect(staff.chords?.get("d-major")?.name).toBe("D");
+    expect(staff.chords?.get("d-major")?.strings).toEqual([2, 3, 2, 0, -1, -1]);
     expect(bar.clefOttava).toBe(1);
     expect(bar.simileMark).toBe(1);
     expect(bar.keySignature).toBe(-2);

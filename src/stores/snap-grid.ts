@@ -19,15 +19,23 @@ type CollectedSnapGrid = {
   renderedStave: RenderedStave;
   barIndexes: Set<number>;
   systemBounds: { x: number; y: number; w: number; h: number };
-  stringYs: Map<number, number>;
-  allYPositions: number[];
-  percYArticulations: { y: number; artic: number }[];
   widths: number[];
   heights: number[];
-  isTab: boolean;
-  isPercussion: boolean;
+  kind: "tablature" | "notation" | "percussion";
   barRealBounds: { y: number; h: number } | null;
 };
+
+type StaffGeometry = {
+  topLineY: number;
+  lineSpacing: number;
+};
+
+const STANDARD_POSITION_MIN = 1;
+const STANDARD_POSITION_MAX = 21;
+// Preserve the existing editable drum range, but make it identical for every
+// rendered system instead of shifting it around the notes found in that system.
+const PERCUSSION_POSITION_MIN = -12;
+const PERCUSSION_POSITION_MAX = 23;
 
 let snapGridOverlayContainer: HTMLDivElement | null = null;
 let snapGridLabelContainer: HTMLDivElement | null = null;
@@ -120,21 +128,6 @@ function median(arr: number[]): number {
     : sorted[mid];
 }
 
-function clusterYPositions(ys: number[], tolerance: number): number[] {
-  if (ys.length === 0) return [];
-  const sorted = [...ys].sort((a, b) => a - b);
-  const clusters: number[][] = [[sorted[0]]];
-  for (let i = 1; i < sorted.length; i++) {
-    const last = clusters[clusters.length - 1];
-    if (sorted[i] - last[last.length - 1] <= tolerance) {
-      last.push(sorted[i]);
-    } else {
-      clusters.push([sorted[i]]);
-    }
-  }
-  return clusters.map((c) => c.reduce((a, b) => a + b, 0) / c.length);
-}
-
 function registerSnapGrid(
   entry: CollectedSnapGrid,
   positions: SnapPosition[],
@@ -177,11 +170,100 @@ function registerSnapGrid(
   navigablePositions.set(
     staffKey,
     [...merged].sort(
-      entry.isTab && !entry.isPercussion
+      entry.kind === "tablature"
         ? (a, b) => b - a
         : (a, b) => a - b,
     ),
   );
+}
+
+function getStaffGeometry(
+  entry: CollectedSnapGrid,
+  lineCount: number,
+  staffLineThickness: number,
+  fallbackLineSpacing: number,
+): StaffGeometry | null {
+  const bounds = entry.barRealBounds;
+  if (!bounds) return null;
+  const heightLineCount = entry.kind === "tablature"
+    ? lineCount
+    : Math.max(5, lineCount);
+  // AlphaTab's LineBarRenderer sets BarBounds.h to the distance covered by
+  // heightLineCount and centers reduced-line staves inside that height.
+  const lineSpacing = heightLineCount > 1 && bounds.h > 0
+    ? bounds.h / (heightLineCount - 1)
+    : fallbackLineSpacing;
+  const actualLineHeight = Math.max(0, lineCount - 1) * lineSpacing;
+  const firstLineOffset = Math.floor((bounds.h - actualLineHeight) / 2);
+  return {
+    topLineY: bounds.y + firstLineOffset - staffLineThickness / 2,
+    lineSpacing,
+  };
+}
+
+function projectTablaturePositions(
+  stringCount: number,
+  geometry: StaffGeometry,
+): SnapPosition[] {
+  return Array.from({ length: stringCount }, (_value, index) => {
+    const string = stringCount - index;
+    return {
+      string,
+      y: geometry.topLineY + index * geometry.lineSpacing,
+    };
+  });
+}
+
+function projectNotationPositions(
+  geometry: StaffGeometry,
+): SnapPosition[] {
+  const halfSpace = geometry.lineSpacing / 2;
+  return Array.from(
+    { length: STANDARD_POSITION_MAX - STANDARD_POSITION_MIN + 1 },
+    (_value, index) => {
+      const string = STANDARD_POSITION_MIN + index;
+      return {
+        string,
+        y: geometry.topLineY + (string - 7) * halfSpace,
+      };
+    },
+  );
+}
+
+function projectPercussionPositions(
+  geometry: StaffGeometry,
+): SnapPosition[] {
+  const halfSpace = geometry.lineSpacing / 2;
+  return Array.from(
+    { length: PERCUSSION_POSITION_MAX - PERCUSSION_POSITION_MIN + 1 },
+    (_value, index) => {
+      const string = PERCUSSION_POSITION_MIN + index;
+      return {
+        string,
+        y: geometry.topLineY + string * halfSpace,
+      };
+    },
+  );
+}
+
+function buildPercussionMap(
+  track: { percussionArticulations?: { id: number }[] },
+): Map<number, number> | undefined {
+  const articulations = track.percussionArticulations;
+  if (!articulations || articulations.length === 0) return undefined;
+  const map = new Map<number, number>();
+  for (let index = 0; index < articulations.length; index++) {
+    const staffLine = GP7_ARTICULATION_MAP.get(articulations[index].id);
+    if (
+      staffLine !== undefined
+      && staffLine >= PERCUSSION_POSITION_MIN
+      && staffLine <= PERCUSSION_POSITION_MAX
+      && !map.has(staffLine)
+    ) {
+      map.set(staffLine, index);
+    }
+  }
+  return map.size > 0 ? map : undefined;
 }
 
 export function buildSnapGrids(): void {
@@ -261,6 +343,11 @@ export function buildSnapGrids(): void {
         let entry = collected.get(key);
         if (!entry) {
           const trackObj = score.tracks[ti];
+          const kind = trackObj?.isPercussion
+            ? "percussion"
+            : renderedStave === "tablature"
+              ? "tablature"
+              : "notation";
           entry = {
             systemIndex,
             trackIndex: ti,
@@ -273,13 +360,9 @@ export function buildSnapGrids(): void {
               w: system.realBounds.w,
               h: system.realBounds.h,
             },
-            stringYs: new Map(),
-            allYPositions: [],
-            percYArticulations: [],
             widths: [],
             heights: [],
-            isTab: renderedStave === "tablature",
-            isPercussion: trackObj?.isPercussion ?? false,
+            kind,
             barRealBounds: null,
           };
           collected.set(key, entry);
@@ -297,21 +380,6 @@ export function buildSnapGrids(): void {
         for (const beatBounds of barBounds.beats) {
           if (!beatBounds.notes) continue;
           for (const nb of beatBounds.notes) {
-            const centerY = nb.noteHeadBounds.y + nb.noteHeadBounds.h / 2;
-            const s = nb.note.string;
-            if (!entry.stringYs.has(s)) {
-              entry.stringYs.set(s, centerY);
-            }
-            const trackObj = score.tracks[ti];
-            if (!entry.isTab || trackObj?.isPercussion) {
-              entry.allYPositions.push(centerY);
-              if (trackObj?.isPercussion) {
-                entry.percYArticulations.push({
-                  y: centerY,
-                  artic: nb.note.percussionArticulation,
-                });
-              }
-            }
             entry.widths.push(nb.noteHeadBounds.w);
             entry.heights.push(nb.noteHeadBounds.h);
           }
@@ -333,150 +401,38 @@ export function buildSnapGrids(): void {
 
     const medianW = median(entry.widths);
     const medianH = median(entry.heights);
-    const positions: SnapPosition[] = [];
+    const lineCount = entry.kind === "tablature"
+      ? staff.tuning.length || 6
+      : staff.standardNotationLineCount ?? 5;
+    const fallbackLineSpacing = entry.kind === "tablature"
+      ? tabLineSpacing
+      : oneStaffSpace;
+    const geometry = getStaffGeometry(
+      entry,
+      lineCount,
+      slt,
+      fallbackLineSpacing,
+    );
+    if (!geometry || !entry.barRealBounds) continue;
+    const positions = entry.kind === "tablature"
+      ? projectTablaturePositions(
+          lineCount,
+          geometry,
+        )
+      : entry.kind === "percussion"
+        ? projectPercussionPositions(geometry)
+        : projectNotationPositions(geometry);
+    const percussionMap = entry.kind === "percussion"
+      ? buildPercussionMap(track)
+      : undefined;
 
-    if (entry.stringYs.size === 0 && entry.allYPositions.length === 0) {
-      if (!entry.barRealBounds) continue;
-      const br = entry.barRealBounds;
-      const lineBase = br.y - slt / 2;
-
-      if (entry.isTab && !track.isPercussion) {
-        const numStrings = staff.tuning.length || 6;
-        for (let s = 1; s <= numStrings; s++) {
-          positions.push({
-            string: s,
-            y: lineBase + tabLineSpacing * (numStrings - s),
-          });
-        }
-        registerSnapGrid(
-          entry,
-          positions,
-          medianW > 0 ? medianW : tabLineSpacing,
-          medianH > 0 ? medianH : tabLineSpacing,
-        );
-      } else {
-        const halfSpace = oneStaffSpace / 2;
-        const centerY = lineBase + 2 * oneStaffSpace;
-        if (track.isPercussion) {
-          for (let i = -10; i <= 10; i++) {
-            positions.push({ string: 3 + i, y: centerY + i * halfSpace });
-          }
-        } else {
-          for (let i = -10; i <= 10; i++) {
-            positions.push({ string: i + 11, y: centerY + i * halfSpace });
-          }
-        }
-        registerSnapGrid(
-          entry,
-          positions,
-          medianW > 0 ? medianW : oneStaffSpace,
-          medianH > 0 ? medianH : oneStaffSpace,
-        );
-      }
-      continue;
-    }
-
-    if (entry.isTab && !track.isPercussion) {
-      const numStrings = staff.tuning.length || 6;
-      if (entry.stringYs.size >= 2) {
-        const sorted = [...entry.stringYs.entries()].sort((a, b) => a[0] - b[0]);
-        const firstS = sorted[0][0];
-        const firstY = sorted[0][1];
-        const lastS = sorted[sorted.length - 1][0];
-        const lastY = sorted[sorted.length - 1][1];
-        const spacing = (lastY - firstY) / (lastS - firstS);
-        for (let s = 1; s <= numStrings; s++) {
-          positions.push({ string: s, y: firstY + (s - firstS) * spacing });
-        }
-      } else {
-        const [knownS, knownY] = [...entry.stringYs.entries()][0];
-        for (let s = 1; s <= numStrings; s++) {
-          positions.push({
-            string: s,
-            y: knownY + (s - knownS) * tabLineSpacing,
-          });
-        }
-      }
-    } else if (track.isPercussion) {
-      const distinctYs = clusterYPositions(entry.allYPositions, 1.0);
-      const refHalfSpace = medianH > 0 ? medianH / 2 : 0;
-      let halfSpace: number;
-      if (distinctYs.length >= 2) {
-        let minGap = Infinity;
-        for (let i = 1; i < distinctYs.length; i++) {
-          const gap = distinctYs[i] - distinctYs[i - 1];
-          if (gap > 0.5 && gap < minGap) minGap = gap;
-        }
-        if (!isFinite(minGap)) minGap = medianH * 1.2;
-        halfSpace = minGap;
-        if (refHalfSpace > 0) {
-          const ratio = minGap / refHalfSpace;
-          if (ratio > 1.4) {
-            const n = Math.round(ratio);
-            if (n >= 2 && Math.abs(ratio - n) < 0.5) {
-              halfSpace = minGap / n;
-            } else {
-              halfSpace = refHalfSpace;
-            }
-          }
-        }
-      } else {
-        halfSpace = oneStaffSpace / 2;
-      }
-
-      const anchorY =
-        distinctYs.length > 0
-          ? distinctYs[Math.floor(distinctYs.length / 2)]
-          : entry.barRealBounds
-            ? entry.barRealBounds.y + entry.barRealBounds.h / 2
-            : 0;
-
-      let anchorStaffLine = 3;
-      const artics = track.percussionArticulations;
-      for (const pa of entry.percYArticulations) {
-        const gp7Id =
-          artics?.length > 0 && pa.artic >= 0 && pa.artic < artics.length
-            ? artics[pa.artic].id
-            : pa.artic;
-        const sl = GP7_ARTICULATION_MAP.get(gp7Id);
-        if (sl !== undefined) {
-          const stepsFromAnchor = Math.round((pa.y - anchorY) / halfSpace);
-          anchorStaffLine = sl - stepsFromAnchor;
-          break;
-        }
-      }
-      // Cover common percussion range (-15 to 20 covers most standard kit)
-      for (let i = -15; i <= 20; i++) {
-        positions.push({ string: anchorStaffLine + i, y: anchorY + i * halfSpace });
-      }
-    } else {
-      if (!entry.barRealBounds) continue;
-      const br = entry.barRealBounds;
-      const lineBase = br.y - slt / 2;
-      const halfSpace = oneStaffSpace / 2;
-      const centerY = lineBase + 2 * oneStaffSpace;
-      for (let i = -10; i <= 10; i++) {
-        positions.push({ string: i + 11, y: centerY + i * halfSpace });
-      }
-    }
-
-    let percussionMap: Map<number, number> | undefined;
-    if (track.isPercussion && entry.percYArticulations.length > 0) {
-      percussionMap = new Map();
-      const artics = track.percussionArticulations;
-      for (const pa of entry.percYArticulations) {
-        const gp7Id =
-          artics?.length > 0 && pa.artic >= 0 && pa.artic < artics.length
-            ? artics[pa.artic].id
-            : pa.artic;
-        const sl = GP7_ARTICULATION_MAP.get(gp7Id);
-        if (sl !== undefined && !percussionMap.has(sl)) {
-          percussionMap.set(sl, pa.artic);
-        }
-      }
-    }
-
-    registerSnapGrid(entry, positions, medianW, medianH, percussionMap);
+    registerSnapGrid(
+      entry,
+      positions,
+      medianW > 0 ? medianW : geometry.lineSpacing,
+      medianH > 0 ? medianH : geometry.lineSpacing,
+      percussionMap,
+    );
   }
 }
 

@@ -218,3 +218,121 @@ test("dual notation staff snaps and navigates by visible staff", async ({ page }
     window.__PLAYER_STORE__.getState().selectedBeat?.trackIndex ?? null,
   )).toBe(0);
 });
+
+test("single-string tablature systems preserve string order", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await page.goto("/?demo=taijin-kyofusho");
+  await waitForScore(page);
+
+  const positions = await page.evaluate(() => {
+    const barIndex = 48;
+    const trackIndex = 1;
+    const grid = Object.values(window.__SNAP_GRIDS__).find((candidate) =>
+      candidate.trackIndex === trackIndex
+      && candidate.staffIndex === 0
+      && candidate.renderedStave === "tablature"
+      && candidate.barIndexes.includes(barIndex)
+    );
+    const barBounds = window.__ALPHATAB_API__.boundsLookup.staffSystems
+      .flatMap((system) => system.bars)
+      .flatMap((masterBar) => masterBar.bars)
+      .find((bounds) => {
+        const bar = bounds.bar ?? bounds.beats[0]?.beat.voice.bar;
+        return bar?.staff.track.index === trackIndex
+          && bar.staff.index === 0
+          && bar.index === barIndex;
+      });
+    const renderedSixthStringY = barBounds?.beats
+      .flatMap((beat) => beat.notes ?? [])
+      .find((noteBounds) => noteBounds.note.string === 6)?.noteHeadBounds;
+    if (!grid || !renderedSixthStringY) {
+      throw new Error("No second-track grid or sixth-string note at measure 49");
+    }
+    const sixthStringY = renderedSixthStringY.y + renderedSixthStringY.h / 2;
+    return {
+      strings: grid.positions.map((position) => position.string),
+      ys: grid.positions.map((position) => position.y),
+      sixthStringY,
+    };
+  });
+
+  expect(positions.strings).toEqual([6, 5, 4, 3, 2, 1]);
+  expect(positions.ys).toEqual([...positions.ys].sort((a, b) => a - b));
+  expect(positions.ys[0]).toBeCloseTo(positions.sixthStringY);
+});
+
+test("percussion grids use stable rendered-stave geometry", async ({ page }) => {
+  await page.setViewportSize({ width: 1500, height: 950 });
+  await page.goto("/?demo=taijin-kyofusho");
+  await waitForScore(page);
+
+  const result = await page.evaluate(() => {
+    const api = window.__ALPHATAB_API__;
+    const trackIndex = api.score.tracks.findIndex((track) => track.isPercussion);
+    const grids = Object.values(window.__SNAP_GRIDS__)
+      .filter((grid) => grid.trackIndex === trackIndex)
+      .sort((a, b) => a.systemIndex - b.systemIndex);
+    if (grids.length < 2) throw new Error("No multi-system percussion grids");
+
+    const expectedStrings = grids[0].positions.map((position) => position.string);
+    const expectedOffsets = grids[0].positions.map(
+      (position) => position.y - grids[0].positions[0].y,
+    );
+    const stableAcrossSystems = grids.every((grid) =>
+      JSON.stringify(grid.positions.map((position) => position.string))
+        === JSON.stringify(expectedStrings)
+      && grid.positions.every((position, index) =>
+        Math.abs(
+          position.y - grid.positions[0].y - expectedOffsets[index],
+        ) < 0.001
+      )
+    );
+
+    let alignedNoteCount = 0;
+    let maximumAlignmentError = 0;
+    for (const system of api.boundsLookup.staffSystems) {
+      for (const masterBar of system.bars) {
+        for (const bounds of masterBar.bars) {
+          const bar = bounds.bar ?? bounds.beats[0]?.beat.voice.bar;
+          if (bar?.staff.track.index !== trackIndex) continue;
+          const grid = grids.find((candidate) =>
+            candidate.barIndexes.includes(bar.index)
+          );
+          if (!grid?.percussionMap) continue;
+          const noteBoundsList = bounds.beats.flatMap((beat) => beat.notes ?? []);
+          for (const noteBounds of noteBoundsList) {
+            const staffLine = [...grid.percussionMap].find(
+              ([, articulation]) =>
+                articulation === noteBounds.note.percussionArticulation,
+            )?.[0];
+            const snap = grid.positions.find(
+              (position) => position.string === staffLine,
+            );
+            if (!snap) continue;
+            const noteY = noteBounds.noteHeadBounds.y
+              + noteBounds.noteHeadBounds.h / 2;
+            maximumAlignmentError = Math.max(
+              maximumAlignmentError,
+              Math.abs(noteY - snap.y),
+            );
+            alignedNoteCount++;
+          }
+        }
+      }
+    }
+
+    return {
+      strings: expectedStrings,
+      stableAcrossSystems,
+      alignedNoteCount,
+      maximumAlignmentError,
+    };
+  });
+
+  expect(result.strings).toEqual(
+    Array.from({ length: 36 }, (_value, index) => index - 12),
+  );
+  expect(result.stableAcrossSystems).toBe(true);
+  expect(result.alignedNoteCount).toBeGreaterThan(0);
+  expect(result.maximumAlignmentError).toBeLessThan(0.001);
+});

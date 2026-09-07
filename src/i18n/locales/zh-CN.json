@@ -1,4 +1,29 @@
 {
+  "drumKit": {
+    "selected": "已选中",
+    "sounding": "发声中",
+    "disabled": "已禁用",
+    "default": "默认",
+    "hover": "悬停",
+    "anyEnabledZone": "任意可用区域",
+    "compactLabel": "紧凑交互式鼓组",
+    "expandedLabel": "显示 MIDI 音符的展开交互式鼓组",
+    "compactTitle": "鼓组 · 紧凑布局",
+    "stateReview": "状态预览",
+    "inspectHint": "点击鼓或镲片查看其演奏法。",
+    "keyboardHint": "使用 Tab 键检查鼓组的键盘焦点。悬停与点击使用相同的响应区域。",
+    "zones": {
+      "crash-left": "左吊镲",
+      "crash-right": "右吊镲",
+      "ride": "叮叮镲",
+      "hi-hat": "踩镲",
+      "tom-high": "高音通鼓",
+      "tom-mid": "中音通鼓",
+      "snare": "军鼓",
+      "kick": "底鼓",
+      "floor-tom": "落地通鼓"
+    }
+  },
   "toolbar": {
     "fileMenu": "文件",
     "applicationMenu": "应用菜单",

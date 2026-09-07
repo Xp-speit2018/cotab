@@ -1,4 +1,29 @@
 {
+  "drumKit": {
+    "selected": "Selected",
+    "sounding": "Sounding",
+    "disabled": "Disabled",
+    "default": "Default",
+    "hover": "Hover",
+    "anyEnabledZone": "Any enabled zone",
+    "compactLabel": "Compact interactive drum kit",
+    "expandedLabel": "Expanded interactive drum kit with MIDI notes",
+    "compactTitle": "Drum kit · compact",
+    "stateReview": "State review",
+    "inspectHint": "Click a drum or cymbal to inspect its articulations.",
+    "keyboardHint": "Tab through the kit to review keyboard focus. Hover and click use the same hit areas.",
+    "zones": {
+      "crash-left": "Crash L",
+      "crash-right": "Crash R",
+      "ride": "Ride",
+      "hi-hat": "Hi-hat",
+      "tom-high": "High tom",
+      "tom-mid": "Mid tom",
+      "snare": "Snare",
+      "kick": "Kick",
+      "floor-tom": "Floor tom"
+    }
+  },
   "toolbar": {
     "fileMenu": "File",
     "applicationMenu": "Application menu",

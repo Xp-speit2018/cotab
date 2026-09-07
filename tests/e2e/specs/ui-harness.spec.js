@@ -82,6 +82,75 @@ test("choice overlays and narrow inspector layout remain usable", async ({ page 
   )).toBe(true);
 });
 
+test("drum kit diagram exposes coherent visual and keyboard states", async ({
+  page,
+}) => {
+  const compact = page.locator("[data-harness-drum-kit-compact]");
+  const expanded = page.locator("[data-harness-drum-kit-expanded]");
+  const compactDiagram = compact.locator("[data-drum-kit-diagram]");
+  const expandedDiagram = expanded.locator("[data-drum-kit-diagram]");
+
+  await expect(compactDiagram).toBeVisible();
+  await expect(expandedDiagram).toBeVisible();
+  await expect(compactDiagram.locator("[data-drum-zone]")).toHaveCount(9);
+  await expect(expandedDiagram.locator("[data-drum-zone]")).toHaveCount(9);
+  await expect(compactDiagram.locator("[data-hi-hat-cymbal]")).toHaveCount(2);
+  await expect(compactDiagram.locator("[data-hi-hat-clutch]")).toHaveCount(1);
+  await expect(compactDiagram.locator("[data-hi-hat-cup]")).toHaveCount(1);
+  await expect(compactDiagram.locator("[data-hi-hat-linkage]")).toHaveCount(1);
+  await expect(compactDiagram.locator("[data-hi-hat-pedal]")).toHaveCount(1);
+  await expect(
+    compactDiagram.locator("linearGradient, radialGradient"),
+  ).toHaveCount(0);
+  await expect(compactDiagram.locator("[data-cymbal-profile]")).toHaveCount(3);
+  await expect(compactDiagram.locator("[data-cymbal-bell]")).toHaveCount(3);
+  await expect(compactDiagram.locator("[data-cymbal-stand]")).toHaveCount(3);
+  await expect(compactDiagram.locator("[data-drum-shell]")).toHaveCount(4);
+  await expect(compactDiagram.locator("[data-drum-lug]")).toHaveCount(8);
+  await expect(compactDiagram.locator("[data-tom-mount]")).toHaveCount(2);
+  await expect(compactDiagram.locator("[data-snare-mechanism]")).toHaveCount(1);
+  await expect(compactDiagram.locator("[data-floor-tom-legs]")).toHaveCount(1);
+  await expect(compactDiagram.locator("[data-bass-drum-lug]")).toHaveCount(9);
+  await expect(compactDiagram.locator("[data-bass-drum-port]")).toHaveCount(1);
+
+  const snare = compact.getByRole("button", { name: /Snare, MIDI 37, 38, 40/ });
+  const highTom = compact.getByRole("button", {
+    name: /High tom, MIDI 48, 50/,
+  });
+  const hiHat = compact.getByRole("button", {
+    name: /Hi-hat, MIDI 42, 44, 46/,
+  });
+  const disabledCrash = compact.getByRole("button", {
+    name: /Crash R, MIDI 57/,
+  });
+
+  await expect(snare).toHaveAttribute("data-selected", "true");
+  await expect(hiHat).toHaveAttribute("data-active", "true");
+  await expect(disabledCrash).toHaveAttribute("aria-disabled", "true");
+  await expect
+    .poll(() => highTom.evaluate((element) => getComputedStyle(element).cursor))
+    .toBe("default");
+
+  await highTom.click();
+  await expect(highTom).toHaveAttribute("data-selected", "true");
+  await expect(compact).toContainText("High tom");
+  await expect(compact).toContainText("MIDI 48/50");
+
+  await disabledCrash.click({ force: true });
+  await expect(disabledCrash).not.toHaveAttribute("data-selected", "true");
+
+  await highTom.focus();
+  await expect(highTom).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(highTom).toHaveAttribute("data-selected", "true");
+
+  const compactBox = await compactDiagram.boundingBox();
+  const expandedBox = await expandedDiagram.boundingBox();
+  expect(compactBox).not.toBeNull();
+  expect(expandedBox).not.toBeNull();
+  expect(compactBox.width).toBeLessThan(expandedBox.width);
+});
+
 test("application menu bar has one geometry and anatomy contract", async ({ page }) => {
   const menuBar = page.locator("[data-harness-menu-bar]");
   const triggers = menuBar.locator("[data-app-menu-trigger]");

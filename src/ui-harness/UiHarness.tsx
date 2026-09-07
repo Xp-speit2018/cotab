@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ExternalLink,
   Plus,
@@ -23,6 +24,11 @@ import {
 import { PresetCombobox } from "@/components/NoteEditorSidebar/PresetCombobox";
 import { PasswordInput } from "@/components/ui/password-input";
 import { ChordLibraryEditor } from "@/components/NoteEditorSidebar/editors/ChordEditors";
+import {
+  DrumKitDiagram,
+  type DrumKitZone,
+  type DrumKitZoneId,
+} from "@/components/percussion/DrumKitDiagram";
 import {
   AppMenu,
   AppMenuBar,
@@ -391,7 +397,108 @@ function ChordEditorSample() {
   );
 }
 
+const DRUM_KIT_ZONES: readonly DrumKitZone[] = [
+  { id: "crash-left", label: "Crash L", midiNotes: [49], shortcut: "7" },
+  { id: "crash-right", label: "Crash R", midiNotes: [57], shortcut: "8" },
+  { id: "ride", label: "Ride", midiNotes: [51, 53], shortcut: "9" },
+  { id: "hi-hat", label: "Hi-hat", midiNotes: [42, 44, 46], shortcut: "1" },
+  { id: "tom-high", label: "High tom", midiNotes: [48, 50], shortcut: "5" },
+  { id: "tom-mid", label: "Mid tom", midiNotes: [45, 47], shortcut: "6" },
+  { id: "snare", label: "Snare", midiNotes: [37, 38, 40], shortcut: "2" },
+  { id: "kick", label: "Kick", midiNotes: [35, 36], shortcut: "0" },
+  { id: "floor-tom", label: "Floor tom", midiNotes: [41, 43], shortcut: "4" },
+];
+
+function DrumKitCompactSample() {
+  const [selected, setSelected] = useState<DrumKitZoneId>("snare");
+  const { t } = useTranslation();
+  const zones = DRUM_KIT_ZONES.map((zone) => ({ ...zone, label: t(`drumKit.zones.${zone.id}`) }));
+  const zone = zones.find((candidate) => candidate.id === selected)!;
+
+  return (
+    <div className="space-y-2 px-2" data-harness-drum-kit-compact>
+      <DrumKitDiagram
+        zones={zones}
+        ariaLabel={t("drumKit.compactLabel")}
+        selectedZoneId={selected}
+        activeZoneIds={["hi-hat", "kick"]}
+        disabledZoneIds={["crash-right"]}
+        onZoneSelect={setSelected}
+      />
+      <div className="rounded border border-border/70 bg-background/70 px-2 py-1.5">
+        <div className="flex items-center gap-2 text-[11px] font-medium">
+          <span>{zone.label}</span>
+          <span className="ml-auto font-mono text-[9px] text-muted-foreground">
+            MIDI {zone.midiNotes.join("/")}
+          </span>
+        </div>
+        <p className="mt-0.5 text-[9px] text-muted-foreground">
+          {t("drumKit.inspectHint")}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function DrumKitExpandedSample() {
+  const [selected, setSelected] = useState<DrumKitZoneId>("snare");
+  const { t } = useTranslation();
+  const zones = DRUM_KIT_ZONES.map((zone) => ({ ...zone, label: t(`drumKit.zones.${zone.id}`) }));
+
+  return (
+    <div
+      className="grid gap-4 px-3 lg:grid-cols-[minmax(0,1fr)_13rem]"
+      data-harness-drum-kit-expanded
+    >
+      <div className="min-w-0 rounded-xl border bg-card p-3 shadow-sm">
+        <DrumKitDiagram
+          zones={zones}
+          ariaLabel={t("drumKit.expandedLabel")}
+          selectedZoneId={selected}
+          activeZoneIds={["hi-hat", "kick"]}
+          disabledZoneIds={["crash-right"]}
+          showMidiNotes
+          onZoneSelect={setSelected}
+        />
+      </div>
+      <div className="space-y-3 text-[11px]">
+        <div>
+          <h3 className="font-semibold">{t("drumKit.stateReview")}</h3>
+          <p className="mt-1 text-muted-foreground">
+            {t("drumKit.keyboardHint")}
+          </p>
+        </div>
+        <dl className="space-y-1.5">
+          <div className="flex items-center justify-between gap-3">
+            <dt>{t("drumKit.default")}</dt>
+            <dd>{t("drumKit.zones.tom-high")}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt>{t("drumKit.hover")}</dt>
+            <dd>{t("drumKit.anyEnabledZone")}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt>{t("drumKit.selected")}</dt>
+            <dd className="font-semibold underline decoration-2 underline-offset-2">
+              {t(`drumKit.zones.${selected}`)}
+            </dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt>{t("drumKit.sounding")}</dt>
+            <dd className="font-medium">{t("drumKit.zones.hi-hat")}, {t("drumKit.zones.kick")}</dd>
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <dt>{t("drumKit.disabled")}</dt>
+            <dd className="opacity-40">{t("drumKit.zones.crash-right")}</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  );
+}
+
 export default function UiHarness() {
+  const { t } = useTranslation();
   return (
     <main
       data-ui-harness
@@ -426,6 +533,9 @@ export default function UiHarness() {
           <ContractSection title="Application menu">
             <AppMenuSample />
           </ContractSection>
+          <ContractSection title={t("drumKit.compactTitle")}>
+            <DrumKitCompactSample />
+          </ContractSection>
         </div>
         <div className="min-w-0 space-y-6 border-y border-border py-4">
           <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-4 gap-y-2 px-3 text-xs">
@@ -442,6 +552,9 @@ export default function UiHarness() {
           </dl>
           <div className="border-t border-border px-3 pt-4">
             <ChordEditorSample />
+          </div>
+          <div className="border-t border-border pt-4">
+            <DrumKitExpandedSample />
           </div>
         </div>
       </div>

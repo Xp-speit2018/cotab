@@ -11,6 +11,11 @@ The migration is deliberately staged. The legacy server remains available for
 the maintained browser suite until the Web client adapter and equivalent tests
 move to the new protocol.
 
+Offline editing and session-local Undo/Redo semantics are specified separately
+in [Collaborative History](COLLABORATIVE-HISTORY.md). The current history
+baseline includes a pitch-field preservation guard for interleaved Undo/Redo;
+transport migration alone does not establish history semantics.
+
 ## Ownership Boundaries
 
 - Y.Doc is the shared score model. Network and storage adapters transport or

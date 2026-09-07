@@ -44,6 +44,10 @@ Most DocumentActions mutate the Y.Doc score and are undoable. History and
 clipboard actions remain renderer-independent document operations. Selector
 actions are local AppActions and do not live in the DocumentAction registry.
 
+Collaborative Undo/Redo uses session-local selective history. Its executable
+baseline, offline conflict semantics, and required-field preservation
+guard are documented in [Collaborative History](COLLABORATIVE-HISTORY.md).
+
 DocumentActions are safe for CLI and MCP surfaces because they do not depend on
 React, the browser DOM, or the AlphaTab renderer instance.
 

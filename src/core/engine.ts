@@ -9,6 +9,7 @@
 import * as Y from "yjs";
 import { initializeScore, readDocumentId } from "./schema";
 import { createSyncState } from "./editor/collaboration";
+import { allowHistoryDeletion } from "./editor/history";
 import type {
   CollaborationAdapter,
   CollaborationPersistence,
@@ -519,6 +520,9 @@ export class EditorEngine {
     if (!this.scoreMap || !this.doc) return;
     this.undoManager = new Y.UndoManager([this.scoreMap], {
       trackedOrigins: new Set([this.doc.clientID]),
+      deleteFilter: allowHistoryDeletion,
+      // Local undo restores the pre-edit value; redo restores the pre-undo value.
+      ignoreRemoteMapChanges: true,
     });
   }
 

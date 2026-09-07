@@ -56,6 +56,16 @@ or the rendered browser result.
 
 ### Playwright
 
+The collaborative history model in
+`src/core/__tests__/collaborative-history.test.ts` enumerates 5,120 bounded
+two-session edit/undo/redo schedules with real Yjs and EditorEngine instances.
+It also checks required pitch-field preservation with named regressions.
+These bounded checks do not establish general score validity; see
+[`COLLABORATIVE-HISTORY.md`](COLLABORATIVE-HISTORY.md) for the exact model,
+counterexample, and pending decisions. The maintained
+`tests/e2e/specs/collaborative-history.spec.ts` checks production AppAction
+Undo/Redo against both shared metadata and the settled renderer.
+
 Only files under `tests/e2e/specs/` are maintained browser tests. Shared helpers
 live under `tests/e2e/helpers/`. Exploratory diagnostic scripts may be kept
 locally at the root of `tests/e2e/`; they are ignored by Git and are never

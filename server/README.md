@@ -1,6 +1,13 @@
-# cotab-signaling-server
+# CoTab collaboration server
 
-A lightweight WebSocket signaling server for **CoTab**, the peer-to-peer collaborative guitar tab editor. It coordinates WebRTC connections between peers using a protocol compatible with [y-webrtc](https://github.com/yjs/y-webrtc) and manages room-based sessions.
+The legacy room signaling service used by CoTab's current collaboration adapter.
+It remains available while the repository migrates to the server-relayed
+WebSocket synchronization service described in the root roadmap. New server
+work should target the Cloudflare-compatible room service instead of extending
+this implementation.
+
+The engineering decisions and migration phases are recorded in
+[`docs/COLLABORATION.md`](../docs/COLLABORATION.md).
 
 ## Quick Start
 
@@ -27,18 +34,25 @@ npm run dev
 
 Runs TypeScript in watch mode alongside a Node.js file watcher for automatic rebuilds.
 
-## Docker
+## Cloudflare-compatible local service
 
-From the repository root, start both the signaling server and the local TURN
-fallback used by collaboration E2E tests:
+Run the Worker and its local Durable Object storage:
 
 ```bash
-docker compose up --build signaling turn
+docker compose up --build collaboration
 ```
 
-TURN only relays WebRTC traffic when a direct ICE path is unavailable. It does
-not own the Yjs document or make the collaboration architecture
-server-authoritative.
+The container runs Wrangler's local Workers runtime and persists its development
+state in the `collaboration-data` volume. Production deployment uses
+`wrangler deploy`, not this image.
+
+## Legacy signaling service
+
+From the repository root, start the signaling server:
+
+```bash
+docker compose up --build signaling
+```
 
 To run only the signaling image:
 

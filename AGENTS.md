@@ -7,9 +7,39 @@ Do not add tool-specific rule files or permission manifests. Keep durable,
 non-obvious project contracts here; keep personal permissions, machine paths,
 debug logs, and temporary task notes outside the repository.
 
+### Execution and completion
+
+Carry implementation requests through the scoped change and relevant checks.
+Resolve routine choices using existing code and tests. Ask only when missing
+information materially changes correctness or scope and cannot be inferred;
+continue independent, authorized work while awaiting an answer. Existing user
+authorization remains valid. Prepare a reviewable diff before requesting any
+still-required approval for publication or other external actions.
+
+Explicit user instructions take precedence over this guide and skill guidance,
+subject to higher-priority system and developer instructions. If a skill blocks
+authorized work, identify its exact file and instruction and explain the
+conflict; do not invent an approval requirement from a recommendation.
+Storage-provider choices and conflict dialogs below are product behavior, not
+permission requirements for editing this repository.
+
+Inspect the working tree before editing and preserve existing user changes,
+including changes in the same file. Keep unrelated cleanup out of the diff.
+Use parallel tool calls for independent reads and checks. When delegation is
+authorized, give subagents bounded tasks with distinct file ownership and
+review their results before integration; keep small, coupled edits local.
+
+Finish when the requested behavior is implemented, applicable checks have
+passed, and the diff has been reviewed. If a check is blocked or fails, report
+the command, evidence, and remaining limitation without claiming verification.
+Respond in the user's language with the outcome, relevant file links, and actual
+check results. Keep progress updates brief and focused on findings or blockers.
+
+### Implementation boundaries
+
 Read the relevant implementation and tests before changing behavior. Preserve
-the existing module boundaries instead of introducing a second path for Agent
-workflows. In particular:
+the existing module boundaries instead of introducing a second path for CoTab's
+in-app Agent workflows. In particular:
 
 - Treat Y.Doc as the source of truth for shared score data and think through
   CRDT ownership before adding score state.
@@ -29,8 +59,17 @@ The check rejects legacy coding-agent configuration and validates every
 ## Repository Verification
 
 The maintained test matrix and directory rules are documented in
-`docs/TESTING.md`. Use `npm run verify` for deterministic checks and
-`npm run verify:all` for the desktop and browser gates as well.
+`docs/TESTING.md`; use the Node version in `.nvmrc`. Select checks by changed
+behavior and complete the applicable gates below. `npm run verify` runs the
+full deterministic matrix; `npm run verify:all` also runs desktop and browser
+gates. Use these for broad changes or when full verification is requested.
+
+For guide-only edits, run `npm run check:codex-guide` and review the diff;
+application tests are required only if application behavior also changes.
+Use focused existing tests during development. Add regression coverage for
+changed behavior, not tests that merely restate documentation or implementation.
+Once applicable checks pass, expand or repeat them only for new changes,
+failures, or a concrete unresolved risk. This does not reduce CI's full matrix.
 
 Maintained Playwright tests belong in `tests/e2e/specs/`; shared browser helpers
 belong in `tests/e2e/helpers/`. Files at the root of `tests/e2e/` are ignored local
@@ -39,8 +78,8 @@ integration behavior runs together under `src/**/*.test.{ts,tsx}`; do not add a
 second filename-based integration suite.
 
 When a change affects generated DocumentAction projections, run
-`npm run check:action-docs`. Rendering, collaboration, or Agent workflow
-changes require the corresponding maintained Playwright spec in addition to
+`npm run check:action-docs`. Changes to rendering, collaboration, or in-app Agent
+behavior require the corresponding maintained Playwright spec in addition to
 Vitest coverage.
 
 ## Repository Layout
@@ -66,6 +105,11 @@ object must not automatically join a room; joining a room must not choose a
 storage object. Each room participant independently saves the current shared
 Y.Doc to its own binding or remains unbound.
 
+Server-side collaboration recovery is not a storage binding. A room service may
+persist Yjs snapshots or updates so that WebSocket clients can reconnect, but
+that state is owned by the room and must not select, expose, or overwrite any
+participant's local disk or WebDAV binding.
+
 The complete runtime storage state is owned by `EditorEngine.storage` and
 projected through `useEditorStore` like selector and transport state. Storage
 controllers and providers must not create a parallel Zustand store or private
@@ -82,6 +126,26 @@ Save As operation that replaces the binding. An unbound Save with more than one
 available provider must ask the user to choose one.
 WebDAV credentials are runtime-local: never put passwords in Editor State,
 localStorage, Y.Doc, `.cotab` payloads, logs, or generated diagnostics.
+
+## Collaboration Transport
+
+Keep shared score semantics independent from the network provider. WebSocket
+transport implementations may relay and persist Yjs updates, but they must not
+introduce a second score model or bypass `DocumentActions` for score mutations.
+Treat a room as the routing and recovery boundary, while Y.Doc remains the
+source of truth for its shared score data.
+
+Keep presence and awareness ephemeral. User names, cursors, selections,
+connection statistics, and live member lists must not be stored in durable room
+snapshots. Anonymous room secrets and server persistence metadata must also stay
+outside Y.Doc.
+
+The planned collaboration service must run against the Cloudflare Workers
+runtime locally and in deployment. Keep protocol and Yjs synchronization code
+runtime-neutral; isolate Workers bindings, Durable Object routing, WebSocket
+lifecycle, and storage access at the server adapter boundary. Docker is a local
+development and verification wrapper around the Workers runtime, not the
+production deployment artifact.
 
 ## UI Interaction Harness
 
@@ -120,7 +184,8 @@ controls because they do not accept text or project free-form input into state.
 
 Add new reusable interaction patterns to the production primitives first, then
 render those same primitives in `src/ui-harness/UiHarness.tsx`. Do not duplicate
-their markup inside the harness. Run `npm run test:e2e:ui-harness` after changes.
+their markup inside the harness. Run `npm run test:e2e:ui-harness` after changing
+these interactions, their production primitives, or the harness.
 The static interaction test rejects `cursor-pointer` inside the inspector
 component tree so ordinary controls cannot silently drift back to web-link
 semantics.

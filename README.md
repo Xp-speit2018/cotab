@@ -4,7 +4,7 @@
 
 **Work in progress.** This repo is under active development; scope and APIs may change.
 
-A tablature and notation editor with peer-to-peer collaboration. The goal is to make co-working with tabs easier—for example, to facilitate band rehearsal.
+A tablature and notation editor with real-time collaboration. The goal is to make co-working with tabs easier—for example, to facilitate band rehearsal.
 
 ## Tech stack
 
@@ -12,19 +12,17 @@ A tablature and notation editor with peer-to-peer collaboration. The goal is to 
 - **UI:** Tailwind CSS 4, shadcn/ui (Radix UI), Lucide React
 - **Rendering:** [@coderline/alphatab](https://github.com/CoderLine/alphaTab)
 - **State & collaboration:** Zustand, Yjs
-- **Web collaboration adapter:** `y-webrtc`, `y-indexeddb`
+- **Web collaboration persistence:** `y-indexeddb`
 - **i18n:** i18next, react-i18next
 
 Audio is planned around Web Audio API (AudioWorklet) and WASM/Faust for effects.
 
 ## Architecture
 
-CoTab is currently decentralized: collaboration is CRDT-based peer-to-peer over
-Yjs, with a signaling server only used to help peers discover each other.
-`EditorEngine` in `src/core` owns the shared score model, editing actions, and
-p2p collaboration lifecycle. Host targets provide runtime-specific adapters for
-transport, persistence, rendering, and protocol surfaces. These targets should
-not become sync authorities.
+`EditorEngine` in `src/core` owns the shared Yjs score model and editing actions.
+Host targets provide runtime-specific adapters for collaboration transport,
+local persistence, rendering, and protocol surfaces. The shared score semantics
+must remain independent from any particular network provider.
 
 Action naming is domain-based. `src/app-actions` is the UI/shortcut action
 entrypoint for AppActions such as `transport.playPause`; existing
@@ -41,8 +39,8 @@ Current target boundaries:
 - `src/agent` contains the Desktop Codex adapter and its headless logical peer.
   These modules run in the Tauri WebView and are not exposed as a Web product
   capability.
-- `src/adapters/web` contains browser/WebView collaboration wiring such as
-  WebRTC signaling and IndexedDB persistence.
+- `src/adapters/web` contains browser/WebView collaboration transport and
+  IndexedDB persistence wiring.
 - Desktop remains a Tauri shell over the Web build. Its native layer is limited
   to host capabilities such as launching the local Codex app-server; score and
   collaboration logic stays in the Web/core targets.
@@ -69,9 +67,9 @@ configuration is intentionally unsupported.
 - [x] **Score and track metadata editing** — Edit song title, tempo, artist, etc.; per-track name, tuning (presets + custom), capo, transposition, MIDI program/channel.
 - [x] **Sidebar editor** — Bar, Note, Effects, and Articulations sections (Notes tab); Song and Tracks (Meta tab); debug tools.
 - [x] **Playback** — Load GP/GPX, play/pause, zoom, track volume/mute/solo, SoundFont-based playback.
-- [x] **Collaboration plumbing** — Yjs doc, WebRTC room connection, signaling server, IndexedDB persistence; CRDT schema aligned with the score model (DocumentActions for metadata, tempo, tracks, bars, beats, notes).
+- [x] **Collaboration plumbing** — Yjs document, room lifecycle, Web collaboration adapter, and IndexedDB persistence; CRDT schema aligned with the score model (DocumentActions for metadata, tempo, tracks, bars, beats, notes).
 - [x] **Shortcuts system** — Customisable keyboard shortcuts with platform-adaptive modifiers, multi-digit fret input, percussion digit mapping, cycle/toggle behaviours, and browser conflict detection.
-- [x] **CRDT-style p2p coop** — Full real-time collaboration over the Yjs score doc.
+- [x] **CRDT collaboration model** — Real-time concurrent editing over the shared Yjs score document.
 - [x] **Tests** — Unit and integration tests covering CRDT schema, sync, actions, and converters.
 - [x] **Drag selection and copy/paste** — Multi-bar drag selection with visual overlay, copy/cut/paste single or range of bars (clamped to score bounds), structured clipboard with full beat/note fidelity.
 - [x] **Undo/redo coop stack** — Collaborative undo/redo with per-client undo managers, toolbar buttons, and keyboard shortcuts.
@@ -90,11 +88,12 @@ configuration is intentionally unsupported.
   through an on-demand logical peer in the WebView. The peer follows the Codex
   connection lifecycle; the browser target has no corresponding Agent or LLM
   surface.
-- [ ] **Server-Authoritative Sync** - Optional future mode in which a
-  websocket-backed server owns the authoritative room state and may provide
-  persistence. This is distinct from STUN/TURN connectivity fallback: TURN may
-  relay encrypted WebRTC traffic while the current collaboration model remains
-  p2p CRDT.
+- [ ] **Server-relayed WebSocket sync** — Replace the current collaboration
+  transport with a Cloudflare-compatible WebSocket service. Route each room to
+  one stateful coordinator, synchronize Yjs updates through the server, persist
+  recoverable room snapshots, and keep awareness presence ephemeral. Provide a
+  Docker-based local Workers runtime and maintained browser coverage for
+  concurrent editing, reconnect, and server restart recovery.
 - [x] **Layout-independent snap grid** — Remove the snap grid's historical
   single-system technical debt. This is a prerequisite for dual layout support
   and fixed-system incremental rendering.
@@ -124,7 +123,9 @@ npm run desktop:build # Tauri desktop shell over the Web build
 npm run preview  # Serve production build
 ```
 
-Signaling server (for p2p): see `server/README.md`.
+Collaboration server development notes: see `server/README.md`.
+The target synchronization semantics and migration plan are documented in
+[`docs/COLLABORATION.md`](docs/COLLABORATION.md).
 
 ## Target Verification
 

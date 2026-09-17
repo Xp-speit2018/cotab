@@ -94,6 +94,9 @@ configuration is intentionally unsupported.
   recoverable room snapshots, and keep awareness presence ephemeral. Provide a
   Docker-based local Workers runtime and maintained browser coverage for
   concurrent editing, reconnect, and server restart recovery.
+  The Worker foundation and product browser provider are implemented, including
+  capability invitations, reconnect, IndexedDB recovery, and live membership.
+  Legacy signaling/TURN removal and public deployment remain pending.
 - [x] **Layout-independent snap grid** — Remove the snap grid's historical
   single-system technical debt. This is a prerequisite for dual layout support
   and fixed-system incremental rendering.

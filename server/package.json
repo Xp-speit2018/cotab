@@ -1,20 +1,27 @@
 {
-  "name": "cotab-signaling-server",
+  "name": "cotab-collaboration-server",
   "version": "1.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:legacy && npm run build:cloudflare",
+    "build:legacy": "tsc -p tsconfig.json",
+    "build:cloudflare": "npm run typecheck:cloudflare && wrangler deploy --dry-run --outdir dist-worker",
+    "typecheck:cloudflare": "tsc -p tsconfig.worker.json",
     "start": "node dist/index.js",
-    "dev": "tsc --watch & node --watch dist/index.js"
+    "dev": "tsc --watch & node --watch dist/index.js",
+    "dev:cloudflare": "wrangler dev"
   },
   "dependencies": {
-    "ws": "^8.21.1"
+    "ws": "^8.21.1",
+    "yjs": "^13.6.32"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20260811.1",
     "@types/node": "^22.15.0",
     "@types/ws": "^8.18.0",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "wrangler": "4.120.1"
   }
 }

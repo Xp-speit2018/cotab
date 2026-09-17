@@ -105,7 +105,6 @@ import { FILE_IMPORT_ORIGIN } from "@/core/origins";
 import { eventMatchesTransportModifier } from "@/shortcuts/transport-modifier";
 import {
   createWebCollaborationAdapter,
-  parseIceServers,
 } from "@/adapters/web/collaboration";
 import {
   getRendererDiagnostics,
@@ -1477,8 +1476,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     engine.initDoc();
 
     engine.setCollaborationAdapter(createWebCollaborationAdapter({
-      signalingUrl: import.meta.env.VITE_SIGNALING_URL,
-      iceServers: parseIceServers(import.meta.env.VITE_WEBRTC_ICE_SERVERS),
+      serviceUrl: import.meta.env.VITE_COLLABORATION_URL ?? "http://localhost:8787",
     }));
 
     bindActiveEngineHooks();

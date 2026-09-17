@@ -8,6 +8,8 @@ export interface PeerInfo {
 }
 
 export interface CollaborationTransportProfile {
+  webSocketConnected?: boolean;
+  serverSynced?: boolean;
   signalingConnected: boolean;
   webRtcPeerCount: number;
   broadcastChannelPeerCount: number;
@@ -114,6 +116,7 @@ export function createSyncState(
 }
 
 export interface CollaborationProvider {
+  flush?(): void;
   on(event: string, callback: (event: unknown) => void): void;
   ownsOrigin?(origin: unknown): boolean;
   destroy(): void;
@@ -138,6 +141,8 @@ export interface DocumentPeerConnection {
 }
 
 export interface CollaborationAdapter {
+  resolveRoomCode?: (invitation: string) => string;
+  getRoomInvitation?: (roomCode: string) => string | null;
   createRoom?: () => Promise<string>;
   roomExists?: (roomCode: string) => Promise<boolean>;
   createProvider(args: {

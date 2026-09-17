@@ -1,15 +1,13 @@
 # CoTab collaboration server
 
-The legacy room signaling service used by CoTab's current collaboration adapter.
-It remains available while the repository migrates to the server-relayed
-WebSocket synchronization service described in the root roadmap. New server
-work should target the Cloudflare-compatible room service instead of extending
-this implementation.
+CoTab uses the Cloudflare Workers room service in `worker/`, with a Durable
+Object per room. The legacy signaling service remains available during cleanup
+but is no longer used by the product adapter.
 
 The engineering decisions and migration phases are recorded in
 [`docs/COLLABORATION.md`](../docs/COLLABORATION.md).
 
-## Quick Start
+## Legacy Node service
 
 ### Prerequisites
 
@@ -43,7 +41,10 @@ docker compose up --build collaboration
 ```
 
 The container runs Wrangler's local Workers runtime and persists its development
-state in the `collaboration-data` volume. Production deployment uses
+state in the `collaboration-data` volume. The browser uses
+`VITE_COLLABORATION_URL=http://localhost:8787` by default. Run the Compose command
+from the repository root. Room invitations contain both a room ID and a private
+capability; the complete invitation is required to join. Production deployment uses
 `wrangler deploy`, not this image.
 
 ## Legacy signaling service

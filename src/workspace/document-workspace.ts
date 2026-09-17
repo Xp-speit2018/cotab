@@ -6,7 +6,6 @@ import {
 } from "@/core/engine";
 import {
   createWebCollaborationAdapter,
-  parseIceServers,
 } from "@/adapters/web/collaboration";
 import {
   createDocumentStorageRuntime,
@@ -59,8 +58,7 @@ export const useDocumentWorkspaceStore = create<DocumentWorkspaceState>(() => ({
 
 function configureSessionEngine(sessionEngine: EditorEngine): void {
   sessionEngine.setCollaborationAdapter(createWebCollaborationAdapter({
-    signalingUrl: import.meta.env.VITE_SIGNALING_URL,
-    iceServers: parseIceServers(import.meta.env.VITE_WEBRTC_ICE_SERVERS),
+    serviceUrl: import.meta.env.VITE_COLLABORATION_URL ?? "http://localhost:8787",
   }));
 }
 

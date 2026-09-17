@@ -16,9 +16,9 @@ repository's `.nvmrc`).
 | Generated action reference | `npm run check:action-docs` | Ensures `docs/DOCUMENT-ACTIONS.generated.md` matches the action definitions |
 | Tool compilation | `npm run check:tools` | Codex-guide, documentation, and AlphaTab audit tools used by automation |
 | Web production build | `npm run build:web` | Vite production bundle |
-| Signaling server build | `npm run build:server` | Strict TypeScript server build |
+| Collaboration server build | `npm run build:server` | Strict legacy server compilation plus Worker typecheck and Wrangler dry-run bundle |
 | Desktop shell | `npm run check:desktop` | Locked Rust/Tauri dependency graph and native code |
-| Browser workflows | `npm run test:e2e` | Chromium, Vite, signaling server, TURN, rendering, Agent mocks, and multi-peer collaboration |
+| Browser workflows | `npm run test:e2e` | Chromium, Vite, the Cloudflare-compatible room service, legacy signaling/TURN, rendering, Agent mocks, and multi-client collaboration |
 
 `npm run verify` runs every deterministic Node gate: type checks, Vitest,
 Codex-guide and generated-documentation checks, tool compilation, and
@@ -26,8 +26,9 @@ Web/server builds.
 `npm run verify:all` additionally runs the desktop check and the complete
 browser suite.
 
-The browser suite requires Docker because Playwright starts the signaling and
-TURN services from `compose.yaml`. Install Chromium once with:
+The browser suite requires Docker because Playwright starts the
+Cloudflare-compatible collaboration service and the legacy signaling/TURN
+services from `compose.yaml`. Install Chromium once with:
 
 ```bash
 npx playwright install chromium
@@ -76,7 +77,19 @@ Use targeted runs while developing:
 ```bash
 npx playwright test tests/e2e/specs/layout-switch.spec.js
 npm run test:e2e:ui-harness
+npx playwright test tests/e2e/specs/cloudflare-collaboration-foundation.spec.ts
 ```
+
+The Cloudflare foundation spec uses real browser WebSockets and Y.Doc updates.
+Its recovery case restarts the local `collaboration` container with the same
+storage volume and verifies a nonempty document larger than 128 KiB. It also
+checks room isolation, capability rejection, offline state repair, invalid and
+oversized update rejection, and persistence during continuous editing. These
+are service-level checks. `coop.spec.ts` and `collaborative-history.spec.ts` use
+the production Worker adapter and test invitations, membership, automatic
+reconnect, IndexedDB recovery, Agent edits, and settled rendering. Socket-outage
+tests interrupt real Worker connections explicitly because Chromium's HTTP
+offline emulation does not reliably sever an established WebSocket.
 
 Before promoting a regression test, move it into `tests/e2e/specs/`, remove
 diagnostic-only logging and screenshots, and make the assertion describe the
@@ -107,7 +120,8 @@ The `CI` workflow runs on pull requests and pushes to `main`:
 - **Types, tests, docs, and builds** runs `npm run verify`.
 - **Tauri check** installs Linux WebKit dependencies and runs the locked Rust
   check.
-- **Chromium E2E** installs Chromium, starts Vite/signaling/TURN through
+- **Chromium E2E** installs Chromium, starts Vite, the Worker room service, and
+  legacy signaling/TURN through
   Playwright, and uploads traces, videos, and the HTML report on failure.
 
 The manual `Generate Wiki` workflow runs its TypeScript source generators

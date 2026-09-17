@@ -1,4 +1,18 @@
 services:
+  collaboration:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.cloudflare
+    ports:
+      - "8787:8787"
+    volumes:
+      - collaboration-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
   signaling:
     build:
       context: ./server
@@ -43,3 +57,6 @@ services:
       - ./tools/storage/webdav.apache.conf:/usr/local/apache2/conf/conf-enabled/cotab.conf:ro
     tmpfs:
       - /var/lib/dav/data
+
+volumes:
+  collaboration-data:

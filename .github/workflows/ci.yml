@@ -31,7 +31,7 @@ jobs:
       - name: Install app dependencies
         run: npm ci
 
-      - name: Install signaling server dependencies
+      - name: Install collaboration server dependencies
         run: npm ci --prefix server
 
       - name: Verify deterministic targets

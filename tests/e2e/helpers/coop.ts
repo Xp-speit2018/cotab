@@ -33,7 +33,7 @@ export async function openRoomDialog(page: Page): Promise<void> {
   await page.waitForSelector("[role='dialog']", { timeout: 5_000 });
 }
 
-/** Create a room: open dialog -> fill name -> click Create -> wait for connected. Returns room code. */
+/** Create a room: open dialog -> fill name -> click Create -> wait for connected. Returns the complete invitation. */
 export async function createRoom(
   page: Page,
   userName: string = "User A",
@@ -56,7 +56,7 @@ export async function createRoom(
   });
 
   // Extract room code
-  const code = await getRoomCode(page);
+  const code = await getRoomInvitation(page);
   return code;
 }
 
@@ -95,11 +95,11 @@ export async function joinRoom(
   });
 }
 
-/** Extract the room code from the connected dialog. */
-export async function getRoomCode(page: Page): Promise<string> {
+/** Extract the complete invitation from the connected dialog. */
+export async function getRoomInvitation(page: Page): Promise<string> {
   const codeEl = page.locator("[role='dialog'] code");
   const code = await codeEl.textContent();
-  if (!code) throw new Error("Could not extract room code from dialog");
+  if (!code) throw new Error("Could not extract room invitation from dialog");
   return code.trim();
 }
 
@@ -143,7 +143,8 @@ export async function waitForNetworkSynced(
             phase: string;
             networkPeerCount: number;
             transport: {
-              webRtcPeerCount: number;
+              webSocketConnected: boolean;
+              serverSynced: boolean;
               connectedPeerCount: number;
               syncedPeerCount: number;
             };
@@ -153,7 +154,8 @@ export async function waitForNetworkSynced(
       const networkPeers = state?.peers.filter((peer) => peer.kind === "human") ?? [];
       return state?.syncState.phase === "synced"
         && state.syncState.networkPeerCount === expectedPeerCount
-        && state.syncState.transport.webRtcPeerCount >= expectedPeerCount
+        && state.syncState.transport.webSocketConnected
+        && state.syncState.transport.serverSynced
         && state.syncState.transport.connectedPeerCount >= expectedPeerCount
         && state.syncState.transport.syncedPeerCount >= expectedPeerCount
         && networkPeers.length === expectedPeerCount

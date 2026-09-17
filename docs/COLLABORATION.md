@@ -7,9 +7,14 @@ WebSocket service. The target runtime is Cloudflare Workers with one Durable
 Object per collaboration room. Docker runs the same Workers runtime locally;
 it is not a production container deployment.
 
-The migration is deliberately staged. The legacy server remains available for
-the maintained browser suite until the Web client adapter and equivalent tests
-move to the new protocol.
+The migration is deliberately staged. The product adapter and maintained
+collaboration tests use the Worker service. The legacy server and TURN container
+remain in the repository pending a separate removal pass.
+
+The infrastructure foundation now has a Worker room API, capability-protected
+WebSockets, bidirectional state-vector exchange, bounded document admission,
+and chunked SQLite snapshots. The production browser adapter uses this protocol
+with fixed-window batching, IndexedDB recovery, reconnect, and live membership.
 
 Offline editing and session-local Undo/Redo semantics are specified separately
 in [Collaborative History](COLLABORATIVE-HISTORY.md). The current history
@@ -48,10 +53,18 @@ A pure trailing debounce is forbidden: continuous editing must still reach
 durable storage at the maximum interval. Presence traffic may be throttled but
 is never persisted.
 
-The initial room store keeps a compact merged Yjs update. Before the demo allows
-larger documents, snapshots must be chunked below the Durable Object row/value
-limit. Long-lived append-only update logs are not acceptable; updates must be
-compacted and obsolete chunks deleted.
+The room store keeps a compact merged Yjs update in 64 KiB SQLite chunks.
+Snapshot replacement deletes old chunks and increments the room revision in
+one synchronous transaction. A `durable` notification is sent only after the
+storage sync completes. Write failures report `persistence-error` and schedule
+a retry. Long-lived append-only update logs are not used.
+
+The foundation caps an encoded document at 1,000,000 bytes so a complete
+reconnect update fits inside the 1 MiB frame limit. Each update is validated on
+a temporary Y.Doc before replacing the live room document; invalid and
+over-capacity updates are rejected before broadcast. This bounded validation
+copies the current document per update and should be profiled before raising
+the demo's size or traffic limits.
 
 The first implementation uses a short in-memory persistence timer. A runtime
 reset before that timer completes may discard the server's dirty buffer, so the
@@ -70,12 +83,50 @@ The Cloudflare service starts with protocol `cotab-yjs-v1`:
   broadcasts it to other sockets, and schedules durable persistence.
 - Binary frame type `1` is reserved for awareness and is broadcast without
   persistence.
+- Binary frame type `2` carries a Yjs state vector. The server sends its vector
+  on connection. The client answers with a type `0` update containing its
+  missing state and sends its own type `2` vector. The server answers that
+  vector with a type `0` update. Receiving a document update does not trigger
+  another vector response. This repairs missing state in both directions.
 - Text frames are control messages only. The foundation accepts `ping` and
   reports durable revisions after a successful snapshot write.
 
-The browser provider is not part of the infrastructure foundation. Before it
-replaces the legacy adapter, the protocol must add a state-vector handshake or
-equivalent reconnect exchange so clients transfer only missing state.
+After answering a state-vector request, the server sends `sync-complete` with
+its current vector. The browser sends any remaining local difference, including
+edits made during the handshake, and marks the session synchronized. This is a
+transport handshake, not a durable-save acknowledgement.
+
+The browser sends `presence` controls with its display name and synchronization
+status. The server assigns a connection ID and broadcasts an authoritative
+`members` roster on presence changes and socket close/error. Identity lives in
+live socket attachments, which survive hibernation but are not room snapshots.
+Frame type `1` remains an ephemeral relay; it is not the membership mechanism.
+
+## Browser Provider
+
+Set `VITE_COLLABORATION_URL` to the Worker HTTP origin (local default:
+`http://localhost:8787`). The adapter derives the WebSocket endpoint. The room
+UI copies and accepts a `roomId.capability` invitation. Keep the entire invitation
+private to intended participants. Capabilities stay in the adapter's memory;
+EditorEngine exposes only the room ID in its ordinary state. Invitations must be
+pasted again after reopening the app and are never written into Y.Doc or
+IndexedDB keys. Legacy six-character room codes are not Worker invitations.
+
+IndexedDB recovery keys include the service origin and room ID. Late cache
+updates follow the same outbound document path as edits. A fixed 150 ms batch
+window bounds delay during continuous editing. Hidden pages, document switches,
+and deliberate room departure request an immediate flush. Disconnected changes
+remain in Y.Doc and IndexedDB rather than an unbounded network queue.
+
+A heartbeat detects silent sockets, and reconnect repeats the bidirectional
+state-vector exchange with exponential backoff capped at eight seconds. Once a
+session has synchronized, transient outages keep retrying. Initial connections
+stop after eight failed attempts while online; malformed and oversized updates
+stop immediately with an error. Capacity and persistence failures are visible
+in the room dialog. Local edits remain available when the server rejects them.
+`webSocketConnected` and `serverSynced` distinguish transport readiness from
+membership; the old WebRTC counters remain zero until legacy diagnostics are
+removed.
 
 ## Storage and Scaling
 
@@ -112,11 +163,18 @@ different WebSocket host without changing score semantics.
 
 ## Migration Phases
 
-1. Add the Worker, Durable Object, local Wrangler container, room API, and
-   versioned WebSocket boundary.
-2. Add the browser WebSocket provider and state-vector synchronization while
-   retaining IndexedDB.
-3. Move maintained collaboration E2E tests to the Worker service.
-4. Remove the legacy signaling server, its TURN dependency, and obsolete
-   transport diagnostics.
-5. Add retention, abuse controls, observability, and production deployment.
+| Phase | Status | Exit criteria |
+|-------|--------|---------------|
+| Worker foundation | Implemented | Room authorization, concurrent merge, isolation, bounded admission, continuous-edit persistence, offline repair, and nonempty snapshot recovery after a Docker runtime restart pass in the maintained foundation spec. |
+| Browser provider | Implemented | Existing engine adapter uses the WebSocket exchange; IndexedDB, bounded batching, capability sharing, reconnect, and ephemeral membership work through the product UI. |
+| Product verification | Implemented | Maintained collaboration and Agent workflows run against the Worker and assert shared Y.Doc results and settled rendering. |
+| Legacy removal | Pending | Product verification passes before removing signaling, TURN, and obsolete diagnostics. |
+| Public deployment | Pending | Retention, abuse controls, observability, explicit capacity errors, and a deployment/rollback procedure are verified. |
+
+The foundation spec is `tests/e2e/specs/cloudflare-collaboration-foundation.spec.ts`.
+It restarts the local `collaboration` container against its existing volume;
+run it against a development service, not a shared production endpoint.
+It does not establish production failover guarantees. Product behavior is
+covered separately by `coop.spec.ts` and `collaborative-history.spec.ts`,
+including offline/cache recovery, Agent edits, and settled rendering. The protocol unit tests also verify client/server frame compatibility
+using real Yjs state vectors and updates.

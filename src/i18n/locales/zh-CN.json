@@ -1146,6 +1146,11 @@
   },
 
   "room": {
+    "errorPersistence": "房间恢复存储暂不可用。重试保存期间请保持文档打开。",
+    "errorCapacity": "房间文档已达到大小限制。本地编辑已保留。",
+    "errorInvitation": "请输入完整的房间邀请。",
+    "copyInvitation": "复制邀请",
+    "invitation": "房间邀请",
     "button": "协作",
     "dialogTitle": "协作房间",
     "createTab": "创建",
@@ -1154,7 +1159,7 @@
     "joinRoom": "加入房间",
     "disconnect": "断开连接",
     "roomCode": "房间代码",
-    "roomCodePlaceholder": "输入6位代码",
+    "roomCodePlaceholder": "粘贴房间邀请",
     "userName": "显示名称",
     "userNamePlaceholder": "你的名字",
     "connecting": "连接中...",

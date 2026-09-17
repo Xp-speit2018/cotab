@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { engine } from "@/core/engine";
 import { useEditorStore } from "@/stores/editor-store";
@@ -18,6 +19,8 @@ export function RoomDialog() {
   const open = usePlayerStore((s) => s.roomDialogOpen);
   const connected = useEditorStore((s) => s.connected);
   const roomCode = useEditorStore((s) => s.roomCode);
+  const syncPhase = useEditorStore((s) => s.syncState.phase);
+  const invitation = roomCode ? engine.getRoomInvitation() : null;
   const peers = useEditorStore((s) => s.peers);
   const connectionStatus = useEditorStore((s) => s.connectionStatus);
   const connectionError = useEditorStore((s) => s.connectionError);
@@ -29,6 +32,8 @@ export function RoomDialog() {
   const [copied, setCopied] = useState(false);
 
   const isConnecting = connectionStatus === "connecting";
+  const isSyncing = syncPhase === "connecting" || syncPhase === "syncing";
+  const statusLabel = connectionError ? "room.errorConnection" : isSyncing ? "room.connecting" : "room.connected";
 
   const handleOpenChange = (value: boolean) => {
     usePlayerStore.setState({ roomDialogOpen: value });
@@ -51,8 +56,8 @@ export function RoomDialog() {
   };
 
   const handleCopyCode = async () => {
-    if (!roomCode) return;
-    await navigator.clipboard.writeText(roomCode);
+    if (!invitation) return;
+    await navigator.clipboard.writeText(invitation);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -68,33 +73,41 @@ export function RoomDialog() {
           <div className="space-y-4 py-2">
             {/* Connected state */}
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-green-500" />
-              <span className="text-sm font-medium">{t("room.connected")}</span>
+              <span className={`h-2 w-2 rounded-full ${syncPhase === "error" ? "bg-destructive" : isSyncing ? "bg-yellow-500" : "bg-green-500"}`} />
+              <span className="text-sm font-medium">{t(statusLabel)}</span>
             </div>
 
             {/* Room code */}
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">
-                {t("room.roomCode")}
+                {t("room.invitation")}
               </label>
               <div className="flex items-center gap-2">
-                <code className="flex-1 rounded border bg-muted px-3 py-1.5 font-mono text-sm">
-                  {roomCode}
+                <code className="min-w-0 flex-1 break-all rounded border bg-muted px-3 py-1.5 font-mono text-sm">
+                  {invitation}
                 </code>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={handleCopyCode}
-                >
-                  {copied ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      aria-label={t("room.copyInvitation")}
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={handleCopyCode}
+                    >
+                      {copied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{t("room.copyInvitation")}</TooltipContent>
+                </Tooltip>
               </div>
             </div>
+
+            {connectionError && <p role="alert" className="text-sm text-destructive">{t(`room.${connectionError}`)}</p>}
 
             {/* Display name */}
             <div className="space-y-1">
@@ -175,13 +188,13 @@ export function RoomDialog() {
             {tab === "join" && (
               <div className="space-y-1">
                 <label className="text-xs text-muted-foreground">
-                  {t("room.roomCode")}
+                  {t("room.invitation")}
                 </label>
                 <Input
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value)}
                   placeholder={t("room.roomCodePlaceholder")}
-                  maxLength={6}
+                  maxLength={56}
                 />
               </div>
             )}

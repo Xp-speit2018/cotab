@@ -244,7 +244,9 @@ test("document tabs share the score column and new-tab creates an unbound blank 
   });
 
   await page.getByRole("button", { name: "Add track" }).click();
-  await page.getByRole("menuitem", { name: /Acoustic Guitar/ }).click();
+  const addTrackDialog = page.getByRole("dialog", { name: "Add Track" });
+  await addTrackDialog.getByRole("button", { name: /^Acoustic Guitar/ }).click();
+  await addTrackDialog.getByRole("button", { name: "Create Track", exact: true }).click();
   await expect.poll(() => page.evaluate(() => ({
     alphaTabTracks: window.__ALPHATAB_API__?.score?.tracks.length,
     editorTracks: window.__PLAYER_STORE__.getState().tracks.length,

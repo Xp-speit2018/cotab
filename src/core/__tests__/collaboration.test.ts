@@ -27,6 +27,38 @@ function createLifecycleHandle() {
 }
 
 describe("EditorEngine collaboration lifecycle", () => {
+  it("keeps invitations out of document state and reports WebSocket recovery accurately", async () => {
+    const engine = new EditorEngine();
+    const provider = { ...createLifecycleHandle(), flush: vi.fn() };
+    const createProvider = vi.fn<CollaborationAdapter["createProvider"]>(() => provider);
+    engine.initDoc();
+    engine.setCollaborationAdapter({
+      resolveRoomCode: () => "public-room-id",
+      getRoomInvitation: () => "private-invitation",
+      createProvider,
+    });
+    await engine.connect("private-invitation", "Ada");
+    expect(engine.roomCode).toBe("public-room-id");
+    expect(engine.getRoomInvitation()).toBe("private-invitation");
+    expect(JSON.stringify(engine.getDoc()?.toJSON())).not.toContain("private-invitation");
+    const presence = createProvider.mock.calls[0][0].onPresenceMessage;
+    const profile = { ...engine.syncState.transport, webSocketConnected: true, serverSynced: false };
+    presence({ type: "transport-profile", profile });
+    expect(engine.syncState.phase).toBe("syncing");
+    presence({ type: "transport-profile", profile: { ...profile, serverSynced: true } });
+    expect(engine.syncState.phase).toBe("ready");
+    presence({ type: "collaboration-error", error: "errorPersistence" });
+    expect(engine.syncState.phase).toBe("error");
+    presence({ type: "collaboration-ready" });
+    expect(engine.connectionError).toBeNull();
+    presence({ type: "transport-profile", profile: { ...profile, webSocketConnected: false } });
+    expect(engine.syncState.phase).toBe("connecting");
+    engine.flushCollaboration();
+    expect(provider.flush).toHaveBeenCalledTimes(1);
+    await engine.disconnect();
+    engine.destroyDoc();
+  });
+
   it("connects, tracks presence, syncs, and disconnects through an injected adapter", async () => {
     const engine = new EditorEngine();
     const provider = createLifecycleHandle();

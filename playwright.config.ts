@@ -38,6 +38,12 @@ export default defineConfig({
   ],
   webServer: [
     {
+      command: "docker compose up --build collaboration",
+      url: "http://localhost:8787",
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+    },
+    {
       command: "docker compose up --build signaling turn",
       url: "http://localhost:4444",
       reuseExistingServer: !process.env.CI,
@@ -49,17 +55,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
       env: {
-        VITE_SIGNALING_URL: "http://localhost:4444",
-        VITE_WEBRTC_ICE_SERVERS: JSON.stringify([
-          {
-            urls: [
-              "turn:127.0.0.1:3478?transport=udp",
-              "turn:127.0.0.1:3478?transport=tcp",
-            ],
-            username: "cotab",
-            credential: "cotab-dev",
-          },
-        ]),
+        VITE_COLLABORATION_URL: "http://localhost:8787",
       },
     },
   ],

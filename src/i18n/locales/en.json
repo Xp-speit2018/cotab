@@ -1147,6 +1147,11 @@
   },
 
   "room": {
+    "errorPersistence": "Room recovery storage is unavailable. Keep this document open while saving retries.",
+    "errorCapacity": "This room has reached its document size limit. Your local edits are retained.",
+    "errorInvitation": "Enter a complete room invitation.",
+    "copyInvitation": "Copy invitation",
+    "invitation": "Room invitation",
     "button": "Collaborate",
     "dialogTitle": "Collaboration Room",
     "createTab": "Create",
@@ -1155,7 +1160,7 @@
     "joinRoom": "Join Room",
     "disconnect": "Disconnect",
     "roomCode": "Room Code",
-    "roomCodePlaceholder": "Enter 6-character code",
+    "roomCodePlaceholder": "Paste the room invitation",
     "userName": "Display Name",
     "userNamePlaceholder": "Your name",
     "connecting": "Connecting...",

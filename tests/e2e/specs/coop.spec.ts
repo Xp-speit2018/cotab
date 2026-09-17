@@ -2,13 +2,13 @@
  * Multi-user collaboration E2E tests.
  *
  * Each test creates isolated browser contexts (separate cookies, storage,
- * WebRTC peers) to simulate different users collaborating in real-time.
+ * WebSocket connections) to simulate different users collaborating in real-time.
  *
- * Prerequisites: Vite dev server + signaling server must be running
+ * Prerequisites: Vite dev server + Worker room service must be running
  * (configured in playwright.config.ts webServer entries).
  */
 
-import { test, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { test, expect, type Browser, type BrowserContext, type Page, type WebSocketRoute } from "@playwright/test";
 import {
   waitForScoreLoaded,
   createRoom,
@@ -30,6 +30,14 @@ import {
 } from "../helpers/coop";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+
+
+type CollaborationWindow = Window & {
+  __COTAB_STORE__: { engine: { getScoreMap(): { get(key: string): unknown } } };
+  __COTAB_TAB_STORE__: { getState(): { syncState: { transport: { webSocketConnected: boolean } } } };
+  __ALPHATAB_API__?: { score?: { title: string; artist: string } };
+  __PLAYER_STORE__: { getState(): { isRendering: boolean } };
+};
 
 interface UserSession {
   context: BrowserContext;
@@ -74,7 +82,10 @@ test.describe("Collaboration (multi-user)", () => {
     try {
       // User A creates a room
       const roomCode = await createRoom(userA.page, "Alice");
-      expect(roomCode).toHaveLength(6);
+      expect(roomCode).toMatch(/^[A-Za-z0-9]{12}\.[A-Za-z0-9_-]{43}$/);
+      await userA.context.grantPermissions(["clipboard-read", "clipboard-write"]);
+      await userA.page.getByRole("button", { name: "Copy invitation" }).click();
+      expect(await userA.page.evaluate(() => navigator.clipboard.readText())).toBe(roomCode);
 
       // Verify User A is connected
       expect(await isConnected(userA.page)).toBe(true);
@@ -85,7 +96,7 @@ test.describe("Collaboration (multi-user)", () => {
       expect(await isConnected(userB.page)).toBe(true);
       await closeRoomDialog(userB.page);
 
-      // Presence alone is insufficient: require a connected and synced data channel.
+      // Presence alone is insufficient: require the completed server handshake.
       await waitForNetworkSynced(userB.page);
       await waitForNetworkSynced(userA.page);
 
@@ -102,8 +113,8 @@ test.describe("Collaboration (multi-user)", () => {
       const syncStateTree = syncStateNode.locator("..");
       await expect(syncStateTree.getByText("networkPeerCount", { exact: true })).toBeVisible();
       await syncStateTree.getByRole("button", { name: /^transport Object/ }).click();
-      await expect(syncStateTree.getByText("signalingConnected", { exact: true })).toBeVisible();
-      await expect(syncStateTree.getByText("webRtcPeerCount", { exact: true })).toBeVisible();
+      await expect(syncStateTree.getByText("webSocketConnected", { exact: true })).toBeVisible();
+      await expect(syncStateTree.getByText("serverSynced", { exact: true })).toBeVisible();
       await syncStateTree.getByRole("button", { name: /^yjs Object/ }).click();
       await expect(syncStateTree.getByText("recentUpdates", { exact: true })).toBeVisible();
     } finally {
@@ -128,9 +139,7 @@ test.describe("Collaboration (multi-user)", () => {
       await waitForNetworkSynced(userA.page);
       await waitForNetworkSynced(userB.page);
 
-      // B leaves by closing the browser context (this closes the WebSocket,
-      // triggering the server's peer-left broadcast — y-webrtc's provider.destroy()
-      // alone does not close the signaling WS connection)
+      // Closing the browser socket removes its ephemeral room membership.
       await cleanupUser(userB);
 
       // A should see B removed from peer list
@@ -306,6 +315,7 @@ test.describe("Collaboration (multi-user)", () => {
       await closeRoomDialog(userA.page);
 
       expect(await isConnected(userA.page)).toBe(false);
+      await waitForPeerCount(userB.page, 0);
 
       // A reconnects to the same room
       await joinRoom(userA.page, roomCode, "Alice");
@@ -325,4 +335,155 @@ test.describe("Collaboration (multi-user)", () => {
       await cleanupUser(userA);
     }
   });
+});
+
+test("offline edits and peer edits converge after automatic reconnect", async ({ browser }) => {
+  const a = await createUser(browser);
+  const b = await createUser(browser);
+  let offline = false;
+  const sockets: WebSocketRoute[] = [];
+  await b.page.routeWebSocket("**/api/rooms/*/sync", (socket) => {
+    if (offline) { void socket.close({ code: 4000 }); return; }
+    sockets.push(socket, socket.connectToServer());
+  });
+  await waitForScoreLoaded(b.page);
+  try {
+    const invitation = await createRoom(a.page, "Alice");
+    await closeRoomDialog(a.page);
+    await joinRoom(b.page, invitation, "Bob");
+    await closeRoomDialog(b.page);
+    await Promise.all([waitForNetworkSynced(a.page), waitForNetworkSynced(b.page)]);
+    expect(sockets.length).toBeGreaterThanOrEqual(2);
+    offline = true;
+    await test.step("Interrupt live sockets", () => Promise.all(sockets.map((socket) => socket.close({ code: 4000 }))));
+    await b.page.waitForFunction(() => {
+      const state = (window as unknown as CollaborationWindow).__COTAB_TAB_STORE__.getState();
+      return state.syncState.transport.webSocketConnected === false;
+    }, undefined, { timeout: 5_000 });
+    await setScoreTitle(b.page, "Written offline");
+    await a.page.evaluate(async () => {
+      const { executeAppAction } = await import("/src/app-actions/registry.ts");
+      const { default: i18n } = await import("/src/i18n/index.ts");
+      executeAppAction("document.score.setArtist", { value: "Online peer" }, { t: i18n.t.bind(i18n) });
+    });
+    offline = false;
+    await Promise.all([waitForNetworkSynced(a.page), waitForNetworkSynced(b.page)]);
+    for (const page of [a.page, b.page]) {
+      await expect.poll(() => page.evaluate(() => {
+        const runtime = window as unknown as CollaborationWindow;
+        const score = runtime.__COTAB_STORE__.engine.getScoreMap();
+        return {
+          title: score.get("title"), artist: score.get("artist"),
+          renderedTitle: runtime.__ALPHATAB_API__?.score?.title,
+          renderedArtist: runtime.__ALPHATAB_API__?.score?.artist,
+          rendering: runtime.__PLAYER_STORE__.getState().isRendering,
+        };
+      })).toEqual({ title: "Written offline", artist: "Online peer", renderedTitle: "Written offline", renderedArtist: "Online peer", rendering: false });
+    }
+  } finally {
+    await cleanupUser(b);
+    await cleanupUser(a);
+  }
+});
+
+test("Agent edits reach the other room participant and its settled renderer", async ({ browser }) => {
+  const a = await createUser(browser);
+  const b = await createUser(browser);
+  try {
+    const invitation = await createRoom(a.page, "Alice");
+    await closeRoomDialog(a.page);
+    await joinRoom(b.page, invitation, "Bob");
+    await closeRoomDialog(b.page);
+    await Promise.all([waitForNetworkSynced(a.page), waitForNetworkSynced(b.page)]);
+    const result = await a.page.evaluate(async () => {
+      Object.defineProperty(window, "__TAURI_INTERNALS__", { value: {}, configurable: true });
+      const { agentPeerRuntime } = await import("/src/agent/agent-peer-runtime.ts");
+      await agentPeerRuntime.start();
+      try {
+        return await agentPeerRuntime.callTool("execute_action", { id: "document.score.setTitle", args: { value: "Agent room edit" } });
+      } finally { agentPeerRuntime.stop(); }
+    });
+    expect(result.ok).toBe(true);
+    expect(result.diagnostics?.renderer?.status).toBe("succeeded");
+    await expect.poll(() => b.page.evaluate(() => {
+      const runtime = window as unknown as CollaborationWindow;
+      return {
+        title: runtime.__COTAB_STORE__.engine.getScoreMap().get("title"),
+        rendered: runtime.__ALPHATAB_API__?.score?.title,
+        rendering: runtime.__PLAYER_STORE__.getState().isRendering,
+      };
+    })).toEqual({ title: "Agent room edit", rendered: "Agent room edit", rendering: false });
+  } finally {
+    await cleanupUser(b);
+    await cleanupUser(a);
+  }
+});
+
+test("IndexedDB recovers unsent edits after reopening the room", async ({ browser }) => {
+  const a = await createUser(browser);
+  const b = await createUser(browser);
+  const sockets: WebSocketRoute[] = [];
+  let offline = false;
+  await b.page.routeWebSocket("**/api/rooms/*/sync", (socket) => {
+    if (offline) { void socket.close({ code: 4000 }); return; }
+    sockets.push(socket, socket.connectToServer());
+  });
+  await waitForScoreLoaded(b.page);
+  try {
+    const invitation = await createRoom(a.page, "Alice");
+    await closeRoomDialog(a.page);
+    await joinRoom(b.page, invitation, "Bob");
+    await closeRoomDialog(b.page);
+    await Promise.all([waitForNetworkSynced(a.page), waitForNetworkSynced(b.page)]);
+    expect(sockets.length).toBeGreaterThanOrEqual(2);
+    offline = true;
+    await test.step("Interrupt live sockets", () => Promise.all(sockets.map((socket) => socket.close({ code: 4000 }))));
+    await b.page.waitForFunction(() => !(window as unknown as CollaborationWindow).__COTAB_TAB_STORE__.getState().syncState.transport.webSocketConnected, undefined, { timeout: 5_000 });
+    await setScoreTitle(b.page, "Recovered from IndexedDB");
+    // Wait for actual IndexedDB recovery, not a guessed persistence delay.
+    await expect.poll(() => b.page.evaluate(async (invitation) => {
+      const { engine } = await import("/src/core/engine.ts");
+      const { createWebCollaborationAdapter } = await import("/src/adapters/web/collaboration.ts");
+      const Doc = engine.getDoc().constructor as { new(): import("yjs").Doc };
+      const recovered = new Doc();
+      const adapter = createWebCollaborationAdapter({ serviceUrl: "http://localhost:8787" });
+      const persistence = adapter.createPersistence(adapter.resolveRoomCode(invitation), recovered);
+      await new Promise<void>((resolve) => persistence.on("synced", resolve));
+      const title = recovered.getMap("score").get("title");
+      persistence.destroy();
+      recovered.destroy();
+      return title;
+    }, invitation)).toBe("Recovered from IndexedDB");
+    expect(await getScoreTitle(a.page)).not.toBe("Recovered from IndexedDB");
+    await b.page.close();
+    b.page = await b.context.newPage();
+    b.page.on("pageerror", (error) => b.pageErrors.push(error.message));
+    await waitForScoreLoaded(b.page);
+    await joinRoom(b.page, invitation, "Bob reopened");
+    await closeRoomDialog(b.page);
+    await Promise.all([waitForNetworkSynced(a.page), waitForNetworkSynced(b.page)]);
+    await Promise.all([waitForScoreTitle(a.page, "Recovered from IndexedDB"), waitForScoreTitle(b.page, "Recovered from IndexedDB")]);
+  } finally {
+    await cleanupUser(b);
+    await cleanupUser(a);
+  }
+});
+
+test("oversized local updates report an error and retain the local document", async ({ browser }) => {
+  const user = await createUser(browser);
+  try {
+    await createRoom(user.page, "Alice");
+    await user.page.evaluate(async () => {
+      const { engine } = await import("/src/core/engine.ts");
+      // Exercise transport admission without asking the notation renderer to
+      // lay out a megabyte-long score title.
+      engine.getDoc().getMap("transport-admission-test").set("payload", "x".repeat(1_050_000));
+    });
+    await expect(user.page.getByRole("alert")).toContainText("document size limit");
+    const retained = await user.page.evaluate(async () => {
+      const { engine } = await import("/src/core/engine.ts");
+      return engine.getDoc().getMap("transport-admission-test").get("payload").length;
+    });
+    expect(retained).toBe(1_050_000);
+  } finally { await cleanupUser(user); }
 });

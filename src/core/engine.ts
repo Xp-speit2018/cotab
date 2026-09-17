@@ -848,8 +848,10 @@ export class EditorEngine {
     }
 
     const transport = this.syncState.transport;
+    if (transport.webSocketConnected === false) return "connecting";
+    if (transport.serverSynced === false) return "syncing";
     if (this._networkPeers.size === 0) {
-      return transport.signalingConnected ? "ready" : "connecting";
+      return (transport.webSocketConnected ?? transport.signalingConnected) ? "ready" : "connecting";
     }
     if (
       transport.syncedPeerCount >= this._networkPeers.size
@@ -893,9 +895,29 @@ export class EditorEngine {
     this._hookRegistry.emit('onConnectionMetaChange');
   }
 
+  flushCollaboration(): void {
+    this.provider?.flush?.();
+  }
+
+  getRoomInvitation(): string | null {
+    return this.roomCode
+      ? this._collaborationAdapter?.getRoomInvitation?.(this.roomCode) ?? this.roomCode
+      : null;
+  }
+
   async connect(roomCode: string, userName: string): Promise<void> {
     if (!this._collaborationAdapter) {
       throw new Error("Collaboration adapter not set. Call setCollaborationAdapter() first.");
+    }
+
+    try {
+      roomCode = this._collaborationAdapter.resolveRoomCode?.(roomCode) ?? roomCode;
+    } catch {
+      this.connectionStatus = "error";
+      this.connectionError = "errorInvitation";
+      this.refreshSyncPhase();
+      this._hookRegistry.emit('onConnectionMetaChange');
+      return;
     }
 
     const connectionGeneration = ++this._connectionGeneration;
@@ -1069,6 +1091,14 @@ export class EditorEngine {
       return;
     }
 
+    if (type === "collaboration-ready") {
+      this.connectionStatus = "connected";
+      this.connectionError = null;
+      this.refreshSyncPhase();
+      this._hookRegistry.emit('onConnectionMetaChange');
+      return;
+    }
+
     if (type === "collaboration-error") {
       this.connectionStatus = "error";
       this.connectionError = typeof msg.error === "string" ? msg.error : "errorConnection";
@@ -1097,6 +1127,7 @@ export let engine = new EditorEngine();
 export function setActiveEngine(next: EditorEngine): void {
   if (next === engine) return;
   const previous = engine;
+  previous.flushCollaboration();
   engine = next;
   for (const listener of activeEngineListeners) listener(next, previous);
 }

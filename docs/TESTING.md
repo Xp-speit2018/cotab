@@ -90,6 +90,16 @@ reconnect, IndexedDB recovery, Agent edits, and settled rendering. Socket-outage
 tests interrupt real Worker connections explicitly because Chromium's HTTP
 offline emulation does not reliably sever an established WebSocket.
 
+`concurrent-editing.spec.ts` holds incoming room frames so both users edit the
+same observed state before delivery resumes. It checks independent metadata,
+same-field conflicts, concurrent bar insertion across all staves, and concurrent
+note properties against both Y.Doc and settled AlphaTab models. It also checks
+that room creation retains the complete bundled score and that remote edits
+preserve a reader's draft, input focus, selection, zoom, layout, and scroll
+position in both layouts. These are two-client local Chromium checks, not a
+production latency or large-room load guarantee. Remote cursor rendering is
+not implemented and is not claimed by presence tests.
+
 Before promoting a regression test, move it into `tests/e2e/specs/`, remove
 diagnostic-only logging and screenshots, and make the assertion describe the
 user-visible or architectural contract.

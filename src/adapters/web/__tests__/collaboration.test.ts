@@ -147,11 +147,26 @@ describe("Worker browser provider", () => {
     expect(presence).toHaveBeenCalledWith({ type: "network-peers", peers: [] });
   });
 
+  it("sends handshake control frames while a large initial score is buffered", () => {
+    const { document, socket, presence } = setup();
+    document.getMap("score").set("large", "x".repeat(2_000_000));
+    vi.spyOn(socket, "send").mockImplementation((value) => {
+      socket.sent.push(value);
+      socket.bufferedAmount += typeof value === "string" ? value.length : value.byteLength;
+    });
+    const server = doc();
+    sync(socket, server);
+    expect(socket.readyState).toBe(Socket.OPEN);
+    expect(server.getMap("score").get("large")).toHaveLength(2_000_000);
+    expect(presence).toHaveBeenCalledWith({ type: "collaboration-ready" });
+    expect(Socket.instances).toHaveLength(1);
+  });
+
   it("recovers from backpressure through a fresh state-vector exchange", () => {
     const { document, socket } = setup();
     const server = doc();
     sync(socket, server);
-    socket.bufferedAmount = 1_000_001;
+    socket.bufferedAmount = 16 * 1024 * 1024;
     document.getMap("score").set("backpressure", true);
     vi.advanceTimersByTime(150);
     expect(socket.readyState).toBe(Socket.CLOSED);
@@ -190,10 +205,10 @@ describe("Worker browser provider", () => {
   it("stops reconnecting on rejected oversized documents and preserves local state", () => {
     const { document, socket, presence } = setup();
     sync(socket, doc());
-    document.getMap("score").set("large", "x".repeat(1_050_000));
+    document.getMap("score").set("large", "x".repeat(8_400_000));
     expect(presence).toHaveBeenCalledWith({ type: "collaboration-error", error: "errorCapacity" });
     vi.advanceTimersByTime(60_000);
     expect(Socket.instances).toHaveLength(1);
-    expect(document.getMap("score").get("large")).toHaveLength(1_050_000);
+    expect(document.getMap("score").get("large")).toHaveLength(8_400_000);
   });
 });

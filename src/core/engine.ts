@@ -1056,8 +1056,14 @@ export class EditorEngine {
     try {
       const roomCode = await this._collaborationAdapter.createRoom();
       if (roomGeneration !== this._connectionGeneration) return;
+      // A newly allocated room starts with the score the creator is viewing.
+      // Joining an existing room still uses only that room's shared document.
+      const initialUpdate = this.doc ? Y.encodeStateAsUpdate(this.doc) : null;
       await this.connect(roomCode, userName);
-      if (!this.connected) return;
+      if (!this.connected || this.roomCode !== roomCode) return;
+      if (initialUpdate && this.doc) {
+        Y.applyUpdate(this.doc, initialUpdate);
+      }
 
       // Ensure default score content
       if (this.scoreMap) {

@@ -118,9 +118,9 @@ test("invalid and over-capacity updates cannot poison accepted room state", asyn
   await expect.poll(() => invalid.closeCode()).toBe(1007);
 
   const baseline = Y.encodeStateVector(writer.doc);
-  writer.doc.getMap("score").set("payload", "x".repeat(1_010_000));
+  writer.doc.getMap("score").set("payload", "x".repeat(8_010_000));
   await writer.send(DOCUMENT_UPDATE_FRAME, Y.encodeStateAsUpdate(writer.doc, baseline));
-  await expect.poll(() => writer.closeCode()).toBe(1009);
+  await expect.poll(() => writer.closeCode(), { timeout: 15_000 }).toBe(1009);
   const fresh = new BrowserRoomPeer(page, "fresh");
   await fresh.open(room);
   await fresh.sync();

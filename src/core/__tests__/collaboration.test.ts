@@ -166,6 +166,24 @@ describe("EditorEngine collaboration lifecycle", () => {
     expect(engine.getScoreMap()?.get("tracks")).toBeDefined();
   });
 
+  it("seeds a new room with the creator's existing score", async () => {
+    const engine = new EditorEngine();
+    engine.initDoc();
+    EditorEngine.createNewScore(engine.getScoreMap()!);
+    engine.localEditYDoc(() => engine.getScoreMap()!.set("title", "Rehearsal arrangement"));
+    const before = engine.getScoreMap()!.toJSON();
+    const provider = createLifecycleHandle();
+    engine.setCollaborationAdapter({
+      createRoom: async () => "NEW",
+      createProvider: () => provider,
+    });
+    await engine.createRoom("Alice");
+    expect(engine.getScoreMap()!.toJSON()).toEqual(before);
+    expect(engine.getUndoManager()!.canUndo()).toBe(false);
+    await engine.disconnect();
+    engine.destroyDoc();
+  });
+
   it("reports missing rooms without creating a provider", async () => {
     const engine = new EditorEngine();
     const createProvider = vi.fn();

@@ -7,8 +7,9 @@ import {
 } from "./cloudflare-protocol";
 
 const BATCH_MS = 150;
-const MAX_BUFFER_BYTES = 1_000_000;
-const MAX_FRAME_BYTES = 1_048_576;
+const MAX_BATCH_BYTES = 1_000_000;
+const MAX_FRAME_BYTES = 8 * 1024 * 1024;
+const MAX_BUFFER_BYTES = 2 * MAX_FRAME_BYTES;
 const HEARTBEAT_MS = 5_000;
 
 export function createRoomProvider({
@@ -55,7 +56,7 @@ export function createRoomProvider({
       socket.close(4009, "Document too large");
       return false;
     }
-    if (socket.bufferedAmount > MAX_BUFFER_BYTES) {
+    if (socket.bufferedAmount + bytes > MAX_BUFFER_BYTES) {
       // Recover from the document on reconnect instead of growing a send queue.
       socket.close(4000, "Backpressure");
       return false;
@@ -89,7 +90,7 @@ export function createRoomProvider({
     if (updateOrigin === origin || destroyed || !synced) return;
     pending.push(update);
     pendingBytes += update.byteLength;
-    if (pendingBytes >= MAX_BUFFER_BYTES) flush();
+    if (pendingBytes >= MAX_BATCH_BYTES) flush();
     // Fixed window: continuous edits cannot postpone a batch indefinitely.
     else batchTimer ??= setTimeout(flush, BATCH_MS);
   };

@@ -55,12 +55,13 @@ one synchronous transaction. A `durable` notification is sent only after the
 storage sync completes. Write failures report `persistence-error` and schedule
 a retry. Long-lived append-only update logs are not used.
 
-The foundation caps an encoded document at 1,000,000 bytes so a complete
-reconnect update fits inside the 1 MiB frame limit. Each update is validated on
+The foundation caps an encoded document at 8,000,000 bytes so a complete
+reconnect update fits inside the 8 MiB frame limit. Each update is validated on
 a temporary Y.Doc before replacing the live room document; invalid and
 over-capacity updates are rejected before broadcast. This bounded validation
-copies the current document per update and should be profiled before raising
-the demo's size or traffic limits.
+copies the current document per update. The maintained two-user tests exercise
+the full bundled demo; larger documents and traffic still require profiling.
+The frame cap remains below the [Workers 32 MiB receive limit](https://developers.cloudflare.com/durable-objects/platform/limits/).
 
 The first implementation uses a short in-memory persistence timer. A runtime
 reset before that timer completes may discard the server's dirty buffer, so the

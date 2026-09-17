@@ -5,9 +5,9 @@ export const DOCUMENT_UPDATE_FRAME = 0;
 export const AWARENESS_FRAME = 1;
 export const STATE_VECTOR_FRAME = 2;
 
-export const MAX_FRAME_BYTES = 1_048_576;
+export const MAX_FRAME_BYTES = 8 * 1024 * 1024;
 // A complete reconnect update must fit inside a document frame.
-export const MAX_SNAPSHOT_BYTES = 1_000_000;
+export const MAX_SNAPSHOT_BYTES = 8_000_000;
 export const SNAPSHOT_CHUNK_BYTES = 64 * 1024;
 export const MAX_CONNECTIONS_PER_ROOM = 16;
 

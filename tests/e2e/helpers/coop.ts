@@ -273,39 +273,21 @@ export async function ensureScoreExists(page: Page): Promise<void> {
 }
 
 /**
- * Add a bar via Y.Doc transaction (insert bar after the last one).
+ * Add a bar across all staves through the production action.
  * Ensures a score exists first.
  */
 export async function addBar(page: Page): Promise<void> {
   await ensureScoreExists(page);
-  await page.evaluate(() => {
-    const storeModule = (window as unknown as Record<string, unknown>).__COTAB_STORE__;
-    const schema = (window as unknown as Record<string, unknown>).__COTAB_SCHEMA__;
-
-    const core = storeModule as {
-      engine: {
-        getScoreMap: () => import("yjs").Map<unknown> | null;
-        localEditYDoc: (callback: () => void) => void;
-      };
-      EditorEngine: {
-        pushDefaultBar: (bars: import("yjs").Array<import("yjs").Map<unknown>>) => void;
-      };
-    };
-
-    const scoreMap = core.engine.getScoreMap();
-    if (!scoreMap) throw new Error("No scoreMap");
-
-    core.engine.localEditYDoc(() => {
-      const tracks = scoreMap.get("tracks") as import("yjs").Array<import("yjs").Map<unknown>>;
-      const track = tracks.get(0);
-      const staves = track.get("staves") as import("yjs").Array<import("yjs").Map<unknown>>;
-      const staff = staves.get(0);
-      const bars = staff.get("bars") as import("yjs").Array<import("yjs").Map<unknown>>;
-      core.EditorEngine.pushDefaultBar(bars);
-
-      const masterBars = scoreMap.get("masterBars") as import("yjs").Array<import("yjs").Map<unknown>>;
-      masterBars.push([(schema as { createMasterBar: () => import("yjs").Map<unknown> }).createMasterBar()]);
+  await page.evaluate(async () => {
+    const { engine } = await import("/src/core/engine.ts");
+    const { executeAppAction } = await import("/src/app-actions/registry.ts");
+    const { default: i18n } = await import("/src/i18n/index.ts");
+    const bars = engine.getScoreMap()!.get("masterBars") as import("yjs").Array<unknown>;
+    engine.localSetSelection({
+      trackIndex: 0, staffIndex: 0, voiceIndex: 0,
+      barIndex: bars.length - 1, beatIndex: 0, string: 1,
     });
+    executeAppAction("document.bar.insertAfter", {}, { t: i18n.t.bind(i18n) });
   });
 }
 

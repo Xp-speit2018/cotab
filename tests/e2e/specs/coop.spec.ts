@@ -157,8 +157,7 @@ test.describe("Collaboration (multi-user)", () => {
       const roomCode = await createRoom(userA.page, "Alice");
       await closeRoomDialog(userA.page);
 
-      // A creates a full score and modifies the title
-      // (connectProviders creates an empty Y.Doc, so we need to populate it)
+      // A modifies the score before B joins.
       await ensureScoreExists(userA.page);
       await setScoreTitle(userA.page, "Late Joiner Test");
       await waitForScoreTitle(userA.page, "Late Joiner Test", 5_000);
@@ -249,7 +248,7 @@ test.describe("Collaboration (multi-user)", () => {
       await waitForNetworkSynced(userA.page);
       await waitForNetworkSynced(userB.page);
 
-      // A creates a full score (room starts with empty Y.Doc)
+      // Ensure a score is available before testing structural edits.
       await ensureScoreExists(userA.page);
 
       await userB.page.waitForFunction(() => {
@@ -477,13 +476,13 @@ test("oversized local updates report an error and retain the local document", as
       const { engine } = await import("/src/core/engine.ts");
       // Exercise transport admission without asking the notation renderer to
       // lay out a megabyte-long score title.
-      engine.getDoc().getMap("transport-admission-test").set("payload", "x".repeat(1_050_000));
+      engine.getDoc().getMap("transport-admission-test").set("payload", "x".repeat(8_400_000));
     });
     await expect(user.page.getByRole("alert")).toContainText("document size limit");
     const retained = await user.page.evaluate(async () => {
       const { engine } = await import("/src/core/engine.ts");
       return engine.getDoc().getMap("transport-admission-test").get("payload").length;
     });
-    expect(retained).toBe(1_050_000);
+    expect(retained).toBe(8_400_000);
   } finally { await cleanupUser(user); }
 });

@@ -71,8 +71,8 @@ export class BrowserRoomPeer {
 
   async sendRaw(frame: Uint8Array): Promise<void> {
     await this.page.evaluate(({ id, data }) => {
-      (window as unknown as RoomTestWindow).roomTestSockets[id].socket.send(new Uint8Array(data));
-    }, { id: this.id, data: [...frame] });
+      (window as unknown as RoomTestWindow).roomTestSockets[id].socket.send(Uint8Array.from(atob(data), (character) => character.charCodeAt(0)));
+    }, { id: this.id, data: Buffer.from(frame).toString("base64") });
   }
 
   async sync(): Promise<void> {

@@ -38,10 +38,6 @@ import {
 
 // ─── Real Y.Doc lifecycle (used by test helpers) ─────────────────────────────
 
-let _doc: Y.Doc | null = null;
-let _scoreMap: Y.Map<unknown> | null = null;
-let _undoManager: Y.UndoManager | null = null;
-
 function initDoc(): void {
   if (_engineRefs.doc) return;
   _engineRefs.doc = new Y.Doc();
@@ -49,10 +45,6 @@ function initDoc(): void {
   _engineRefs.undoManager = new Y.UndoManager([_engineRefs.scoreMap], {
     trackedOrigins: new Set([_engineRefs.doc.clientID]),
   });
-  // Also set the old variables for backward compatibility
-  _doc = _engineRefs.doc;
-  _scoreMap = _engineRefs.scoreMap;
-  _undoManager = _engineRefs.undoManager;
 }
 
 function destroyDoc(): void {
@@ -65,10 +57,6 @@ function destroyDoc(): void {
     _engineRefs.doc = null;
   }
   _engineRefs.scoreMap = null;
-  // Also clear the old variables
-  _undoManager = null;
-  _doc = null;
-  _scoreMap = null;
 }
 
 function getDoc(): Y.Doc | null { return _engineRefs.doc; }
@@ -120,7 +108,7 @@ function pushDefaultTrack(
 // ─── Navigate helpers (inline — avoids circular dep with engine mock) ────────
 
 function _resolveYTrack(trackIndex: number): Y.Map<unknown> | null {
-  const sm = _scoreMap;
+  const sm = getScoreMap();
   if (!sm) return null;
   const tracks = sm.get("tracks") as Y.Array<Y.Map<unknown>> | undefined;
   if (!tracks || trackIndex < 0 || trackIndex >= tracks.length) return null;
@@ -157,7 +145,7 @@ function _resolveYNote(trackIndex: number, staffIndex: number, barIndex: number,
   return notes.get(noteIndex);
 }
 function _resolveYMasterBar(barIndex: number): Y.Map<unknown> | null {
-  const sm = _scoreMap;
+  const sm = getScoreMap();
   if (!sm) return null;
   const masterBars = sm.get("masterBars") as Y.Array<Y.Map<unknown>> | undefined;
   if (!masterBars || barIndex < 0 || barIndex >= masterBars.length) return null;
@@ -180,7 +168,6 @@ interface TestMockState {
   visibleTrackIndices: number[];
   storeOverrides: Record<string, unknown>;
   mockApiScore: unknown;
-  integrationApi: { load: ReturnType<typeof vi.fn>; settings: unknown } | null;
 }
 
 function createMockSelectorState(): SelectorState {
@@ -224,11 +211,7 @@ const _mockState = ((globalThis as Record<string, unknown>).__testMockState ??= 
   visibleTrackIndices: [0],
   storeOverrides: {},
   mockApiScore: null,
-  integrationApi: null,
 }) as TestMockState;
-
-// Convenience aliases for backward compat within this file
-const _ms = () => (globalThis as Record<string, unknown>).__testMockState as TestMockState;
 
 // ─── Module mocks (call before importing action modules) ─────────────────────
 
@@ -237,15 +220,6 @@ vi.mock("@/stores/render-api", () => {
   return {
     getApi: vi.fn(() => {
       const s = ms();
-      if (s?.integrationApi) {
-        return {
-          score: null,
-          settings: s.integrationApi.settings,
-          load: s.integrationApi.load,
-          render: vi.fn(),
-          renderTracks: vi.fn(),
-        };
-      }
       return s?.mockApiScore
         ? {
             score: s.mockApiScore,
@@ -512,15 +486,6 @@ vi.mock("@/stores/render-internals", () => {
     // re-exports from render-api
     getApi: vi.fn(() => {
       const s = ms();
-      if (s?.integrationApi) {
-        return {
-          score: null,
-          settings: s.integrationApi.settings,
-          load: s.integrationApi.load,
-          render: vi.fn(),
-          renderTracks: vi.fn(),
-        };
-      }
       return s?.mockApiScore
         ? {
             score: s.mockApiScore,
@@ -570,10 +535,6 @@ vi.mock("@/stores/render-internals", () => {
 
 vi.mock("@/core/editor/action-log", () => ({
   debugLog: vi.fn(),
-}));
-
-vi.mock("y-webrtc", () => ({
-  WebrtcProvider: vi.fn(),
 }));
 
 vi.mock("y-indexeddb", () => ({
@@ -632,21 +593,6 @@ export function setMockApiScore(score: unknown): void {
 
 export function clearMockApiScore(): void {
   _mockState.mockApiScore = null;
-}
-
-/**
- * Set getApi() to return an API with real Settings and a load spy.
- * Used by action-alphatab-integration tests to verify rebuildFromYDoc → api.load.
- */
-export function setIntegrationApi(api: {
-  load: ReturnType<typeof vi.fn>;
-  settings: unknown;
-}): void {
-  _mockState.integrationApi = api;
-}
-
-export function clearIntegrationApi(): void {
-  _mockState.integrationApi = null;
 }
 
 export function snapshotDoc(): ScoreSchema {
@@ -925,7 +871,6 @@ export function resetMockState(): void {
   _mockState.selectedNoteIndex = -1;
   _mockState.visibleTrackIndices = [0];
   _mockState.mockApiScore = null;
-  _mockState.integrationApi = null;
   for (const key of Object.keys(_mockState.storeOverrides)) {
     delete _mockState.storeOverrides[key];
   }

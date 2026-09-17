@@ -1,21 +1,12 @@
-FROM node:22-alpine AS builder
+FROM node:22-slim
 
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY package.json package-lock.json ./
 RUN npm ci
-COPY tsconfig.json ./
-COPY src/ src/
-RUN npm run build:legacy
 
-FROM node:22-alpine
+COPY tsconfig.json wrangler.jsonc ./
+COPY worker/ worker/
 
-WORKDIR /app
-COPY --from=builder /app/package.json /app/package-lock.json* ./
-RUN npm ci --omit=dev
-COPY --from=builder /app/dist/ dist/
+EXPOSE 8787
 
-ENV PORT=4444
-EXPOSE 4444
-
-USER node
-CMD ["node", "dist/index.js"]
+CMD ["npm", "run", "dev", "--", "--ip", "0.0.0.0", "--port", "8787", "--persist-to", "/data"]

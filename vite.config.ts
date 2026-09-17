@@ -17,7 +17,6 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
-    exclude: ["src/**/*.integration.test.{ts,tsx}"],
     setupFiles: ["tests/unit/setup.ts"],
   },
 });

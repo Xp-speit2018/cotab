@@ -848,10 +848,10 @@ export class EditorEngine {
     }
 
     const transport = this.syncState.transport;
-    if (transport.webSocketConnected === false) return "connecting";
-    if (transport.serverSynced === false) return "syncing";
+    if (!transport.webSocketConnected) return "connecting";
+    if (!transport.serverSynced) return "syncing";
     if (this._networkPeers.size === 0) {
-      return (transport.webSocketConnected ?? transport.signalingConnected) ? "ready" : "connecting";
+      return "ready";
     }
     if (
       transport.syncedPeerCount >= this._networkPeers.size

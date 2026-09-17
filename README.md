@@ -96,7 +96,7 @@ configuration is intentionally unsupported.
   concurrent editing, reconnect, and server restart recovery.
   The Worker foundation and product browser provider are implemented, including
   capability invitations, reconnect, IndexedDB recovery, and live membership.
-  Legacy signaling/TURN removal and public deployment remain pending.
+  Legacy transport cleanup is complete; public deployment remains pending.
 - [x] **Layout-independent snap grid** — Remove the snap grid's historical
   single-system technical debt. This is a prerequisite for dual layout support
   and fixed-system incremental rendering.

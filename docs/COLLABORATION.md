@@ -2,14 +2,10 @@
 
 ## Status
 
-CoTab is migrating from its legacy signaling transport to a server-relayed
-WebSocket service. The target runtime is Cloudflare Workers with one Durable
-Object per collaboration room. Docker runs the same Workers runtime locally;
-it is not a production container deployment.
-
-The migration is deliberately staged. The product adapter and maintained
-collaboration tests use the Worker service. The legacy server and TURN container
-remain in the repository pending a separate removal pass.
+CoTab uses a server-relayed WebSocket service running on Cloudflare Workers,
+with one Durable Object per collaboration room. The product adapter and
+maintained collaboration tests use this service. Docker runs the same Workers
+runtime locally; it is not a production container deployment.
 
 The infrastructure foundation now has a Worker room API, capability-protected
 WebSockets, bidirectional state-vector exchange, bounded document admission,
@@ -125,8 +121,7 @@ stop after eight failed attempts while online; malformed and oversized updates
 stop immediately with an error. Capacity and persistence failures are visible
 in the room dialog. Local edits remain available when the server rejects them.
 `webSocketConnected` and `serverSynced` distinguish transport readiness from
-membership; the old WebRTC counters remain zero until legacy diagnostics are
-removed.
+membership.
 
 ## Storage and Scaling
 
@@ -168,7 +163,7 @@ different WebSocket host without changing score semantics.
 | Worker foundation | Implemented | Room authorization, concurrent merge, isolation, bounded admission, continuous-edit persistence, offline repair, and nonempty snapshot recovery after a Docker runtime restart pass in the maintained foundation spec. |
 | Browser provider | Implemented | Existing engine adapter uses the WebSocket exchange; IndexedDB, bounded batching, capability sharing, reconnect, and ephemeral membership work through the product UI. |
 | Product verification | Implemented | Maintained collaboration and Agent workflows run against the Worker and assert shared Y.Doc results and settled rendering. |
-| Legacy removal | Pending | Product verification passes before removing signaling, TURN, and obsolete diagnostics. |
+| Legacy removal | Complete | Signaling, TURN, WebRTC dependencies, and obsolete transport diagnostics have been removed. |
 | Public deployment | Pending | Retention, abuse controls, observability, explicit capacity errors, and a deployment/rollback procedure are verified. |
 
 The foundation spec is `tests/e2e/specs/cloudflare-collaboration-foundation.spec.ts`.
@@ -176,5 +171,6 @@ It restarts the local `collaboration` container against its existing volume;
 run it against a development service, not a shared production endpoint.
 It does not establish production failover guarantees. Product behavior is
 covered separately by `coop.spec.ts` and `collaborative-history.spec.ts`,
-including offline/cache recovery, Agent edits, and settled rendering. The protocol unit tests also verify client/server frame compatibility
-using real Yjs state vectors and updates.
+including offline/cache recovery, Agent edits, and settled rendering. Protocol
+unit tests also verify client/server frame compatibility using real Yjs state
+vectors and updates.

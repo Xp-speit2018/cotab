@@ -16,9 +16,9 @@ repository's `.nvmrc`).
 | Generated action reference | `npm run check:action-docs` | Ensures `docs/DOCUMENT-ACTIONS.generated.md` matches the action definitions |
 | Tool compilation | `npm run check:tools` | Codex-guide, documentation, and AlphaTab audit tools used by automation |
 | Web production build | `npm run build:web` | Vite production bundle |
-| Collaboration server build | `npm run build:server` | Strict legacy server compilation plus Worker typecheck and Wrangler dry-run bundle |
+| Collaboration server build | `npm run build:server` | Worker typecheck and Wrangler dry-run bundle |
 | Desktop shell | `npm run check:desktop` | Locked Rust/Tauri dependency graph and native code |
-| Browser workflows | `npm run test:e2e` | Chromium, Vite, the Cloudflare-compatible room service, legacy signaling/TURN, rendering, Agent mocks, and multi-client collaboration |
+| Browser workflows | `npm run test:e2e` | Chromium, Vite, the Cloudflare-compatible room service, rendering, Agent mocks, and multi-client collaboration |
 
 `npm run verify` runs every deterministic Node gate: type checks, Vitest,
 Codex-guide and generated-documentation checks, tool compilation, and
@@ -27,8 +27,7 @@ Web/server builds.
 browser suite.
 
 The browser suite requires Docker because Playwright starts the
-Cloudflare-compatible collaboration service and the legacy signaling/TURN
-services from `compose.yaml`. Install Chromium once with:
+Cloudflare-compatible collaboration service from `compose.yaml`. Install Chromium once with:
 
 ```bash
 npx playwright install chromium
@@ -120,10 +119,9 @@ The `CI` workflow runs on pull requests and pushes to `main`:
 - **Types, tests, docs, and builds** runs `npm run verify`.
 - **Tauri check** installs Linux WebKit dependencies and runs the locked Rust
   check.
-- **Chromium E2E** installs Chromium, starts Vite, the Worker room service, and
-  legacy signaling/TURN through
-  Playwright, and uploads traces, videos, and the HTML report on failure.
+- **Chromium E2E** installs Chromium, starts Vite and the Worker room service
+  through Playwright, and uploads traces, videos, and the HTML report on failure.
 
-The manual `Generate Wiki` workflow runs its TypeScript source generators
+The manual `Generate Wiki` workflow runs the action-reference TypeScript generator
 through the repository-pinned `tsx` dependency before updating the separate
 GitHub wiki repository.

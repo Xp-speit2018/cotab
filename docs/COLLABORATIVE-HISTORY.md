@@ -245,7 +245,7 @@ GC settings, devices, or every score invariant. Structural conflicts and the
 H9 counterexample have separate named tests.
 
 `tests/e2e/specs/collaborative-history.spec.ts` exercises production AppActions
-in two isolated browser contexts over the current WebRTC provider. It checks
+in two isolated browser contexts over the Worker WebSocket provider. It checks
 both Y.Doc metadata and the settled AlphaTab model after selective Undo/Redo.
 It does not establish WebSocket-provider parity or cursor restoration.
 

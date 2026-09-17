@@ -140,7 +140,7 @@ connection statistics, and live member lists must not be stored in durable room
 snapshots. Anonymous room secrets and server persistence metadata must also stay
 outside Y.Doc.
 
-The planned collaboration service must run against the Cloudflare Workers
+The collaboration service must run against the Cloudflare Workers
 runtime locally and in deployment. Keep protocol and Yjs synchronization code
 runtime-neutral; isolate Workers bindings, Durable Object routing, WebSocket
 lifecycle, and storage access at the server adapter boundary. Docker is a local

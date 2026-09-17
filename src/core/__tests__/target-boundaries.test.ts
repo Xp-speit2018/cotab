@@ -24,7 +24,7 @@ const forbiddenImports = [
   },
   {
     roots: sharedTargetRoots,
-    patterns: [/^y-webrtc$/, /^y-indexeddb$/],
+    patterns: [/^y-indexeddb$/],
     reason: "shared targets must not depend on concrete Web transport/storage",
   },
   {

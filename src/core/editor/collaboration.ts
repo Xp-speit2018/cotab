@@ -8,11 +8,8 @@ export interface PeerInfo {
 }
 
 export interface CollaborationTransportProfile {
-  webSocketConnected?: boolean;
-  serverSynced?: boolean;
-  signalingConnected: boolean;
-  webRtcPeerCount: number;
-  broadcastChannelPeerCount: number;
+  webSocketConnected: boolean;
+  serverSynced: boolean;
   connectedPeerCount: number;
   syncedPeerCount: number;
   bytesSent: number;
@@ -87,9 +84,8 @@ export function createSyncState(
     logicalPeerCount: 0,
     lastSyncedAt: null,
     transport: {
-      signalingConnected: false,
-      webRtcPeerCount: 0,
-      broadcastChannelPeerCount: 0,
+      webSocketConnected: false,
+      serverSynced: false,
       connectedPeerCount: 0,
       syncedPeerCount: 0,
       bytesSent: 0,

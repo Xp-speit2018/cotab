@@ -25,9 +25,6 @@ jobs:
       - name: Generate Actions-Full-List.md
         run: npm run docs:actions:wiki > /tmp/Actions-Full-List.md
 
-      - name: Generate Signaling-Server-API.md
-        run: npm run docs:server-api:wiki > /tmp/Signaling-Server-API.md
-
       - name: Checkout wiki
         uses: actions/checkout@v4
         with:
@@ -38,7 +35,7 @@ jobs:
         working-directory: wiki
         run: |
           cp /tmp/Actions-Full-List.md Actions-Full-List.md
-          cp /tmp/Signaling-Server-API.md Signaling-Server-API.md
+          git rm --ignore-unmatch Signaling-Server-API.md
 
           # Update the auto-generated pages table in Home.md
           node -e "
@@ -48,7 +45,6 @@ jobs:
               '| Page | Last updated |',
               '|------|-------------|',
               '| [Actions — Full List](Actions-Full-List) | ' + today + ' |',
-              '| [Signaling Server API](Signaling-Server-API) | ' + today + ' |',
             ].join('\n');
             let home = fs.readFileSync('Home.md', 'utf-8');
             home = home.replace(
@@ -58,7 +54,7 @@ jobs:
             fs.writeFileSync('Home.md', home);
           "
 
-          git add Actions-Full-List.md Signaling-Server-API.md Home.md
+          git add Actions-Full-List.md Home.md
           if ! git diff --cached --quiet; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"

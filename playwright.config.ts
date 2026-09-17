@@ -30,9 +30,6 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        launchOptions: {
-          args: ["--disable-features=WebRtcHideLocalIpsWithMdns"],
-        },
       },
     },
   ],
@@ -40,12 +37,6 @@ export default defineConfig({
     {
       command: "docker compose up --build collaboration",
       url: "http://localhost:8787",
-      reuseExistingServer: !process.env.CI,
-      timeout: 120_000,
-    },
-    {
-      command: "docker compose up --build signaling turn",
-      url: "http://localhost:4444",
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

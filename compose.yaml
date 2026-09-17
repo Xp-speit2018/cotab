@@ -2,7 +2,6 @@ services:
   collaboration:
     build:
       context: ./server
-      dockerfile: Dockerfile.cloudflare
     ports:
       - "8787:8787"
     volumes:
@@ -12,36 +11,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 12
-
-  signaling:
-    build:
-      context: ./server
-    ports:
-      - "4444:4444"
-    environment:
-      PORT: "4444"
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4444/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
-      interval: 5s
-      timeout: 3s
-      retries: 12
-
-  turn:
-    image: coturn/coturn:4.6.3
-    command:
-      - --log-file=stdout
-      - --min-port=49152
-      - --max-port=49251
-      - --lt-cred-mech
-      - --user=cotab:cotab-dev
-      - --realm=cotab.local
-      - --external-ip=127.0.0.1
-      - --no-cli
-      - --fingerprint
-    ports:
-      - "3478:3478/tcp"
-      - "3478:3478/udp"
-      - "49152-49251:49152-49251/udp"
 
   webdav:
     image: bytemark/webdav@sha256:21eed0df1238d17766080425f9ef46da2c1130e3e3aa9eaf36794d2a72e7c616

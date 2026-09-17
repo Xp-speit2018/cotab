@@ -10,7 +10,6 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-dist-worker
 *.local
 
 # Environment
@@ -56,3 +55,5 @@ playwright.config.js
 *.njsproj
 *.sln
 *.sw?
+
+.wrangler

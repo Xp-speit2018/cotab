@@ -32,7 +32,7 @@ export function createRoomProvider({
   let lastReceived = Date.now();
   let pingAt: number | null = null;
   let peers: PeerInfo[] = [];
-  let profile = { ...createSyncState().transport, webSocketConnected: false, serverSynced: false };
+  let profile = createSyncState().transport;
 
   const emitProfile = () => {
     profile = {

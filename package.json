@@ -42,7 +42,6 @@
     "audit:alphatab-fields": "tsx tools/alphatab/audit-fields.ts --audit > docs/ALPHATAB-FIELD-AUDIT.tmp.md && tsx tools/alphatab/audit-fields.ts --selection > docs/CORE-FIELD-SELECTION.tmp.md",
     "docs:actions": "tsx tools/docs/generate-document-actions.ts",
     "docs:actions:wiki": "tsx tools/docs/generate-actions-wiki.ts",
-    "docs:server-api:wiki": "tsx tools/docs/generate-server-api-wiki.ts",
     "check:action-docs": "tsx tools/docs/generate-document-actions.ts --check",
     "mcp:dev": "tsx src/mcp/cli.ts",
     "cotab:cli": "tsx src/cli/cli.ts"
@@ -71,7 +70,6 @@
     "tailwindcss": "^4.1.18",
     "uuid": "^11.1.1",
     "y-indexeddb": "^9.0.12",
-    "y-webrtc": "^10.3.0",
     "yjs": "^13.6.22",
     "zod": "^4.4.3",
     "zustand": "^5.0.3"

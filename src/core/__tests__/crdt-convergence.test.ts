@@ -1,6 +1,6 @@
 /**
  * CRDT convergence tests — verifies that two Y.Docs with our schema
- * merge correctly via Y.applyUpdate (the same bytes WebRTC would carry).
+ * merge correctly via Y.applyUpdate (the same updates carried by the network transport).
  *
  * No network, no mocks — pure Yjs merge semantics.
  * Does NOT import from @tests/unit/setup.ts to avoid global mocks.

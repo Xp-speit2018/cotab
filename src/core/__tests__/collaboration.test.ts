@@ -92,7 +92,8 @@ describe("EditorEngine collaboration lifecycle", () => {
       type: "transport-profile",
       profile: {
         ...engine.syncState.transport,
-        signalingConnected: true,
+        webSocketConnected: true,
+        serverSynced: true,
         lastSampleAt: Date.now(),
       },
     });
@@ -111,8 +112,8 @@ describe("EditorEngine collaboration lifecycle", () => {
       type: "transport-profile",
       profile: {
         ...engine.syncState.transport,
-        signalingConnected: true,
-        webRtcPeerCount: 1,
+        webSocketConnected: true,
+        serverSynced: true,
         connectedPeerCount: 1,
         lastSampleAt: Date.now(),
       },

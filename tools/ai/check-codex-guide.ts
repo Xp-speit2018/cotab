@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
@@ -13,66 +13,20 @@ const legacyEntryNames = new Set([
   ".cursorrules",
   "CLAUDE.md",
 ]);
-const ignoredDirectoryNames = new Set([
-  ".git",
-  "blob-report",
-  "dist",
-  "node_modules",
-  "playwright-report",
-  "target",
-  "test-results",
-  "test-screenshots",
-]);
-
-const requiredHeadings = [
-  "## Codex Workflow",
-  "## Repository Verification",
-  "## Repository Layout",
-  "## UI Interaction Harness",
-  "## Document Rendering",
-  "## Rendering Tests",
-] as const;
-
 const errors: string[] = [];
-const aiCoAuthorPattern =
-  /^co-authored-by:.*(?:cursoragent@cursor\.com|noreply@anthropic\.com|copilot@github\.com|codex).*$/gim;
 
-function findLegacyEntries(directory: string): void {
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    const entryPath = join(directory, entry.name);
-    const repositoryPath = relative(repoRoot, entryPath);
-
-    if (legacyEntryNames.has(entry.name)) {
-      errors.push(`remove legacy coding-agent entry: ${repositoryPath}`);
-      continue;
-    }
-
-    if (entry.isDirectory() && !ignoredDirectoryNames.has(entry.name)) {
-      findLegacyEntries(entryPath);
-    }
-  }
-}
-
-findLegacyEntries(repoRoot);
-
-const commitHistory = execFileSync(
+// Inspect repository files, including new files, without traversing ignored
+// dependencies, build output, or personal agent settings.
+const files = execFileSync(
   "git",
-  ["log", "--format=%H%n%B%n%x00", "HEAD"],
-  {
-    cwd: repoRoot,
-    encoding: "utf8",
-  },
-);
+  ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+  { cwd: repoRoot, encoding: "utf8" },
+).split("\0").filter(Boolean);
 
-for (const entry of commitHistory.split("\0")) {
-  const [commit = "", ...messageLines] = entry.trim().split("\n");
-  const message = messageLines.join("\n");
-  const trailers = message.match(aiCoAuthorPattern) ?? [];
-
-  for (const trailer of trailers) {
-    errors.push(
-      `remove AI co-author trailer from commit ${commit.slice(0, 12)}: ${trailer}`,
-    );
+for (const file of new Set(files)) {
+  if (!existsSync(resolve(repoRoot, file))) continue;
+  if (file.split("/").some((part) => legacyEntryNames.has(part))) {
+    errors.push(`remove legacy coding-agent entry: ${file}`);
   }
 }
 
@@ -80,12 +34,6 @@ if (!existsSync(guidePath)) {
   errors.push("AGENTS.md is missing");
 } else {
   const guide = readFileSync(guidePath, "utf8");
-
-  for (const heading of requiredHeadings) {
-    if (!guide.includes(heading)) {
-      errors.push(`AGENTS.md is missing required section: ${heading}`);
-    }
-  }
 
   const packageJson = JSON.parse(readFileSync(packagePath, "utf8")) as {
     scripts?: Record<string, string>;

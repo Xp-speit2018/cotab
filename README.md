@@ -57,8 +57,11 @@ Repository support files follow the same ownership boundaries: `docs/` contains
 documentation, `tools/` contains generators and model audits, `tests/` contains
 shared unit-test infrastructure and browser workflows, and `public/demos/`
 contains the score assets served by Vite. Codex reads the repository's durable
-development contracts from the root `AGENTS.md`; legacy tool-specific agent
-configuration is intentionally unsupported.
+development contracts from the root [AGENTS.md](AGENTS.md); verification
+commands and assertion contracts live in [docs/TESTING.md](docs/TESTING.md).
+Start coding-agent tasks from this repository root. Use the existing npm
+commands for development and checks; no separate agent bootstrap is required.
+Personal tool settings and permissions stay outside the repository.
 
 ## What’s done
 

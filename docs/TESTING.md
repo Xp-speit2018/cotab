@@ -99,13 +99,13 @@ user-visible or architectural contract.
 Selection restoration, viewport reuse, and notation-content reuse are separate
 contracts:
 
-- Cursor preservation asserts selector identity and cursor bounds after the
-  renderer settles.
+- Cursor preservation asserts selector identity and cursor bounds after
+  `postRenderFinished`.
 - Viewport preservation asserts scroll position, no source reload, and no
   blank visible partial.
-- Incremental rendering compares partial content identity or rendered
-  master-bar ranges. A connected placeholder alone does not prove content
-  reuse.
+- Incremental rendering compares partial content identity or
+  `partialLayoutFinished` IDs/ranges. Unchanged systems must retain their
+  content; a connected placeholder alone does not prove content reuse.
 - Agent-visible completion asserts both the Y.Doc result and the AlphaTab
   model or rendered geometry after the renderer revision settles.
 

@@ -7,33 +7,9 @@ Do not add tool-specific rule files or permission manifests. Keep durable,
 non-obvious project contracts here; keep personal permissions, machine paths,
 debug logs, and temporary task notes outside the repository.
 
-### Execution and completion
-
-Carry implementation requests through the scoped change and relevant checks.
-Resolve routine choices using existing code and tests. Ask only when missing
-information materially changes correctness or scope and cannot be inferred;
-continue independent, authorized work while awaiting an answer. Existing user
-authorization remains valid. Prepare a reviewable diff before requesting any
-still-required approval for publication or other external actions.
-
-Explicit user instructions take precedence over this guide and skill guidance,
-subject to higher-priority system and developer instructions. If a skill blocks
-authorized work, identify its exact file and instruction and explain the
-conflict; do not invent an approval requirement from a recommendation.
-Storage-provider choices and conflict dialogs below are product behavior, not
-permission requirements for editing this repository.
-
-Inspect the working tree before editing and preserve existing user changes,
-including changes in the same file. Keep unrelated cleanup out of the diff.
-Use parallel tool calls for independent reads and checks. When delegation is
-authorized, give subagents bounded tasks with distinct file ownership and
-review their results before integration; keep small, coupled edits local.
-
-Finish when the requested behavior is implemented, applicable checks have
-passed, and the diff has been reviewed. If a check is blocked or fails, report
-the command, evidence, and remaining limitation without claiming verification.
-Respond in the user's language with the outcome, relevant file links, and actual
-check results. Keep progress updates brief and focused on findings or blockers.
+Inspect the working tree before editing and preserve existing user changes.
+Complete the scoped change, applicable checks, and diff review; report failed
+or blocked checks accurately. Keep commits scoped to one coherent change.
 
 ### Implementation boundaries
 
@@ -225,23 +201,7 @@ When adding a score-editing action:
 
 ## Rendering Tests
 
-AlphaTab's `reuseViewport` keeps partial placeholder elements connected while
-replacing their SVG or canvas children. Therefore `partial.isConnected`, stable
-placeholder identity, and the absence of an empty frame prove viewport reuse,
-not incremental notation rendering.
-
-Rendering regressions must assert the behavior they name:
-
-- Cursor preservation: assert selector identity and cursor bounds after
-  `postRenderFinished`.
-- Viewport preservation: assert scroll position, no source `load()`, and no
-  blank visible partial.
-- Incremental rendering: compare partial content identity or
-  `partialLayoutFinished` IDs/ranges. Unchanged systems must retain their
-  content; connected placeholder shells are insufficient.
-- Agent-visible completion: assert the Y.Doc result and the rendered AlphaTab
-  score after the renderer revision settles.
-
-Do not generalize a passing `placeNote` cursor test into a property-rendering
-claim. Selection restoration, viewport reuse, and notation-content reuse are
-three different contracts.
+Follow the assertion contracts in [docs/TESTING.md](docs/TESTING.md#rendering-assertions).
+Connected partial placeholders prove viewport reuse, not notation-content
+reuse. Cursor preservation, viewport preservation, incremental rendering, and
+Agent-visible completion require their own assertions.

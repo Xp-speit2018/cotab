@@ -34,8 +34,6 @@ export interface EngineHooks {
   onLocalTransportChange?: (transport: TransportState) => void;
   /** Notification: Local document storage state changed */
   onLocalStorageChange?: (storage: EditorStorageState) => void;
-  /** Notification: Peer selection changed (placeholder for future peer awareness) */
-  onPeerSelectionSet?: (sel: SelectedBeat) => void;
   /** Notification: Connection metadata changed (connected, roomCode, peers, connectionStatus, connectionError, userName) */
   onConnectionMetaChange?: () => void;
   /** Notification: Clipboard content changed (via setClipboard) */
@@ -58,7 +56,6 @@ export class HookRegistry {
     onLocalSelectorChange: new Set(),
     onLocalTransportChange: new Set(),
     onLocalStorageChange: new Set(),
-    onPeerSelectionSet: new Set(),
     onConnectionMetaChange: new Set(),
     onClipboardChange: new Set(),
   };
@@ -123,7 +120,7 @@ export class HookRegistry {
    * Dispatch a hook with SelectedBeat arg to all listeners.
    */
   emitSelection(
-    key: "onLocalSelectionSet" | "onPeerSelectionSet",
+    key: "onLocalSelectionSet",
     sel: SelectedBeat,
   ): void {
     const listeners = this._listeners[key] as Set<(sel: SelectedBeat) => void>;

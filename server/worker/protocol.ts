@@ -72,3 +72,13 @@ export function frame(type: number, payload: Uint8Array): Uint8Array {
   result.set(payload, 1);
   return result;
 }
+
+export function parsePeerSelection(value: unknown): { beatUuid: string; string: number | null; renderedStave: "standard" | "tablature" | null } | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Record<string, unknown>;
+  if (typeof candidate.beatUuid !== "string" || !candidate.beatUuid.length || candidate.beatUuid.length > 128) return null;
+  // The editor uses negative positions for percussion staff lines.
+  if (candidate.string !== null && !(Number.isInteger(candidate.string) && (candidate.string as number) >= -12 && (candidate.string as number) <= 32)) return null;
+  if (candidate.renderedStave !== null && candidate.renderedStave !== "standard" && candidate.renderedStave !== "tablature") return null;
+  return { beatUuid: candidate.beatUuid, string: candidate.string as number | null, renderedStave: candidate.renderedStave };
+}

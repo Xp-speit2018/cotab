@@ -13,6 +13,7 @@ import {
   MAX_SNAPSHOT_BYTES,
   SNAPSHOT_CHUNK_BYTES,
   STATE_VECTOR_FRAME,
+  parsePeerSelection,
   timingSafeEqual,
 } from "./protocol";
 
@@ -99,7 +100,7 @@ export class RoomDurableObject {
         const control = JSON.parse(message);
         if (control.type === "presence" && typeof control.name === "string") {
           const identity = socket.deserializeAttachment() as { id: string };
-          socket.serializeAttachment({ id: identity.id, name: control.name.slice(0, 100), synced: control.synced === true });
+          socket.serializeAttachment({ id: identity.id, name: control.name.slice(0, 100), synced: control.synced === true, selection: parsePeerSelection(control.selection) });
           this.broadcastMembers();
         }
       } catch {
@@ -231,9 +232,9 @@ export class RoomDurableObject {
   private broadcastMembers(departed?: WebSocket): void {
     const sockets = this.state.getWebSockets().filter((socket) => socket !== departed && socket.readyState === WebSocket.OPEN);
     const peers = sockets.flatMap((socket) => {
-      const identity = socket.deserializeAttachment() as { id: string; name?: string; synced?: boolean };
+      const identity = socket.deserializeAttachment() as { id: string; name?: string; synced?: boolean; selection?: ReturnType<typeof parsePeerSelection> };
       return typeof identity.name === "string"
-        ? [{ id: identity.id, name: identity.name, kind: "human", status: identity.synced ? "synced" : "connecting" }]
+        ? [{ id: identity.id, name: identity.name, kind: "human", selection: identity.selection ?? null, status: identity.synced ? "synced" : "connecting" }]
         : [];
     });
     for (const socket of sockets) {

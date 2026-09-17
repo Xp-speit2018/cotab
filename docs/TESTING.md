@@ -97,8 +97,13 @@ note properties against both Y.Doc and settled AlphaTab models. It also checks
 that room creation retains the complete bundled score and that remote edits
 preserve a reader's draft, input focus, selection, zoom, layout, and scroll
 position in both layouts. These are two-client local Chromium checks, not a
-production latency or large-room load guarantee. Remote cursor rendering is
-not implemented and is not claimed by presence tests.
+production latency or large-room load guarantee.
+
+`remote-cursors.spec.ts` uses two independent browser contexts and the real
+Worker to check named editing cursors in both layouts, movement without Y.Doc
+changes or local focus/scroll disruption, fresh bounds after zoom, hidden tracks,
+percussion positions, stable beat identity after bar insertion,
+selection removal after deletion, reconnect, and leave cleanup.
 
 Before promoting a regression test, move it into `tests/e2e/specs/`, remove
 diagnostic-only logging and screenshots, and make the assertion describe the

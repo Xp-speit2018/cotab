@@ -31,6 +31,7 @@ import {
 // Import directly from relative path to bypass the mock in setup.ts
 import {
   buildAlphaTabScore,
+  getProjectedBeatUuid,
   importScoreToYDoc,
 } from "../converters";
 import { EditorEngine } from "../engine";
@@ -788,4 +789,23 @@ describe("round-trip (Y → AlphaTab → Y)", () => {
       }
     }
   });
+});
+
+
+it("keeps beat identity on built and freshly imported projection objects", () => {
+  const scoreMap = getScoreMap()!;
+  seedOneTrackScore(scoreMap, 1);
+  const score = buildAlphaTabScore(scoreMap, createAlphaTabSettings());
+  const beat = score.tracks[0].staves[0].bars[0].voices[0].beats[0];
+  const originalUuid = scoreMap.toJSON().tracks[0].staves[0].bars[0].voices[0].beats[0].uuid;
+  expect(getProjectedBeatUuid(beat)).toBe(originalUuid);
+  const imported = new Y.Doc();
+  try {
+    importScoreToYDoc(score, imported);
+    const importedUuid = imported.getMap("score").toJSON().tracks[0].staves[0].bars[0].voices[0].beats[0].uuid;
+    expect(importedUuid).not.toBe(originalUuid);
+    expect(getProjectedBeatUuid(beat)).toBe(importedUuid);
+  } finally {
+    imported.destroy();
+  }
 });

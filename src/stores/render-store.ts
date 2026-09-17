@@ -8,6 +8,7 @@
 
 import * as alphaTab from "@coderline/alphatab";
 import { create } from "zustand";
+import { clearPeerCursors, updatePeerCursors } from "./peer-cursors";
 
 import { useEditorStore } from "@/stores/editor-store";
 import {
@@ -247,9 +248,7 @@ function bindActiveEngineHooks(): void {
         _processingHook = false;
       }
     },
-    onPeerSelectionSet: (_sel) => {
-      // Future: show peer cursor
-    },
+    onConnectionMetaChange: () => updatePeerCursors(engine.peers),
     onLocalYDocEdit: synchronizeEmptyScoreProjection,
     onPeerYDocEdit: synchronizeEmptyScoreProjection,
     onLocalTransportChange: (transport) => {
@@ -1295,6 +1294,7 @@ function destroyRangeOverlays(): void {
  * discarded before the render and recreated from fresh bounds afterwards.
  */
 function invalidateCoTabRenderOverlays(): void {
+  clearPeerCursors();
   destroySnapGridOverlay();
   destroyRangeOverlays();
   destroyTransportPlayheadOverlay();
@@ -1808,14 +1808,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         get().setSelection(pending);
       } else {
         const sel = get().selectedBeat;
-        if (sel) {
+        const uuid = engine.selector.beatUuid;
+        const anchored = uuid
+          ? engine.resolveSelectionByUuid(uuid)
+          : engine.selector.trackIndex !== null ? sel : null;
+        if (anchored) {
           get().setSelection({
-            ...sel,
+            ...anchored,
             noteIndex: get().selectedNoteIndex,
             preserveSelectionRange: true,
           });
+        } else if (sel) {
+          // The selected beat was removed; never publish a different beat at
+          // its former array index as though the user had moved their cursor.
+          get().clearSelection();
         }
       }
+
+      updatePeerCursors(engine.peers);
 
       // 5. Reposition range and transport overlays after re-render
       updateBarSelectionOverlay(get().selectionRange);
@@ -2032,6 +2042,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       setCursorElement(null);
     }
 
+    clearPeerCursors();
     destroySnapGridOverlay();
     destroyRangeOverlays();
     destroyTransportPlayheadOverlay();

@@ -212,3 +212,23 @@ describe("Worker browser provider", () => {
     expect(document.getMap("score").get("large")).toHaveLength(8_400_000);
   });
 });
+
+
+it("publishes ephemeral selection once and restores it on reconnect", () => {
+  const { document, provider, socket } = setup();
+  sync(socket, doc());
+  const before = Y.encodeStateAsUpdate(document);
+  const selection = { beatUuid: "stable-beat", string: 2, renderedStave: "tablature" as const };
+  provider.setSelection!(selection);
+  provider.setSelection!({ renderedStave: selection.renderedStave, string: selection.string, beatUuid: selection.beatUuid });
+  expect(socket.sent).toHaveLength(1);
+  expect(JSON.parse(socket.sent[0] as string)).toMatchObject({ type: "presence", selection });
+  expect(Y.encodeStateAsUpdate(document)).toEqual(before);
+  socket.close(4000);
+  vi.advanceTimersByTime(500);
+  const reconnected = Socket.instances.at(-1)!;
+  reconnected.open();
+  expect(JSON.parse(reconnected.sent[0] as string).selection).toEqual(selection);
+  provider.setSelection!(null);
+  expect(JSON.parse(reconnected.sent.at(-1) as string).selection).toBeNull();
+});

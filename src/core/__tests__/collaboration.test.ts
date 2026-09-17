@@ -331,3 +331,25 @@ describe("EditorEngine collaboration lifecycle", () => {
     expect(connection.updateDocument).toHaveBeenCalledTimes(updatesBeforePeerEdit);
   });
 });
+
+
+it("publishes stable local selection without adding presence to document history", async () => {
+  const engine = new EditorEngine();
+  const provider = { ...createLifecycleHandle(), setSelection: vi.fn() };
+  engine.initDoc();
+  engine.setCollaborationAdapter({ createRoom: async () => "CURSOR", createProvider: () => provider });
+  await engine.createRoom("Alice");
+  engine.getUndoManager()!.clear();
+  const before = Y.encodeStateAsUpdate(engine.getDoc()!);
+  const selection = { trackIndex: 0, staffIndex: 0, voiceIndex: 0, barIndex: 0, beatIndex: 0, string: 1, renderedStave: "tablature" as const };
+  engine.localSetSelection(selection);
+  expect(provider.setSelection).toHaveBeenLastCalledWith({
+    beatUuid: engine.resolveYBeat(0, 0, 0, 0, 0)!.get("uuid"), string: 1, renderedStave: "tablature",
+  });
+  engine.localClearSelection();
+  expect(provider.setSelection).toHaveBeenLastCalledWith(null);
+  expect(Y.encodeStateAsUpdate(engine.getDoc()!)).toEqual(before);
+  expect(engine.getUndoManager()!.canUndo()).toBe(false);
+  await engine.disconnect();
+  engine.destroyDoc();
+});

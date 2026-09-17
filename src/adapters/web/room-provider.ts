@@ -1,6 +1,6 @@
 import * as Y from "yjs";
 import type { CollaborationAdapter, CollaborationProvider, PeerInfo } from "@/core/engine";
-import { createSyncState } from "@/core/editor/collaboration";
+import { createSyncState, type PeerSelection } from "@/core/editor/collaboration";
 import {
   cloudflareWebSocketProtocols, decodeCollaborationFrame, encodeCollaborationFrame,
   DOCUMENT_UPDATE_FRAME, STATE_VECTOR_FRAME,
@@ -33,6 +33,7 @@ export function createRoomProvider({
   let lastReceived = Date.now();
   let pingAt: number | null = null;
   let peers: PeerInfo[] = [];
+  let selection: PeerSelection | null = null;
   let profile = createSyncState().transport;
 
   const emitProfile = () => {
@@ -94,7 +95,7 @@ export function createRoomProvider({
     // Fixed window: continuous edits cannot postpone a batch indefinitely.
     else batchTimer ??= setTimeout(flush, BATCH_MS);
   };
-  const presence = () => send(JSON.stringify({ type: "presence", name: userName.slice(0, 100), synced }));
+  const presence = () => send(JSON.stringify({ type: "presence", name: userName.slice(0, 100), synced, selection }));
   const connect = () => {
     if (destroyed || stopped) return;
     const current = new WebSocket(
@@ -204,6 +205,13 @@ export function createRoomProvider({
   globalThis.addEventListener?.("online", onOnline);
   connect();
   return {
+    setSelection(next) {
+      if (destroyed || (selection?.beatUuid === next?.beatUuid
+        && selection?.string === next?.string
+        && selection?.renderedStave === next?.renderedStave)) return;
+      selection = next ? { ...next } : null;
+      presence();
+    },
     on(event, callback) {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event)!.add(callback);

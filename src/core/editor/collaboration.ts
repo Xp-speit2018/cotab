@@ -1,8 +1,16 @@
 import * as Y from "yjs";
 
+/** Ephemeral editing position, anchored to a shared beat rather than array indices. */
+export interface PeerSelection {
+  beatUuid: string;
+  string: number | null;
+  renderedStave: "standard" | "tablature" | null;
+}
+
 export interface PeerInfo {
   id: string;
   name: string;
+  selection?: PeerSelection | null;
   kind: "human" | "agent";
   status: "connecting" | "synced" | "offline" | "error";
 }
@@ -113,6 +121,7 @@ export function createSyncState(
 
 export interface CollaborationProvider {
   flush?(): void;
+  setSelection?(selection: PeerSelection | null): void;
   on(event: string, callback: (event: unknown) => void): void;
   ownsOrigin?(origin: unknown): boolean;
   destroy(): void;

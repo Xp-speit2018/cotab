@@ -20,6 +20,11 @@ import { v4 as uuidv4 } from "uuid";
 import { resetDocumentId } from "./schema";
 import { FILE_IMPORT_ORIGIN } from "./origins";
 
+// Identity belongs to the projection object, so stale render bounds never resolve
+// against shifted Y.Doc array indices while a new render is in flight.
+const beatUuids = new WeakMap<alphaTab.model.Beat, string>();
+export const getProjectedBeatUuid = (beat: alphaTab.model.Beat): string | undefined => beatUuids.get(beat);
+
 // ─── AlphaTab → Y.Doc ───────────────────────────────────────────────────────
 
 /**
@@ -270,7 +275,9 @@ function importVoice(voice: alphaTab.model.Voice): Y.Map<unknown> {
 
 function importBeat(beat: alphaTab.model.Beat): Y.Map<unknown> {
   const y = new Y.Map<unknown>();
-  y.set("uuid", uuidv4());
+  const uuid = uuidv4();
+  y.set("uuid", uuid);
+  beatUuids.set(beat, uuid);
   y.set("duration", beat.duration as unknown as number);
   y.set("isEmpty", beat.isEmpty);
 
@@ -707,6 +714,8 @@ function buildVoice(yVoice: Y.Map<unknown>): alphaTab.model.Voice {
 
 function buildBeat(yBeat: Y.Map<unknown>): alphaTab.model.Beat {
   const beat = new alphaTab.model.Beat();
+  const uuid = yBeat.get("uuid");
+  if (typeof uuid === "string") beatUuids.set(beat, uuid);
   beat.duration =
     ((yBeat.get("duration") as number) ?? 4) as unknown as alphaTab.model.Duration;
   beat.isEmpty = (yBeat.get("isEmpty") as boolean) ?? true;

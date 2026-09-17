@@ -436,6 +436,9 @@ export class EditorEngine {
         ? this.selector.selectionRange
         : null,
     };
+    this.provider?.setSelection?.(beatUuid ? {
+      beatUuid, string: sel.string ?? null, renderedStave: sel.renderedStave ?? null,
+    } : null);
     this._hookRegistry.emitSelector("onLocalSelectorChange", this.selector);
     if (!sameSelection) {
       this._hookRegistry.emitSelection('onLocalSelectionSet', sel);
@@ -460,6 +463,7 @@ export class EditorEngine {
   }
 
   localClearSelection(): void {
+    this.provider?.setSelection?.(null);
     this.selector = createEmptySelectorState();
     this._hookRegistry.emitSelector("onLocalSelectorChange", this.selector);
   }

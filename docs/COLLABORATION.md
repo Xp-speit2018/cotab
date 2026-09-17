@@ -10,7 +10,8 @@ runtime locally; it is not a production container deployment.
 The infrastructure foundation now has a Worker room API, capability-protected
 WebSockets, bidirectional state-vector exchange, bounded document admission,
 and chunked SQLite snapshots. The production browser adapter uses this protocol
-with fixed-window batching, IndexedDB recovery, reconnect, and live membership.
+with fixed-window batching, IndexedDB recovery, reconnect, live membership,
+and named remote editing cursors.
 
 Offline editing and session-local Undo/Redo semantics are specified separately
 in [Collaborative History](COLLABORATIVE-HISTORY.md). The current history
@@ -85,8 +86,20 @@ The Cloudflare service starts with protocol `cotab-yjs-v1`:
   missing state and sends its own type `2` vector. The server answers that
   vector with a type `0` update. Receiving a document update does not trigger
   another vector response. This repairs missing state in both directions.
-- Text frames are control messages only. The foundation accepts `ping` and
-  reports durable revisions after a successful snapshot write.
+- Text frames carry `ping`, presence, membership, and durable revision notices.
+  Presence includes a bounded name, sync status, and an optional selection
+  `{ beatUuid, string, renderedStave }`. The string field is the editor's snap
+  position (a string, notation position, or percussion line). The server validates
+  selections and owns peer IDs; membership is derived from live socket attachments.
+  These attachments survive Worker hibernation but are never room score snapshots.
+
+Remote cursors are passive renderer overlays resolved by beat UUID against the
+rendered projection. Hidden tracks/staves and missing beats have no overlay;
+remote presence never changes the viewer's track visibility, selection, or scroll.
+Selection changes bypass document batching and do not enter Y.Doc or undo history.
+The latest position is resent after reconnect; clearing selection or leaving a
+room removes it. After structural edits, local selection is restored by UUID,
+or cleared if its beat was removed.
 
 After answering a state-vector request, the server sends `sync-complete` with
 its current vector. The browser sends any remaining local difference, including
